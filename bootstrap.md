@@ -349,12 +349,7 @@ fly launch
 #
 # After launch, set your secrets:
 
-fly secrets set SECRET_KEY_BASE=$(mix phx.gen.secret)
-fly secrets set MUX_TOKEN_ID=your_mux_token_id
-fly secrets set MUX_TOKEN_SECRET=your_mux_token_secret
-fly secrets set MUX_WEBHOOK_SECRET=your_mux_webhook_secret
-fly secrets set STRIPE_SECRET_KEY=your_stripe_secret_key
-fly secrets set STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+
 
 # Deploy:
 fly deploy
@@ -370,7 +365,7 @@ git commit -m "Add Fly.io deployment configuration"
 #
 # Then push to GitHub:
 
-git remote add origin git@github.com:YOUR_USERNAME/stream_vane.git
+git remote add origin git@github.com:jeffreybaird/bobine.git
 git push -u origin main
 
 # ============================================================================
