@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mix phx.gen.context Content Video videos organization_id:references:organizations title:string slug:string description:text mux_asset_id:string mux_playback_id:string mux_upload_id:string mux_status:string duration:float max_resolution:string published:boolean --no-scope)",
+      "Bash(mix phx.gen.context Content Collection collections organization_id:references:organizations title:string slug:string description:text type:enum:series:season:category parent_id:references:collections position:integer --no-scope)",
+      "Bash(mix phx.gen.schema Content.Tag tags organization_id:references:organizations name:string slug:string)",
+      "Bash(mix phx.gen.schema Content.VideoTag video_tags video_id:references:videos tag_id:references:tags)",
+      "Bash(mix phx.gen.context Billing Plan plans organization_id:references:organizations name:string stripe_price_id:string stripe_product_id:string amount:integer interval:enum:monthly:yearly active:boolean --no-scope)",
+      "Bash(mix compile:*)"
+    ]
+  }
+}
