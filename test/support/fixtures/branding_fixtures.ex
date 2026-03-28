@@ -4,13 +4,18 @@ defmodule Bobine.BrandingFixtures do
   entities via the `Bobine.Branding` context.
   """
 
+  import Bobine.Factory
+
   @doc """
   Generate a theme.
   """
   def theme_fixture(attrs \\ %{}) do
+    org = insert(:organization)
+
     {:ok, theme} =
       attrs
       |> Enum.into(%{
+        organization_id: org.id,
         accent: "some accent",
         background: "some background",
         border_radius: "some border_radius",

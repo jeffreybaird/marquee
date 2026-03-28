@@ -10,6 +10,10 @@ defmodule Bobine.BillingTest do
 
     @invalid_attrs %{active: nil, name: nil, stripe_price_id: nil, stripe_product_id: nil, amount: nil, interval: nil}
 
+    setup do
+      %{org: insert(:organization)}
+    end
+
     test "list_plans/0 returns all plans" do
       plan = plan_fixture()
       assert Billing.list_plans() == [plan]
@@ -20,8 +24,8 @@ defmodule Bobine.BillingTest do
       assert Billing.get_plan!(plan.id) == plan
     end
 
-    test "create_plan/1 with valid data creates a plan" do
-      valid_attrs = %{active: true, name: "some name", stripe_price_id: "some stripe_price_id", stripe_product_id: "some stripe_product_id", amount: 42, interval: :monthly}
+    test "create_plan/1 with valid data creates a plan", %{org: org} do
+      valid_attrs = %{active: true, name: "some name", stripe_price_id: "some stripe_price_id", stripe_product_id: "some stripe_product_id", amount: 42, interval: :monthly, organization_id: org.id}
 
       assert {:ok, %Plan{} = plan} = Billing.create_plan(valid_attrs)
       assert plan.active == true
@@ -74,6 +78,13 @@ defmodule Bobine.BillingTest do
 
     @invalid_attrs %{status: nil, stripe_subscription_id: nil, current_period_end: nil}
 
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      plan = insert(:plan, organization: org)
+      %{org: org, user: user, plan: plan}
+    end
+
     test "list_subscriptions/0 returns all subscriptions" do
       subscription = subscription_fixture()
       assert Billing.list_subscriptions() == [subscription]
@@ -84,8 +95,8 @@ defmodule Bobine.BillingTest do
       assert Billing.get_subscription!(subscription.id) == subscription
     end
 
-    test "create_subscription/1 with valid data creates a subscription" do
-      valid_attrs = %{status: :active, stripe_subscription_id: "some stripe_subscription_id", current_period_end: ~U[2026-03-27 01:47:00Z]}
+    test "create_subscription/1 with valid data creates a subscription", %{org: org, user: user, plan: plan} do
+      valid_attrs = %{status: :active, stripe_subscription_id: "some stripe_subscription_id", current_period_end: ~U[2026-03-27 01:47:00Z], organization_id: org.id, user_id: user.id, plan_id: plan.id}
 
       assert {:ok, %Subscription{} = subscription} = Billing.create_subscription(valid_attrs)
       assert subscription.status == :active

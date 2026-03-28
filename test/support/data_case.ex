@@ -24,6 +24,7 @@ defmodule Bobine.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Bobine.DataCase
+      import Bobine.Factory
     end
   end
 

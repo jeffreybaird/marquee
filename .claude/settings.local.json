@@ -6,7 +6,8 @@
       "Bash(mix phx.gen.schema Content.Tag tags organization_id:references:organizations name:string slug:string)",
       "Bash(mix phx.gen.schema Content.VideoTag video_tags video_id:references:videos tag_id:references:tags)",
       "Bash(mix phx.gen.context Billing Plan plans organization_id:references:organizations name:string stripe_price_id:string stripe_product_id:string amount:integer interval:enum:monthly:yearly active:boolean --no-scope)",
-      "Bash(mix compile:*)"
+      "Bash(mix compile:*)",
+      "Bash(mix test:*)"
     ]
   }
 }

@@ -10,6 +10,10 @@ defmodule Bobine.WebhooksTest do
 
     @invalid_attrs %{active: nil, events: nil, url: nil, secret: nil}
 
+    setup do
+      %{org: insert(:organization)}
+    end
+
     test "list_webhook_endpoints/0 returns all webhook_endpoints" do
       endpoint = endpoint_fixture()
       assert Webhooks.list_webhook_endpoints() == [endpoint]
@@ -20,8 +24,8 @@ defmodule Bobine.WebhooksTest do
       assert Webhooks.get_endpoint!(endpoint.id) == endpoint
     end
 
-    test "create_endpoint/1 with valid data creates a endpoint" do
-      valid_attrs = %{active: true, events: ["option1", "option2"], url: "some url", secret: "some secret"}
+    test "create_endpoint/1 with valid data creates a endpoint", %{org: org} do
+      valid_attrs = %{active: true, events: ["option1", "option2"], url: "some url", secret: "some secret", organization_id: org.id}
 
       assert {:ok, %Endpoint{} = endpoint} = Webhooks.create_endpoint(valid_attrs)
       assert endpoint.active == true

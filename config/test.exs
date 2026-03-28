@@ -32,6 +32,10 @@ config :swoosh, :api_client, false
 # Run Oban jobs inline during tests
 config :bobine, Oban, testing: :inline
 
+# Mock external service clients
+config :bobine, :mux_client, Bobine.Content.MockMuxClient
+config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

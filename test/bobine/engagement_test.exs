@@ -8,7 +8,14 @@ defmodule Bobine.EngagementTest do
 
     import Bobine.EngagementFixtures
 
-    @invalid_attrs %{position: nil, auto_remove_on_watch: nil}
+    @invalid_attrs %{organization_id: nil, user_id: nil, video_id: nil}
+
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      video = insert(:video, organization: org)
+      %{org: org, user: user, video: video}
+    end
 
     test "list_watchlist_items/0 returns all watchlist_items" do
       watchlist_item = watchlist_item_fixture()
@@ -20,8 +27,8 @@ defmodule Bobine.EngagementTest do
       assert Engagement.get_watchlist_item!(watchlist_item.id) == watchlist_item
     end
 
-    test "create_watchlist_item/1 with valid data creates a watchlist_item" do
-      valid_attrs = %{position: 42, auto_remove_on_watch: true}
+    test "create_watchlist_item/1 with valid data creates a watchlist_item", %{org: org, user: user, video: video} do
+      valid_attrs = %{position: 42, auto_remove_on_watch: true, organization_id: org.id, user_id: user.id, video_id: video.id}
 
       assert {:ok, %WatchlistItem{} = watchlist_item} = Engagement.create_watchlist_item(valid_attrs)
       assert watchlist_item.position == 42

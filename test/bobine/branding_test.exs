@@ -8,7 +8,11 @@ defmodule Bobine.BrandingTest do
 
     import Bobine.BrandingFixtures
 
-    @invalid_attrs %{background: nil, accent: nil, brand_primary: nil, brand_secondary: nil, surface: nil, text_primary: nil, text_secondary: nil, font_heading: nil, font_body: nil, border_radius: nil, card_border_radius: nil, logo_url: nil, favicon_url: nil}
+    @invalid_attrs %{organization_id: nil, background: nil, accent: nil, brand_primary: nil, brand_secondary: nil, surface: nil, text_primary: nil, text_secondary: nil, font_heading: nil, font_body: nil, border_radius: nil, card_border_radius: nil, logo_url: nil, favicon_url: nil}
+
+    setup do
+      %{org: insert(:organization)}
+    end
 
     test "list_themes/0 returns all themes" do
       theme = theme_fixture()
@@ -20,8 +24,8 @@ defmodule Bobine.BrandingTest do
       assert Branding.get_theme!(theme.id) == theme
     end
 
-    test "create_theme/1 with valid data creates a theme" do
-      valid_attrs = %{background: "some background", accent: "some accent", brand_primary: "some brand_primary", brand_secondary: "some brand_secondary", surface: "some surface", text_primary: "some text_primary", text_secondary: "some text_secondary", font_heading: "some font_heading", font_body: "some font_body", border_radius: "some border_radius", card_border_radius: "some card_border_radius", logo_url: "some logo_url", favicon_url: "some favicon_url"}
+    test "create_theme/1 with valid data creates a theme", %{org: org} do
+      valid_attrs = %{background: "some background", accent: "some accent", brand_primary: "some brand_primary", brand_secondary: "some brand_secondary", surface: "some surface", text_primary: "some text_primary", text_secondary: "some text_secondary", font_heading: "some font_heading", font_body: "some font_body", border_radius: "some border_radius", card_border_radius: "some card_border_radius", logo_url: "some logo_url", favicon_url: "some favicon_url", organization_id: org.id}
 
       assert {:ok, %Theme{} = theme} = Branding.create_theme(valid_attrs)
       assert theme.background == "some background"

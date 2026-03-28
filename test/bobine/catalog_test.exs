@@ -10,6 +10,10 @@ defmodule Bobine.CatalogTest do
 
     @invalid_attrs %{position: nil, visible: nil, title: nil, filter_config: nil, source_type: nil}
 
+    setup do
+      %{org: insert(:organization)}
+    end
+
     test "list_rows/0 returns all rows" do
       row = row_fixture()
       assert Catalog.list_rows() == [row]
@@ -20,8 +24,8 @@ defmodule Bobine.CatalogTest do
       assert Catalog.get_row!(row.id) == row
     end
 
-    test "create_row/1 with valid data creates a row" do
-      valid_attrs = %{position: 42, visible: true, title: "some title", filter_config: %{}, source_type: :curated}
+    test "create_row/1 with valid data creates a row", %{org: org} do
+      valid_attrs = %{position: 42, visible: true, title: "some title", filter_config: %{}, source_type: :curated, organization_id: org.id}
 
       assert {:ok, %Row{} = row} = Catalog.create_row(valid_attrs)
       assert row.position == 42

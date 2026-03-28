@@ -4,10 +4,14 @@ defmodule Bobine.BillingFixtures do
   entities via the `Bobine.Billing` context.
   """
 
+  import Bobine.Factory
+
   @doc """
   Generate a plan.
   """
   def plan_fixture(attrs \\ %{}) do
+    org = insert(:organization)
+
     {:ok, plan} =
       attrs
       |> Enum.into(%{
@@ -16,7 +20,8 @@ defmodule Bobine.BillingFixtures do
         interval: :monthly,
         name: "some name",
         stripe_price_id: "some stripe_price_id",
-        stripe_product_id: "some stripe_product_id"
+        stripe_product_id: "some stripe_product_id",
+        organization_id: org.id
       })
       |> Bobine.Billing.create_plan()
 
@@ -27,12 +32,19 @@ defmodule Bobine.BillingFixtures do
   Generate a subscription.
   """
   def subscription_fixture(attrs \\ %{}) do
+    org = insert(:organization)
+    user = insert(:user)
+    plan = plan_fixture(%{organization_id: org.id})
+
     {:ok, subscription} =
       attrs
       |> Enum.into(%{
         current_period_end: ~U[2026-03-27 01:47:00Z],
         status: :active,
-        stripe_subscription_id: "some stripe_subscription_id"
+        stripe_subscription_id: "some stripe_subscription_id",
+        organization_id: org.id,
+        user_id: user.id,
+        plan_id: plan.id
       })
       |> Bobine.Billing.create_subscription()
 

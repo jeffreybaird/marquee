@@ -28,6 +28,7 @@ defmodule BobineWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import BobineWeb.ConnCase
+      import Bobine.Factory
     end
   end
 

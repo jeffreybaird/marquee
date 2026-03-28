@@ -4,10 +4,14 @@ defmodule Bobine.ContentFixtures do
   entities via the `Bobine.Content` context.
   """
 
+  import Bobine.Factory
+
   @doc """
   Generate a video.
   """
   def video_fixture(attrs \\ %{}) do
+    org = insert(:organization)
+
     {:ok, video} =
       attrs
       |> Enum.into(%{
@@ -20,7 +24,8 @@ defmodule Bobine.ContentFixtures do
         mux_upload_id: "some mux_upload_id",
         published: true,
         slug: "some slug",
-        title: "some title"
+        title: "some title",
+        organization_id: org.id
       })
       |> Bobine.Content.create_video()
 
@@ -31,6 +36,8 @@ defmodule Bobine.ContentFixtures do
   Generate a collection.
   """
   def collection_fixture(attrs \\ %{}) do
+    org = insert(:organization)
+
     {:ok, collection} =
       attrs
       |> Enum.into(%{
@@ -38,7 +45,8 @@ defmodule Bobine.ContentFixtures do
         position: 42,
         slug: "some slug",
         title: "some title",
-        type: :series
+        type: :series,
+        organization_id: org.id
       })
       |> Bobine.Content.create_collection()
 

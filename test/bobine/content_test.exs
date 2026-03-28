@@ -10,6 +10,10 @@ defmodule Bobine.ContentTest do
 
     @invalid_attrs %{description: nil, title: nil, slug: nil, mux_asset_id: nil, mux_playback_id: nil, mux_upload_id: nil, mux_status: nil, duration: nil, max_resolution: nil, published: nil}
 
+    setup do
+      %{org: insert(:organization)}
+    end
+
     test "list_videos/0 returns all videos" do
       video = video_fixture()
       assert Content.list_videos() == [video]
@@ -20,8 +24,8 @@ defmodule Bobine.ContentTest do
       assert Content.get_video!(video.id) == video
     end
 
-    test "create_video/1 with valid data creates a video" do
-      valid_attrs = %{description: "some description", title: "some title", slug: "some slug", mux_asset_id: "some mux_asset_id", mux_playback_id: "some mux_playback_id", mux_upload_id: "some mux_upload_id", mux_status: "some mux_status", duration: 120.5, max_resolution: "some max_resolution", published: true}
+    test "create_video/1 with valid data creates a video", %{org: org} do
+      valid_attrs = %{description: "some description", title: "some title", slug: "some slug", mux_asset_id: "some mux_asset_id", mux_playback_id: "some mux_playback_id", mux_upload_id: "some mux_upload_id", mux_status: "some mux_status", duration: 120.5, max_resolution: "some max_resolution", published: true, organization_id: org.id}
 
       assert {:ok, %Video{} = video} = Content.create_video(valid_attrs)
       assert video.description == "some description"
@@ -82,6 +86,10 @@ defmodule Bobine.ContentTest do
 
     @invalid_attrs %{position: nil, type: nil, description: nil, title: nil, slug: nil}
 
+    setup do
+      %{org: insert(:organization)}
+    end
+
     test "list_collections/0 returns all collections" do
       collection = collection_fixture()
       assert Content.list_collections() == [collection]
@@ -92,8 +100,8 @@ defmodule Bobine.ContentTest do
       assert Content.get_collection!(collection.id) == collection
     end
 
-    test "create_collection/1 with valid data creates a collection" do
-      valid_attrs = %{position: 42, type: :series, description: "some description", title: "some title", slug: "some slug"}
+    test "create_collection/1 with valid data creates a collection", %{org: org} do
+      valid_attrs = %{position: 42, type: :series, description: "some description", title: "some title", slug: "some slug", organization_id: org.id}
 
       assert {:ok, %Collection{} = collection} = Content.create_collection(valid_attrs)
       assert collection.position == 42
