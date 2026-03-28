@@ -12,8 +12,7 @@ defmodule Bobine.Application do
       Bobine.Repo,
       {DNSCluster, query: Application.get_env(:bobine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Bobine.PubSub},
-      # Start a worker by calling: Bobine.Worker.start_link(arg)
-      # {Bobine.Worker, arg},
+      {Oban, Application.fetch_env!(:bobine, Oban)},
       # Start to serve requests, typically the last entry
       BobineWeb.Endpoint
     ]

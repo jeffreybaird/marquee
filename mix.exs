@@ -66,7 +66,13 @@ defmodule Bobine.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:oban, "~> 2.18"},
+      {:mux, "~> 3.0"},
+      {:stripity_stripe, "~> 3.0"},
+      {:ex_machina, "~> 2.8", only: :test},
+      {:mox, "~> 1.1", only: :test},
+      {:floki, "~> 0.37", only: :test}
     ]
   end
 
