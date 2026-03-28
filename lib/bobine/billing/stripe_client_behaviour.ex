@@ -11,6 +11,7 @@ defmodule Bobine.Billing.StripeClientBehaviour do
   @callback create_subscription(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   @callback cancel_subscription(String.t()) :: {:ok, map()} | {:error, term()}
   @callback create_checkout_session(map()) :: {:ok, map()} | {:error, term()}
-  @callback create_billing_portal_session(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
+  @callback create_billing_portal_session(String.t(), String.t()) ::
+              {:ok, map()} | {:error, term()}
   @callback retrieve_subscription(String.t()) :: {:ok, map()} | {:error, term()}
 end

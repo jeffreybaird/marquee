@@ -8,7 +8,13 @@ defmodule Bobine.CatalogTest do
 
     import Bobine.CatalogFixtures
 
-    @invalid_attrs %{position: nil, visible: nil, title: nil, filter_config: nil, source_type: nil}
+    @invalid_attrs %{
+      position: nil,
+      visible: nil,
+      title: nil,
+      filter_config: nil,
+      source_type: nil
+    }
 
     setup do
       %{org: insert(:organization)}
@@ -25,7 +31,14 @@ defmodule Bobine.CatalogTest do
     end
 
     test "create_row/1 with valid data creates a row", %{org: org} do
-      valid_attrs = %{position: 42, visible: true, title: "some title", filter_config: %{}, source_type: :curated, organization_id: org.id}
+      valid_attrs = %{
+        position: 42,
+        visible: true,
+        title: "some title",
+        filter_config: %{},
+        source_type: :curated,
+        organization_id: org.id
+      }
 
       assert {:ok, %Row{} = row} = Catalog.create_row(valid_attrs)
       assert row.position == 42
@@ -41,7 +54,14 @@ defmodule Bobine.CatalogTest do
 
     test "update_row/2 with valid data updates the row" do
       row = row_fixture()
-      update_attrs = %{position: 43, visible: false, title: "some updated title", filter_config: %{}, source_type: :algorithm}
+
+      update_attrs = %{
+        position: 43,
+        visible: false,
+        title: "some updated title",
+        filter_config: %{},
+        source_type: :algorithm
+      }
 
       assert {:ok, %Row{} = row} = Catalog.update_row(row, update_attrs)
       assert row.position == 43

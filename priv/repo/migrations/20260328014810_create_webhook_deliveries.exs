@@ -10,7 +10,9 @@ defmodule Bobine.Repo.Migrations.CreateWebhookDeliveries do
       add :response_body, :text
       add :attempts, :integer, null: false, default: 0
       add :delivered_at, :utc_datetime
-      add :endpoint_id, references(:webhook_endpoints, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :endpoint_id, references(:webhook_endpoints, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

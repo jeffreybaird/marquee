@@ -22,7 +22,18 @@ defmodule Bobine.Billing.PlatformPlan do
   @doc false
   def changeset(platform_plan, attrs) do
     platform_plan
-    |> cast(attrs, [:name, :stripe_price_id, :stripe_product_id, :amount, :interval, :features, :max_videos, :max_team_members, :transaction_fee_percent, :active])
+    |> cast(attrs, [
+      :name,
+      :stripe_price_id,
+      :stripe_product_id,
+      :amount,
+      :interval,
+      :features,
+      :max_videos,
+      :max_team_members,
+      :transaction_fee_percent,
+      :active
+    ])
     |> validate_required([:name, :amount, :interval, :transaction_fee_percent])
   end
 end

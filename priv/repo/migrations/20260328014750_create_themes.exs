@@ -17,7 +17,9 @@ defmodule Bobine.Repo.Migrations.CreateThemes do
       add :card_border_radius, :string
       add :logo_url, :string
       add :favicon_url, :string
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

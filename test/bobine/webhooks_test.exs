@@ -25,7 +25,13 @@ defmodule Bobine.WebhooksTest do
     end
 
     test "create_endpoint/1 with valid data creates a endpoint", %{org: org} do
-      valid_attrs = %{active: true, events: ["option1", "option2"], url: "some url", secret: "some secret", organization_id: org.id}
+      valid_attrs = %{
+        active: true,
+        events: ["option1", "option2"],
+        url: "some url",
+        secret: "some secret",
+        organization_id: org.id
+      }
 
       assert {:ok, %Endpoint{} = endpoint} = Webhooks.create_endpoint(valid_attrs)
       assert endpoint.active == true
@@ -40,7 +46,13 @@ defmodule Bobine.WebhooksTest do
 
     test "update_endpoint/2 with valid data updates the endpoint" do
       endpoint = endpoint_fixture()
-      update_attrs = %{active: false, events: ["option1"], url: "some updated url", secret: "some updated secret"}
+
+      update_attrs = %{
+        active: false,
+        events: ["option1"],
+        url: "some updated url",
+        secret: "some updated secret"
+      }
 
       assert {:ok, %Endpoint{} = endpoint} = Webhooks.update_endpoint(endpoint, update_attrs)
       assert endpoint.active == false

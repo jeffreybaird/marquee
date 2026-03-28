@@ -4,7 +4,10 @@ defmodule Bobine.Repo.Migrations.CreateFavorites do
   def change do
     create table(:favorites, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
+
       add :user_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
       add :video_id, references(:videos, on_delete: :delete_all, type: :binary_id), null: false
 

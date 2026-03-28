@@ -24,7 +24,19 @@ defmodule Bobine.Content.Video do
   @doc false
   def changeset(video, attrs) do
     video
-    |> cast(attrs, [:title, :slug, :description, :mux_asset_id, :mux_playback_id, :mux_upload_id, :mux_status, :duration, :max_resolution, :published, :organization_id])
+    |> cast(attrs, [
+      :title,
+      :slug,
+      :description,
+      :mux_asset_id,
+      :mux_playback_id,
+      :mux_upload_id,
+      :mux_status,
+      :duration,
+      :max_resolution,
+      :published,
+      :organization_id
+    ])
     |> validate_required([:title, :slug, :organization_id])
   end
 end

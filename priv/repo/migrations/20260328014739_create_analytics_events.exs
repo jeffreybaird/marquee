@@ -7,7 +7,10 @@ defmodule Bobine.Repo.Migrations.CreateAnalyticsEvents do
       add :event_type, :string, null: false
       add :metadata, :map
       add :occurred_at, :utc_datetime, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
+
       add :user_id, references(:users, on_delete: :delete_all, type: :binary_id)
       add :video_id, references(:videos, on_delete: :delete_all, type: :binary_id)
 

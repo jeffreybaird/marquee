@@ -9,7 +9,9 @@ defmodule Bobine.Repo.Migrations.CreateNotifications do
       add :type, :string, null: false
       add :status, :string, null: false
       add :sent_at, :utc_datetime
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

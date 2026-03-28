@@ -8,7 +8,14 @@ defmodule Bobine.BillingTest do
 
     import Bobine.BillingFixtures
 
-    @invalid_attrs %{active: nil, name: nil, stripe_price_id: nil, stripe_product_id: nil, amount: nil, interval: nil}
+    @invalid_attrs %{
+      active: nil,
+      name: nil,
+      stripe_price_id: nil,
+      stripe_product_id: nil,
+      amount: nil,
+      interval: nil
+    }
 
     setup do
       %{org: insert(:organization)}
@@ -25,7 +32,15 @@ defmodule Bobine.BillingTest do
     end
 
     test "create_plan/1 with valid data creates a plan", %{org: org} do
-      valid_attrs = %{active: true, name: "some name", stripe_price_id: "some stripe_price_id", stripe_product_id: "some stripe_product_id", amount: 42, interval: :monthly, organization_id: org.id}
+      valid_attrs = %{
+        active: true,
+        name: "some name",
+        stripe_price_id: "some stripe_price_id",
+        stripe_product_id: "some stripe_product_id",
+        amount: 42,
+        interval: :monthly,
+        organization_id: org.id
+      }
 
       assert {:ok, %Plan{} = plan} = Billing.create_plan(valid_attrs)
       assert plan.active == true
@@ -42,7 +57,15 @@ defmodule Bobine.BillingTest do
 
     test "update_plan/2 with valid data updates the plan" do
       plan = plan_fixture()
-      update_attrs = %{active: false, name: "some updated name", stripe_price_id: "some updated stripe_price_id", stripe_product_id: "some updated stripe_product_id", amount: 43, interval: :yearly}
+
+      update_attrs = %{
+        active: false,
+        name: "some updated name",
+        stripe_price_id: "some updated stripe_price_id",
+        stripe_product_id: "some updated stripe_product_id",
+        amount: 43,
+        interval: :yearly
+      }
 
       assert {:ok, %Plan{} = plan} = Billing.update_plan(plan, update_attrs)
       assert plan.active == false
@@ -95,8 +118,19 @@ defmodule Bobine.BillingTest do
       assert Billing.get_subscription!(subscription.id) == subscription
     end
 
-    test "create_subscription/1 with valid data creates a subscription", %{org: org, user: user, plan: plan} do
-      valid_attrs = %{status: :active, stripe_subscription_id: "some stripe_subscription_id", current_period_end: ~U[2026-03-27 01:47:00Z], organization_id: org.id, user_id: user.id, plan_id: plan.id}
+    test "create_subscription/1 with valid data creates a subscription", %{
+      org: org,
+      user: user,
+      plan: plan
+    } do
+      valid_attrs = %{
+        status: :active,
+        stripe_subscription_id: "some stripe_subscription_id",
+        current_period_end: ~U[2026-03-27 01:47:00Z],
+        organization_id: org.id,
+        user_id: user.id,
+        plan_id: plan.id
+      }
 
       assert {:ok, %Subscription{} = subscription} = Billing.create_subscription(valid_attrs)
       assert subscription.status == :active
@@ -110,9 +144,16 @@ defmodule Bobine.BillingTest do
 
     test "update_subscription/2 with valid data updates the subscription" do
       subscription = subscription_fixture()
-      update_attrs = %{status: :past_due, stripe_subscription_id: "some updated stripe_subscription_id", current_period_end: ~U[2026-03-28 01:47:00Z]}
 
-      assert {:ok, %Subscription{} = subscription} = Billing.update_subscription(subscription, update_attrs)
+      update_attrs = %{
+        status: :past_due,
+        stripe_subscription_id: "some updated stripe_subscription_id",
+        current_period_end: ~U[2026-03-28 01:47:00Z]
+      }
+
+      assert {:ok, %Subscription{} = subscription} =
+               Billing.update_subscription(subscription, update_attrs)
+
       assert subscription.status == :past_due
       assert subscription.stripe_subscription_id == "some updated stripe_subscription_id"
       assert subscription.current_period_end == ~U[2026-03-28 01:47:00Z]
@@ -120,7 +161,10 @@ defmodule Bobine.BillingTest do
 
     test "update_subscription/2 with invalid data returns error changeset" do
       subscription = subscription_fixture()
-      assert {:error, %Ecto.Changeset{}} = Billing.update_subscription(subscription, @invalid_attrs)
+
+      assert {:error, %Ecto.Changeset{}} =
+               Billing.update_subscription(subscription, @invalid_attrs)
+
       assert subscription == Billing.get_subscription!(subscription.id)
     end
 

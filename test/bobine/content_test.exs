@@ -8,7 +8,18 @@ defmodule Bobine.ContentTest do
 
     import Bobine.ContentFixtures
 
-    @invalid_attrs %{description: nil, title: nil, slug: nil, mux_asset_id: nil, mux_playback_id: nil, mux_upload_id: nil, mux_status: nil, duration: nil, max_resolution: nil, published: nil}
+    @invalid_attrs %{
+      description: nil,
+      title: nil,
+      slug: nil,
+      mux_asset_id: nil,
+      mux_playback_id: nil,
+      mux_upload_id: nil,
+      mux_status: nil,
+      duration: nil,
+      max_resolution: nil,
+      published: nil
+    }
 
     setup do
       %{org: insert(:organization)}
@@ -25,7 +36,19 @@ defmodule Bobine.ContentTest do
     end
 
     test "create_video/1 with valid data creates a video", %{org: org} do
-      valid_attrs = %{description: "some description", title: "some title", slug: "some slug", mux_asset_id: "some mux_asset_id", mux_playback_id: "some mux_playback_id", mux_upload_id: "some mux_upload_id", mux_status: "some mux_status", duration: 120.5, max_resolution: "some max_resolution", published: true, organization_id: org.id}
+      valid_attrs = %{
+        description: "some description",
+        title: "some title",
+        slug: "some slug",
+        mux_asset_id: "some mux_asset_id",
+        mux_playback_id: "some mux_playback_id",
+        mux_upload_id: "some mux_upload_id",
+        mux_status: "some mux_status",
+        duration: 120.5,
+        max_resolution: "some max_resolution",
+        published: true,
+        organization_id: org.id
+      }
 
       assert {:ok, %Video{} = video} = Content.create_video(valid_attrs)
       assert video.description == "some description"
@@ -46,7 +69,19 @@ defmodule Bobine.ContentTest do
 
     test "update_video/2 with valid data updates the video" do
       video = video_fixture()
-      update_attrs = %{description: "some updated description", title: "some updated title", slug: "some updated slug", mux_asset_id: "some updated mux_asset_id", mux_playback_id: "some updated mux_playback_id", mux_upload_id: "some updated mux_upload_id", mux_status: "some updated mux_status", duration: 456.7, max_resolution: "some updated max_resolution", published: false}
+
+      update_attrs = %{
+        description: "some updated description",
+        title: "some updated title",
+        slug: "some updated slug",
+        mux_asset_id: "some updated mux_asset_id",
+        mux_playback_id: "some updated mux_playback_id",
+        mux_upload_id: "some updated mux_upload_id",
+        mux_status: "some updated mux_status",
+        duration: 456.7,
+        max_resolution: "some updated max_resolution",
+        published: false
+      }
 
       assert {:ok, %Video{} = video} = Content.update_video(video, update_attrs)
       assert video.description == "some updated description"
@@ -101,7 +136,14 @@ defmodule Bobine.ContentTest do
     end
 
     test "create_collection/1 with valid data creates a collection", %{org: org} do
-      valid_attrs = %{position: 42, type: :series, description: "some description", title: "some title", slug: "some slug", organization_id: org.id}
+      valid_attrs = %{
+        position: 42,
+        type: :series,
+        description: "some description",
+        title: "some title",
+        slug: "some slug",
+        organization_id: org.id
+      }
 
       assert {:ok, %Collection{} = collection} = Content.create_collection(valid_attrs)
       assert collection.position == 42
@@ -117,9 +159,18 @@ defmodule Bobine.ContentTest do
 
     test "update_collection/2 with valid data updates the collection" do
       collection = collection_fixture()
-      update_attrs = %{position: 43, type: :season, description: "some updated description", title: "some updated title", slug: "some updated slug"}
 
-      assert {:ok, %Collection{} = collection} = Content.update_collection(collection, update_attrs)
+      update_attrs = %{
+        position: 43,
+        type: :season,
+        description: "some updated description",
+        title: "some updated title",
+        slug: "some updated slug"
+      }
+
+      assert {:ok, %Collection{} = collection} =
+               Content.update_collection(collection, update_attrs)
+
       assert collection.position == 43
       assert collection.type == :season
       assert collection.description == "some updated description"

@@ -20,7 +20,22 @@ defmodule Bobine.Billing.Plan do
   @doc false
   def changeset(plan, attrs) do
     plan
-    |> cast(attrs, [:name, :stripe_price_id, :stripe_product_id, :amount, :interval, :active, :organization_id])
-    |> validate_required([:name, :stripe_price_id, :stripe_product_id, :amount, :interval, :organization_id])
+    |> cast(attrs, [
+      :name,
+      :stripe_price_id,
+      :stripe_product_id,
+      :amount,
+      :interval,
+      :active,
+      :organization_id
+    ])
+    |> validate_required([
+      :name,
+      :stripe_price_id,
+      :stripe_product_id,
+      :amount,
+      :interval,
+      :organization_id
+    ])
   end
 end

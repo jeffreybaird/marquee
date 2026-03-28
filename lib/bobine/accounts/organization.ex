@@ -20,7 +20,16 @@ defmodule Bobine.Accounts.Organization do
   @doc false
   def changeset(organization, attrs) do
     organization
-    |> cast(attrs, [:name, :slug, :custom_domain, :stripe_account_id, :stripe_connect_account_id, :stripe_connect_onboarding_complete, :stripe_customer_id, :template])
+    |> cast(attrs, [
+      :name,
+      :slug,
+      :custom_domain,
+      :stripe_account_id,
+      :stripe_connect_account_id,
+      :stripe_connect_onboarding_complete,
+      :stripe_customer_id,
+      :template
+    ])
     |> validate_required([:name, :slug])
     |> unique_constraint(:slug)
     |> unique_constraint(:custom_domain)

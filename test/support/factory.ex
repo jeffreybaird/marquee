@@ -154,7 +154,8 @@ defmodule Bobine.Factory do
       plan: build(:plan),
       stripe_subscription_id: sequence(:stripe_sub_id, &"sub_#{&1}"),
       status: :active,
-      current_period_end: DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
+      current_period_end:
+        DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
     }
   end
 

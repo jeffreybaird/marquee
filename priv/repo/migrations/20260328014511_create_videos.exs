@@ -14,7 +14,9 @@ defmodule Bobine.Repo.Migrations.CreateVideos do
       add :duration, :float
       add :max_resolution, :string
       add :published, :boolean, default: false, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

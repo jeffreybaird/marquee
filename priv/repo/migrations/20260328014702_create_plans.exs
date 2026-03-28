@@ -10,7 +10,9 @@ defmodule Bobine.Repo.Migrations.CreatePlans do
       add :amount, :integer, null: false
       add :interval, :string, null: false
       add :active, :boolean, default: false, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

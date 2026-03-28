@@ -8,8 +8,13 @@ defmodule Bobine.Repo.Migrations.CreatePlatformSubscriptions do
       add :stripe_customer_id, :string
       add :status, :string, null: false
       add :current_period_end, :utc_datetime
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
-      add :platform_plan_id, references(:platform_plans, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
+
+      add :platform_plan_id,
+          references(:platform_plans, on_delete: :delete_all, type: :binary_id),
+          null: false
 
       timestamps(type: :utc_datetime)
     end

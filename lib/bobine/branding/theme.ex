@@ -27,7 +27,22 @@ defmodule Bobine.Branding.Theme do
   @doc false
   def changeset(theme, attrs) do
     theme
-    |> cast(attrs, [:brand_primary, :brand_secondary, :background, :surface, :text_primary, :text_secondary, :accent, :font_heading, :font_body, :border_radius, :card_border_radius, :logo_url, :favicon_url, :organization_id])
+    |> cast(attrs, [
+      :brand_primary,
+      :brand_secondary,
+      :background,
+      :surface,
+      :text_primary,
+      :text_secondary,
+      :accent,
+      :font_heading,
+      :font_body,
+      :border_radius,
+      :card_border_radius,
+      :logo_url,
+      :favicon_url,
+      :organization_id
+    ])
     |> validate_required([:organization_id])
   end
 end

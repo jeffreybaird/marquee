@@ -9,7 +9,10 @@ defmodule Bobine.Repo.Migrations.CreateCollections do
       add :description, :text
       add :type, :string, null: false
       add :position, :integer, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
+
       add :parent_id, references(:collections, on_delete: :nilify_all, type: :binary_id)
 
       timestamps(type: :utc_datetime)

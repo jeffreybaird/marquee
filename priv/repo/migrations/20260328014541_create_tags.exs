@@ -6,7 +6,9 @@ defmodule Bobine.Repo.Migrations.CreateTags do
       add :id, :binary_id, primary_key: true
       add :name, :string, null: false
       add :slug, :string, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
 
       timestamps(type: :utc_datetime)
     end

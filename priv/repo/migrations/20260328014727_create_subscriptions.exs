@@ -7,7 +7,10 @@ defmodule Bobine.Repo.Migrations.CreateSubscriptions do
       add :stripe_subscription_id, :string, null: false
       add :status, :string, null: false
       add :current_period_end, :utc_datetime, null: false
-      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id), null: false
+
+      add :organization_id, references(:organizations, on_delete: :delete_all, type: :binary_id),
+        null: false
+
       add :user_id, references(:users, on_delete: :delete_all, type: :binary_id), null: false
       add :plan_id, references(:plans, on_delete: :nilify_all, type: :binary_id)
 

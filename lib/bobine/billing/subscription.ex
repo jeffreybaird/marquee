@@ -19,7 +19,21 @@ defmodule Bobine.Billing.Subscription do
   @doc false
   def changeset(subscription, attrs) do
     subscription
-    |> cast(attrs, [:stripe_subscription_id, :status, :current_period_end, :organization_id, :user_id, :plan_id])
-    |> validate_required([:stripe_subscription_id, :status, :current_period_end, :organization_id, :user_id, :plan_id])
+    |> cast(attrs, [
+      :stripe_subscription_id,
+      :status,
+      :current_period_end,
+      :organization_id,
+      :user_id,
+      :plan_id
+    ])
+    |> validate_required([
+      :stripe_subscription_id,
+      :status,
+      :current_period_end,
+      :organization_id,
+      :user_id,
+      :plan_id
+    ])
   end
 end
