@@ -72,7 +72,8 @@ defmodule Bobine.MixProject do
       {:stripity_stripe, "~> 3.0"},
       {:ex_machina, "~> 2.8", only: :test},
       {:mox, "~> 1.1", only: :test},
-      {:floki, "~> 0.37", only: :test}
+      {:floki, "~> 0.37", only: :test},
+      {:wallaby, "~> 0.30", only: :test, runtime: false}
     ]
   end
 

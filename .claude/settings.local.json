@@ -17,7 +17,10 @@
       "Bash(git merge:*)",
       "Bash(git stash:*)",
       "Bash(chmod +x /Users/jeffreybaird/personal-repos/bobine/rel/overlays/bin/migrate /Users/jeffreybaird/personal-repos/bobine/rel/overlays/bin/server)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(mix deps.get)",
+      "Bash(chromedriver --version)"
     ]
   }
 }

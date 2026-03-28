@@ -20,7 +20,7 @@ per-tenant is the `:root` variable block injected into the layout.
 
 ```elixir
 schema "themes" do
-  belongs_to :organization, StreamVane.Accounts.Organization
+  belongs_to :organization, Bobine.Accounts.Organization
 
   # Colors
   field :brand_primary, :string, default: "#1a73e8"

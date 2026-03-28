@@ -7,14 +7,14 @@ processing.
 
 ## Client Architecture
 
-### Single entry point: `StreamVane.Billing.StripeClient`
+### Single entry point: `Bobine.Billing.StripeClient`
 
 All Stripe API calls go through this module. No other module in the codebase may
 call the Stripe library directly.
 
 ```elixir
-defmodule StreamVane.Billing.StripeClient do
-  @behaviour StreamVane.Billing.StripeClientBehaviour
+defmodule Bobine.Billing.StripeClient do
+  @behaviour Bobine.Billing.StripeClientBehaviour
 
   @impl true
   def create_customer(params), do: ...
@@ -36,7 +36,7 @@ end
 ### Behaviour for testability
 
 ```elixir
-defmodule StreamVane.Billing.StripeClientBehaviour do
+defmodule Bobine.Billing.StripeClientBehaviour do
   @callback create_customer(map()) :: {:ok, map()} | {:error, term()}
   @callback create_subscription(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   @callback cancel_subscription(String.t()) :: {:ok, map()} | {:error, term()}
@@ -49,7 +49,7 @@ end
 
 ```elixir
 defp stripe_client do
-  Application.get_env(:stream_vane, :stripe_client, StreamVane.Billing.StripeClient)
+  Application.get_env(:stream_vane, :stripe_client, Bobine.Billing.StripeClient)
 end
 ```
 
@@ -164,7 +164,7 @@ These live in Fly secrets and GitHub Actions secrets. Never in source code.
 
 ## Future: Multi-tenant Stripe Connect
 
-The current MVP uses a single Stripe account (StreamVane's). When we add
+The current MVP uses a single Stripe account (Bobine's). When we add
 Stripe Connect, each organization will have their own connected account, and
 subscription payments will flow through Connect with platform fees. The
 `stripe_account_id` field on `Organization` is reserved for this purpose.

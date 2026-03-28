@@ -7,7 +7,7 @@ or access control enforcement.
 
 ## Roles
 
-StreamVane uses a flat role model per organization membership. A user's role
+Bobine uses a flat role model per organization membership. A user's role
 is stored on the `Membership` join table between `User` and `Organization`.
 
 | Role             | Content | Team Mgmt | Analytics | Billing | Delete Org |
@@ -28,8 +28,8 @@ an `admin` can do, and so on.
 
 ```elixir
 schema "memberships" do
-  belongs_to :user, StreamVane.Accounts.User
-  belongs_to :organization, StreamVane.Accounts.Organization
+  belongs_to :user, Bobine.Accounts.User
+  belongs_to :organization, Bobine.Accounts.Organization
   field :role, Ecto.Enum, values: [:owner, :admin, :editor, :viewer_support]
   timestamps()
 end
@@ -53,13 +53,13 @@ directly in the controller.
 
 ```elixir
 # In router — applies to all routes in this scope
-scope "/admin/settings", StreamVaneWeb.Admin do
+scope "/admin/settings", BobineWeb.Admin do
   pipe_through [:browser, :require_auth, :set_organization, :require_role_admin]
   # ...
 end
 
 # The plug
-defmodule StreamVaneWeb.Plugs.RequireRole do
+defmodule BobineWeb.Plugs.RequireRole do
   import Plug.Conn
   import Phoenix.Controller, only: [put_flash: 3, redirect: 2]
 

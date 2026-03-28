@@ -1,4 +1,4 @@
-# CLAUDE.md — StreamVane
+# CLAUDE.md — Bobine
 
 This file is read automatically by Claude Code on every session. Follow all rules
 here without exception unless the user explicitly overrides one for a specific task.
@@ -64,6 +64,8 @@ call `Repo` directly.
 
 ## **NOTE: EVERY ADDITIONAL CODE WRITTEN THAT ADDS BEHAVIOR MUST BE ACCOMPANIED BY A TEST THAT VALIDATES SAID BEHAVIOR**
 
+## Run `mix format` on every change
+
 ### 1. Single Responsibility — One Function, One Job
 
 Every function does exactly one thing. If you find yourself writing `and` in a
@@ -120,11 +122,11 @@ not placeholders.
 @doc """
 Derives the subdomain from an organization's slug.
 
-    iex> StreamVane.Accounts.subdomain_for(%StreamVane.Accounts.Organization{slug: "acme-films"})
-    "acme-films.streamvane.com"
+    iex> Bobine.Accounts.subdomain_for(%Bobine.Accounts.Organization{slug: "acme-films"})
+    "acme-films.Bobine.com"
 """
 def subdomain_for(%Organization{slug: slug}) do
-  "#{slug}.streamvane.com"
+  "#{slug}.Bobine.com"
 end
 ```
 

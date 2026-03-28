@@ -7,7 +7,7 @@ release scripts, or environment configuration.
 
 ## Platform: Fly.io
 
-StreamVane deploys to Fly.io. Configuration lives in `fly.toml` at the project
+Bobine deploys to Fly.io. Configuration lives in `fly.toml` at the project
 root.
 
 ### Why Fly.io
@@ -62,11 +62,11 @@ config :stream_vane, :mux_token_id, System.get_env("MUX_TOKEN_ID")
 
 ### The Release module is required
 
-`StreamVane.Release.migrate/0` must exist and work correctly. It is called by
+`Bobine.Release.migrate/0` must exist and work correctly. It is called by
 the Fly deployment process before the service starts.
 
 ```elixir
-defmodule StreamVane.Release do
+defmodule Bobine.Release do
   @app :stream_vane
 
   def migrate do
@@ -93,7 +93,7 @@ not present in a compiled release.
 
 ```shell
 # ✅ CORRECT — release command
-/app/bin/stream_vane eval "StreamVane.Release.migrate()"
+/app/bin/stream_vane eval "Bobine.Release.migrate()"
 
 # ❌ WRONG — requires Mix
 mix ecto.migrate
@@ -107,14 +107,14 @@ mix ecto.migrate
 
 ```toml
 [env]
-  PHX_HOST = "streamvane.com"
+  PHX_HOST = "Bobine.com"
   ECTO_IPV6 = "true"
   ERL_AFLAGS = "-proto_dist inet6_tcp"
-  DNS_CLUSTER_QUERY = "streamvane.internal"
+  DNS_CLUSTER_QUERY = "Bobine.internal"
   RELEASE_DISTRIBUTION = "name"
 
 [deploy]
-  release_command = "/app/bin/stream_vane eval StreamVane.Release.migrate"
+  release_command = "/app/bin/stream_vane eval Bobine.Release.migrate"
 ```
 
 ### Clustering
@@ -126,7 +126,7 @@ tree. Fly's internal DNS resolves `<app-name>.internal` to all running instances
 # In application.ex
 children = [
   {DNSCluster, query: Application.get_env(:stream_vane, :dns_cluster_query) || :ignore},
-  {Phoenix.PubSub, name: StreamVane.PubSub},
+  {Phoenix.PubSub, name: Bobine.PubSub},
   # ...
 ]
 ```

@@ -16,12 +16,19 @@ config :bobine, Bobine.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
-# We don't run a server during test. If one is required,
-# you can enable the server option below.
 config :bobine, BobineWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "+H1LTl9izQwD8HqXzX9He8N/JlmXvWw2I4hQyOHzgvXJCSYkXnbbjxXDjc67M3Gm",
-  server: false
+  server: true
+
+config :wallaby,
+  driver: Wallaby.Chrome,
+  otp_app: :bobine,
+  base_url: "http://localhost:4002",
+  screenshot_on_failure: true,
+  chromedriver: [
+    headless: true
+  ]
 
 # In test we don't send emails
 config :bobine, Bobine.Mailer, adapter: Swoosh.Adapters.Test

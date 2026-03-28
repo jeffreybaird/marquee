@@ -1,4 +1,4 @@
-# StreamVane — Project Bootstrap Commands
+# Bobine — Project Bootstrap Commands
 # Run these in order. Read the comments before each block.
 
 # ============================================================================
@@ -282,7 +282,7 @@ mix ecto.gen.migration add_oban_jobs_table
 # Add Oban config to config/config.exs:
 #
 #   config :stream_vane, Oban,
-#     repo: StreamVane.Repo,
+#     repo: Bobine.Repo,
 #     plugins: [Oban.Plugins.Pruner],
 #     queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3]
 #
@@ -305,11 +305,11 @@ git commit -m "Configure Oban with job queues"
 #
 # Update test/test_helper.exs to include:
 #   ExUnit.start()
-#   Ecto.Adapters.SQL.Sandbox.mode(StreamVane.Repo, :manual)
+#   Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, :manual)
 #
 # Update config/test.exs:
-#   config :stream_vane, :mux_client, StreamVane.Content.MockMuxClient
-#   config :stream_vane, :stripe_client, StreamVane.Billing.MockStripeClient
+#   config :stream_vane, :mux_client, Bobine.Content.MockMuxClient
+#   config :stream_vane, :stripe_client, Bobine.Billing.MockStripeClient
 
 git add -A
 git commit -m "Set up test infrastructure: factories, mocks"
