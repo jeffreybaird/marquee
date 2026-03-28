@@ -1,17 +1,14 @@
-app = "bobine"
-primary_region = "iad"
+app = "bobine-4-dvyq"
+primary_region = "ams"
+kill_signal = "SIGTERM"
 
 [build]
 
 [deploy]
-  release_command = "/app/bin/bobine eval \"Bobine.Release.migrate()\""
+  release_command = "/app/bin/migrate"
 
 [env]
-  PHX_HOST = "bobine.fly.dev"
-  ECTO_IPV6 = "true"
-  ERL_AFLAGS = "-proto_dist inet6_tcp"
-  DNS_CLUSTER_QUERY = "bobine.internal"
-  RELEASE_DISTRIBUTION = "name"
+  PHX_HOST = "bobine-4-dvyq.fly.dev"
   PORT = "8080"
 
 [http_service]

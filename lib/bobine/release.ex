@@ -1,4 +1,8 @@
 defmodule Bobine.Release do
+  @moduledoc """
+  Used for executing DB release tasks when run in production without Mix
+  installed.
+  """
   @app :bobine
 
   def migrate do
@@ -14,7 +18,13 @@ defmodule Bobine.Release do
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
   end
 
-  defp repos, do: Application.fetch_env!(@app, :ecto_repos)
+  defp repos do
+    Application.fetch_env!(@app, :ecto_repos)
+  end
 
-  defp load_app, do: Application.ensure_all_started(:ssl)
+  defp load_app do
+    # Many platforms require SSL when connecting to the database
+    Application.ensure_all_started(:ssl)
+    Application.ensure_loaded(@app)
+  end
 end
