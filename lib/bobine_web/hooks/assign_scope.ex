@@ -1,0 +1,150 @@
+defmodule BobineWeb.Hooks.AssignScope do
+  @moduledoc """
+  LiveView `on_mount` hooks that build the full scope (user + organization +
+  membership) from the session and socket host URI.
+
+  ## Actions
+
+    * `:assign_org` — resolves organization and assigns scope, no auth required.
+      Used for public viewer routes.
+
+    * `:require_authenticated` — resolves full scope and halts with a redirect
+      if the user is not authenticated or has no membership in the resolved org.
+      Used for admin routes.
+
+  ## Usage
+
+      live_session :admin,
+        on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
+        live "/admin", BobineWeb.Admin.DashboardLive
+      end
+
+  """
+
+  use BobineWeb, :verified_routes
+
+  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.LiveView, only: [put_flash: 3, redirect: 2]
+
+  alias Bobine.Accounts
+  alias Bobine.Accounts.Scope
+
+  def on_mount(:require_authenticated, _params, session, socket) do
+    socket = mount_full_scope(socket, session)
+    scope = socket.assigns.current_scope
+
+    cond do
+      is_nil(scope) or is_nil(scope.user) ->
+        {:halt,
+         socket
+         |> put_flash(:error, "You must log in to access this page.")
+         |> redirect(to: ~p"/users/log-in")}
+
+      is_nil(scope.organization) ->
+        {:halt,
+         socket
+         |> put_flash(:error, "Organization not found.")
+         |> redirect(to: ~p"/users/log-in")}
+
+      is_nil(scope.membership) ->
+        {:halt,
+         socket
+         |> put_flash(:error, "You don't have access to this organization.")
+         |> redirect(to: ~p"/")}
+
+      true ->
+        {:cont, socket}
+    end
+  end
+
+  def on_mount(:assign_org, _params, session, socket) do
+    {:cont, mount_full_scope(socket, session)}
+  end
+
+  defp mount_full_scope(socket, session) do
+    user = load_user_from_session(session)
+    host = socket.host_uri && socket.host_uri.host
+    org = resolve_org(host, session)
+    membership = if org && user, do: Accounts.get_membership(org, user)
+
+    scope =
+      case Scope.for_user(user) do
+        nil ->
+          nil
+
+        s when not is_nil(org) and not is_nil(membership) ->
+          Scope.with_organization(s, org, membership)
+
+        s ->
+          s
+      end
+
+    socket
+    |> assign(:current_scope, scope)
+    |> assign(:current_user, user)
+    |> assign(:organization, org)
+    |> assign(:current_membership, membership)
+    |> assign(:current_path, socket.host_uri && socket.host_uri.path)
+  end
+
+  defp load_user_from_session(session) do
+    {user, _} =
+      if token = session["user_token"] do
+        Accounts.get_user_by_session_token(token)
+      end || {nil, nil}
+
+    user
+  end
+
+  defp resolve_org(nil, session), do: resolve_org_from_session(session)
+
+  defp resolve_org(host, session) do
+    with {:error, _} <- Accounts.get_organization_by_custom_domain(host),
+         {:error, _} <- resolve_by_subdomain(host),
+         {:error, _} <- resolve_org_from_session(session) do
+      resolve_dev_fallback()
+    else
+      {:ok, org} -> org
+      nil -> nil
+    end
+  end
+
+  # Read the org_id stashed by the SetOrganization plug into the session during
+  # the HTTP phase. This bridges plug-land to LiveView-land on the WS upgrade.
+  defp resolve_org_from_session(session) do
+    case session["organization_id"] do
+      nil -> {:error, :not_found}
+      org_id -> Bobine.Repo.get(Bobine.Accounts.Organization, org_id) |> wrap_org()
+    end
+  end
+
+  defp wrap_org(nil), do: {:error, :not_found}
+  defp wrap_org(org), do: {:ok, org}
+
+  defp resolve_by_subdomain(host) do
+    case extract_subdomain(host) do
+      nil -> {:error, :not_found}
+      subdomain -> Accounts.get_organization_by_slug(subdomain)
+    end
+  end
+
+  defp extract_subdomain(host) do
+    parts = String.split(host, ".")
+
+    if length(parts) >= 2 do
+      first = List.first(parts)
+      if first != "www" and not Regex.match?(~r/^\d+$/, first), do: first
+    end
+  end
+
+  if Mix.env() == :dev do
+    defp resolve_dev_fallback do
+      case Bobine.Repo.all(Bobine.Accounts.Organization) do
+        [org | _] -> {:ok, org}
+        [] -> {:error, :not_found}
+      end
+    end
+  else
+    defp resolve_dev_fallback, do: {:error, :not_found}
+  end
+end

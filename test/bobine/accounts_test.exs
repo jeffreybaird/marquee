@@ -394,4 +394,130 @@ defmodule Bobine.AccountsTest do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Organization getters
+  # ---------------------------------------------------------------------------
+
+  describe "get_organization_by_slug/1" do
+    test "returns {:ok, org} when slug matches" do
+      org = insert(:organization)
+      assert {:ok, found} = Accounts.get_organization_by_slug(org.slug)
+      assert found.id == org.id
+    end
+
+    test "returns {:error, :not_found} when slug does not match" do
+      assert {:error, :not_found} = Accounts.get_organization_by_slug("nonexistent-slug")
+    end
+
+    test "does not return an org from a different slug" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+      assert {:ok, found} = Accounts.get_organization_by_slug(org_a.slug)
+      refute found.id == org_b.id
+    end
+  end
+
+  describe "get_organization_by_custom_domain/1" do
+    test "returns {:ok, org} when custom_domain matches" do
+      org = insert(:organization, custom_domain: "myapp-#{System.unique_integer()}.com")
+      assert {:ok, found} = Accounts.get_organization_by_custom_domain(org.custom_domain)
+      assert found.id == org.id
+    end
+
+    test "returns {:error, :not_found} when domain does not match" do
+      assert {:error, :not_found} =
+               Accounts.get_organization_by_custom_domain("nope.example.com")
+    end
+
+    test "returns {:error, :not_found} when domain is nil" do
+      assert {:error, :not_found} = Accounts.get_organization_by_custom_domain(nil)
+    end
+  end
+
+  describe "get_membership/2" do
+    test "returns the membership when user is a member of the org" do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user)
+
+      found = Accounts.get_membership(org, user)
+      assert found.id == membership.id
+    end
+
+    test "returns nil when user is not a member of the org" do
+      org = insert(:organization)
+      user = insert(:user)
+
+      assert is_nil(Accounts.get_membership(org, user))
+    end
+
+    test "does not return membership from a different org" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+      user = insert(:user)
+      insert(:membership, organization: org_a, user: user)
+
+      assert is_nil(Accounts.get_membership(org_b, user))
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # RBAC helpers
+  # ---------------------------------------------------------------------------
+
+  describe "role_at_least?/2" do
+    test "owner meets owner minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :owner}, :owner)
+    end
+
+    test "owner meets admin minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :owner}, :admin)
+    end
+
+    test "owner meets editor minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :owner}, :editor)
+    end
+
+    test "owner meets viewer_support minimum" do
+      assert Accounts.role_at_least?(
+               %Bobine.Accounts.Membership{role: :owner},
+               :viewer_support
+             )
+    end
+
+    test "admin meets admin minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :admin}, :admin)
+    end
+
+    test "admin meets editor minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :admin}, :editor)
+    end
+
+    test "admin does not meet owner minimum" do
+      refute Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :admin}, :owner)
+    end
+
+    test "editor meets editor minimum" do
+      assert Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :editor}, :editor)
+    end
+
+    test "editor does not meet admin minimum" do
+      refute Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :editor}, :admin)
+    end
+
+    test "viewer_support meets viewer_support minimum" do
+      assert Accounts.role_at_least?(
+               %Bobine.Accounts.Membership{role: :viewer_support},
+               :viewer_support
+             )
+    end
+
+    test "viewer_support does not meet editor minimum" do
+      refute Accounts.role_at_least?(
+               %Bobine.Accounts.Membership{role: :viewer_support},
+               :editor
+             )
+    end
+  end
 end

@@ -17,24 +17,16 @@ defmodule BobineWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", BobineWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
+  pipeline :set_organization do
+    plug BobineWeb.Plugs.SetOrganization
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", BobineWeb do
-  #   pipe_through :api
-  # end
+  pipeline :require_admin do
+    plug BobineWeb.Plugs.RequireRole, minimum_role: :viewer_support
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:bobine, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
@@ -45,7 +37,7 @@ defmodule BobineWeb.Router do
     end
   end
 
-  ## Authentication routes
+  ## Authentication routes (no org resolution — system-level)
 
   scope "/", BobineWeb do
     pipe_through [:browser, :require_authenticated_user]
@@ -71,5 +63,56 @@ defmodule BobineWeb.Router do
 
     post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete
+  end
+
+  ## Admin routes (org resolved, auth required, viewer_support+ role)
+
+  scope "/admin", BobineWeb.Admin do
+    pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
+
+    live_session :admin,
+      on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
+      live "/", DashboardLive
+      live "/content", ContentLive
+      live "/catalog", CatalogLive
+      live "/analytics", AnalyticsLive
+      live "/branding", BrandingLive
+      live "/members", MembersLive
+      live "/webhooks", WebhooksLive
+      live "/settings", SettingsLive
+    end
+  end
+
+  ## Viewer routes — public (org resolved, no auth required)
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization]
+
+    live_session :viewer_public,
+      on_mount: [{BobineWeb.Hooks.AssignScope, :assign_org}] do
+      live "/", HomeLive
+    end
+  end
+
+  ## Viewer routes — authenticated (org resolved, auth required)
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization, :require_authenticated_user]
+
+    live_session :viewer_authenticated,
+      on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
+      live "/watch/:id", WatchLive
+      live "/watchlist", WatchlistLive
+      live "/account", AccountLive
+    end
+  end
+
+  ## Webhook receiver routes (no auth, raw body)
+
+  scope "/webhooks", BobineWeb do
+    pipe_through :api
+
+    post "/mux", WebhookController, :mux
+    post "/stripe", WebhookController, :stripe
   end
 end

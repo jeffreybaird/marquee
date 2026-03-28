@@ -20,7 +20,12 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(mix deps.get)",
-      "Bash(chromedriver --version)"
+      "Bash(chromedriver --version)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(echo \"=== $f ===\")",
+      "Read(//Users/jeffreybaird/personal-repos/bobine/**)",
+      "Bash(done)"
     ]
   }
 }

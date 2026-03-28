@@ -6,7 +6,51 @@ defmodule Bobine.Accounts do
   import Ecto.Query, warn: false
   alias Bobine.Repo
 
-  alias Bobine.Accounts.{User, UserToken, UserNotifier}
+  alias Bobine.Accounts.{User, UserToken, UserNotifier, Organization, Membership}
+
+  ## Organization getters
+
+  @doc """
+  Gets an organization by its custom domain.
+
+  Returns `{:ok, organization}` if found, `{:error, :not_found}` otherwise.
+  Returns `{:error, :not_found}` when `domain` is nil.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_by_custom_domain(nil), do: {:error, :not_found}
+
+  def get_organization_by_custom_domain(domain) when is_binary(domain) do
+    case Repo.get_by(Organization, custom_domain: domain) do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
+  Gets an organization by its slug.
+
+  Returns `{:ok, organization}` if found, `{:error, :not_found}` otherwise.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_by_slug(slug) when is_binary(slug) do
+    case Repo.get_by(Organization, slug: slug) do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
+  Gets the membership for a user in an organization.
+
+  Returns `%Membership{}` if the user is a member, nil otherwise.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_membership(%Organization{id: org_id}, %User{id: user_id}) do
+    Repo.get_by(Membership, organization_id: org_id, user_id: user_id)
+  end
 
   ## Database getters
 
@@ -279,6 +323,34 @@ defmodule Bobine.Accounts do
   def delete_user_session_token(token) do
     Repo.delete_all(from(UserToken, where: [token: ^token, context: "session"]))
     :ok
+  end
+
+  ## RBAC helpers
+
+  @role_hierarchy [:viewer_support, :editor, :admin, :owner]
+
+  @doc """
+  Returns true if the membership's role meets or exceeds the minimum role.
+
+      iex> Bobine.Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :admin}, :editor)
+      true
+
+      iex> Bobine.Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :editor}, :admin)
+      false
+
+      iex> Bobine.Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :owner}, :owner)
+      true
+
+      iex> Bobine.Accounts.role_at_least?(%Bobine.Accounts.Membership{role: :viewer_support}, :editor)
+      false
+
+  """
+  def role_at_least?(%Membership{role: role}, minimum_role) do
+    role_index(role) >= role_index(minimum_role)
+  end
+
+  defp role_index(role) do
+    Enum.find_index(@role_hierarchy, &(&1 == role)) || -1
   end
 
   ## Token helper

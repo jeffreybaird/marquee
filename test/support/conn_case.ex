@@ -58,6 +58,21 @@ defmodule BobineWeb.ConnCase do
   end
 
   @doc """
+  Builds an authenticated conn for the given membership.
+
+  Sets the conn host to `<org.slug>.localhost` so that the SetOrganization
+  plug resolves the organization via subdomain, and logs in as the
+  membership's user. Used in RBAC and multi-tenant tests.
+  """
+  def conn_for(%Bobine.Accounts.Membership{} = membership) do
+    membership = Bobine.Repo.preload(membership, [:user, :organization])
+
+    Phoenix.ConnTest.build_conn()
+    |> Map.put(:host, "#{membership.organization.slug}.localhost")
+    |> log_in_user(membership.user)
+  end
+
+  @doc """
   Logs the given `user` into the `conn`.
 
   It returns an updated `conn`.
