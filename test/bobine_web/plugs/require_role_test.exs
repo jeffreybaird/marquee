@@ -25,7 +25,9 @@ defmodule BobineWeb.Plugs.RequireRoleTest do
 
   describe "allow access" do
     test "allows owner when minimum is viewer_support", %{conn: conn} do
-      conn = conn |> conn_with_membership(:owner) |> RequireRole.call(minimum_role: :viewer_support)
+      conn =
+        conn |> conn_with_membership(:owner) |> RequireRole.call(minimum_role: :viewer_support)
+
       refute conn.halted
     end
 
@@ -70,7 +72,9 @@ defmodule BobineWeb.Plugs.RequireRoleTest do
     end
 
     test "viewer_support cannot access admin-minimum routes", %{conn: conn} do
-      conn = conn |> conn_with_membership(:viewer_support) |> RequireRole.call(minimum_role: :admin)
+      conn =
+        conn |> conn_with_membership(:viewer_support) |> RequireRole.call(minimum_role: :admin)
+
       assert conn.halted
     end
   end
