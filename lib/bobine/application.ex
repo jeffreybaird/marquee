@@ -7,6 +7,12 @@ defmodule Bobine.Application do
 
   @impl true
   def start(_type, _args) do
+    # OpenTelemetry auto-instrumentation — must be called before supervision tree
+    OpentelemetryPhoenix.setup()
+    OpentelemetryEcto.setup([:bobine, :repo])
+    OpentelemetryOban.setup()
+    Bobine.TelemetryHandler.setup()
+
     children =
       [
         BobineWeb.Telemetry,

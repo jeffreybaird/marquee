@@ -68,13 +68,24 @@ config :tailwind,
 # Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]
 
 # Configure Oban
 config :bobine, Oban,
   repo: Bobine.Repo,
   plugins: [Oban.Plugins.Pruner],
   queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3]
+
+# OpenTelemetry
+config :opentelemetry,
+  resource: [
+    service: [
+      name: "bobine",
+      version: Mix.Project.config()[:version]
+    ]
+  ],
+  span_processor: :batch,
+  traces_exporter: :otlp
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

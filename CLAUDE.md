@@ -3,8 +3,8 @@
 This file is read automatically by Claude Code on every session. Follow all rules
 here without exception unless the user explicitly overrides one for a specific task.
 
-Additional context-specific rules live in `.claude/`. Load the relevant file(s)
-when working in a specific domain:
+Domain-specific rules and detailed patterns live in `.claude/`. Load the relevant
+file(s) when working in a specific area:
 
 - `.claude/multi-tenancy.md` — tenant scoping, query patterns, test isolation
 - `.claude/mux-integration.md` — Mux client, webhooks, asset conventions
@@ -13,52 +13,155 @@ when working in a specific domain:
 - `.claude/rbac.md` — roles, enforcement, plugs
 - `.claude/branding-and-theming.md` — CSS variables, templates, per-tenant styling
 - `.claude/typescript-hooks.md` — hook conventions, file structure, events
-- `.claude/testing.md` — Mox setup, factories, DataCase helpers, integration tests
-- `.claude/architecture-decisions.md` — audit logging, soft deletes, pagination, events, error shapes, feature flags
-- `.claude/observability.md` Instrumentation and logging
+- `.claude/testing.md` — E2E rule, Wallaby, factories, mocks, `data-test` selectors
+- `.claude/architecture-decisions.md` — audit logging, soft deletes, pagination, events, error tuples, feature flags
+- `.claude/observability.md` — OpenTelemetry spans, metrics, structured logging
+- `.claude/scalability.md` — write buffers, caching, connection management, PubSub, rate limiting
 
 ---
 
 ## Project Overview
 
-A multi-tenant SaaS OTT (Over-The-Top) video platform built with Elixir / Phoenix
-LiveView. Businesses (tenants) use the operator dashboard to manage video content,
-configure their branded viewer-facing site, and monetize via subscriptions. Video
-infrastructure is powered by Mux. Billing is powered by Stripe.
+Bobine is a multi-tenant SaaS OTT video platform built with Elixir / Phoenix
+1.8 / LiveView. Businesses (tenants) use an operator dashboard to manage video
+content, configure their branded viewer-facing site, and monetize via
+subscriptions. Video infrastructure is powered by Mux. Billing is powered by
+Stripe Connect.
 
 ### Architecture Summary
 
 - **Multi-tenant:** Shared Postgres schema with `organization_id` on every
   tenant-scoped table. Tenant resolved from subdomain or custom domain.
 - **Two interfaces:**
-  - Operator dashboard (`/admin/*`) — content management, analytics, branding,
-    RBAC, webhooks. Built entirely in LiveView.
-  - Viewer-facing site — templated per-tenant, subscription-gated, video playback
-    via Mux Player. LiveView with TypeScript hooks for player integration.
-- **Video:** Mux Elixir SDK for encoding, storage, delivery, and analytics.
-  We never serve video bytes — Mux handles all CDN delivery.
-- **Billing:** Stripe for SVOD subscriptions. Built with the understanding that
-  AVOD, TVOD, and hybrid models will be added later.
-- **Background jobs:** Oban for webhook delivery, analytics aggregation, Mux
-  webhook processing, and Stripe subscription sync.
-- **Deployment:** Fly.io with GitHub Actions CI/CD.
+  - Operator dashboard (`/admin/*`) — full LiveView.
+  - Viewer-facing site — static HTML with LiveView islands for interactivity.
+- **Super admin panel** (`/super/*`) — platform-level management above the
+  tenant layer. Requires `is_super_admin` on the user.
+- **Video:** Mux Elixir SDK. We never serve video bytes.
+- **Billing:** Stripe Connect for viewer subscriptions. Stripe direct for
+  org platform subscriptions. SaaS fee + transaction fee revenue model.
+- **Background jobs:** Oban with queues separated by criticality.
+- **Deployment:** Fly.io with Erlang clustering via dns_cluster.
 
 ### Context Modules
 
-All business logic lives in these context modules. LiveViews and controllers never
-call `Repo` directly.
+All business logic lives in context modules. LiveViews and controllers
+never call `Repo` directly.
 
-| Context          | Responsibility                                        |
-|------------------|-------------------------------------------------------|
-| `Accounts`       | Users, organizations, memberships, invitations, RBAC  |
-| `Content`        | Videos, collections, tags, Mux client wrapper         |
-| `Catalog`        | Homepage rows, row items, layout config               |
-| `Engagement`     | Watchlists, favorites, watch history, playback progress |
-| `Billing`        | Stripe subscriptions, plans, checkout                 |
-| `Analytics`      | Raw events, aggregations, real-time stats             |
-| `Notifications`  | Push notifications, notification records, delivery    |
-| `Branding`       | Per-org themes, template selection                    |
-| `Webhooks`       | Outbound webhook endpoints, events, delivery          |
+| Context         | Responsibility                                        |
+|-----------------|-------------------------------------------------------|
+| `Accounts`      | Users, organizations, memberships, invitations, RBAC  |
+| `Content`       | Videos, collections, tags, Mux client wrapper         |
+| `Catalog`       | Homepage rows, row items, layout config               |
+| `Engagement`    | Watchlists, favorites, watch history, playback progress |
+| `Billing`       | Stripe subscriptions, plans, checkout                 |
+| `Analytics`     | Raw events, aggregations, real-time stats             |
+| `Notifications` | Push notifications, notification records, delivery    |
+| `Branding`      | Per-org themes, template selection                    |
+| `Webhooks`      | Outbound webhook endpoints, events, delivery          |
+| `Admin`         | Super admin platform-level operations (cross-tenant)  |
+| `Imports`       | Migration from other platforms                        |
+
+---
+
+## Architecture Principles
+
+These principles apply to every feature, every context function, and every
+schema. They are not guidelines — they are rules. Violating them creates
+problems that are expensive to fix later.
+
+For detailed patterns and code examples, see `.claude/architecture-decisions.md`,
+`.claude/scalability.md`, and `.claude/observability.md`.
+
+### 1. Protect Postgres from the Hot Path
+
+Never write high-frequency data directly to Postgres. Playback progress,
+analytics events, and any operation that fires more than once per viewer per
+minute must go through a write buffer (`Bobine.Buffer` behaviour) that
+batches and flushes periodically. Context function callers must never know
+whether the write is buffered or direct — the interface is the same.
+
+See `.claude/scalability.md` for the buffer pattern and which operations
+require it.
+
+### 2. Separate Read and Write Paths
+
+Structure context functions so reads can be routed to a database replica and
+writes hit the primary. Never mix reads and writes in a single function
+unless transactional consistency is actually required. This enables future
+read-replica routing as a configuration change, not a rewrite.
+
+### 3. Cache Frequently-Read, Infrequently-Written Data
+
+Organization resolution, themes, row configuration, video metadata, and
+subscription status must go through `Bobine.Cache`. The cache implementation
+is ETS/Cachex today, swappable to Redis later. Invalidation happens via the
+event system — when an operator updates a resource, the event broadcast
+triggers cache invalidation across the Fly cluster.
+
+See `.claude/scalability.md` for what to cache and cache key conventions.
+
+### 4. Minimize Persistent LiveView Connections
+
+Viewer-facing pages use an islands architecture: static server-rendered HTML
+with targeted LiveView components for interactive elements. Only the operator
+dashboard and low-traffic viewer pages (account, watchlist management) should
+be full-page LiveView. The homepage, browse pages, and video player page
+should be static with LiveView islands.
+
+Keep socket assigns lean. Load the minimum data needed for render. Never
+preload entire association trees into assigns.
+
+### 5. Broadcast Only What Multiple Processes Need
+
+Use PubSub for content changes, subscriber events, operator actions, and
+cache invalidation. Never use PubSub for per-viewer state (playback progress,
+scroll position, heartbeats). All PubSub topics must be scoped to the
+narrowest useful audience — `events:{org_id}`, not `events:global`.
+
+See `.claude/scalability.md` for topic design rules.
+
+### 6. Separate Background Jobs by Criticality
+
+Oban queues: `critical` (payments), `default` (webhooks, notifications),
+`mux`, `stripe`, `bulk` (analytics, progress flushes, exports), `imports`.
+High-volume work must never share a queue with payment processing. Every
+Oban job must include `organization_id` in its args.
+
+### 7. Emit Events, Don't Inline Side Effects
+
+Context functions broadcast events via `Bobine.Events`. Side effects (audit
+logging, webhook dispatch, analytics, notifications, cache invalidation) are
+handled by subscribers, not inline in the context function. Adding a new side
+effect means adding a new subscriber, not modifying existing code.
+
+See `.claude/architecture-decisions.md` for the event broadcasting pattern.
+
+### 8. Instrument Everything
+
+Every context mutation gets an OpenTelemetry span. Every external API call
+gets a span with service-specific attributes. Every Oban worker restores
+trace context from the enqueuing request. Every business-significant event
+emits a metric via `Bobine.Metrics`. Every log line uses structured metadata
+with `trace_id`, `span_id`, `org_id`, and `user_id`.
+
+See `.claude/observability.md` for span naming, metric conventions, and
+logging rules.
+
+### 9. One Tenant Must Never Degrade Another
+
+Database queries are indexed and paginated. Background jobs are queue-separated.
+Cache keys are org-namespaced. Rate limiting is per-tenant. A bulk import for
+one org must not starve another org's webhook processing. A misconfigured org
+must not slow down other orgs' page loads.
+
+### 10. Design Interfaces for Tomorrow, Implement for Today
+
+Use behaviours (`Bobine.Buffer`, `Bobine.Cache`, `Bobine.Content.MuxClientBehaviour`)
+so implementations can be swapped without changing callers. Use consistent
+error tuples so a future API layer maps cleanly to HTTP responses. Use
+pagination parameters on every list function even if the UI doesn't paginate
+yet. Use feature flags to gate functionality by plan tier.
 
 ---
 
@@ -66,157 +169,154 @@ call `Repo` directly.
 
 ## **NOTE: EVERY ADDITIONAL CODE WRITTEN THAT ADDS BEHAVIOR MUST BE ACCOMPANIED BY A TEST THAT VALIDATES SAID BEHAVIOR**
 
-## Run `mix format` on every change
-
-### 1. Single Responsibility — One Function, One Job
+### Single Responsibility — One Function, One Job
 
 Every function does exactly one thing. If you find yourself writing `and` in a
 `@doc` description, the function needs to be split.
 
-```elixir
-# ✅ CORRECT — each step is its own function
-def create_video_from_mux_asset(organization, mux_asset_attrs) do
-  mux_asset_attrs
-  |> normalize_mux_metadata()
-  |> build_video_changeset(organization)
-  |> Repo.insert()
-end
-
-# ❌ WRONG — Mux API call and database insert mixed together
-def create_video(organization, upload_params) do
-  {:ok, asset} = MuxClient.create_asset(upload_params)
-  Repo.insert(%Video{title: asset.title, mux_asset_id: asset.id, ...})
-end
-```
-
-### 2. Pipe-First Data Transformation
+### Pipe-First Data Transformation
 
 All multi-step data transformations use `|>`. The input data flows top to bottom.
 Avoid intermediate variables when a pipe expresses intent more clearly.
 
-```elixir
-# ✅ CORRECT
-def build_theme_css(theme) do
-  theme
-  |> extract_css_variables()
-  |> merge_with_template_defaults()
-  |> render_css_string()
-end
-
-# ❌ WRONG — named intermediates obscure the flow
-def build_theme_css(theme) do
-  vars = extract_css_variables(theme)
-  merged = merge_with_template_defaults(vars)
-  render_css_string(merged)
-end
-```
-
 Acceptable exceptions: when a value is used more than once, or when naming it
-genuinely improves readability (e.g. a complex pattern match result).
+genuinely improves readability.
 
-### 3. Doctests on Every Public Function
+### Doctests on Every Public Function
 
-Every public function (`def`, not `defp`) must have a `@doc` block with at least one
-doctest demonstrating the happy path. The doctest must be runnable — use real values,
-not placeholders.
+Every public function (`def`, not `defp`) must have a `@doc` block with at least
+one doctest demonstrating the happy path.
 
-```elixir
-@doc """
-Derives the subdomain from an organization's slug.
+Exemptions: functions that hit the database or call external services — use
+unit tests with mocks instead.
 
-    iex> Bobine.Accounts.subdomain_for(%Bobine.Accounts.Organization{slug: "acme-films"})
-    "acme-films.Bobine.com"
-"""
-def subdomain_for(%Organization{slug: slug}) do
-  "#{slug}.Bobine.com"
-end
-```
+### Error Handling with Tagged Tuples
 
-Rules for doctests:
-- Use `iex>` format, not prose descriptions of what the function returns
-- Cover the happy path only — edge cases belong in unit tests
-- The doctests should always exercise the most intended pathway — for example if
-  there is a collection being processed, the test should not have an empty
-  collection as the test data.
-- If the function returns a struct or large map, test a specific field:
-  `iex> result.mux_asset_id` rather than the whole struct
-- Doctests for functions that hit the database are **exempt** — use unit tests instead
-- Doctests for functions that call external services (Mux, Stripe) are **exempt** —
-  use unit tests with mocks instead
-
-### 4. Error Handling with `{:ok, _} / {:error, _}`
-
-All functions that can fail return tagged tuples. Never raise from a public
-context function — let the caller decide how to handle errors.
+All functions that can fail return specific, serializable tagged tuples:
 
 ```elixir
-# ✅ CORRECT
-def create_subscription(organization, user, plan) do
-  with {:ok, stripe_sub} <- StripeClient.create_subscription(user, plan),
-       {:ok, sub}         <- persist_subscription(organization, user, stripe_sub) do
-    {:ok, sub}
-  else
-    {:error, reason} -> {:error, reason}
-  end
-end
-
-# ❌ WRONG — raises on Stripe failure
-def create_subscription(organization, user, plan) do
-  stripe_sub = StripeClient.create_subscription!(user, plan)
-  persist_subscription!(organization, user, stripe_sub)
-end
+{:ok, resource}
+{:error, :validation, changeset}
+{:error, :not_found}
+{:error, :forbidden}
+{:error, :plan_limit_reached, %{limit: n, current: n}}
+{:error, :mux_error, details}
 ```
 
-Exception: `get_video!/2` and similar bang functions are acceptable for cases
-where a missing record is a programmer error (e.g. following a valid FK), not user
-input.
+Never return bare `{:error, changeset}` — always tag the error type. Never
+return string error messages from context functions.
 
-### 5. Private Functions Are Prefixed with Intent
+See `.claude/architecture-decisions.md` for the full error taxonomy.
 
-Name private helpers to describe what they do to the data, not what they are:
+### Private Functions Are Prefixed with Intent
 
 ```elixir
 defp reject_expired_subscriptions(subs)  # ✅
-defp filter_subs(subs)                   # ❌ — filter to what?
+defp filter_subs(subs)                   # ❌
 
 defp normalize_mux_webhook_payload(map)  # ✅
-defp process_webhook(map)                # ❌ — process how?
+defp process_webhook(map)                # ❌
 ```
 
-### 6. Contexts Are the Public API
+### Contexts Are the Public API
 
-All database access goes through context modules. LiveViews and controllers never
-call `Repo` directly.
+All database access goes through context modules. LiveViews and controllers
+never call `Repo` directly. The `Admin` context is the sole exception for
+cross-tenant queries, clearly documented as such.
 
-```elixir
-# ✅ CORRECT — LiveView delegates to context
-def handle_event("add_to_watchlist", %{"video_id" => video_id}, socket) do
-  org = socket.assigns.organization
-  user = socket.assigns.current_user
-  {:ok, _} = Engagement.add_to_watchlist(org, user, video_id)
-  {:noreply, assign(socket, watchlist: Engagement.list_watchlist(org, user))}
-end
+### Soft Deletes on User-Facing Content
 
-# ❌ WRONG — LiveView queries directly
-def handle_event("add_to_watchlist", %{"video_id" => video_id}, socket) do
-  Repo.insert(%WatchlistItem{user_id: socket.assigns.current_user.id, video_id: video_id})
-  {:noreply, socket}
-end
-```
+Never hard-delete user-facing records. Use `deleted_at` timestamps. All list
+queries filter soft-deleted records by default. Provide explicit
+`_including_deleted` variants for admin views.
+
+See `.claude/architecture-decisions.md` for which schemas use soft deletes.
+
+### Pagination on Every List Query
+
+Every context function that returns a list accepts `opts \\ []` with `page`
+and `per_page` parameters. Returns a pagination struct with `results`, `page`,
+`per_page`, `total`, and `total_pages`. Max `per_page` is 100.
+
+### Audit Every Mutation
+
+Every create, update, and delete operation is logged via the event system
+and the `AuditSubscriber`. The audit log records who did it, when, what
+changed, and from which IP — including impersonation context.
+
+---
+
+## Tests Are a Contract, Not an Obstacle
+
+Existing tests describe intended behavior. They are specifications, not
+suggestions.
+
+1. **Never modify an existing test to make it pass.** If a previously passing
+   test fails after your changes, your changes broke intended behavior. Fix
+   your code, not the test. The only exception is when we are deliberately
+   and explicitly changing the behavior the test describes — and that change
+   must be stated upfront.
+
+2. **Never weaken a test assertion.** Replacing a specific assertion with a
+   looser one to make a failing test pass is never acceptable.
+
+3. **Never delete a test to resolve a failure.** A deleted test is a deleted
+   specification. Flag it for discussion — do not silently remove it.
+
+4. **Never change existing function behavior to satisfy a new test.** If
+   writing a test for feature B reveals that function X needs to behave
+   differently, stop and evaluate. The correct approach is to add a new
+   function or parameter, not quietly change X.
+
+5. **When a new feature causes existing tests to fail, the burden of proof
+   is on the new feature.** The new code must integrate without breaking
+   existing behavior.
+
+6. **If you believe an existing test is genuinely wrong**, flag it with a
+   comment and ask for confirmation before changing it.
+
+The test suite is a ratchet that only moves forward.
+
+See `.claude/testing.md` for the E2E rule, Wallaby setup, factory patterns,
+and the full test category requirements.
 
 ---
 
 ## What Not to Do
 
+### Code
 - **No `Repo` calls outside context modules**
-- **No cross-tenant data access** — every query must be scoped to `organization_id`
-- **No multi-responsibility functions** — if in doubt, split it
+- **No cross-tenant data access** — every query scoped to `organization_id`
+  (except explicitly documented `Admin` context functions)
+- **No multi-responsibility functions**
 - **No public function without a doctest** (exempt: DB and external service calls)
 - **No untested branch** — every `case`/`cond`/`if` arm needs a test
-- **No direct Mux or Stripe API calls outside their client modules**
-- **No hardcoded tenant data** — slugs, domains, theme values all come from the DB
 - **No `IO.inspect` left in committed code**
+- **No string error messages from context functions** — use tagged atoms
+
+### External Services
+- **No direct Mux or Stripe API calls outside their client modules**
+- **No external API call without an idempotency key**
+- **No external API call without an OpenTelemetry span**
+
+### Data
+- **No hard deletes on user-facing content** — use soft deletes
+- **No list function without pagination parameters**
+- **No high-frequency writes directly to Postgres** — use a buffer
+- **No unbounded preloads in socket assigns**
+
+### Infrastructure
 - **No `mix` commands in production** — use release commands only
 - **No secrets in `config/config.exs` or `config/prod.exs`** — runtime only
 - **No deploys that skip tests** — the `needs: test` gate is not optional
-- **No business logic in TypeScript hooks** — hooks are thin DOM/JS bridges only
+- **No PubSub for per-viewer state** — only broadcast-worthy events
+- **No Oban job without `organization_id` in args**
+
+### Frontend
+- **No business logic in TypeScript hooks** — hooks are thin DOM/JS bridges
+- **No CSS classes as test selectors** — use `data-test` attributes
+- **No hardcoded tenant data** — slugs, domains, theme values from the DB
+
+### Logging
+- **No string interpolation in Logger calls** — use structured metadata
+- **No Logger call without `org_id` in metadata** (where org context exists)

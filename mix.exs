@@ -73,7 +73,26 @@ defmodule Bobine.MixProject do
       {:ex_machina, "~> 2.8", only: :test},
       {:mox, "~> 1.1", only: :test},
       {:floki, "~> 0.37", only: :test},
-      {:wallaby, "~> 0.30", only: :test, runtime: false}
+      {:wallaby, "~> 0.30", only: :test, runtime: false},
+
+      # OpenTelemetry core
+      {:opentelemetry, "~> 1.4"},
+      {:opentelemetry_api, "~> 1.3"},
+      {:opentelemetry_exporter, "~> 1.7"},
+
+      # Auto-instrumentation libraries
+      {:opentelemetry_phoenix, "~> 1.2"},
+      {:opentelemetry_ecto, "~> 1.2"},
+      {:opentelemetry_oban, "~> 1.1"},
+
+      # For outbound HTTP call instrumentation
+      {:opentelemetry_finch, "~> 0.2"},
+
+      # Structured logging with trace context
+      {:opentelemetry_logger_metadata, "~> 0.1"},
+
+      # Structured JSON logging for production
+      {:logger_json, "~> 6.0"}
     ]
   end
 

@@ -88,5 +88,9 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
+# Export OTel traces to stdout in dev for visibility
+config :opentelemetry,
+  traces_exporter: {:otel_exporter_stdout, []}
+
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

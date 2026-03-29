@@ -8,6 +8,8 @@ defmodule Bobine.Billing do
   alias Bobine.Pagination
   alias Bobine.Events
 
+  require Bobine.Otel
+
   alias Bobine.Billing.Plan
 
   @doc """
@@ -145,11 +147,13 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def create_subscription(attrs) do
-    with {:ok, sub} <- %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:subscription_created, sub})
-      {:ok, sub}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    Bobine.Otel.with_span "bobine.billing.create_subscription" do
+      with {:ok, sub} <- %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
+        Events.broadcast(nil, {:subscription_created, sub})
+        {:ok, sub}
+      else
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 

@@ -28,5 +28,10 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
+# Structured JSON logging for production with trace context
+config :logger, :default_formatter,
+  format: {LoggerJSON.Formatters.Basic, :format},
+  metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id, :org_slug]
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

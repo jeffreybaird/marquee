@@ -12,6 +12,8 @@ defmodule Bobine.Admin do
   alias Bobine.Repo
   alias Bobine.Pagination
   alias Bobine.Events
+
+  require Bobine.Otel
   alias Bobine.Accounts.{Organization, User, Membership}
   alias Bobine.Branding
   alias Bobine.Branding.Theme
@@ -85,39 +87,41 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def create_organization(attrs) do
-    result =
-      Repo.transaction(fn ->
-        changeset = Organization.changeset(%Organization{}, attrs)
+    Bobine.Otel.with_span "bobine.admin.create_organization" do
+      result =
+        Repo.transaction(fn ->
+          changeset = Organization.changeset(%Organization{}, attrs)
 
-        case Repo.insert(changeset) do
-          {:ok, org} ->
-            {:ok, _theme} =
-              Branding.create_theme(%{
-                organization_id: org.id,
-                background: "#0f0f0f",
-                surface: "#1c1c1c",
-                text_primary: "#ffffff",
-                text_secondary: "#aaaaaa",
-                brand_primary: "#1a73e8",
-                brand_secondary: "#174ea6",
-                accent: "#e8a21a",
-                font_heading: "Inter",
-                font_body: "Inter",
-                border_radius: "0.5rem",
-                card_border_radius: "0.75rem"
-              })
+          case Repo.insert(changeset) do
+            {:ok, org} ->
+              {:ok, _theme} =
+                Branding.create_theme(%{
+                  organization_id: org.id,
+                  background: "#0f0f0f",
+                  surface: "#1c1c1c",
+                  text_primary: "#ffffff",
+                  text_secondary: "#aaaaaa",
+                  brand_primary: "#1a73e8",
+                  brand_secondary: "#174ea6",
+                  accent: "#e8a21a",
+                  font_heading: "Inter",
+                  font_body: "Inter",
+                  border_radius: "0.5rem",
+                  card_border_radius: "0.75rem"
+                })
 
-            Events.broadcast(nil, {:organization_created, org})
-            org
+              Events.broadcast(nil, {:organization_created, org})
+              org
 
-          {:error, changeset} ->
-            Repo.rollback(changeset)
-        end
-      end)
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+        end)
 
-    case result do
-      {:ok, org} -> {:ok, org}
-      {:error, changeset} -> {:error, :validation, changeset}
+      case result do
+        {:ok, org} -> {:ok, org}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -360,28 +364,31 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def export_organization_data(%Organization{} = organization) do
-    org_id = organization.id
+    Bobine.Otel.with_span "bobine.admin.export_organization_data",
+                          %{"bobine.org.id" => organization.id} do
+      org_id = organization.id
 
-    %{
-      organization: organization,
-      memberships:
-        Repo.all(from(m in Membership, where: m.organization_id == ^org_id, preload: [:user])),
-      videos: Repo.all(from(v in Video, where: v.organization_id == ^org_id)),
-      collections: Repo.all(from(c in Collection, where: c.organization_id == ^org_id)),
-      tags: Repo.all(from(t in Tag, where: t.organization_id == ^org_id)),
-      rows: Repo.all(from(r in Row, where: r.organization_id == ^org_id)),
-      plans: Repo.all(from(p in Plan, where: p.organization_id == ^org_id)),
-      subscriptions: Repo.all(from(s in Subscription, where: s.organization_id == ^org_id)),
-      theme: Repo.get_by(Theme, organization_id: org_id),
-      webhook_endpoints:
-        Repo.all(from(w in WebhookEndpoint, where: w.organization_id == ^org_id)),
-      notifications: Repo.all(from(n in Notification, where: n.organization_id == ^org_id)),
-      audit_logs: Repo.all(from(a in AuditLog, where: a.organization_id == ^org_id)),
-      watchlist_items: Repo.all(from(w in WatchlistItem, where: w.organization_id == ^org_id)),
-      favorites: Repo.all(from(f in Favorite, where: f.organization_id == ^org_id)),
-      watch_histories: Repo.all(from(w in WatchHistory, where: w.organization_id == ^org_id)),
-      progresses: Repo.all(from(p in Progress, where: p.organization_id == ^org_id)),
-      analytics_events: Repo.all(from(e in AnalyticsEvent, where: e.organization_id == ^org_id))
-    }
+      %{
+        organization: organization,
+        memberships:
+          Repo.all(from(m in Membership, where: m.organization_id == ^org_id, preload: [:user])),
+        videos: Repo.all(from(v in Video, where: v.organization_id == ^org_id)),
+        collections: Repo.all(from(c in Collection, where: c.organization_id == ^org_id)),
+        tags: Repo.all(from(t in Tag, where: t.organization_id == ^org_id)),
+        rows: Repo.all(from(r in Row, where: r.organization_id == ^org_id)),
+        plans: Repo.all(from(p in Plan, where: p.organization_id == ^org_id)),
+        subscriptions: Repo.all(from(s in Subscription, where: s.organization_id == ^org_id)),
+        theme: Repo.get_by(Theme, organization_id: org_id),
+        webhook_endpoints:
+          Repo.all(from(w in WebhookEndpoint, where: w.organization_id == ^org_id)),
+        notifications: Repo.all(from(n in Notification, where: n.organization_id == ^org_id)),
+        audit_logs: Repo.all(from(a in AuditLog, where: a.organization_id == ^org_id)),
+        watchlist_items: Repo.all(from(w in WatchlistItem, where: w.organization_id == ^org_id)),
+        favorites: Repo.all(from(f in Favorite, where: f.organization_id == ^org_id)),
+        watch_histories: Repo.all(from(w in WatchHistory, where: w.organization_id == ^org_id)),
+        progresses: Repo.all(from(p in Progress, where: p.organization_id == ^org_id)),
+        analytics_events: Repo.all(from(e in AnalyticsEvent, where: e.organization_id == ^org_id))
+      }
+    end
   end
 end

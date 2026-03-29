@@ -8,6 +8,8 @@ defmodule Bobine.Content do
   alias Bobine.Pagination
   alias Bobine.Events
 
+  require Bobine.Otel
+
   alias Bobine.Content.Video
 
   @doc """
@@ -53,11 +55,13 @@ defmodule Bobine.Content do
   Exempt from doctest — hits the database.
   """
   def create_video(attrs) do
-    with {:ok, video} <- %Video{} |> Video.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:video_created, video})
-      {:ok, video}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    Bobine.Otel.with_span "bobine.content.create_video" do
+      with {:ok, video} <- %Video{} |> Video.changeset(attrs) |> Repo.insert() do
+        Events.broadcast(nil, {:video_created, video})
+        {:ok, video}
+      else
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -67,11 +71,13 @@ defmodule Bobine.Content do
   Exempt from doctest — hits the database.
   """
   def update_video(%Video{} = video, attrs) do
-    with {:ok, video} <- video |> Video.changeset(attrs) |> Repo.update() do
-      Events.broadcast(nil, {:video_updated, video})
-      {:ok, video}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    Bobine.Otel.with_span "bobine.content.update_video" do
+      with {:ok, video} <- video |> Video.changeset(attrs) |> Repo.update() do
+        Events.broadcast(nil, {:video_updated, video})
+        {:ok, video}
+      else
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -81,12 +87,16 @@ defmodule Bobine.Content do
   Exempt from doctest — hits the database.
   """
   def delete_video(%Video{} = video) do
-    with {:ok, video} <-
-           video
-           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-           |> Repo.update() do
-      Events.broadcast(nil, {:video_deleted, video})
-      {:ok, video}
+    Bobine.Otel.with_span "bobine.content.delete_video" do
+      with {:ok, video} <-
+             video
+             |> Ecto.Changeset.change(
+               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+             )
+             |> Repo.update() do
+        Events.broadcast(nil, {:video_deleted, video})
+        {:ok, video}
+      end
     end
   end
 

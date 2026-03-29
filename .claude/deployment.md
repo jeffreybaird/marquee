@@ -41,6 +41,7 @@ or be logged.
 | `STRIPE_SECRET_KEY`     | Fly + GH       | Stripe API key                   |
 | `STRIPE_WEBHOOK_SECRET` | Fly            | Stripe webhook signing secret    |
 | `RELEASE_COOKIE`        | Fly            | Erlang distribution cookie       |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | OpenTelemetry OTLP endpoint (optional) |
 
 ### `config/runtime.exs` is the only place for prod config
 

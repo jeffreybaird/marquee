@@ -43,6 +43,11 @@ config :bobine, Oban, testing: :inline
 config :bobine, :mux_client, Bobine.Content.MockMuxClient
 config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
 
+# Disable OTel in test to avoid noise
+config :opentelemetry,
+  traces_exporter: :none,
+  span_processor: :simple
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
