@@ -16,7 +16,16 @@ defmodule Bobine.Factory do
   def user_factory do
     %Bobine.Accounts.User{
       email: sequence(:email, &"user-#{&1}@example.com"),
-      confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      is_super_admin: false
+    }
+  end
+
+  def super_admin_factory do
+    %Bobine.Accounts.User{
+      email: sequence(:email, &"super-#{&1}@example.com"),
+      confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      is_super_admin: true
     }
   end
 

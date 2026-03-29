@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Analytics</.header>
       <p class="mt-4 text-base-content/70">Analytics coming soon.</p>

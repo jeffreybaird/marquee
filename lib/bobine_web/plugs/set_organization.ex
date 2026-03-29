@@ -28,12 +28,23 @@ defmodule BobineWeb.Plugs.SetOrganization do
 
         if scope && scope.user do
           case Accounts.get_membership(organization, scope.user) do
+            nil when scope.user.is_super_admin ->
+              # Super admin impersonating — no membership needed
+              updated_scope = Scope.with_organization(scope, organization, nil)
+
+              conn
+              |> assign(:current_scope, updated_scope)
+              |> assign(:impersonating, true)
+
             nil ->
               assign(conn, :organization, organization)
 
             membership ->
               updated_scope = Scope.with_organization(scope, organization, membership)
-              assign(conn, :current_scope, updated_scope)
+
+              conn
+              |> assign(:current_scope, updated_scope)
+              |> assign(:impersonating, false)
           end
         else
           assign(conn, :organization, organization)
@@ -54,9 +65,23 @@ defmodule BobineWeb.Plugs.SetOrganization do
   end
 
   defp resolve_organization(conn) do
-    with {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
+    with {:error, _} <- resolve_impersonated_org(conn),
+         {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
          {:error, _} <- resolve_by_subdomain(conn.host) do
       resolve_dev_fallback(conn)
+    end
+  end
+
+  # When a super admin is impersonating, use the impersonated org regardless of host.
+  defp resolve_impersonated_org(conn) do
+    scope = conn.assigns[:current_scope]
+
+    with true <- scope != nil and scope.user != nil and scope.user.is_super_admin,
+         org_id when is_binary(org_id) <- get_session(conn, :impersonated_org_id),
+         org when org != nil <- Bobine.Repo.get(Bobine.Accounts.Organization, org_id) do
+      {:ok, org}
+    else
+      _ -> {:error, :not_found}
     end
   end
 

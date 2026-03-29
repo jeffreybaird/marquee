@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.ContentLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Content</.header>
       <p class="mt-4 text-base-content/70">Content management coming soon.</p>

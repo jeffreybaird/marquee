@@ -25,6 +25,10 @@ defmodule BobineWeb.Router do
     plug BobineWeb.Plugs.RequireRole, minimum_role: :viewer_support
   end
 
+  pipeline :require_super_admin do
+    plug BobineWeb.Plugs.RequireSuperAdmin
+  end
+
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:bobine, :dev_routes) do
     import Phoenix.LiveDashboard.Router
@@ -80,6 +84,32 @@ defmodule BobineWeb.Router do
       live "/members", MembersLive
       live "/webhooks", WebhooksLive
       live "/settings", SettingsLive
+    end
+  end
+
+  ## Super admin routes — no org resolution, super admin only
+
+  scope "/super", BobineWeb do
+    pipe_through [:browser, :require_authenticated_user, :require_super_admin]
+
+    post "/organizations/:id/impersonate", ImpersonationController, :start
+    delete "/impersonate", ImpersonationController, :stop
+  end
+
+  scope "/super", BobineWeb.Super do
+    pipe_through [:browser, :require_authenticated_user, :require_super_admin]
+
+    live_session :super_admin,
+      on_mount: [
+        {BobineWeb.UserAuth, :require_authenticated},
+        {BobineWeb.Hooks.RequireSuperAdmin, :require_super_admin}
+      ] do
+      live "/", DashboardLive
+      live "/organizations", OrganizationsLive
+      live "/organizations/new", OrganizationNewLive
+      live "/organizations/:id", OrganizationShowLive
+      live "/organizations/:id/edit", OrganizationEditLive
+      live "/users", UsersLive
     end
   end
 

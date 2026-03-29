@@ -14,6 +14,9 @@ defmodule Bobine.Accounts.Organization do
     field :stripe_customer_id, :string
     field :template, :string, default: "default"
 
+    has_many :themes, Bobine.Branding.Theme
+    has_many :memberships, Bobine.Accounts.Membership
+
     timestamps(type: :utc_datetime)
   end
 

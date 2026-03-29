@@ -25,7 +25,12 @@
       "Bash(do)",
       "Bash(echo \"=== $f ===\")",
       "Read(//Users/jeffreybaird/personal-repos/bobine/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(chmod +x /Users/jeffreybaird/personal-repos/bobine/.git/hooks/pre-commit)",
+      "Bash(mix ecto.gen.migration add_super_admin_to_users)",
+      "Bash(mix ecto.migrate)",
+      "Bash(grep -l \"admin_layout\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex)",
+      "Bash(mix format:*)"
     ]
   }
 }

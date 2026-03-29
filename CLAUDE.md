@@ -14,6 +14,8 @@ when working in a specific domain:
 - `.claude/branding-and-theming.md` — CSS variables, templates, per-tenant styling
 - `.claude/typescript-hooks.md` — hook conventions, file structure, events
 - `.claude/testing.md` — Mox setup, factories, DataCase helpers, integration tests
+- `.claude/architecture-decisions.md` — audit logging, soft deletes, pagination, events, error shapes, feature flags
+- `.claude/observability.md` Instrumentation and logging
 
 ---
 

@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.WebhooksLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Webhooks</.header>
       <p class="mt-4 text-base-content/70">Webhook endpoint management coming soon.</p>

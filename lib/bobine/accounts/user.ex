@@ -10,6 +10,7 @@ defmodule Bobine.Accounts.User do
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
+    field :is_super_admin, :boolean, default: false
 
     timestamps(type: :utc_datetime)
   end
@@ -130,5 +131,20 @@ defmodule Bobine.Accounts.User do
   def valid_password?(_, _) do
     Bcrypt.no_user_verify()
     false
+  end
+
+  @doc """
+  A changeset for modifying platform-level admin flags.
+
+  This changeset is intentionally separate from user-facing changesets so that
+  `is_super_admin` can never be set through a public form. Only call this from
+  the `Bobine.Admin` context or a super admin action.
+
+  Exempt from doctest — hits the database.
+  """
+  def admin_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:is_super_admin])
+    |> validate_required([:is_super_admin])
   end
 end

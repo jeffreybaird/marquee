@@ -21,7 +21,17 @@ defmodule BobineWeb.Plugs.RequireRole do
     scope = conn.assigns[:current_scope]
 
     cond do
-      is_nil(scope) or is_nil(scope.membership) ->
+      is_nil(scope) or is_nil(scope.user) ->
+        conn
+        |> put_flash(:error, "You must be logged in to access this page.")
+        |> redirect(to: "/")
+        |> halt()
+
+      # Super admins bypass role checks — they can access any org's admin pages
+      scope.user.is_super_admin ->
+        conn
+
+      is_nil(scope.membership) ->
         conn
         |> put_flash(:error, "You must be logged in to access this page.")
         |> redirect(to: "/")

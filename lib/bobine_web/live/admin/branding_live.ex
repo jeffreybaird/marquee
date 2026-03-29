@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.BrandingLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Branding</.header>
       <p class="mt-4 text-base-content/70">Branding and theming coming soon.</p>

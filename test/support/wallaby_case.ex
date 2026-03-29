@@ -27,13 +27,6 @@ defmodule BobineWeb.WallabyCase do
   end
 
   @doc """
-  Logs a user into the given Wallaby session via magic link.
-
-  Generates a magic link token and visits the confirmation URL directly,
-  then submits the confirmation form. Use this for tests that need an
-  authenticated session but are not testing the login flow itself.
-  """
-  @doc """
   Logs a user in via magic link and navigates to the given org's admin dashboard.
 
   The `org` argument is required for admin-route E2E tests because login clears

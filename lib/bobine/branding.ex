@@ -38,6 +38,15 @@ defmodule Bobine.Branding do
   def get_theme!(id), do: Repo.get!(Theme, id)
 
   @doc """
+  Gets the theme for a given organization, or nil if none exists.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_theme_by_org(%Bobine.Accounts.Organization{id: org_id}) do
+    Repo.get_by(Theme, organization_id: org_id)
+  end
+
+  @doc """
   Creates a theme.
 
   ## Examples

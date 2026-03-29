@@ -37,8 +37,17 @@ defmodule Bobine.Accounts.Scope do
       iex> updated.organization.name
       "Acme"
 
+      iex> scope2 = Bobine.Accounts.Scope.for_user(%Bobine.Accounts.User{id: "2", email: "b@a.com"})
+      iex> org2 = %Bobine.Accounts.Organization{id: "3", name: "Beta"}
+      iex> updated2 = Bobine.Accounts.Scope.with_organization(scope2, org2, nil)
+      iex> updated2.organization.name
+      "Beta"
   """
   def with_organization(%__MODULE__{} = scope, %Organization{} = org, %Membership{} = membership) do
     %{scope | organization: org, membership: membership}
+  end
+
+  def with_organization(%__MODULE__{} = scope, %Organization{} = org, nil) do
+    %{scope | organization: org, membership: nil}
   end
 end

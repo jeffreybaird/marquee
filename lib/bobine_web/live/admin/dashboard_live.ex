@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.DashboardLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Dashboard</.header>
       <p class="mt-4 text-base-content/70">Welcome to your dashboard.</p>

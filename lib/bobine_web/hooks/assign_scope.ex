@@ -46,6 +46,10 @@ defmodule BobineWeb.Hooks.AssignScope do
          |> put_flash(:error, "Organization not found.")
          |> redirect(to: ~p"/users/log-in")}
 
+      # Super admins can access any org's admin pages without a membership
+      scope.user.is_super_admin ->
+        {:cont, socket}
+
       is_nil(scope.membership) ->
         {:halt,
          socket
@@ -65,7 +69,12 @@ defmodule BobineWeb.Hooks.AssignScope do
     user = load_user_from_session(session)
     host = socket.host_uri && socket.host_uri.host
     org = resolve_org(host, session)
-    membership = if org && user, do: Accounts.get_membership(org, user)
+    impersonating = impersonating?(user, session)
+
+    membership =
+      if org && user && !impersonating do
+        Accounts.get_membership(org, user)
+      end
 
     scope =
       case Scope.for_user(user) do
@@ -74,6 +83,9 @@ defmodule BobineWeb.Hooks.AssignScope do
 
         s when not is_nil(org) and not is_nil(membership) ->
           Scope.with_organization(s, org, membership)
+
+        s when not is_nil(org) and impersonating ->
+          Scope.with_organization(s, org, nil)
 
         s ->
           s
@@ -85,6 +97,13 @@ defmodule BobineWeb.Hooks.AssignScope do
     |> assign(:organization, org)
     |> assign(:current_membership, membership)
     |> assign(:current_path, socket.host_uri && socket.host_uri.path)
+    |> assign(:impersonating, impersonating)
+  end
+
+  defp impersonating?(nil, _session), do: false
+
+  defp impersonating?(user, session) do
+    user.is_super_admin && not is_nil(session["impersonated_org_id"])
   end
 
   defp load_user_from_session(session) do
@@ -99,13 +118,22 @@ defmodule BobineWeb.Hooks.AssignScope do
   defp resolve_org(nil, session), do: resolve_org_from_session(session)
 
   defp resolve_org(host, session) do
-    with {:error, _} <- Accounts.get_organization_by_custom_domain(host),
+    with {:error, _} <- resolve_impersonated_org(session),
+         {:error, _} <- Accounts.get_organization_by_custom_domain(host),
          {:error, _} <- resolve_by_subdomain(host),
          {:error, _} <- resolve_org_from_session(session) do
       resolve_dev_fallback()
     else
       {:ok, org} -> org
       nil -> nil
+    end
+  end
+
+  # If a super admin is impersonating, the impersonated org takes precedence.
+  defp resolve_impersonated_org(session) do
+    case session["impersonated_org_id"] do
+      nil -> {:error, :not_found}
+      org_id -> Bobine.Repo.get(Bobine.Accounts.Organization, org_id) |> wrap_org()
     end
   end
 

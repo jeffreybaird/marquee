@@ -73,6 +73,17 @@ defmodule BobineWeb.ConnCase do
   end
 
   @doc """
+  Builds an authenticated conn for a super admin user.
+
+  The host is left as `localhost` (no subdomain) since super admin routes do
+  not resolve an organization.
+  """
+  def conn_for_super_admin(%Bobine.Accounts.User{is_super_admin: true} = user) do
+    Phoenix.ConnTest.build_conn()
+    |> log_in_user(user)
+  end
+
+  @doc """
   Logs the given `user` into the `conn`.
 
   It returns an updated `conn`.

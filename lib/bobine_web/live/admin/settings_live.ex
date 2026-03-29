@@ -13,6 +13,7 @@ defmodule BobineWeb.Admin.SettingsLive do
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
+      impersonating={@impersonating}
     >
       <.header>Settings</.header>
       <p class="mt-4 text-base-content/70">Organization settings coming soon.</p>
