@@ -39,5 +39,17 @@ defmodule Bobine.Content.Video do
       :organization_id
     ])
     |> validate_required([:title, :slug, :organization_id])
+    |> unique_constraint(:slug, name: :videos_slug_organization_id_index)
+  end
+
+  @doc """
+  Changeset for Mux webhook-driven status updates.
+  Only allows fields that Mux webhooks should set.
+  """
+  def mux_status_changeset(video, attrs) do
+    video
+    |> cast(attrs, [:mux_asset_id, :mux_playback_id, :mux_status, :duration, :max_resolution])
+    |> validate_required([:mux_status])
+    |> validate_inclusion(:mux_status, ~w(waiting preparing ready errored))
   end
 end

@@ -3,16 +3,17 @@ defmodule Bobine.Content.MuxClient do
   Production Mux API client with OpenTelemetry instrumentation.
 
   Every Mux API call produces a span with the operation name, HTTP status,
-  and latency.
+  and latency. Returns `{:error, :mux_error, details}` on failure.
   """
 
   @behaviour Bobine.Content.MuxClientBehaviour
 
+  require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
   @impl true
-  def create_upload(params) do
-    traced_call("create_upload", fn ->
+  def create_direct_upload(params) do
+    traced_call("create_direct_upload", fn ->
       Mux.Video.Uploads.create(client(), params)
     end)
   end
@@ -26,35 +27,47 @@ defmodule Bobine.Content.MuxClient do
 
   @impl true
   def delete_asset(asset_id) do
-    traced_call("delete_asset", fn ->
-      Mux.Video.Assets.delete(client(), asset_id)
-    end)
+    Tracer.with_span "bobine.mux.delete_asset" do
+      Tracer.set_attributes([{"mux.operation", "delete_asset"}, {"bobine.service", "mux"}])
+      start = System.monotonic_time(:millisecond)
+
+      result = Mux.Video.Assets.delete(client(), asset_id)
+
+      duration = System.monotonic_time(:millisecond) - start
+      Tracer.set_attribute("duration_ms", duration)
+
+      case result do
+        {:ok, _, _} ->
+          Tracer.set_attribute("http.status_code", 200)
+          :ok
+
+        {:ok, _} ->
+          Tracer.set_attribute("http.status_code", 200)
+          :ok
+
+        {:error, reason, _} ->
+          Tracer.set_status(:error, inspect(reason))
+          Logger.error("Mux delete_asset failed", reason: inspect(reason))
+          {:error, :mux_error, reason}
+
+        {:error, reason} ->
+          Tracer.set_status(:error, inspect(reason))
+          Logger.error("Mux delete_asset failed", reason: inspect(reason))
+          {:error, :mux_error, reason}
+      end
+    end
   end
 
   @impl true
-  def create_playback_id(asset_id) do
-    traced_call("create_playback_id", fn ->
-      Mux.Video.Assets.create_playback_id(client(), asset_id, %{policy: "public"})
-    end)
-  end
-
-  @impl true
-  def delete_playback_id(asset_id, playback_id) do
-    traced_call("delete_playback_id", fn ->
-      Mux.Video.Assets.delete_playback_id(client(), asset_id, playback_id)
-    end)
-  end
-
-  @impl true
-  def get_asset_input_info(asset_id) do
-    traced_call("get_asset_input_info", fn ->
-      Mux.Video.Assets.input_info(client(), asset_id)
+  def list_assets(opts \\ []) do
+    traced_call("list_assets", fn ->
+      Mux.Video.Assets.list(client(), opts)
     end)
   end
 
   defp traced_call(operation, fun) do
     Tracer.with_span "bobine.mux.#{operation}" do
-      Tracer.set_attribute("mux.operation", operation)
+      Tracer.set_attributes([{"mux.operation", operation}, {"bobine.service", "mux"}])
       start = System.monotonic_time(:millisecond)
 
       result = fun.()
@@ -63,20 +76,24 @@ defmodule Bobine.Content.MuxClient do
       Tracer.set_attribute("duration_ms", duration)
 
       case result do
-        {:ok, _, _} = ok ->
+        {:ok, data, _env} ->
           Tracer.set_attribute("http.status_code", 200)
-          {:ok, ok}
+          Logger.info("Mux #{operation} succeeded", operation: operation)
+          {:ok, data}
 
-        {:ok, _} = ok ->
+        {:ok, data} ->
           Tracer.set_attribute("http.status_code", 200)
-          ok
+          Logger.info("Mux #{operation} succeeded", operation: operation)
+          {:ok, data}
 
-        {:error, reason, _} ->
+        {:error, reason, _env} ->
           Tracer.set_status(:error, inspect(reason))
+          Logger.error("Mux #{operation} failed", operation: operation, reason: inspect(reason))
           {:error, :mux_error, reason}
 
         {:error, reason} ->
           Tracer.set_status(:error, inspect(reason))
+          Logger.error("Mux #{operation} failed", operation: operation, reason: inspect(reason))
           {:error, :mux_error, reason}
       end
     end

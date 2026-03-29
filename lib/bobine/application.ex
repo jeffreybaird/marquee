@@ -20,6 +20,7 @@ defmodule Bobine.Application do
         {DNSCluster, query: Application.get_env(:bobine, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Bobine.PubSub},
         {Oban, Application.fetch_env!(:bobine, Oban)},
+        Bobine.Buffers.ProgressBuffer,
         Bobine.Events.AuditSubscriber,
         # Start to serve requests, typically the last entry
         BobineWeb.Endpoint

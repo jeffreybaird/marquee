@@ -40,7 +40,9 @@
       "Bash(grep \"\\\\.ex$\")",
       "Bash(grep -rn \"    end$\" lib/bobine/catalog.ex lib/bobine/engagement.ex lib/bobine/billing.ex lib/bobine/webhooks.ex lib/bobine/branding.ex lib/bobine/admin.ex)",
       "Bash(mix ecto.gen.migration add_features_to_organizations)",
-      "Bash(mix run:*)"
+      "Bash(mix run:*)",
+      "Bash(mix app.tree bobine)",
+      "Bash(timeout 5 mix phx.server)"
     ]
   }
 }

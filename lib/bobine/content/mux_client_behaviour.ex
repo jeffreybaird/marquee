@@ -7,10 +7,8 @@ defmodule Bobine.Content.MuxClientBehaviour do
   `Mox`-generated mock is injected via config.
   """
 
-  @callback create_upload(map()) :: {:ok, map()} | {:error, term()}
-  @callback get_asset(String.t()) :: {:ok, map()} | {:error, term()}
-  @callback delete_asset(String.t()) :: {:ok, map()} | {:error, term()}
-  @callback create_playback_id(String.t()) :: {:ok, map()} | {:error, term()}
-  @callback delete_playback_id(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
-  @callback get_asset_input_info(String.t()) :: {:ok, map()} | {:error, term()}
+  @callback create_direct_upload(map()) :: {:ok, map()} | {:error, :mux_error, term()}
+  @callback get_asset(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
+  @callback delete_asset(String.t()) :: :ok | {:error, :mux_error, term()}
+  @callback list_assets(keyword()) :: {:ok, list(map())} | {:error, :mux_error, term()}
 end

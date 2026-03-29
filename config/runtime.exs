@@ -16,6 +16,16 @@ import Config
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
+# In dev, auto-load .env file so credentials are available without manual export
+if config_env() == :dev and File.exists?(".env") do
+  for line <- File.stream!(".env"),
+      line = String.trim(line),
+      line != "" and not String.starts_with?(line, "#"),
+      [key, value] = String.split(line, "=", parts: 2) do
+    System.put_env(key, value)
+  end
+end
+
 if System.get_env("PHX_SERVER") do
   config :bobine, BobineWeb.Endpoint, server: true
 end
@@ -23,6 +33,19 @@ end
 if config_env() != :test do
   config :bobine, BobineWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+
+  # Mux credentials — read from env vars (set via .env in dev, Fly secrets in prod)
+  if mux_token_id = System.get_env("MUX_TOKEN_ID") do
+    config :bobine,
+      mux_token_id: mux_token_id,
+      mux_token_secret: System.get_env("MUX_TOKEN_SECRET"),
+      mux_webhook_secret: System.get_env("MUX_WEBHOOK_SECRET")
+  end
+
+  # Stripe credentials
+  if stripe_secret = System.get_env("STRIPE_SECRET_KEY") do
+    config :stripity_stripe, api_key: stripe_secret
+  end
 end
 
 if config_env() == :prod do

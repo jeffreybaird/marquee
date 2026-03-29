@@ -111,4 +111,48 @@ defmodule Bobine.Engagement do
   def change_watchlist_item(%WatchlistItem{} = watchlist_item, attrs \\ %{}) do
     WatchlistItem.changeset(watchlist_item, attrs)
   end
+
+  ## -----------------------------------------------------------------------
+  ## Playback progress
+  ## -----------------------------------------------------------------------
+
+  alias Bobine.Engagement.Progress
+
+  @doc """
+  Updates playback progress via the buffer (not direct DB write).
+
+  Exempt from doctest — writes to buffer.
+  """
+  def update_progress(scope, video_id, position) when is_number(position) do
+    Bobine.Buffers.ProgressBuffer.update(
+      scope.organization.id,
+      scope.user.id,
+      video_id,
+      position / 1
+    )
+  end
+
+  @doc """
+  Gets the saved playback progress for a user+video pair.
+
+  Checks the buffer first, falls back to the database.
+
+  Exempt from doctest — reads buffer and database.
+  """
+  def get_progress(scope, video_id) do
+    org_id = scope.organization.id
+    user_id = scope.user.id
+
+    case Bobine.Buffers.ProgressBuffer.get(org_id, user_id, video_id) do
+      nil ->
+        Repo.get_by(Progress,
+          organization_id: org_id,
+          user_id: user_id,
+          video_id: video_id
+        )
+
+      position ->
+        %Progress{position: position, completed: false}
+    end
+  end
 end

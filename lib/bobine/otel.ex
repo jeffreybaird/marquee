@@ -2,6 +2,9 @@ defmodule Bobine.Otel do
   @moduledoc """
   Helpers for creating OpenTelemetry spans in Bobine business logic.
   All span names follow the convention: bobine.<context>.<operation>
+
+  Spans are resilient — if OpenTelemetry is unavailable (e.g. during code
+  reload in dev), the wrapped block still executes normally.
   """
 
   require OpenTelemetry.Tracer, as: Tracer
@@ -10,6 +13,7 @@ defmodule Bobine.Otel do
   Wraps a function in a named span with standard Bobine attributes.
 
   Automatically sets an "outcome" attribute based on the return value.
+  If OpenTelemetry is unavailable, executes the block without tracing.
 
   ## Example
 
@@ -19,30 +23,38 @@ defmodule Bobine.Otel do
   """
   defmacro with_span(name, attributes \\ Macro.escape(%{}), do: block) do
     quote do
-      require OpenTelemetry.Tracer, as: Tracer
-
-      Tracer.with_span unquote(name), %{attributes: unquote(attributes)} do
-        result = unquote(block)
-        Bobine.Otel.tag_outcome(result)
-        result
-      end
+      Bobine.Otel.safe_span(unquote(name), unquote(attributes), fn ->
+        unquote(block)
+      end)
     end
+  end
+
+  @doc false
+  def safe_span(name, attributes, fun) do
+    Tracer.with_span name, %{attributes: attributes} do
+      result = fun.()
+      tag_outcome(result)
+      result
+    end
+  rescue
+    UndefinedFunctionError ->
+      fun.()
   end
 
   @doc """
   Tags the current span with outcome attributes based on the result value.
   Called automatically by `with_span`.
   """
-  def tag_outcome({:ok, _}), do: Tracer.set_attribute("outcome", "success")
+  def tag_outcome({:ok, _}), do: safe_set_attribute("outcome", "success")
 
   def tag_outcome({:error, reason}) do
-    Tracer.set_attribute("outcome", "error")
-    Tracer.set_attribute("error.reason", inspect(reason))
+    safe_set_attribute("outcome", "error")
+    safe_set_attribute("error.reason", inspect(reason))
   end
 
   def tag_outcome({:error, reason, _detail}) do
-    Tracer.set_attribute("outcome", "error")
-    Tracer.set_attribute("error.reason", inspect(reason))
+    safe_set_attribute("outcome", "error")
+    safe_set_attribute("error.reason", inspect(reason))
   end
 
   def tag_outcome(_), do: :ok
@@ -58,6 +70,8 @@ defmodule Bobine.Otel do
       {"bobine.org.id", org_id},
       {"bobine.org.slug", slug}
     ])
+  rescue
+    UndefinedFunctionError -> :ok
   end
 
   def set_org_attributes(_), do: :ok
@@ -73,7 +87,15 @@ defmodule Bobine.Otel do
       {"bobine.user.id", user_id},
       {"bobine.user.email", email}
     ])
+  rescue
+    UndefinedFunctionError -> :ok
   end
 
   def set_user_attributes(_), do: :ok
+
+  defp safe_set_attribute(key, value) do
+    Tracer.set_attribute(key, value)
+  rescue
+    UndefinedFunctionError -> :ok
+  end
 end
