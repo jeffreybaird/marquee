@@ -52,7 +52,7 @@ defmodule BobineWeb.Super.OrganizationNewLive do
       {:error, :already_has_owner} ->
         {:noreply, put_flash(socket, :error, "That organization already has an owner.")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, :validation, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset, as: "org"))}
     end
   end

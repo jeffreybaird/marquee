@@ -5,19 +5,29 @@ defmodule Bobine.Webhooks do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
 
   alias Bobine.Webhooks.Endpoint
 
   @doc """
-  Returns the list of webhook_endpoints.
+  Returns a paginated list of webhook_endpoints, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_webhook_endpoints()
-      [%Endpoint{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_webhook_endpoints do
+  def list_webhook_endpoints(opts \\ []) do
+    Endpoint
+    |> where([e], is_nil(e.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of webhook_endpoints including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_webhook_endpoints_including_deleted do
     Repo.all(Endpoint)
   end
 
@@ -40,53 +50,55 @@ defmodule Bobine.Webhooks do
   @doc """
   Creates a endpoint.
 
-  ## Examples
-
-      iex> create_endpoint(%{field: value})
-      {:ok, %Endpoint{}}
-
-      iex> create_endpoint(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_endpoint(attrs) do
-    %Endpoint{}
-    |> Endpoint.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, endpoint} <- %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:endpoint_created, endpoint})
+      {:ok, endpoint}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a endpoint.
 
-  ## Examples
-
-      iex> update_endpoint(endpoint, %{field: new_value})
-      {:ok, %Endpoint{}}
-
-      iex> update_endpoint(endpoint, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_endpoint(%Endpoint{} = endpoint, attrs) do
-    endpoint
-    |> Endpoint.changeset(attrs)
-    |> Repo.update()
+    with {:ok, endpoint} <- endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:endpoint_updated, endpoint})
+      {:ok, endpoint}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
-  Deletes a endpoint.
+  Soft-deletes an endpoint by setting `deleted_at`.
 
-  ## Examples
-
-      iex> delete_endpoint(endpoint)
-      {:ok, %Endpoint{}}
-
-      iex> delete_endpoint(endpoint)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_endpoint(%Endpoint{} = endpoint) do
-    Repo.delete(endpoint)
+    with {:ok, endpoint} <-
+           endpoint
+           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Events.broadcast(nil, {:endpoint_deleted, endpoint})
+      {:ok, endpoint}
+    end
+  end
+
+  @doc """
+  Restores a soft-deleted endpoint by clearing `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_endpoint(%Endpoint{} = endpoint) do
+    endpoint
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -94,8 +106,8 @@ defmodule Bobine.Webhooks do
 
   ## Examples
 
-      iex> change_endpoint(endpoint)
-      %Ecto.Changeset{data: %Endpoint{}}
+      iex> change_endpoint(%Bobine.Webhooks.Endpoint{})
+      %Ecto.Changeset{data: %Bobine.Webhooks.Endpoint{}}
 
   """
   def change_endpoint(%Endpoint{} = endpoint, attrs \\ %{}) do

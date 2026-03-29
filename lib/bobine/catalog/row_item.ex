@@ -6,6 +6,7 @@ defmodule Bobine.Catalog.RowItem do
   @foreign_key_type :binary_id
   schema "row_items" do
     field :position, :integer
+    field :deleted_at, :utc_datetime
 
     belongs_to :row, Bobine.Catalog.Row
     belongs_to :video, Bobine.Content.Video

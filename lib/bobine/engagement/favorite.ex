@@ -5,6 +5,8 @@ defmodule Bobine.Engagement.Favorite do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "favorites" do
+    field :deleted_at, :utc_datetime
+
     belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :user, Bobine.Accounts.User
     belongs_to :video, Bobine.Content.Video

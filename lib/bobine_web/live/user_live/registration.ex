@@ -72,7 +72,7 @@ defmodule BobineWeb.UserLive.Registration do
          )
          |> push_navigate(to: ~p"/users/log-in")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, :validation, changeset} ->
         {:noreply, assign_form(socket, changeset)}
     end
   end

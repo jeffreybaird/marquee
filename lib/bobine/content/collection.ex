@@ -10,6 +10,7 @@ defmodule Bobine.Content.Collection do
     field :description, :string
     field :type, Ecto.Enum, values: [:series, :season, :category]
     field :position, :integer
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :parent, Bobine.Content.Collection, foreign_key: :parent_id

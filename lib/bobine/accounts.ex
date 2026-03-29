@@ -119,9 +119,10 @@ defmodule Bobine.Accounts do
 
   """
   def register_user(attrs) do
-    %User{}
-    |> User.email_changeset(attrs)
-    |> Repo.insert()
+    case %User{} |> User.email_changeset(attrs) |> Repo.insert() do
+      {:ok, user} -> {:ok, user}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   ## Settings
@@ -206,9 +207,10 @@ defmodule Bobine.Accounts do
 
   """
   def update_user_password(user, attrs) do
-    user
-    |> User.password_changeset(attrs)
-    |> update_user_and_delete_all_tokens()
+    case user |> User.password_changeset(attrs) |> update_user_and_delete_all_tokens() do
+      {:ok, result} -> {:ok, result}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   ## Session

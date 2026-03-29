@@ -22,7 +22,7 @@ defmodule Bobine.CatalogTest do
 
     test "list_rows/0 returns all rows" do
       row = row_fixture()
-      assert Catalog.list_rows() == [row]
+      assert %{results: [^row]} = Catalog.list_rows()
     end
 
     test "get_row!/1 returns the row with given id" do
@@ -49,7 +49,7 @@ defmodule Bobine.CatalogTest do
     end
 
     test "create_row/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Catalog.create_row(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Catalog.create_row(@invalid_attrs)
     end
 
     test "update_row/2 with valid data updates the row" do
@@ -73,14 +73,29 @@ defmodule Bobine.CatalogTest do
 
     test "update_row/2 with invalid data returns error changeset" do
       row = row_fixture()
-      assert {:error, %Ecto.Changeset{}} = Catalog.update_row(row, @invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Catalog.update_row(row, @invalid_attrs)
       assert row == Catalog.get_row!(row.id)
     end
 
-    test "delete_row/1 deletes the row" do
+    test "delete_row/1 soft-deletes the row" do
       row = row_fixture()
-      assert {:ok, %Row{}} = Catalog.delete_row(row)
-      assert_raise Ecto.NoResultsError, fn -> Catalog.get_row!(row.id) end
+      assert {:ok, %Row{} = deleted} = Catalog.delete_row(row)
+      assert deleted.deleted_at != nil
+      assert %{results: []} = Catalog.list_rows()
+    end
+
+    test "restore_row/1 restores a soft-deleted row" do
+      row = row_fixture()
+      {:ok, deleted} = Catalog.delete_row(row)
+      assert {:ok, %Row{} = restored} = Catalog.restore_row(deleted)
+      assert restored.deleted_at == nil
+    end
+
+    test "list_rows_including_deleted/0 returns soft-deleted rows" do
+      row = row_fixture()
+      {:ok, _deleted} = Catalog.delete_row(row)
+      assert [found] = Catalog.list_rows_including_deleted()
+      assert found.id == row.id
     end
 
     test "change_row/1 returns a row changeset" do

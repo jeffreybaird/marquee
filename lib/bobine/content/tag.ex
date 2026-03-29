@@ -7,6 +7,7 @@ defmodule Bobine.Content.Tag do
   schema "tags" do
     field :name, :string
     field :slug, :string
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
 

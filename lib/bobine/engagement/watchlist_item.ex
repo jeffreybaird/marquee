@@ -7,6 +7,7 @@ defmodule Bobine.Engagement.WatchlistItem do
   schema "watchlist_items" do
     field :position, :integer
     field :auto_remove_on_watch, :boolean, default: false
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :user, Bobine.Accounts.User

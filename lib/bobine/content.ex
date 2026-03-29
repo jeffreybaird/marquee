@@ -5,19 +5,29 @@ defmodule Bobine.Content do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
 
   alias Bobine.Content.Video
 
   @doc """
-  Returns the list of videos.
+  Returns a paginated list of videos, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_videos()
-      [%Video{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_videos do
+  def list_videos(opts \\ []) do
+    Video
+    |> where([v], is_nil(v.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of videos including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_videos_including_deleted do
     Repo.all(Video)
   end
 
@@ -40,53 +50,55 @@ defmodule Bobine.Content do
   @doc """
   Creates a video.
 
-  ## Examples
-
-      iex> create_video(%{field: value})
-      {:ok, %Video{}}
-
-      iex> create_video(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_video(attrs) do
-    %Video{}
-    |> Video.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, video} <- %Video{} |> Video.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:video_created, video})
+      {:ok, video}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a video.
 
-  ## Examples
-
-      iex> update_video(video, %{field: new_value})
-      {:ok, %Video{}}
-
-      iex> update_video(video, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_video(%Video{} = video, attrs) do
-    video
-    |> Video.changeset(attrs)
-    |> Repo.update()
+    with {:ok, video} <- video |> Video.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:video_updated, video})
+      {:ok, video}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
-  Deletes a video.
+  Soft-deletes a video by setting `deleted_at`.
 
-  ## Examples
-
-      iex> delete_video(video)
-      {:ok, %Video{}}
-
-      iex> delete_video(video)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_video(%Video{} = video) do
-    Repo.delete(video)
+    with {:ok, video} <-
+           video
+           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Events.broadcast(nil, {:video_deleted, video})
+      {:ok, video}
+    end
+  end
+
+  @doc """
+  Restores a soft-deleted video by clearing `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_video(%Video{} = video) do
+    video
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -94,8 +106,8 @@ defmodule Bobine.Content do
 
   ## Examples
 
-      iex> change_video(video)
-      %Ecto.Changeset{data: %Video{}}
+      iex> change_video(%Bobine.Content.Video{})
+      %Ecto.Changeset{data: %Bobine.Content.Video{}}
 
   """
   def change_video(%Video{} = video, attrs \\ %{}) do
@@ -105,15 +117,23 @@ defmodule Bobine.Content do
   alias Bobine.Content.Collection
 
   @doc """
-  Returns the list of collections.
+  Returns a paginated list of collections, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_collections()
-      [%Collection{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_collections do
+  def list_collections(opts \\ []) do
+    Collection
+    |> where([c], is_nil(c.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of collections including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_collections_including_deleted do
     Repo.all(Collection)
   end
 
@@ -136,53 +156,55 @@ defmodule Bobine.Content do
   @doc """
   Creates a collection.
 
-  ## Examples
-
-      iex> create_collection(%{field: value})
-      {:ok, %Collection{}}
-
-      iex> create_collection(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_collection(attrs) do
-    %Collection{}
-    |> Collection.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, collection} <- %Collection{} |> Collection.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:collection_created, collection})
+      {:ok, collection}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a collection.
 
-  ## Examples
-
-      iex> update_collection(collection, %{field: new_value})
-      {:ok, %Collection{}}
-
-      iex> update_collection(collection, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_collection(%Collection{} = collection, attrs) do
-    collection
-    |> Collection.changeset(attrs)
-    |> Repo.update()
+    with {:ok, collection} <- collection |> Collection.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:collection_updated, collection})
+      {:ok, collection}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
-  Deletes a collection.
+  Soft-deletes a collection by setting `deleted_at`.
 
-  ## Examples
-
-      iex> delete_collection(collection)
-      {:ok, %Collection{}}
-
-      iex> delete_collection(collection)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_collection(%Collection{} = collection) do
-    Repo.delete(collection)
+    with {:ok, collection} <-
+           collection
+           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Events.broadcast(nil, {:collection_deleted, collection})
+      {:ok, collection}
+    end
+  end
+
+  @doc """
+  Restores a soft-deleted collection by clearing `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_collection(%Collection{} = collection) do
+    collection
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -190,8 +212,8 @@ defmodule Bobine.Content do
 
   ## Examples
 
-      iex> change_collection(collection)
-      %Ecto.Changeset{data: %Collection{}}
+      iex> change_collection(%Bobine.Content.Collection{})
+      %Ecto.Changeset{data: %Bobine.Content.Collection{}}
 
   """
   def change_collection(%Collection{} = collection, attrs \\ %{}) do

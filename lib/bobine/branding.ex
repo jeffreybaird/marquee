@@ -5,6 +5,7 @@ defmodule Bobine.Branding do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Events
 
   alias Bobine.Branding.Theme
 
@@ -59,9 +60,10 @@ defmodule Bobine.Branding do
 
   """
   def create_theme(attrs) do
-    %Theme{}
-    |> Theme.changeset(attrs)
-    |> Repo.insert()
+    case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
+      {:ok, theme} -> {:ok, theme}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -77,9 +79,12 @@ defmodule Bobine.Branding do
 
   """
   def update_theme(%Theme{} = theme, attrs) do
-    theme
-    |> Theme.changeset(attrs)
-    |> Repo.update()
+    with {:ok, theme} <- theme |> Theme.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:theme_updated, theme})
+      {:ok, theme}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """

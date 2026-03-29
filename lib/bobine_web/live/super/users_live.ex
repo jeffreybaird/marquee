@@ -151,7 +151,8 @@ defmodule BobineWeb.Super.UsersLive do
   end
 
   defp load_users(socket) do
-    assign(socket, :users, Admin.list_users())
+    %{results: users} = Admin.list_users()
+    assign(socket, :users, users)
   end
 
   defp find_user!(users, id) do

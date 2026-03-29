@@ -9,6 +9,7 @@ defmodule Bobine.Webhooks.Endpoint do
     field :secret, :string
     field :events, {:array, :string}
     field :active, :boolean, default: false
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
 

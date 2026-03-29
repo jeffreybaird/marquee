@@ -74,7 +74,7 @@ defmodule Bobine.BrandingTest do
     end
 
     test "create_theme/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Branding.create_theme(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Branding.create_theme(@invalid_attrs)
     end
 
     test "update_theme/2 with valid data updates the theme" do
@@ -114,7 +114,10 @@ defmodule Bobine.BrandingTest do
 
     test "update_theme/2 with invalid data returns error changeset" do
       theme = theme_fixture()
-      assert {:error, %Ecto.Changeset{}} = Branding.update_theme(theme, @invalid_attrs)
+
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Branding.update_theme(theme, @invalid_attrs)
+
       assert theme == Branding.get_theme!(theme.id)
     end
 

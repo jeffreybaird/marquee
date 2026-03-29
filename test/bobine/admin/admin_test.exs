@@ -2,7 +2,7 @@ defmodule Bobine.AdminTest do
   use Bobine.DataCase, async: true
 
   alias Bobine.Admin
-  alias Bobine.Accounts.{Organization, Membership}
+  alias Bobine.Accounts.Membership
   alias Bobine.Branding
 
   describe "list_organizations/1" do
@@ -10,7 +10,7 @@ defmodule Bobine.AdminTest do
       org_a = insert(:organization)
       org_b = insert(:organization)
 
-      result = Admin.list_organizations()
+      %{results: result} = Admin.list_organizations()
       ids = Enum.map(result, & &1.id)
 
       assert org_a.id in ids
@@ -21,7 +21,7 @@ defmodule Bobine.AdminTest do
       insert(:organization, name: "Alpha Studio", slug: "alpha-studio")
       insert(:organization, name: "Beta Channel", slug: "beta-channel")
 
-      result = Admin.list_organizations(search: "Alpha")
+      %{results: result} = Admin.list_organizations(search: "Alpha")
       assert length(result) == 1
       assert hd(result).name == "Alpha Studio"
     end
@@ -30,14 +30,14 @@ defmodule Bobine.AdminTest do
       insert(:organization, name: "Alpha Studio", slug: "alpha-studio")
       insert(:organization, name: "Beta Channel", slug: "beta-channel")
 
-      result = Admin.list_organizations(search: "beta-channel")
+      %{results: result} = Admin.list_organizations(search: "beta-channel")
       assert length(result) == 1
       assert hd(result).slug == "beta-channel"
     end
 
     test "returns empty list when no orgs match search" do
       insert(:organization, name: "Alpha Studio", slug: "alpha-studio")
-      assert Admin.list_organizations(search: "zzz-no-match") == []
+      assert %{results: []} = Admin.list_organizations(search: "zzz-no-match")
     end
   end
 
@@ -70,13 +70,16 @@ defmodule Bobine.AdminTest do
     end
 
     test "returns error changeset for missing name" do
-      assert {:error, changeset} = Admin.create_organization(%{slug: "no-name"})
+      assert {:error, :validation, changeset} = Admin.create_organization(%{slug: "no-name"})
       assert %{name: ["can't be blank"]} = errors_on(changeset)
     end
 
     test "returns error changeset for duplicate slug" do
       insert(:organization, slug: "taken-slug")
-      assert {:error, changeset} = Admin.create_organization(%{name: "Other", slug: "taken-slug"})
+
+      assert {:error, :validation, changeset} =
+               Admin.create_organization(%{name: "Other", slug: "taken-slug"})
+
       assert %{slug: [_]} = errors_on(changeset)
     end
   end
@@ -95,16 +98,36 @@ defmodule Bobine.AdminTest do
     test "returns error for duplicate slug" do
       insert(:organization, slug: "taken")
       org = insert(:organization)
-      assert {:error, changeset} = Admin.update_organization(org, %{slug: "taken"})
+      assert {:error, :validation, changeset} = Admin.update_organization(org, %{slug: "taken"})
       assert %{slug: [_]} = errors_on(changeset)
     end
   end
 
   describe "delete_organization/1" do
-    test "deletes the organization" do
+    test "soft-deletes the organization" do
       org = insert(:organization)
-      assert {:ok, _} = Admin.delete_organization(org)
-      assert_raise Ecto.NoResultsError, fn -> Admin.get_organization!(org.id) end
+      assert {:ok, deleted} = Admin.delete_organization(org)
+      assert deleted.deleted_at != nil
+      # Still fetchable by ID
+      assert Admin.get_organization!(org.id).deleted_at != nil
+      # Excluded from default list
+      assert org.id not in Enum.map(Admin.list_organizations().results, & &1.id)
+    end
+
+    test "list_organizations with include_deleted returns soft-deleted orgs" do
+      org = insert(:organization)
+      {:ok, _deleted} = Admin.delete_organization(org)
+      %{results: orgs} = Admin.list_organizations(include_deleted: true)
+      assert org.id in Enum.map(orgs, & &1.id)
+    end
+  end
+
+  describe "restore_organization/1" do
+    test "restores a soft-deleted organization" do
+      org = insert(:organization)
+      {:ok, deleted} = Admin.delete_organization(org)
+      assert {:ok, restored} = Admin.restore_organization(deleted)
+      assert restored.deleted_at == nil
     end
   end
 

@@ -44,7 +44,7 @@ defmodule BobineWeb.Super.OrganizationEditLive do
          |> put_flash(:info, "Organization updated.")
          |> redirect(to: ~p"/super/organizations/#{org.id}")}
 
-      {:error, changeset} ->
+      {:error, :validation, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset_to_params(changeset, params)))}
     end
   end

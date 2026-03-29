@@ -13,6 +13,8 @@ defmodule Bobine.Accounts.Organization do
     field :stripe_connect_onboarding_complete, :boolean, default: false
     field :stripe_customer_id, :string
     field :template, :string, default: "default"
+    field :deleted_at, :utc_datetime
+    field :features, :map, default: %{}
 
     has_many :themes, Bobine.Branding.Theme
     has_many :memberships, Bobine.Accounts.Membership

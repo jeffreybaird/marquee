@@ -16,7 +16,7 @@ defmodule Bobine.WebhooksTest do
 
     test "list_webhook_endpoints/0 returns all webhook_endpoints" do
       endpoint = endpoint_fixture()
-      assert Webhooks.list_webhook_endpoints() == [endpoint]
+      assert %{results: [^endpoint]} = Webhooks.list_webhook_endpoints()
     end
 
     test "get_endpoint!/1 returns the endpoint with given id" do
@@ -41,7 +41,7 @@ defmodule Bobine.WebhooksTest do
     end
 
     test "create_endpoint/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Webhooks.create_endpoint(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Webhooks.create_endpoint(@invalid_attrs)
     end
 
     test "update_endpoint/2 with valid data updates the endpoint" do
@@ -63,14 +63,32 @@ defmodule Bobine.WebhooksTest do
 
     test "update_endpoint/2 with invalid data returns error changeset" do
       endpoint = endpoint_fixture()
-      assert {:error, %Ecto.Changeset{}} = Webhooks.update_endpoint(endpoint, @invalid_attrs)
+
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Webhooks.update_endpoint(endpoint, @invalid_attrs)
+
       assert endpoint == Webhooks.get_endpoint!(endpoint.id)
     end
 
-    test "delete_endpoint/1 deletes the endpoint" do
+    test "delete_endpoint/1 soft-deletes the endpoint" do
       endpoint = endpoint_fixture()
-      assert {:ok, %Endpoint{}} = Webhooks.delete_endpoint(endpoint)
-      assert_raise Ecto.NoResultsError, fn -> Webhooks.get_endpoint!(endpoint.id) end
+      assert {:ok, %Endpoint{} = deleted} = Webhooks.delete_endpoint(endpoint)
+      assert deleted.deleted_at != nil
+      assert %{results: []} = Webhooks.list_webhook_endpoints()
+    end
+
+    test "restore_endpoint/1 restores a soft-deleted endpoint" do
+      endpoint = endpoint_fixture()
+      {:ok, deleted} = Webhooks.delete_endpoint(endpoint)
+      assert {:ok, %Endpoint{} = restored} = Webhooks.restore_endpoint(deleted)
+      assert restored.deleted_at == nil
+    end
+
+    test "list_webhook_endpoints_including_deleted/0 returns soft-deleted endpoints" do
+      endpoint = endpoint_fixture()
+      {:ok, _deleted} = Webhooks.delete_endpoint(endpoint)
+      assert [found] = Webhooks.list_webhook_endpoints_including_deleted()
+      assert found.id == endpoint.id
     end
 
     test "change_endpoint/1 returns a endpoint changeset" do

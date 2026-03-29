@@ -23,7 +23,7 @@ defmodule Bobine.BillingTest do
 
     test "list_plans/0 returns all plans" do
       plan = plan_fixture()
-      assert Billing.list_plans() == [plan]
+      assert %{results: [^plan]} = Billing.list_plans()
     end
 
     test "get_plan!/1 returns the plan with given id" do
@@ -52,7 +52,7 @@ defmodule Bobine.BillingTest do
     end
 
     test "create_plan/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Billing.create_plan(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Billing.create_plan(@invalid_attrs)
     end
 
     test "update_plan/2 with valid data updates the plan" do
@@ -78,14 +78,29 @@ defmodule Bobine.BillingTest do
 
     test "update_plan/2 with invalid data returns error changeset" do
       plan = plan_fixture()
-      assert {:error, %Ecto.Changeset{}} = Billing.update_plan(plan, @invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Billing.update_plan(plan, @invalid_attrs)
       assert plan == Billing.get_plan!(plan.id)
     end
 
-    test "delete_plan/1 deletes the plan" do
+    test "delete_plan/1 soft-deletes the plan" do
       plan = plan_fixture()
-      assert {:ok, %Plan{}} = Billing.delete_plan(plan)
-      assert_raise Ecto.NoResultsError, fn -> Billing.get_plan!(plan.id) end
+      assert {:ok, %Plan{} = deleted} = Billing.delete_plan(plan)
+      assert deleted.deleted_at != nil
+      assert %{results: []} = Billing.list_plans()
+    end
+
+    test "restore_plan/1 restores a soft-deleted plan" do
+      plan = plan_fixture()
+      {:ok, deleted} = Billing.delete_plan(plan)
+      assert {:ok, %Plan{} = restored} = Billing.restore_plan(deleted)
+      assert restored.deleted_at == nil
+    end
+
+    test "list_plans_including_deleted/0 returns soft-deleted plans" do
+      plan = plan_fixture()
+      {:ok, _deleted} = Billing.delete_plan(plan)
+      assert [found] = Billing.list_plans_including_deleted()
+      assert found.id == plan.id
     end
 
     test "change_plan/1 returns a plan changeset" do
@@ -110,7 +125,7 @@ defmodule Bobine.BillingTest do
 
     test "list_subscriptions/0 returns all subscriptions" do
       subscription = subscription_fixture()
-      assert Billing.list_subscriptions() == [subscription]
+      assert %{results: [^subscription]} = Billing.list_subscriptions()
     end
 
     test "get_subscription!/1 returns the subscription with given id" do
@@ -139,7 +154,8 @@ defmodule Bobine.BillingTest do
     end
 
     test "create_subscription/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Billing.create_subscription(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Billing.create_subscription(@invalid_attrs)
     end
 
     test "update_subscription/2 with valid data updates the subscription" do
@@ -162,7 +178,7 @@ defmodule Bobine.BillingTest do
     test "update_subscription/2 with invalid data returns error changeset" do
       subscription = subscription_fixture()
 
-      assert {:error, %Ecto.Changeset{}} =
+      assert {:error, :validation, %Ecto.Changeset{}} =
                Billing.update_subscription(subscription, @invalid_attrs)
 
       assert subscription == Billing.get_subscription!(subscription.id)

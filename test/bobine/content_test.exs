@@ -27,7 +27,7 @@ defmodule Bobine.ContentTest do
 
     test "list_videos/0 returns all videos" do
       video = video_fixture()
-      assert Content.list_videos() == [video]
+      assert %{results: [^video]} = Content.list_videos()
     end
 
     test "get_video!/1 returns the video with given id" do
@@ -64,7 +64,7 @@ defmodule Bobine.ContentTest do
     end
 
     test "create_video/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Content.create_video(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Content.create_video(@invalid_attrs)
     end
 
     test "update_video/2 with valid data updates the video" do
@@ -98,14 +98,36 @@ defmodule Bobine.ContentTest do
 
     test "update_video/2 with invalid data returns error changeset" do
       video = video_fixture()
-      assert {:error, %Ecto.Changeset{}} = Content.update_video(video, @invalid_attrs)
+
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Content.update_video(video, @invalid_attrs)
+
       assert video == Content.get_video!(video.id)
     end
 
-    test "delete_video/1 deletes the video" do
+    test "delete_video/1 soft-deletes the video" do
       video = video_fixture()
-      assert {:ok, %Video{}} = Content.delete_video(video)
-      assert_raise Ecto.NoResultsError, fn -> Content.get_video!(video.id) end
+      assert {:ok, %Video{} = deleted} = Content.delete_video(video)
+      assert deleted.deleted_at != nil
+      # Record still exists but is excluded from list
+      assert Content.get_video!(video.id).deleted_at != nil
+      assert %{results: []} = Content.list_videos()
+    end
+
+    test "restore_video/1 restores a soft-deleted video" do
+      video = video_fixture()
+      {:ok, deleted} = Content.delete_video(video)
+      assert {:ok, %Video{} = restored} = Content.restore_video(deleted)
+      assert restored.deleted_at == nil
+      assert %{results: [^restored]} = Content.list_videos()
+    end
+
+    test "list_videos_including_deleted/0 returns soft-deleted videos" do
+      video = video_fixture()
+      {:ok, _deleted} = Content.delete_video(video)
+      assert [found] = Content.list_videos_including_deleted()
+      assert found.id == video.id
+      assert found.deleted_at != nil
     end
 
     test "change_video/1 returns a video changeset" do
@@ -127,7 +149,7 @@ defmodule Bobine.ContentTest do
 
     test "list_collections/0 returns all collections" do
       collection = collection_fixture()
-      assert Content.list_collections() == [collection]
+      assert %{results: [^collection]} = Content.list_collections()
     end
 
     test "get_collection!/1 returns the collection with given id" do
@@ -154,7 +176,7 @@ defmodule Bobine.ContentTest do
     end
 
     test "create_collection/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Content.create_collection(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} = Content.create_collection(@invalid_attrs)
     end
 
     test "update_collection/2 with valid data updates the collection" do
@@ -180,14 +202,33 @@ defmodule Bobine.ContentTest do
 
     test "update_collection/2 with invalid data returns error changeset" do
       collection = collection_fixture()
-      assert {:error, %Ecto.Changeset{}} = Content.update_collection(collection, @invalid_attrs)
+
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Content.update_collection(collection, @invalid_attrs)
+
       assert collection == Content.get_collection!(collection.id)
     end
 
-    test "delete_collection/1 deletes the collection" do
+    test "delete_collection/1 soft-deletes the collection" do
       collection = collection_fixture()
-      assert {:ok, %Collection{}} = Content.delete_collection(collection)
-      assert_raise Ecto.NoResultsError, fn -> Content.get_collection!(collection.id) end
+      assert {:ok, %Collection{} = deleted} = Content.delete_collection(collection)
+      assert deleted.deleted_at != nil
+      assert %{results: []} = Content.list_collections()
+    end
+
+    test "restore_collection/1 restores a soft-deleted collection" do
+      collection = collection_fixture()
+      {:ok, deleted} = Content.delete_collection(collection)
+      assert {:ok, %Collection{} = restored} = Content.restore_collection(deleted)
+      assert restored.deleted_at == nil
+    end
+
+    test "list_collections_including_deleted/0 returns soft-deleted collections" do
+      collection = collection_fixture()
+      {:ok, _deleted} = Content.delete_collection(collection)
+      assert [found] = Content.list_collections_including_deleted()
+      assert found.id == collection.id
+      assert found.deleted_at != nil
     end
 
     test "change_collection/1 returns a collection changeset" do

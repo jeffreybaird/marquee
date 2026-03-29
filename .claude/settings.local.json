@@ -30,7 +30,16 @@
       "Bash(mix ecto.gen.migration add_super_admin_to_users)",
       "Bash(mix ecto.migrate)",
       "Bash(grep -l \"admin_layout\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex)",
-      "Bash(mix format:*)"
+      "Bash(mix format:*)",
+      "Bash(grep -l mount /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/**/*.ex)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(grep -E \"\\\\.md$\")",
+      "Bash(mix phx.gen.schema Audit.Log audit_logs organization_id:references:organizations user_id:references:users action:string resource_type:string resource_id:binary_id changes:map metadata:map --no-scope)",
+      "Bash(mix phx.gen.schema Audit.Log audit_logs organization_id:references:organizations user_id:references:users action:string resource_type:string resource_id:uuid changes:map metadata:map --no-scope)",
+      "Bash(mix ecto.gen.migration add_soft_deletes)",
+      "Bash(grep \"\\\\.ex$\")",
+      "Bash(grep -rn \"    end$\" lib/bobine/catalog.ex lib/bobine/engagement.ex lib/bobine/billing.ex lib/bobine/webhooks.ex lib/bobine/branding.ex lib/bobine/admin.ex)",
+      "Bash(mix ecto.gen.migration add_features_to_organizations)"
     ]
   }
 }

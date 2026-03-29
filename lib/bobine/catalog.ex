@@ -5,19 +5,29 @@ defmodule Bobine.Catalog do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
 
   alias Bobine.Catalog.Row
 
   @doc """
-  Returns the list of rows.
+  Returns a paginated list of rows, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_rows()
-      [%Row{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_rows do
+  def list_rows(opts \\ []) do
+    Row
+    |> where([r], is_nil(r.deleted_at))
+    |> order_by(asc: :position)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of rows including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_rows_including_deleted do
     Repo.all(Row)
   end
 
@@ -40,53 +50,55 @@ defmodule Bobine.Catalog do
   @doc """
   Creates a row.
 
-  ## Examples
-
-      iex> create_row(%{field: value})
-      {:ok, %Row{}}
-
-      iex> create_row(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_row(attrs) do
-    %Row{}
-    |> Row.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, row} <- %Row{} |> Row.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:row_created, row})
+      {:ok, row}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a row.
 
-  ## Examples
-
-      iex> update_row(row, %{field: new_value})
-      {:ok, %Row{}}
-
-      iex> update_row(row, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_row(%Row{} = row, attrs) do
-    row
-    |> Row.changeset(attrs)
-    |> Repo.update()
+    with {:ok, row} <- row |> Row.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:row_updated, row})
+      {:ok, row}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
-  Deletes a row.
+  Soft-deletes a row by setting `deleted_at`.
 
-  ## Examples
-
-      iex> delete_row(row)
-      {:ok, %Row{}}
-
-      iex> delete_row(row)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_row(%Row{} = row) do
-    Repo.delete(row)
+    with {:ok, row} <-
+           row
+           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Events.broadcast(nil, {:row_deleted, row})
+      {:ok, row}
+    end
+  end
+
+  @doc """
+  Restores a soft-deleted row by clearing `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_row(%Row{} = row) do
+    row
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -94,8 +106,8 @@ defmodule Bobine.Catalog do
 
   ## Examples
 
-      iex> change_row(row)
-      %Ecto.Changeset{data: %Row{}}
+      iex> change_row(%Bobine.Catalog.Row{})
+      %Ecto.Changeset{data: %Bobine.Catalog.Row{}}
 
   """
   def change_row(%Row{} = row, attrs \\ %{}) do

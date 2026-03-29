@@ -11,6 +11,7 @@ defmodule Bobine.Billing.Plan do
     field :amount, :integer
     field :interval, Ecto.Enum, values: [:monthly, :yearly]
     field :active, :boolean, default: false
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
 

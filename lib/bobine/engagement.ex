@@ -5,19 +5,29 @@ defmodule Bobine.Engagement do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
 
   alias Bobine.Engagement.WatchlistItem
 
   @doc """
-  Returns the list of watchlist_items.
+  Returns a paginated list of watchlist_items, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_watchlist_items()
-      [%WatchlistItem{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_watchlist_items do
+  def list_watchlist_items(opts \\ []) do
+    WatchlistItem
+    |> where([w], is_nil(w.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of watchlist_items including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_watchlist_items_including_deleted do
     Repo.all(WatchlistItem)
   end
 
@@ -40,53 +50,53 @@ defmodule Bobine.Engagement do
   @doc """
   Creates a watchlist_item.
 
-  ## Examples
-
-      iex> create_watchlist_item(%{field: value})
-      {:ok, %WatchlistItem{}}
-
-      iex> create_watchlist_item(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_watchlist_item(attrs) do
-    %WatchlistItem{}
-    |> WatchlistItem.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, item} <- %WatchlistItem{} |> WatchlistItem.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:watchlist_item_added, item})
+      {:ok, item}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a watchlist_item.
 
-  ## Examples
-
-      iex> update_watchlist_item(watchlist_item, %{field: new_value})
-      {:ok, %WatchlistItem{}}
-
-      iex> update_watchlist_item(watchlist_item, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_watchlist_item(%WatchlistItem{} = watchlist_item, attrs) do
-    watchlist_item
-    |> WatchlistItem.changeset(attrs)
-    |> Repo.update()
+    case watchlist_item |> WatchlistItem.changeset(attrs) |> Repo.update() do
+      {:ok, item} -> {:ok, item}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
-  Deletes a watchlist_item.
+  Soft-deletes a watchlist_item by setting `deleted_at`.
 
-  ## Examples
-
-      iex> delete_watchlist_item(watchlist_item)
-      {:ok, %WatchlistItem{}}
-
-      iex> delete_watchlist_item(watchlist_item)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_watchlist_item(%WatchlistItem{} = watchlist_item) do
-    Repo.delete(watchlist_item)
+    with {:ok, item} <-
+           watchlist_item
+           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Events.broadcast(nil, {:watchlist_item_removed, item})
+      {:ok, item}
+    end
+  end
+
+  @doc """
+  Restores a soft-deleted watchlist_item by clearing `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_watchlist_item(%WatchlistItem{} = watchlist_item) do
+    watchlist_item
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -94,8 +104,8 @@ defmodule Bobine.Engagement do
 
   ## Examples
 
-      iex> change_watchlist_item(watchlist_item)
-      %Ecto.Changeset{data: %WatchlistItem{}}
+      iex> change_watchlist_item(%Bobine.Engagement.WatchlistItem{})
+      %Ecto.Changeset{data: %Bobine.Engagement.WatchlistItem{}}
 
   """
   def change_watchlist_item(%WatchlistItem{} = watchlist_item, attrs \\ %{}) do

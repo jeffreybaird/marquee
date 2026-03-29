@@ -10,6 +10,7 @@ defmodule Bobine.Notifications.Notification do
     field :type, Ecto.Enum, values: [:push, :email]
     field :status, Ecto.Enum, values: [:draft, :sent]
     field :sent_at, :utc_datetime
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
 

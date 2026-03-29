@@ -19,7 +19,7 @@ defmodule Bobine.EngagementTest do
 
     test "list_watchlist_items/0 returns all watchlist_items" do
       watchlist_item = watchlist_item_fixture()
-      assert Engagement.list_watchlist_items() == [watchlist_item]
+      assert %{results: [^watchlist_item]} = Engagement.list_watchlist_items()
     end
 
     test "get_watchlist_item!/1 returns the watchlist_item with given id" do
@@ -48,7 +48,8 @@ defmodule Bobine.EngagementTest do
     end
 
     test "create_watchlist_item/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{}} = Engagement.create_watchlist_item(@invalid_attrs)
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Engagement.create_watchlist_item(@invalid_attrs)
     end
 
     test "update_watchlist_item/2 with valid data updates the watchlist_item" do
@@ -65,19 +66,31 @@ defmodule Bobine.EngagementTest do
     test "update_watchlist_item/2 with invalid data returns error changeset" do
       watchlist_item = watchlist_item_fixture()
 
-      assert {:error, %Ecto.Changeset{}} =
+      assert {:error, :validation, %Ecto.Changeset{}} =
                Engagement.update_watchlist_item(watchlist_item, @invalid_attrs)
 
       assert watchlist_item == Engagement.get_watchlist_item!(watchlist_item.id)
     end
 
-    test "delete_watchlist_item/1 deletes the watchlist_item" do
+    test "delete_watchlist_item/1 soft-deletes the watchlist_item" do
       watchlist_item = watchlist_item_fixture()
-      assert {:ok, %WatchlistItem{}} = Engagement.delete_watchlist_item(watchlist_item)
+      assert {:ok, %WatchlistItem{} = deleted} = Engagement.delete_watchlist_item(watchlist_item)
+      assert deleted.deleted_at != nil
+      assert %{results: []} = Engagement.list_watchlist_items()
+    end
 
-      assert_raise Ecto.NoResultsError, fn ->
-        Engagement.get_watchlist_item!(watchlist_item.id)
-      end
+    test "restore_watchlist_item/1 restores a soft-deleted watchlist_item" do
+      watchlist_item = watchlist_item_fixture()
+      {:ok, deleted} = Engagement.delete_watchlist_item(watchlist_item)
+      assert {:ok, %WatchlistItem{} = restored} = Engagement.restore_watchlist_item(deleted)
+      assert restored.deleted_at == nil
+    end
+
+    test "list_watchlist_items_including_deleted/0 returns soft-deleted items" do
+      watchlist_item = watchlist_item_fixture()
+      {:ok, _deleted} = Engagement.delete_watchlist_item(watchlist_item)
+      assert [found] = Engagement.list_watchlist_items_including_deleted()
+      assert found.id == watchlist_item.id
     end
 
     test "change_watchlist_item/1 returns a watchlist_item changeset" do

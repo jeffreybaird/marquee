@@ -5,19 +5,29 @@ defmodule Bobine.Billing do
 
   import Ecto.Query, warn: false
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
 
   alias Bobine.Billing.Plan
 
   @doc """
-  Returns the list of plans.
+  Returns a paginated list of plans, excluding soft-deleted records.
 
-  ## Examples
-
-      iex> list_plans()
-      [%Plan{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_plans do
+  def list_plans(opts \\ []) do
+    Plan
+    |> where([p], is_nil(p.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns the list of plans including soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_plans_including_deleted do
     Repo.all(Plan)
   end
 
@@ -40,53 +50,51 @@ defmodule Bobine.Billing do
   @doc """
   Creates a plan.
 
-  ## Examples
-
-      iex> create_plan(%{field: value})
-      {:ok, %Plan{}}
-
-      iex> create_plan(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_plan(attrs) do
-    %Plan{}
-    |> Plan.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, plan} <- %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:plan_created, plan})
+      {:ok, plan}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a plan.
 
-  ## Examples
-
-      iex> update_plan(plan, %{field: new_value})
-      {:ok, %Plan{}}
-
-      iex> update_plan(plan, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_plan(%Plan{} = plan, attrs) do
+    with {:ok, plan} <- plan |> Plan.changeset(attrs) |> Repo.update() do
+      Events.broadcast(nil, {:plan_updated, plan})
+      {:ok, plan}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
+  Soft-deletes a plan by setting `deleted_at`.
+
+  Exempt from doctest — hits the database.
+  """
+  def delete_plan(%Plan{} = plan) do
     plan
-    |> Plan.changeset(attrs)
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
     |> Repo.update()
   end
 
   @doc """
-  Deletes a plan.
+  Restores a soft-deleted plan by clearing `deleted_at`.
 
-  ## Examples
-
-      iex> delete_plan(plan)
-      {:ok, %Plan{}}
-
-      iex> delete_plan(plan)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
-  def delete_plan(%Plan{} = plan) do
-    Repo.delete(plan)
+  def restore_plan(%Plan{} = plan) do
+    plan
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   @doc """
@@ -94,8 +102,8 @@ defmodule Bobine.Billing do
 
   ## Examples
 
-      iex> change_plan(plan)
-      %Ecto.Changeset{data: %Plan{}}
+      iex> change_plan(%Bobine.Billing.Plan{})
+      %Ecto.Changeset{data: %Bobine.Billing.Plan{}}
 
   """
   def change_plan(%Plan{} = plan, attrs \\ %{}) do
@@ -105,16 +113,14 @@ defmodule Bobine.Billing do
   alias Bobine.Billing.Subscription
 
   @doc """
-  Returns the list of subscriptions.
+  Returns a paginated list of subscriptions.
 
-  ## Examples
-
-      iex> list_subscriptions()
-      [%Subscription{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_subscriptions do
-    Repo.all(Subscription)
+  def list_subscriptions(opts \\ []) do
+    Subscription
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
   end
 
   @doc """
@@ -136,50 +142,33 @@ defmodule Bobine.Billing do
   @doc """
   Creates a subscription.
 
-  ## Examples
-
-      iex> create_subscription(%{field: value})
-      {:ok, %Subscription{}}
-
-      iex> create_subscription(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def create_subscription(attrs) do
-    %Subscription{}
-    |> Subscription.changeset(attrs)
-    |> Repo.insert()
+    with {:ok, sub} <- %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
+      Events.broadcast(nil, {:subscription_created, sub})
+      {:ok, sub}
+    else
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Updates a subscription.
 
-  ## Examples
-
-      iex> update_subscription(subscription, %{field: new_value})
-      {:ok, %Subscription{}}
-
-      iex> update_subscription(subscription, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def update_subscription(%Subscription{} = subscription, attrs) do
-    subscription
-    |> Subscription.changeset(attrs)
-    |> Repo.update()
+    case subscription |> Subscription.changeset(attrs) |> Repo.update() do
+      {:ok, sub} -> {:ok, sub}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
   Deletes a subscription.
 
-  ## Examples
-
-      iex> delete_subscription(subscription)
-      {:ok, %Subscription{}}
-
-      iex> delete_subscription(subscription)
-      {:error, %Ecto.Changeset{}}
-
+  Exempt from doctest — hits the database.
   """
   def delete_subscription(%Subscription{} = subscription) do
     Repo.delete(subscription)
@@ -190,8 +179,8 @@ defmodule Bobine.Billing do
 
   ## Examples
 
-      iex> change_subscription(subscription)
-      %Ecto.Changeset{data: %Subscription{}}
+      iex> change_subscription(%Bobine.Billing.Subscription{})
+      %Ecto.Changeset{data: %Bobine.Billing.Subscription{}}
 
   """
   def change_subscription(%Subscription{} = subscription, attrs \\ %{}) do

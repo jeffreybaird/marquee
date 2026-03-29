@@ -10,6 +10,7 @@ defmodule Bobine.Catalog.Row do
     field :filter_config, :map
     field :position, :integer
     field :visible, :boolean, default: false
+    field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
 

@@ -91,7 +91,7 @@ defmodule BobineWeb.Super.OrganizationsLive do
   end
 
   defp load_organizations(socket, search) do
-    orgs = Admin.list_organizations(search: search)
+    %{results: orgs} = Admin.list_organizations(search: search)
     assign(socket, :organizations, orgs)
   end
 end

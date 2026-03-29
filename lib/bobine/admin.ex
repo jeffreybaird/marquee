@@ -10,10 +10,19 @@ defmodule Bobine.Admin do
   import Ecto.Query, warn: false
 
   alias Bobine.Repo
+  alias Bobine.Pagination
+  alias Bobine.Events
   alias Bobine.Accounts.{Organization, User, Membership}
   alias Bobine.Branding
-  alias Bobine.Content.Video
-  alias Bobine.Billing.Subscription
+  alias Bobine.Branding.Theme
+  alias Bobine.Content.{Video, Collection, Tag}
+  alias Bobine.Catalog.Row
+  alias Bobine.Billing.{Plan, Subscription}
+  alias Bobine.Engagement.{WatchlistItem, Favorite, WatchHistory, Progress}
+  alias Bobine.Webhooks.Endpoint, as: WebhookEndpoint
+  alias Bobine.Notifications.Notification
+  alias Bobine.Analytics.Event, as: AnalyticsEvent
+  alias Bobine.Audit.Log, as: AuditLog
 
   ## Organizations
 
@@ -29,12 +38,17 @@ defmodule Bobine.Admin do
   def list_organizations(opts \\ []) do
     search = Keyword.get(opts, :search)
     order = Keyword.get(opts, :order_by, :name)
+    include_deleted = Keyword.get(opts, :include_deleted, false)
 
     Organization
+    |> apply_soft_delete_filter(include_deleted)
     |> apply_org_search(search)
     |> apply_org_order(order)
-    |> Repo.all()
+    |> Pagination.paginate(opts)
   end
+
+  defp apply_soft_delete_filter(query, true), do: query
+  defp apply_soft_delete_filter(query, false), do: where(query, [o], is_nil(o.deleted_at))
 
   defp apply_org_search(query, nil), do: query
 
@@ -71,33 +85,40 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def create_organization(attrs) do
-    Repo.transaction(fn ->
-      changeset = Organization.changeset(%Organization{}, attrs)
+    result =
+      Repo.transaction(fn ->
+        changeset = Organization.changeset(%Organization{}, attrs)
 
-      case Repo.insert(changeset) do
-        {:ok, org} ->
-          {:ok, _theme} =
-            Branding.create_theme(%{
-              organization_id: org.id,
-              background: "#0f0f0f",
-              surface: "#1c1c1c",
-              text_primary: "#ffffff",
-              text_secondary: "#aaaaaa",
-              brand_primary: "#1a73e8",
-              brand_secondary: "#174ea6",
-              accent: "#e8a21a",
-              font_heading: "Inter",
-              font_body: "Inter",
-              border_radius: "0.5rem",
-              card_border_radius: "0.75rem"
-            })
+        case Repo.insert(changeset) do
+          {:ok, org} ->
+            {:ok, _theme} =
+              Branding.create_theme(%{
+                organization_id: org.id,
+                background: "#0f0f0f",
+                surface: "#1c1c1c",
+                text_primary: "#ffffff",
+                text_secondary: "#aaaaaa",
+                brand_primary: "#1a73e8",
+                brand_secondary: "#174ea6",
+                accent: "#e8a21a",
+                font_heading: "Inter",
+                font_body: "Inter",
+                border_radius: "0.5rem",
+                card_border_radius: "0.75rem"
+              })
 
-          org
+            Events.broadcast(nil, {:organization_created, org})
+            org
 
-        {:error, changeset} ->
-          Repo.rollback(changeset)
-      end
-    end)
+          {:error, changeset} ->
+            Repo.rollback(changeset)
+        end
+      end)
+
+    case result do
+      {:ok, org} -> {:ok, org}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -110,9 +131,10 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def update_organization(%Organization{} = organization, attrs) do
-    organization
-    |> Organization.changeset(attrs)
-    |> Repo.update()
+    case organization |> Organization.changeset(attrs) |> Repo.update() do
+      {:ok, org} -> {:ok, org}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -127,7 +149,24 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def delete_organization(%Organization{} = organization) do
-    Repo.delete(organization)
+    organization
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+  end
+
+  @doc """
+  Restores a soft-deleted organization by clearing `deleted_at`.
+
+  Returns `{:ok, organization}` or `{:error, changeset}`.
+
+  Cross-tenant write — intentional.
+
+  Exempt from doctest — hits the database.
+  """
+  def restore_organization(%Organization{} = organization) do
+    organization
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
   end
 
   ## Memberships
@@ -146,13 +185,16 @@ defmodule Bobine.Admin do
     if owner_exists?(organization) do
       {:error, :already_has_owner}
     else
-      %Membership{}
-      |> Membership.changeset(%{
-        user_id: user.id,
-        organization_id: organization.id,
-        role: :owner
-      })
-      |> Repo.insert()
+      case %Membership{}
+           |> Membership.changeset(%{
+             user_id: user.id,
+             organization_id: organization.id,
+             role: :owner
+           })
+           |> Repo.insert() do
+        {:ok, membership} -> {:ok, membership}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -188,7 +230,7 @@ defmodule Bobine.Admin do
     User
     |> apply_user_search(search)
     |> order_by(asc: :email)
-    |> Repo.all()
+    |> Pagination.paginate(opts)
   end
 
   defp apply_user_search(query, nil), do: query
@@ -206,9 +248,10 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def grant_super_admin(%User{} = user) do
-    user
-    |> User.admin_changeset(%{is_super_admin: true})
-    |> Repo.update()
+    with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: true}) |> Repo.update() do
+      Events.broadcast(nil, {:super_admin_granted, user})
+      {:ok, user}
+    end
   end
 
   @doc """
@@ -219,9 +262,10 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def revoke_super_admin(%User{} = user) do
-    user
-    |> User.admin_changeset(%{is_super_admin: false})
-    |> Repo.update()
+    with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: false}) |> Repo.update() do
+      Events.broadcast(nil, {:super_admin_revoked, user})
+      {:ok, user}
+    end
   end
 
   ## Platform stats
@@ -301,5 +345,43 @@ defmodule Bobine.Admin do
     Membership
     |> where(organization_id: ^org_id)
     |> Repo.aggregate(:count)
+  end
+
+  ## Data export
+
+  @doc """
+  Exports all tenant-scoped data for an organization.
+
+  Returns a map with all records including soft-deleted ones.
+  Intentionally does NOT filter by `deleted_at` — exports include everything.
+
+  Cross-tenant query — intentional.
+
+  Exempt from doctest — hits the database.
+  """
+  def export_organization_data(%Organization{} = organization) do
+    org_id = organization.id
+
+    %{
+      organization: organization,
+      memberships:
+        Repo.all(from(m in Membership, where: m.organization_id == ^org_id, preload: [:user])),
+      videos: Repo.all(from(v in Video, where: v.organization_id == ^org_id)),
+      collections: Repo.all(from(c in Collection, where: c.organization_id == ^org_id)),
+      tags: Repo.all(from(t in Tag, where: t.organization_id == ^org_id)),
+      rows: Repo.all(from(r in Row, where: r.organization_id == ^org_id)),
+      plans: Repo.all(from(p in Plan, where: p.organization_id == ^org_id)),
+      subscriptions: Repo.all(from(s in Subscription, where: s.organization_id == ^org_id)),
+      theme: Repo.get_by(Theme, organization_id: org_id),
+      webhook_endpoints:
+        Repo.all(from(w in WebhookEndpoint, where: w.organization_id == ^org_id)),
+      notifications: Repo.all(from(n in Notification, where: n.organization_id == ^org_id)),
+      audit_logs: Repo.all(from(a in AuditLog, where: a.organization_id == ^org_id)),
+      watchlist_items: Repo.all(from(w in WatchlistItem, where: w.organization_id == ^org_id)),
+      favorites: Repo.all(from(f in Favorite, where: f.organization_id == ^org_id)),
+      watch_histories: Repo.all(from(w in WatchHistory, where: w.organization_id == ^org_id)),
+      progresses: Repo.all(from(p in Progress, where: p.organization_id == ^org_id)),
+      analytics_events: Repo.all(from(e in AnalyticsEvent, where: e.organization_id == ^org_id))
+    }
   end
 end
