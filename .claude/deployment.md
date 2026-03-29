@@ -42,6 +42,8 @@ or be logged.
 | `STRIPE_WEBHOOK_SECRET` | Fly            | Stripe webhook signing secret    |
 | `RELEASE_COOKIE`        | Fly            | Erlang distribution cookie       |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | OpenTelemetry OTLP endpoint (optional) |
+| `RESEND_API_KEY`        | Fly            | Resend API key for transactional email |
+| `MAILER_FROM`           | Fly            | From address for emails (optional, defaults to onboarding@resend.dev) |
 
 ### `config/runtime.exs` is the only place for prod config
 

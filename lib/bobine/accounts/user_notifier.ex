@@ -9,13 +9,17 @@ defmodule Bobine.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from({"Bobine", "contact@example.com"})
+      |> from({"Bobine", from_address()})
       |> subject(subject)
       |> text_body(body)
 
     with {:ok, _metadata} <- Mailer.deliver(email) do
       {:ok, email}
     end
+  end
+
+  defp from_address do
+    Application.get_env(:bobine, :mailer_from, "onboarding@resend.dev")
   end
 
   @doc """
