@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(mix test:*)",
-      "Bash(mix compile:*)"
+      "Bash(mix compile:*)",
+      "Bash(mix format:*)"
     ]
   }
 }

@@ -2,10 +2,8 @@ defmodule BobineWeb.Components.SuperLayout do
   @moduledoc """
   Super admin layout component.
 
-  Renders the sidebar and main content area for all super admin pages.
-  Visually distinct from the org admin dashboard — uses a dark slate sidebar
-  with a "Bobine Platform" header and a super admin badge to make it clear
-  which context you're in.
+  Responsive sidebar with dark slate styling. On mobile, the sidebar
+  is hidden behind a hamburger menu.
   """
 
   use BobineWeb, :html
@@ -17,61 +15,92 @@ defmodule BobineWeb.Components.SuperLayout do
 
   def super_layout(assigns) do
     ~H"""
-    <div class="flex h-screen bg-base-100">
-      <aside class="w-64 bg-slate-900 flex flex-col text-slate-100">
-        <div class="p-4 border-b border-slate-700">
-          <p class="font-bold text-white text-sm tracking-wide uppercase">
-            Bobine Platform
-          </p>
-          <span
-            class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-red-600 text-white"
-            data-test="super-admin-badge"
-          >
-            Super Admin
-          </span>
+    <div class="flex flex-col h-screen bg-base-100">
+      <%!-- Mobile header --%>
+      <div class="lg:hidden flex items-center justify-between px-4 py-3 bg-slate-900 text-white">
+        <p class="font-bold text-sm tracking-wide uppercase">Bobine Platform</p>
+        <label for="super-drawer" class="btn btn-ghost btn-sm btn-square text-white">
+          <.icon name="hero-bars-3" class="size-5" />
+        </label>
+      </div>
+
+      <%!-- Drawer checkbox --%>
+      <input type="checkbox" id="super-drawer" class="hidden peer" />
+
+      <div class="flex flex-1 overflow-hidden">
+        <%!-- Mobile overlay --%>
+        <label
+          for="super-drawer"
+          class="fixed inset-0 bg-black/50 z-30 hidden peer-checked:block lg:!hidden"
+        >
+        </label>
+
+        <%!-- Sidebar --%>
+        <aside class={[
+          "fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 flex flex-col text-slate-100",
+          "transform -translate-x-full transition-transform duration-200 ease-in-out",
+          "peer-checked:translate-x-0",
+          "lg:static lg:translate-x-0 lg:transform-none"
+        ]}>
+          <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+            <div>
+              <p class="font-bold text-white text-sm tracking-wide uppercase">
+                Bobine Platform
+              </p>
+              <span
+                class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-red-600 text-white"
+                data-test="super-admin-badge"
+              >
+                Super Admin
+              </span>
+            </div>
+            <label for="super-drawer" class="btn btn-ghost btn-sm btn-square text-white lg:hidden">
+              <.icon name="hero-x-mark" class="size-5" />
+            </label>
+          </div>
+
+          <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+            <.super_nav_link
+              href={~p"/super"}
+              label="Dashboard"
+              current_path={@current_path}
+              data_test="super-nav-dashboard"
+            />
+            <.super_nav_link
+              href={~p"/super/organizations"}
+              label="Organizations"
+              current_path={@current_path}
+              data_test="super-nav-organizations"
+            />
+            <.super_nav_link
+              href={~p"/super/users"}
+              label="Users"
+              current_path={@current_path}
+              data_test="super-nav-users"
+            />
+          </nav>
+
+          <div class="p-4 border-t border-slate-700">
+            <p class="text-xs text-slate-400 truncate" data-test="super-current-user">
+              {@current_user.email}
+            </p>
+            <.link
+              href={~p"/users/log-out"}
+              method="delete"
+              class="mt-1 text-xs text-slate-500 hover:text-slate-300"
+            >
+              Log out
+            </.link>
+          </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+          <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <.flash kind={:info} flash={@flash} />
+            <.flash kind={:error} flash={@flash} />
+            {render_slot(@inner_block)}
+          </main>
         </div>
-
-        <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-          <.super_nav_link
-            href={~p"/super"}
-            label="Dashboard"
-            current_path={@current_path}
-            data_test="super-nav-dashboard"
-          />
-          <.super_nav_link
-            href={~p"/super/organizations"}
-            label="Organizations"
-            current_path={@current_path}
-            data_test="super-nav-organizations"
-          />
-          <.super_nav_link
-            href={~p"/super/users"}
-            label="Users"
-            current_path={@current_path}
-            data_test="super-nav-users"
-          />
-        </nav>
-
-        <div class="p-4 border-t border-slate-700">
-          <p class="text-xs text-slate-400 truncate" data-test="super-current-user">
-            {@current_user.email}
-          </p>
-          <.link
-            href={~p"/users/log-out"}
-            method="delete"
-            class="mt-1 text-xs text-slate-500 hover:text-slate-300"
-          >
-            Log out
-          </.link>
-        </div>
-      </aside>
-
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <main class="flex-1 overflow-y-auto p-8">
-          <.flash kind={:info} flash={@flash} />
-          <.flash kind={:error} flash={@flash} />
-          {render_slot(@inner_block)}
-        </main>
       </div>
     </div>
     """

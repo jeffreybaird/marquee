@@ -87,6 +87,8 @@ defmodule Bobine.Release do
 
   defp start_repos do
     load_app()
+    Application.ensure_all_started(:postgrex)
+    Application.ensure_all_started(:ecto_sql)
 
     for repo <- repos() do
       {:ok, _} = repo.start_link(pool_size: 2)

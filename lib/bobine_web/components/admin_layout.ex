@@ -2,8 +2,8 @@ defmodule BobineWeb.Components.AdminLayout do
   @moduledoc """
   Admin dashboard layout component.
 
-  Renders the sidebar navigation and main content area for all admin pages.
-  The sidebar highlights the currently active section based on `current_path`.
+  Renders a responsive sidebar navigation and main content area.
+  On mobile, the sidebar is hidden behind a hamburger menu.
   """
 
   use BobineWeb, :html
@@ -23,7 +23,7 @@ defmodule BobineWeb.Components.AdminLayout do
         data-test="impersonation-banner"
       >
         <span>
-          You are viewing <strong>{@organization.name}</strong> as a super admin.
+          Viewing <strong>{@organization.name}</strong> as super admin
         </span>
         <.link
           href={~p"/super/impersonate"}
@@ -34,13 +34,45 @@ defmodule BobineWeb.Components.AdminLayout do
           Stop impersonating
         </.link>
       </div>
+
+      <%!-- Mobile header --%>
+      <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-base-300">
+        <p class="font-bold text-base-content truncate" data-test="org-name-mobile">
+          {@organization.name}
+        </p>
+        <label for="admin-drawer" class="btn btn-ghost btn-sm btn-square">
+          <.icon name="hero-bars-3" class="size-5" />
+        </label>
+      </div>
+
+      <%!-- Drawer checkbox for mobile sidebar toggle --%>
+      <input type="checkbox" id="admin-drawer" class="hidden peer" />
+
       <div class="flex flex-1 overflow-hidden">
-        <aside class="w-64 bg-base-200 flex flex-col border-r border-base-300">
-          <div class="p-4 border-b border-base-300">
-            <p class="font-bold text-base-content truncate" data-test="org-name">
-              {@organization.name}
-            </p>
-            <p class="text-xs text-base-content/60 truncate mt-1">{@current_user.email}</p>
+        <%!-- Mobile overlay --%>
+        <label
+          for="admin-drawer"
+          class="fixed inset-0 bg-black/50 z-30 hidden peer-checked:block lg:!hidden"
+        >
+        </label>
+
+        <%!-- Sidebar --%>
+        <aside class={[
+          "fixed inset-y-0 left-0 z-40 w-64 bg-base-200 flex flex-col border-r border-base-300",
+          "transform -translate-x-full transition-transform duration-200 ease-in-out",
+          "peer-checked:translate-x-0",
+          "lg:static lg:translate-x-0 lg:transform-none"
+        ]}>
+          <div class="p-4 border-b border-base-300 flex items-center justify-between">
+            <div class="min-w-0">
+              <p class="font-bold text-base-content truncate" data-test="org-name">
+                {@organization.name}
+              </p>
+              <p class="text-xs text-base-content/60 truncate mt-1">{@current_user.email}</p>
+            </div>
+            <label for="admin-drawer" class="btn btn-ghost btn-sm btn-square lg:hidden">
+              <.icon name="hero-x-mark" class="size-5" />
+            </label>
           </div>
 
           <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -96,7 +128,7 @@ defmodule BobineWeb.Components.AdminLayout do
         </aside>
 
         <div class="flex-1 flex flex-col overflow-hidden">
-          <main class="flex-1 overflow-y-auto p-8">
+          <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {render_slot(@inner_block)}
           </main>
         </div>
