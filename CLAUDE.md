@@ -280,6 +280,10 @@ suggestions.
    write a failing test that represents the expected behavior and then make it
    pass with your fix.
 
+8. **Look for the root cause of a problem**, do not find a way to avoid an error message
+   because it is the shortest route to making the desired action work. Address the underlying
+   problem directly.
+
 The test suite is a ratchet that only moves forward.
 
 See `.claude/testing.md` for the E2E rule, Wallaby setup, factory patterns,

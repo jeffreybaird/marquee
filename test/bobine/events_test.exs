@@ -32,7 +32,6 @@ defmodule Bobine.EventsTest do
 
       assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
     end
-
   end
 
   describe "AuditSubscriber" do
