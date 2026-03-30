@@ -60,7 +60,7 @@ defmodule Bobine.Release do
     {:ok, _} = Bobine.Admin.grant_super_admin(user)
 
     {encoded_token, user_token} =
-      Bobine.Accounts.UserToken.build_email_token(user, "magic_link")
+      Bobine.Accounts.UserToken.build_email_token(user, "login")
 
     Bobine.Repo.insert!(user_token)
 

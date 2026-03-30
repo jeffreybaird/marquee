@@ -10,7 +10,7 @@ defmodule Bobine.Application do
     # OpenTelemetry auto-instrumentation — must be called before supervision tree
     OpentelemetryPhoenix.setup()
     OpentelemetryEcto.setup([:bobine, :repo])
-    OpentelemetryOban.setup()
+    setup_oban_telemetry()
     Bobine.TelemetryHandler.setup()
 
     children =
@@ -31,6 +31,14 @@ defmodule Bobine.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Bobine.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # In test, Oban runs inline which sets scheduled_at to nil,
+  # causing OpentelemetryOban's handler to crash on DateTime.to_iso8601(nil).
+  if Mix.env() == :test do
+    defp setup_oban_telemetry, do: :ok
+  else
+    defp setup_oban_telemetry, do: OpentelemetryOban.setup()
   end
 
   # In test, the AuditSubscriber can't share sandbox connections reliably.
