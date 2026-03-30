@@ -140,6 +140,7 @@ if config_env() == :prod do
 
   config :bobine,
     mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
+
   #
   # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
   # and Finch out-of-the-box. This configuration is typically done at

@@ -192,6 +192,116 @@ defmodule Bobine.ContentTest do
     end
   end
 
+  describe "create_upload_url/2" do
+    import Mox
+
+    setup do
+      verify_on_exit!()
+
+      # Simulate dev-like CORS config (the bug was that this was missing,
+      # causing production domain to be used in dev)
+      Application.put_env(:bobine, :cors_origin, "http://localhost:4000")
+
+      on_exit(fn ->
+        Application.delete_env(:bobine, :cors_origin)
+      end)
+
+      :ok
+    end
+
+    test "creates a video in waiting status and returns an upload URL" do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        # Must use the configured :cors_origin, not the production domain
+        assert params.cors_origin == "http://localhost:4000"
+
+        {:ok, %{"id" => "upload_abc", "url" => "https://storage.mux.com/upload_abc"}}
+      end)
+
+      assert {:ok, %{video: video, upload_url: url}} =
+               Content.create_upload_url(scope, %{title: "Test Upload"})
+
+      assert video.mux_status == "waiting"
+      assert video.mux_upload_id == "upload_abc"
+      assert video.organization_id == org.id
+      assert video.title == "Test Upload"
+      assert video.slug == "test-upload"
+      assert url == "https://storage.mux.com/upload_abc"
+
+      # Video must be visible in list immediately after creation
+      assert %{results: [found]} = Content.list_videos(org)
+      assert found.id == video.id
+      assert found.mux_status == "waiting"
+    end
+
+    test "uses configured cors_origin over production domain" do
+      # This test verifies the fix for the CORS bug where dev uploads
+      # failed because the origin was set to https://slug.bobine.dev
+      # instead of http://localhost:4000
+      org = insert(:organization, slug: "my-studio", custom_domain: nil)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        # Should use the configured :cors_origin, NOT "https://my-studio.bobine.dev"
+        assert params.cors_origin == "http://localhost:4000"
+        refute params.cors_origin =~ "bobine.dev"
+        {:ok, %{"id" => "upload_xyz", "url" => "https://storage.mux.com/xyz"}}
+      end)
+
+      assert {:ok, _} = Content.create_upload_url(scope, %{title: "CORS Test"})
+    end
+
+    test "falls back to production domain when cors_origin is not configured" do
+      Application.delete_env(:bobine, :cors_origin)
+
+      org = insert(:organization, slug: "my-studio", custom_domain: nil)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        assert params.cors_origin == "https://my-studio.bobine.dev"
+        {:ok, %{"id" => "upload_prod", "url" => "https://storage.mux.com/prod"}}
+      end)
+
+      assert {:ok, _} = Content.create_upload_url(scope, %{title: "Prod CORS Test"})
+    end
+
+    test "returns mux_error when Mux API fails" do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+        {:error, :mux_error, "service unavailable"}
+      end)
+
+      assert {:error, :mux_error, _} = Content.create_upload_url(scope, %{title: "Fail Test"})
+
+      # No video record should be created when Mux fails
+      assert %{results: []} = Content.list_videos(org)
+    end
+  end
+
   describe "collections" do
     alias Bobine.Content.Collection
 

@@ -275,6 +275,10 @@ suggestions.
 6. **If you believe an existing test is genuinely wrong**, flag it with a
    comment and ask for confirmation before changing it.
 
+7. **If the developer provides you with an error message or bug**,
+   write a failing test that represents the expected behavior and then make it
+   pass with your fix.
+
 The test suite is a ratchet that only moves forward.
 
 See `.claude/testing.md` for the E2E rule, Wallaby setup, factory patterns,

@@ -4,8 +4,9 @@
  * Handles direct video upload from browser to Mux.
  * Video bytes never touch Bobine's servers.
  *
- * This hook lives on a persistent element outside the upload modal
- * so it survives modal open/close cycles.
+ * This hook lives on a persistent element outside the upload modal.
+ * It captures the selected file when it changes, so the file reference
+ * survives the modal re-render that happens on form submit.
  *
  * Events received from server:
  *   - "start_upload" { upload_url: string, video_id: string }
@@ -17,16 +18,25 @@
  */
 const MuxUploader = {
   mounted() {
+    this.selectedFile = null as File | null
+
+    // Listen for file selection anywhere in the document
+    // (the file input is in the modal which may re-render)
+    document.addEventListener("change", (e: Event) => {
+      const target = e.target as HTMLInputElement
+      if (target?.getAttribute("data-test") === "upload-file" && target.files?.[0]) {
+        this.selectedFile = target.files[0]
+      }
+    })
+
     this.handleEvent("start_upload", ({ upload_url, video_id }: { upload_url: string; video_id: string }) => {
-      // Find the file input in the upload modal form
-      const fileInput = document.querySelector("[data-test='upload-file']") as HTMLInputElement
-      const file = fileInput?.files?.[0]
-      if (!file) {
+      if (!this.selectedFile) {
         this.pushEvent("upload_error", { video_id, error: "No file selected" })
         return
       }
 
-      this.uploadToMux(upload_url, file, video_id)
+      this.uploadToMux(upload_url, this.selectedFile, video_id)
+      this.selectedFile = null
     })
   },
 

@@ -83,6 +83,47 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       refute html =~ "To Delete"
     end
 
+    test "upload_error event is handled without crashing the LiveView", %{conn: _conn} do
+      # This tests the fix for the bug where the modal closed before the
+      # MuxUploader hook could read the file, causing "No file selected" error.
+      # The LiveView must handle this gracefully — not crash.
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      # Simulate the MuxUploader hook reporting an error via pushEvent
+      # The LiveView should handle this without crashing
+      assert render_hook(view, "upload_error", %{
+               "video_id" => Ecto.UUID.generate(),
+               "error" => "No file selected"
+             })
+
+      # The LiveView should still be alive and rendering
+      assert render(view) =~ "Content"
+    end
+
+    test "upload_complete event closes modal", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      # Open modal first
+      render_click(view, "open_upload")
+      assert render(view) =~ ~s(data-test="upload-modal")
+
+      # Simulate upload completion
+      render_hook(view, "upload_complete", %{
+        "video_id" => Ecto.UUID.generate()
+      })
+
+      # Modal should be closed after upload completes
+      refute render(view) =~ ~s(data-test="upload-modal")
+    end
+
     test "search filters video list by title", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)

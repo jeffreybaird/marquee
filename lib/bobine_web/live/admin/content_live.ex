@@ -246,6 +246,7 @@ defmodule BobineWeb.Admin.ContentLive do
           <form
             :if={!@uploading}
             phx-submit="submit_upload"
+            action="#"
             data-test="upload-form"
           >
             <div class="mb-4">
