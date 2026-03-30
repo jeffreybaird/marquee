@@ -27,7 +27,9 @@ defmodule Bobine.LogShipper do
   def log(%{level: level, msg: msg, meta: meta}, _config) do
     if Process.whereis(__MODULE__) do
       message = format_message(msg)
-      timestamp = Map.get(meta, :time, :os.system_time(:nanosecond))
+      # Erlang logger meta.time is in microseconds since epoch; Loki wants nanoseconds
+      time_us = Map.get(meta, :time, System.system_time(:microsecond))
+      timestamp = time_us * 1_000
 
       entry = %{
         level: level,
