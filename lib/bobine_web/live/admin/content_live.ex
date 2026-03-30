@@ -510,7 +510,10 @@ defmodule BobineWeb.Admin.ContentLive do
         <%!-- Video info panel --%>
         <div class="lg:col-span-2 space-y-4">
           <%!-- Thumbnail --%>
-          <div :if={@video.mux_playback_id} class="w-full aspect-video rounded-lg bg-base-300 overflow-hidden">
+          <div
+            :if={@video.mux_playback_id}
+            class="w-full aspect-video rounded-lg bg-base-300 overflow-hidden"
+          >
             <img
               src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360"}
               alt={@video.title}
