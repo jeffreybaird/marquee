@@ -166,5 +166,48 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       assert html =~ "Alpha Video"
       refute html =~ "Beta Film"
     end
+
+    test "video title links to watch page for ready videos", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      video = insert(:video, organization: org, title: "Watchable", mux_status: "ready")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+      assert html =~ ~p"/watch/#{video.id}"
+    end
+  end
+
+  describe "RBAC on content management" do
+    test "viewer_support can view content list", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :viewer_support)
+
+      insert(:video, organization: org, title: "Visible Video")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+      assert html =~ "Visible Video"
+    end
+
+    test "viewer_support cannot see upload button", %{conn: _conn} do
+      # viewer_support should have read-only access — no upload capability
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :viewer_support)
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+      refute html =~ ~s(data-test="upload-btn")
+    end
+
+    test "viewer_support cannot see delete button", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :viewer_support)
+      video = insert(:video, organization: org, title: "Protected Video")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+      refute html =~ ~s(data-test="delete-video-#{video.id}")
+    end
   end
 end

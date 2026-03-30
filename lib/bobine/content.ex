@@ -190,7 +190,8 @@ defmodule Bobine.Content do
 
           case video |> Video.mux_status_changeset(attrs) |> Repo.update() do
             {:ok, video} ->
-              Events.broadcast(nil, {:video_ready, video})
+              org = Repo.get!(Bobine.Accounts.Organization, video.organization_id)
+              Events.broadcast(%{organization: org}, {:video_ready, video})
               {:ok, video}
 
             {:error, changeset} ->
@@ -215,7 +216,8 @@ defmodule Bobine.Content do
         video ->
           case video |> Video.mux_status_changeset(%{mux_status: "errored"}) |> Repo.update() do
             {:ok, video} ->
-              Events.broadcast(nil, {:video_errored, video})
+              org = Repo.get!(Bobine.Accounts.Organization, video.organization_id)
+              Events.broadcast(%{organization: org}, {:video_errored, video})
               {:ok, video}
 
             {:error, changeset} ->

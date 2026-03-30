@@ -7,10 +7,14 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
+    scope = socket.assigns.current_scope
 
     if connected?(socket) do
       Events.subscribe(org.id)
+      Events.subscribe_global()
     end
+
+    can_manage = can_manage_content?(scope)
 
     {:ok,
      socket
@@ -19,6 +23,7 @@ defmodule BobineWeb.Admin.ContentLive do
      |> assign(:show_upload_modal, false)
      |> assign(:uploading, false)
      |> assign(:upload_percent, 0)
+     |> assign(:can_manage, can_manage)
      |> load_videos()}
   end
 
@@ -43,22 +48,28 @@ defmodule BobineWeb.Admin.ContentLive do
 
   @impl true
   def handle_event("submit_upload", %{"title" => title, "description" => desc}, socket) do
-    scope = socket.assigns.current_scope
+    title = String.trim(title)
 
-    case Content.create_upload_url(scope, %{title: title, description: desc}) do
-      {:ok, %{video: video, upload_url: url}} ->
-        {:noreply,
-         socket
-         |> assign(:uploading, true)
-         |> assign(:upload_percent, 0)
-         |> push_event("start_upload", %{upload_url: url, video_id: video.id})
-         |> load_videos()}
+    if title == "" do
+      {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
+    else
+      scope = socket.assigns.current_scope
 
-      {:error, :mux_error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to initiate upload. Please try again.")}
+      case Content.create_upload_url(scope, %{title: title, description: desc}) do
+        {:ok, %{video: video, upload_url: url}} ->
+          {:noreply,
+           socket
+           |> assign(:uploading, true)
+           |> assign(:upload_percent, 0)
+           |> push_event("start_upload", %{upload_url: url, video_id: video.id})
+           |> load_videos()}
 
-      {:error, :validation, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
+        {:error, :mux_error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to initiate upload. Please try again.")}
+
+        {:error, :validation, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
+      end
     end
   end
 
@@ -140,6 +151,7 @@ defmodule BobineWeb.Admin.ContentLive do
       <div class="flex items-center justify-between pb-4">
         <.header>Content</.header>
         <button
+          :if={@can_manage}
           phx-click="open_upload"
           class="btn btn-primary"
           data-test="upload-btn"
@@ -192,7 +204,14 @@ defmodule BobineWeb.Admin.ContentLive do
                   />
                 </div>
                 <div>
-                  <div class="font-medium">{video.title}</div>
+                  <.link
+                    :if={video.mux_status == "ready"}
+                    navigate={~p"/watch/#{video.id}"}
+                    class="font-medium hover:text-primary hover:underline"
+                  >
+                    {video.title}
+                  </.link>
+                  <div :if={video.mux_status != "ready"} class="font-medium">{video.title}</div>
                   <div class="text-xs text-base-content/60 font-mono">{video.slug}</div>
                 </div>
               </td>
@@ -205,7 +224,7 @@ defmodule BobineWeb.Admin.ContentLive do
               <td class="text-sm text-base-content/60">
                 {Calendar.strftime(video.inserted_at, "%b %d, %Y")}
               </td>
-              <td>
+              <td :if={@can_manage}>
                 <button
                   phx-click="delete_video"
                   phx-value-id={video.id}
@@ -355,4 +374,11 @@ defmodule BobineWeb.Admin.ContentLive do
 
     assign(socket, :videos, videos)
   end
+
+  defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
+
+  defp can_manage_content?(%{membership: %{role: role}}) when role in [:owner, :admin, :editor],
+    do: true
+
+  defp can_manage_content?(_), do: false
 end

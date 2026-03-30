@@ -37,8 +37,15 @@ defmodule BobineWeb.Components.AdminLayout do
 
       <%!-- Mobile header --%>
       <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-base-300">
-        <p class="font-bold text-base-content truncate" data-test="org-name-mobile">
+        <p
+          :if={!@impersonating}
+          class="font-bold text-base-content truncate"
+          data-test="org-name-mobile"
+        >
           {@organization.name}
+        </p>
+        <p :if={@impersonating} class="font-bold text-base-content truncate text-sm">
+          Impersonating
         </p>
         <button
           phx-click={show_sidebar()}
@@ -65,8 +72,15 @@ defmodule BobineWeb.Components.AdminLayout do
         >
           <div class="p-4 border-b border-base-300 flex items-center justify-between">
             <div class="min-w-0">
-              <p class="font-bold text-base-content truncate" data-test="org-name">
+              <p
+                :if={!@impersonating}
+                class="font-bold text-base-content truncate"
+                data-test="org-name"
+              >
                 {@organization.name}
+              </p>
+              <p :if={@impersonating} class="font-bold text-base-content truncate text-sm">
+                Impersonating
               </p>
               <p class="text-xs text-base-content/60 truncate mt-1">{@current_user.email}</p>
             </div>

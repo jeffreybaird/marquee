@@ -51,10 +51,20 @@ defmodule BobineWeb.Plugs.SetOrganization do
         end
 
       {:error, :not_found} ->
-        conn
-        |> put_resp_content_type("text/html")
-        |> send_resp(404, "Organization not found")
-        |> halt()
+        scope = conn.assigns[:current_scope]
+
+        if scope && scope.user && scope.user.is_super_admin do
+          # Let super admins through without an org — the LiveView
+          # will redirect them to /super
+          conn
+          |> assign(:organization, nil)
+          |> put_session(:no_org_resolved, true)
+        else
+          conn
+          |> put_resp_content_type("text/html")
+          |> send_resp(404, "Organization not found")
+          |> halt()
+        end
     end
   end
 

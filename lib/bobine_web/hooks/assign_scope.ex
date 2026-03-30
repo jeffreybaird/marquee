@@ -62,7 +62,23 @@ defmodule BobineWeb.Hooks.AssignScope do
   end
 
   def on_mount(:assign_org, _params, session, socket) do
-    {:cont, mount_full_scope(socket, session)}
+    if session["no_org_resolved"] do
+      # Super admin with no org — skip org resolution, let the LiveView handle it
+      user = load_user_from_session(session)
+
+      socket =
+        socket
+        |> assign(:current_scope, user && Scope.for_user(user))
+        |> assign(:current_user, user)
+        |> assign(:organization, nil)
+        |> assign(:current_membership, nil)
+        |> assign(:current_path, derive_current_path(socket))
+        |> assign(:impersonating, false)
+
+      {:cont, socket}
+    else
+      {:cont, mount_full_scope(socket, session)}
+    end
   end
 
   defp mount_full_scope(socket, session) do
@@ -96,8 +112,25 @@ defmodule BobineWeb.Hooks.AssignScope do
     |> assign(:current_user, user)
     |> assign(:organization, org)
     |> assign(:current_membership, membership)
-    |> assign(:current_path, socket.host_uri && socket.host_uri.path)
+    |> assign(:current_path, derive_current_path(socket))
     |> assign(:impersonating, impersonating)
+  end
+
+  defp derive_current_path(socket) do
+    case socket.view do
+      BobineWeb.Admin.DashboardLive -> "/admin"
+      BobineWeb.Admin.ContentLive -> "/admin/content"
+      BobineWeb.Admin.CatalogLive -> "/admin/catalog"
+      BobineWeb.Admin.AnalyticsLive -> "/admin/analytics"
+      BobineWeb.Admin.BrandingLive -> "/admin/branding"
+      BobineWeb.Admin.MembersLive -> "/admin/members"
+      BobineWeb.Admin.WebhooksLive -> "/admin/webhooks"
+      BobineWeb.Admin.SettingsLive -> "/admin/settings"
+      BobineWeb.Super.DashboardLive -> "/super"
+      BobineWeb.Super.OrganizationsLive -> "/super/organizations"
+      BobineWeb.Super.UsersLive -> "/super/users"
+      _ -> nil
+    end
   end
 
   defp impersonating?(nil, _session), do: false

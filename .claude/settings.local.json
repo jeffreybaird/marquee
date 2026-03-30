@@ -10,7 +10,12 @@
       "Bash(gh run:*)",
       "Bash(MIX_ENV=prod mix compile --warnings-as-errors)",
       "Bash(fly logs:*)",
-      "Bash(fly ext:*)"
+      "Bash(fly ext:*)",
+      "Bash(grep -E \"\\\\.\\(ex|exs\\)$\")",
+      "Bash(git log:*)",
+      "Bash(for i:*)",
+      "Bash(do mix:*)",
+      "Bash(done)"
     ]
   }
 }
