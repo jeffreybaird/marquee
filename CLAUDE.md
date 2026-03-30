@@ -17,6 +17,7 @@ file(s) when working in a specific area:
 - `.claude/architecture-decisions.md` — audit logging, soft deletes, pagination, events, error tuples, feature flags
 - `.claude/observability.md` — OpenTelemetry spans, metrics, structured logging
 - `.claude/scalability.md` — write buffers, caching, connection management, PubSub, rate limiting
+- `.claude/brand-system.md` - Visual design and tone
 
 ---
 

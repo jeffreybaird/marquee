@@ -19,7 +19,7 @@ defmodule Bobine.Release do
       bin/bobine eval "Bobine.Release.create_admin(\"you@example.com\")"
   """
   def create_admin(email) do
-    start_repos()
+    start_services()
 
     case Bobine.Accounts.register_user(%{email: email}) do
       {:ok, user} ->
@@ -45,7 +45,7 @@ defmodule Bobine.Release do
       bin/bobine eval "Bobine.Release.create_admin_with_login(\"you@example.com\", \"yourdomain.fly.dev\")"
   """
   def create_admin_with_login(email, host \\ "localhost:4000") do
-    start_repos()
+    start_services()
 
     user =
       case Bobine.Accounts.get_user_by_email(email) do
@@ -85,7 +85,9 @@ defmodule Bobine.Release do
     Application.ensure_loaded(@app)
   end
 
-  defp start_repos do
+  # Starts the services that context functions depend on (Repo, PubSub)
+  # without starting the web server or background workers.
+  defp start_services do
     load_app()
     Application.ensure_all_started(:postgrex)
     Application.ensure_all_started(:ecto_sql)
@@ -93,5 +95,7 @@ defmodule Bobine.Release do
     for repo <- repos() do
       {:ok, _} = repo.start_link(pool_size: 2)
     end
+
+    {:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: Bobine.PubSub)
   end
 end

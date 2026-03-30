@@ -18,35 +18,17 @@ defmodule Bobine.Events do
         _ -> "global"
       end
 
-    with {:ok, _} <- ensure_pubsub_running() do
-      Phoenix.PubSub.broadcast(
-        Bobine.PubSub,
-        "events:#{org_id}",
-        {:bobine_event, event, scope}
-      )
+    Phoenix.PubSub.broadcast(
+      Bobine.PubSub,
+      "events:#{org_id}",
+      {:bobine_event, event, scope}
+    )
 
-      Phoenix.PubSub.broadcast(
-        Bobine.PubSub,
-        "events:global",
-        {:bobine_event, event, scope}
-      )
-    end
-
-    :ok
-  end
-
-  defp ensure_pubsub_running do
-    if Process.whereis(Bobine.PubSub) do
-      {:ok, :running}
-    else
-      require Logger
-
-      Logger.warning("PubSub not running — event broadcast skipped",
-        module: __MODULE__
-      )
-
-      :skip
-    end
+    Phoenix.PubSub.broadcast(
+      Bobine.PubSub,
+      "events:global",
+      {:bobine_event, event, scope}
+    )
   end
 
   @doc """
