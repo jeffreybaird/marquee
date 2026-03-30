@@ -53,9 +53,17 @@ if config_env() == :prod do
   # (Honeycomb, Grafana Cloud, Jaeger, etc.)
   # When no endpoint is set, disable export to avoid spamming localhost:4318
   if otel_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
+    otel_headers =
+      if auth = System.get_env("OTEL_EXPORTER_OTLP_AUTH_HEADER") do
+        [{"Authorization", auth}]
+      else
+        []
+      end
+
     config :opentelemetry_exporter,
       otlp_protocol: :http_protobuf,
-      otlp_endpoint: otel_endpoint
+      otlp_endpoint: otel_endpoint,
+      otlp_headers: otel_headers
   else
     config :opentelemetry,
       traces_exporter: :none

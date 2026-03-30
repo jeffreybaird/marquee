@@ -41,7 +41,8 @@ or be logged.
 | `STRIPE_SECRET_KEY`     | Fly + GH       | Stripe API key                   |
 | `STRIPE_WEBHOOK_SECRET` | Fly            | Stripe webhook signing secret    |
 | `RELEASE_COOKIE`        | Fly            | Erlang distribution cookie       |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | OpenTelemetry OTLP endpoint (optional) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | Grafana Cloud OTLP gateway URL (optional) |
+| `OTEL_EXPORTER_OTLP_AUTH_HEADER` | Fly  | `Basic <base64(instance_id:api_token)>` (optional) |
 | `RESEND_API_KEY`        | Fly            | Resend API key for transactional email |
 | `MAILER_FROM`           | Fly            | From address for emails (optional, defaults to onboarding@resend.dev) |
 
