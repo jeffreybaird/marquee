@@ -21,6 +21,7 @@ config :bobine, :scopes,
   ]
 
 config :bobine,
+  env: config_env(),
   ecto_repos: [Bobine.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 

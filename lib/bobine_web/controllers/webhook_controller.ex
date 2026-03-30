@@ -7,7 +7,7 @@ defmodule BobineWeb.WebhookController do
   Receives Mux webhook events. Validates signature and enqueues processing.
   """
   def mux(conn, _params) do
-    raw_body = conn.assigns[:raw_body] || ""
+    raw_body = Process.get(:raw_body) || ""
 
     with {:ok, payload} <- verify_mux_signature(raw_body, conn),
          {:ok, _job} <- enqueue_mux_webhook(payload) do
@@ -15,10 +15,12 @@ defmodule BobineWeb.WebhookController do
     else
       {:error, :invalid_signature} ->
         Logger.warning("Invalid Mux webhook signature")
+        Logger.warning("Raw body: #{raw_body}")
         send_resp(conn, 400, "invalid signature")
 
       {:error, reason} ->
         Logger.error("Mux webhook error", reason: inspect(reason))
+        Logger.error("Raw body: #{raw_body}")
         send_resp(conn, 500, "error")
     end
   end
@@ -45,8 +47,8 @@ defmodule BobineWeb.WebhookController do
         {:error, :invalid_signature}
       end
     else
-      # No secret configured — accept without verification (dev/test)
-      {:ok, Jason.decode!(raw_body)}
+      Logger.error("MUX_WEBHOOK_SECRET not configured — rejecting webhook")
+      {:error, :invalid_signature}
     end
   end
 
