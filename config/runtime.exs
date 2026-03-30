@@ -133,13 +133,15 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
-  # Transactional email via Resend
-  config :bobine, Bobine.Mailer,
-    adapter: Swoosh.Adapters.Resend,
-    api_key: System.fetch_env!("RESEND_API_KEY")
+  # Transactional email via Resend (optional — falls back to local adapter if not set)
+  if resend_key = System.get_env("RESEND_API_KEY") do
+    config :bobine, Bobine.Mailer,
+      adapter: Swoosh.Adapters.Resend,
+      api_key: resend_key
 
-  config :bobine,
-    mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
+    config :bobine,
+      mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
+  end
 
   #
   # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
