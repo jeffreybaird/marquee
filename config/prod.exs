@@ -32,8 +32,7 @@ config :logger, level: :info
 # Includes trace context for log-to-trace correlation.
 config :logger, :default_handler,
   formatter:
-    {LoggerJSON.Formatters.Basic,
-     metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]}
+    {LoggerJSON.Formatters.Basic, metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]}
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

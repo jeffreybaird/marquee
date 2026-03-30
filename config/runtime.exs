@@ -69,6 +69,13 @@ if config_env() == :prod do
       traces_exporter: :none
   end
 
+  # Grafana Cloud Loki — ship logs directly from the app
+  if loki_url = System.get_env("GRAFANA_LOKI_URL") do
+    config :bobine,
+      grafana_loki_url: loki_url,
+      grafana_loki_auth: System.get_env("GRAFANA_LOKI_AUTH")
+  end
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

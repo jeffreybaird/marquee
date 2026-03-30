@@ -25,12 +25,25 @@ defmodule Bobine.Application do
         # Start to serve requests, typically the last entry
         BobineWeb.Endpoint
       ]
+      |> maybe_add_log_shipper()
       |> maybe_exclude_audit_subscriber()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Bobine.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp maybe_add_log_shipper(children) do
+    url = Application.get_env(:bobine, :grafana_loki_url)
+    auth = Application.get_env(:bobine, :grafana_loki_auth)
+
+    if url && auth do
+      Bobine.LogShipper.attach_logger_handler()
+      children ++ [{Bobine.LogShipper, url: url, auth: auth}]
+    else
+      children
+    end
   end
 
   # In test, Oban runs inline which sets scheduled_at to nil,
