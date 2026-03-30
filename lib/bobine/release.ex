@@ -89,6 +89,7 @@ defmodule Bobine.Release do
   # without starting the web server or background workers.
   defp start_services do
     load_app()
+    Application.ensure_all_started(:phoenix_pubsub)
     Application.ensure_all_started(:postgrex)
     Application.ensure_all_started(:ecto_sql)
 
