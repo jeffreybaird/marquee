@@ -40,10 +40,19 @@ defmodule BobineWeb.WebhookController do
 
       if header do
         case Mux.Webhooks.verify_header(raw_body, header, secret) do
-          :ok -> {:ok, Jason.decode!(raw_body)}
-          {:error, _} -> {:error, :invalid_signature}
+          :ok ->
+            {:ok, Jason.decode!(raw_body)}
+
+          {:error, reason} ->
+            Logger.warning("Mux signature verification failed",
+              reason: inspect(reason),
+              header: String.slice(header || "", 0, 50)
+            )
+
+            {:error, :invalid_signature}
         end
       else
+        Logger.warning("No Mux-Signature header present")
         {:error, :invalid_signature}
       end
     else

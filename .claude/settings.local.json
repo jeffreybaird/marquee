@@ -4,7 +4,10 @@
       "Bash(mix test:*)",
       "Bash(mix compile:*)",
       "Bash(mix format:*)",
-      "Bash(mix run:*)"
+      "Bash(mix run:*)",
+      "Bash(grep \"FORMATTER:*)",
+      "Bash(cat .github/workflows/*.yml)",
+      "Bash(gh run:*)"
     ]
   }
 }
