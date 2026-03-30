@@ -15,12 +15,10 @@ defmodule BobineWeb.WebhookController do
     else
       {:error, :invalid_signature} ->
         Logger.warning("Invalid Mux webhook signature")
-        Logger.warning("Raw body: #{raw_body}")
         send_resp(conn, 400, "invalid signature")
 
       {:error, reason} ->
-        Logger.error("Mux webhook error", reason: inspect(reason))
-        Logger.error("Raw body: #{raw_body}")
+        Logger.error("Mux webhook error: #{inspect(reason)}")
         send_resp(conn, 500, "error")
     end
   end
@@ -62,14 +60,7 @@ defmodule BobineWeb.WebhookController do
   end
 
   defp enqueue_mux_webhook(payload) do
-    trace_ctx =
-      try do
-        :otel_propagator_text_map.inject(:otel_ctx.get_current(), []) |> Map.new()
-      rescue
-        _ -> %{}
-      end
-
-    %{payload: payload, trace_context: trace_ctx}
+    %{payload: payload}
     |> Bobine.Workers.MuxWebhookProcessor.new()
     |> Oban.insert()
   end

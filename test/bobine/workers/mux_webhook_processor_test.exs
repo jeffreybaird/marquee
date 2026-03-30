@@ -5,7 +5,7 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
   alias Bobine.Workers.MuxWebhookProcessor
   alias Bobine.Content
 
-  describe "video.upload.asset_ready" do
+  describe "video.upload.asset_created" do
     test "links upload to asset and sets status to preparing" do
       org = insert(:organization)
 
@@ -18,7 +18,7 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
         )
 
       payload = %{
-        "type" => "video.upload.asset_ready",
+        "type" => "video.upload.asset_created",
         "data" => %{"id" => "upload_xyz", "asset_id" => "asset_abc"}
       }
 

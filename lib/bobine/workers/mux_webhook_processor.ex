@@ -15,11 +15,7 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
   alias Bobine.Content
 
   @impl true
-  def perform(%Oban.Job{args: %{"payload" => payload} = args}) do
-    if ctx = args["trace_context"] do
-      :otel_propagator_text_map.extract(ctx)
-    end
-
+  def perform(%Oban.Job{args: %{"payload" => payload}}) do
     Logger.metadata(event_type: payload["type"])
 
     Tracer.with_span "bobine.worker.mux_webhook_processor" do
@@ -28,9 +24,10 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     end
   end
 
-  defp handle_event("video.upload.asset_ready", data) do
-    upload_id = get_in(data, ["object", "id"]) || data["id"]
-    asset_id = get_in(data, ["asset_id"]) || get_in(data, ["new_asset_id"])
+  # Mux sends "video.upload.asset_created" when the upload is linked to an asset
+  defp handle_event("video.upload.asset_created", data) do
+    upload_id = data["id"]
+    asset_id = data["asset_id"]
 
     if upload_id && asset_id do
       case Content.link_upload_to_asset(upload_id, asset_id) do
@@ -38,7 +35,7 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
         {:error, reason} -> {:error, reason}
       end
     else
-      Logger.warning("Missing upload_id or asset_id in video.upload.asset_ready",
+      Logger.warning("Missing upload_id or asset_id in video.upload.asset_created",
         data: inspect(data)
       )
 
