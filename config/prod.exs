@@ -28,10 +28,12 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
-# Include trace and tenant context in log output
-config :logger, :default_formatter,
-  format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]
+# Structured JSON logging for Grafana Cloud Loki ingestion.
+# Includes trace context for log-to-trace correlation.
+config :logger, :default_handler,
+  formatter:
+    {LoggerJSON.Formatters.Basic,
+     metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]}
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

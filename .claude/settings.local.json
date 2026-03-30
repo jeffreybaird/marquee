@@ -7,7 +7,8 @@
       "Bash(mix run:*)",
       "Bash(grep \"FORMATTER:*)",
       "Bash(cat .github/workflows/*.yml)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(MIX_ENV=prod mix compile --warnings-as-errors)"
     ]
   }
 }

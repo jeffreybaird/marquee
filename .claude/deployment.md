@@ -43,6 +43,8 @@ or be logged.
 | `RELEASE_COOKIE`        | Fly            | Erlang distribution cookie       |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | Grafana Cloud OTLP gateway URL (optional) |
 | `OTEL_EXPORTER_OTLP_AUTH_HEADER` | Fly  | `Basic <base64(instance_id:api_token)>` (optional) |
+| `GRAFANA_LOKI_URL`    | Fly (log ship)   | Grafana Cloud Loki push URL for log shipping       |
+| `GRAFANA_LOKI_TOKEN`  | Fly (log ship)   | Grafana Cloud Loki auth token                      |
 | `RESEND_API_KEY`        | Fly            | Resend API key for transactional email |
 | `MAILER_FROM`           | Fly            | From address for emails (optional, defaults to onboarding@resend.dev) |
 
