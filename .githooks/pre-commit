@@ -1,0 +1,12 @@
+#!/bin/sh
+mix format --check-formatted
+if [ $? -ne 0 ]; then
+  echo "mix format found unformatted files. Run 'mix format' and re-stage your changes."
+  exit 1
+fi
+
+mix compile --warnings-as-errors
+if [ $? -ne 0 ]; then
+  echo "mix compile --warnings-as-errors failed. Fix the compilation issue or warning before committing."
+  exit 1
+fi
