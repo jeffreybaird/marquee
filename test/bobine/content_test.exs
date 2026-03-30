@@ -24,11 +24,6 @@ defmodule Bobine.ContentTest do
       %{org: org}
     end
 
-    defp create_video(%{org: org}) do
-      video = insert(:video, organization: org)
-      %{video: video}
-    end
-
     test "list_videos/2 returns all videos for the org", %{org: org} do
       video = insert(:video, organization: org)
       assert %{results: [found]} = Content.list_videos(org)
@@ -157,7 +152,7 @@ defmodule Bobine.ContentTest do
 
   describe "webhook handlers" do
     test "link_upload_to_asset/2 links upload to asset" do
-      video = insert(:video, mux_upload_id: "upload_xyz", mux_status: "waiting")
+      _video = insert(:video, mux_upload_id: "upload_xyz", mux_status: "waiting")
 
       assert {:ok, updated} = Content.link_upload_to_asset("upload_xyz", "asset_abc")
       assert updated.mux_asset_id == "asset_abc"
@@ -169,7 +164,7 @@ defmodule Bobine.ContentTest do
     end
 
     test "mark_video_ready/2 sets video to ready with metadata" do
-      video = insert(:video, mux_asset_id: "asset_123", mux_status: "preparing")
+      _video = insert(:video, mux_asset_id: "asset_123", mux_status: "preparing")
 
       metadata = %{
         duration: 125.5,
@@ -185,7 +180,7 @@ defmodule Bobine.ContentTest do
     end
 
     test "mark_video_errored/2 sets video to errored" do
-      video = insert(:video, mux_asset_id: "asset_456", mux_status: "preparing")
+      _video = insert(:video, mux_asset_id: "asset_456", mux_status: "preparing")
 
       assert {:ok, updated} = Content.mark_video_errored("asset_456", %{message: "encode failed"})
       assert updated.mux_status == "errored"

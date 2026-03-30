@@ -2,7 +2,7 @@ defmodule Bobine.AdminTest do
   use Bobine.DataCase, async: true
 
   alias Bobine.Admin
-  alias Bobine.Accounts.Membership
+
   alias Bobine.Branding
 
   describe "list_organizations/1" do

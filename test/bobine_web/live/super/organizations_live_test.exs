@@ -4,7 +4,7 @@ defmodule BobineWeb.Super.OrganizationsLiveTest do
   import Phoenix.LiveViewTest
 
   describe "GET /super/organizations" do
-    test "lists all organizations", %{conn: conn} do
+    test "lists all organizations", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       org_a = insert(:organization, name: "Alpha Studio", slug: "alpha-studio")
@@ -15,7 +15,7 @@ defmodule BobineWeb.Super.OrganizationsLiveTest do
       assert html =~ org_b.name
     end
 
-    test "search filters results", %{conn: conn} do
+    test "search filters results", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       insert(:organization, name: "Alpha Studio", slug: "alpha-studio")
@@ -28,7 +28,7 @@ defmodule BobineWeb.Super.OrganizationsLiveTest do
       refute html =~ "Beta Channel"
     end
 
-    test "shows New Organization button", %{conn: conn} do
+    test "shows New Organization button", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
 
@@ -36,7 +36,7 @@ defmodule BobineWeb.Super.OrganizationsLiveTest do
       assert html =~ ~s(data-test="new-org-btn")
     end
 
-    test "non-super-admin cannot access", %{conn: conn} do
+    test "non-super-admin cannot access", %{conn: _conn} do
       user = insert(:user, is_super_admin: false)
       membership = insert(:membership, user: user)
       conn = conn_for(membership)

@@ -32,7 +32,7 @@ defmodule Bobine.Buffers.ProgressBufferTest do
     test "flushes buffered records to Postgres" do
       org = insert(:organization)
       user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
+      _membership = insert(:membership, organization: org, user: user)
       video = insert(:video, organization: org)
 
       :ok = ProgressBuffer.update(org.id, user.id, video.id, 55.0)

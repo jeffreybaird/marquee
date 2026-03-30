@@ -7,7 +7,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
   alias Bobine.Branding
 
   describe "GET /super/organizations/new" do
-    test "super admin can access new org form", %{conn: conn} do
+    test "super admin can access new org form", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
 
@@ -15,7 +15,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert html =~ "New Organization"
     end
 
-    test "creates org with valid data and redirects to show page", %{conn: conn} do
+    test "creates org with valid data and redirects to show page", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       owner = insert(:user)
@@ -34,7 +34,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert conn.resp_body =~ "Test Org"
     end
 
-    test "creates default theme for the new org", %{conn: conn} do
+    test "creates default theme for the new org", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       owner = insert(:user)
@@ -54,7 +54,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert Branding.get_theme_by_org(org) != nil
     end
 
-    test "creates owner membership for the specified email", %{conn: conn} do
+    test "creates owner membership for the specified email", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       owner = insert(:user)
@@ -79,7 +79,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert membership.role == :owner
     end
 
-    test "creates a new user if email doesn't exist", %{conn: conn} do
+    test "creates a new user if email doesn't exist", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       new_email = "brand-new-user-#{System.unique_integer()}@example.com"
@@ -102,7 +102,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert Accounts.get_user_by_email(new_email) != nil
     end
 
-    test "shows validation errors for missing name", %{conn: conn} do
+    test "shows validation errors for missing name", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
 
@@ -119,7 +119,7 @@ defmodule BobineWeb.Super.OrganizationNewLiveTest do
       assert html =~ "can&#39;t be blank"
     end
 
-    test "shows error for duplicate slug", %{conn: conn} do
+    test "shows error for duplicate slug", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       insert(:organization, slug: "taken-slug")

@@ -4,7 +4,7 @@ defmodule BobineWeb.Super.DashboardLiveTest do
   import Phoenix.LiveViewTest
 
   describe "GET /super" do
-    test "super admin can access dashboard", %{conn: conn} do
+    test "super admin can access dashboard", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
 
@@ -12,7 +12,7 @@ defmodule BobineWeb.Super.DashboardLiveTest do
       assert html =~ "Platform Dashboard"
     end
 
-    test "dashboard displays platform stats", %{conn: conn} do
+    test "dashboard displays platform stats", %{conn: _conn} do
       super_admin = insert(:super_admin)
       conn = conn_for_super_admin(super_admin)
       org = insert(:organization)
@@ -26,7 +26,7 @@ defmodule BobineWeb.Super.DashboardLiveTest do
       assert html =~ ~s(data-test="stat-total-subscribers")
     end
 
-    test "non-super-admin user is redirected", %{conn: conn} do
+    test "non-super-admin user is redirected", %{conn: _conn} do
       user = insert(:user, is_super_admin: false)
       membership = insert(:membership, user: user)
       conn = conn_for(membership)
