@@ -138,6 +138,14 @@ defmodule BobineWeb.Router do
     end
   end
 
+  ## Health check (no auth, used by Fly.io)
+
+  scope "/", BobineWeb do
+    pipe_through :api
+
+    get "/health", HealthController, :check
+  end
+
   ## Webhook receiver routes (no auth, raw body)
 
   scope "/webhooks", BobineWeb do

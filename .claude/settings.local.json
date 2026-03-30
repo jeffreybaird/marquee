@@ -3,7 +3,8 @@
     "allow": [
       "Bash(mix test:*)",
       "Bash(mix compile:*)",
-      "Bash(mix format:*)"
+      "Bash(mix format:*)",
+      "Bash(mix run:*)"
     ]
   }
 }

@@ -32,6 +32,25 @@ defmodule Bobine.EventsTest do
 
       assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
     end
+
+    test "does not crash when PubSub is not running" do
+      # Regression: release tasks (e.g. create_admin) only start the Repo,
+      # not the full app. Context functions that broadcast events must not
+      # crash when PubSub is unavailable.
+      original = Process.whereis(Bobine.PubSub)
+
+      if original do
+        Process.unregister(Bobine.PubSub)
+      end
+
+      try do
+        assert :ok = Events.broadcast(nil, {:test_event, %{id: "123"}})
+      after
+        if original do
+          Process.register(original, Bobine.PubSub)
+        end
+      end
+    end
   end
 
   describe "AuditSubscriber" do
