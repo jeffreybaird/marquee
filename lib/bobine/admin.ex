@@ -17,7 +17,7 @@ defmodule Bobine.Admin do
   alias Bobine.Accounts.{Organization, User, Membership}
   alias Bobine.Branding
   alias Bobine.Branding.Theme
-  alias Bobine.Content.{Video, Collection, Tag}
+  alias Bobine.Content.{Video, Collection, CollectionItem, Tag}
   alias Bobine.Catalog.Row
   alias Bobine.Billing.{Plan, Subscription}
   alias Bobine.Engagement.{WatchlistItem, Favorite, WatchHistory, Progress}
@@ -374,6 +374,8 @@ defmodule Bobine.Admin do
           Repo.all(from(m in Membership, where: m.organization_id == ^org_id, preload: [:user])),
         videos: Repo.all(from(v in Video, where: v.organization_id == ^org_id)),
         collections: Repo.all(from(c in Collection, where: c.organization_id == ^org_id)),
+        collection_items:
+          Repo.all(from(ci in CollectionItem, where: ci.organization_id == ^org_id)),
         tags: Repo.all(from(t in Tag, where: t.organization_id == ^org_id)),
         rows: Repo.all(from(r in Row, where: r.organization_id == ^org_id)),
         plans: Repo.all(from(p in Plan, where: p.organization_id == ^org_id)),

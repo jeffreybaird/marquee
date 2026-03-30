@@ -15,7 +15,13 @@
       "Bash(git log:*)",
       "Bash(for i:*)",
       "Bash(do mix:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(mix ecto.migrate)",
+      "Bash(mix credo:*)",
+      "Bash(mix dialyzer:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -E \"\\\\.ex$\")",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/catalog.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/content.ex)"
     ]
   }
 }

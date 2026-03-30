@@ -1,22 +1,38 @@
 defmodule Bobine.Catalog do
   @moduledoc """
   The Catalog context.
+
+  Manages homepage rows, row items, and content resolution for viewer-facing
+  catalog pages. Rows define the layout; each row resolves its content based
+  on its source type (curated, collection, tag, recent, popular, continue_watching).
   """
 
   import Ecto.Query, warn: false
+
   alias Bobine.Repo
   alias Bobine.Pagination
   alias Bobine.Events
+  alias Bobine.Audit
+  alias Bobine.Cache
+  alias Bobine.Content
+  alias Bobine.Accounts.Organization
 
-  alias Bobine.Catalog.Row
+  require Bobine.Otel
+
+  alias Bobine.Catalog.{Row, RowItem}
+
+  ## -----------------------------------------------------------------------
+  ## Rows
+  ## -----------------------------------------------------------------------
 
   @doc """
-  Returns a paginated list of rows, excluding soft-deleted records.
+  Returns a paginated list of rows for an organization, excluding soft-deleted.
 
   Exempt from doctest — hits the database.
   """
-  def list_rows(opts \\ []) do
+  def list_rows(%Organization{id: org_id}, opts \\ []) do
     Row
+    |> where(organization_id: ^org_id)
     |> where([r], is_nil(r.deleted_at))
     |> order_by(asc: :position)
     |> Pagination.paginate(opts)
@@ -32,18 +48,23 @@ defmodule Bobine.Catalog do
   end
 
   @doc """
-  Gets a single row.
+  Gets a single row within an organization.
 
-  Raises `Ecto.NoResultsError` if the Row does not exist.
+  Returns `{:ok, row}` or `{:error, :not_found}`.
 
-  ## Examples
+  Exempt from doctest — hits the database.
+  """
+  def get_row(%Organization{id: org_id}, id) do
+    case Repo.get_by(Row, id: id, organization_id: org_id) do
+      nil -> {:error, :not_found}
+      row -> {:ok, row}
+    end
+  end
 
-      iex> get_row!(123)
-      %Row{}
+  @doc """
+  Gets a single row. Raises on not found.
 
-      iex> get_row!(456)
-      ** (Ecto.NoResultsError)
-
+  Exempt from doctest — hits the database.
   """
   def get_row!(id), do: Repo.get!(Row, id)
 
@@ -52,12 +73,18 @@ defmodule Bobine.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def create_row(attrs) do
-    with {:ok, row} <- %Row{} |> Row.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:row_created, row})
-      {:ok, row}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+  def create_row(scope, attrs) do
+    Bobine.Otel.with_span "bobine.catalog.create_row",
+                          %{"bobine.org.id" => scope.organization.id} do
+      attrs = put_org_id(attrs, scope.organization.id)
+
+      with {:ok, row} <- %Row{} |> Row.changeset(attrs) |> Repo.insert() do
+        Events.broadcast(scope, {:row_created, row})
+        Audit.log(scope, "row.created", row)
+        {:ok, row}
+      else
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -66,12 +93,17 @@ defmodule Bobine.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def update_row(%Row{} = row, attrs) do
-    with {:ok, row} <- row |> Row.changeset(attrs) |> Repo.update() do
-      Events.broadcast(nil, {:row_updated, row})
-      {:ok, row}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+  def update_row(scope, %Row{} = row, attrs) do
+    Bobine.Otel.with_span "bobine.catalog.update_row",
+                          %{"bobine.org.id" => scope.organization.id} do
+      with {:ok, row} <- row |> Row.changeset(attrs) |> Repo.update() do
+        Events.broadcast(scope, {:row_updated, row})
+        Audit.log(scope, "row.updated", row, attrs)
+        invalidate_row_cache(scope.organization.id, row.id)
+        {:ok, row}
+      else
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -80,13 +112,20 @@ defmodule Bobine.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def delete_row(%Row{} = row) do
-    with {:ok, row} <-
-           row
-           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-           |> Repo.update() do
-      Events.broadcast(nil, {:row_deleted, row})
-      {:ok, row}
+  def delete_row(scope, %Row{} = row) do
+    Bobine.Otel.with_span "bobine.catalog.delete_row",
+                          %{"bobine.org.id" => scope.organization.id} do
+      with {:ok, row} <-
+             row
+             |> Ecto.Changeset.change(
+               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+             )
+             |> Repo.update() do
+        Events.broadcast(scope, {:row_deleted, row})
+        Audit.log(scope, "row.deleted", row)
+        invalidate_row_cache(scope.organization.id, row.id)
+        {:ok, row}
+      end
     end
   end
 
@@ -112,5 +151,222 @@ defmodule Bobine.Catalog do
   """
   def change_row(%Row{} = row, attrs \\ %{}) do
     Row.changeset(row, attrs)
+  end
+
+  @doc """
+  Reorders rows by updating positions in a single transaction.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_rows(scope, ordered_ids) do
+    Bobine.Otel.with_span "bobine.catalog.reorder_rows",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {id, position} ->
+          Row
+          |> where(id: ^id, organization_id: ^scope.organization.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:rows_reordered, ordered_ids})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Row Items (for curated rows)
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a paginated list of row items (videos) for a row, ordered by position.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_row_items(%Organization{id: org_id}, %{id: row_id}, opts \\ []) do
+    Bobine.Content.Video
+    |> join(:inner, [v], ri in RowItem, on: ri.video_id == v.id and ri.row_id == ^row_id)
+    |> where([v], v.organization_id == ^org_id)
+    |> where([v], is_nil(v.deleted_at))
+    |> where([_v, ri], is_nil(ri.deleted_at))
+    |> order_by([_v, ri], asc: ri.position)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Adds a video to a curated row at the given position.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_item_to_row(scope, %Row{} = row, %Bobine.Content.Video{} = video, position \\ nil) do
+    Bobine.Otel.with_span "bobine.catalog.add_item_to_row",
+                          %{"bobine.org.id" => scope.organization.id} do
+      position = position || next_row_item_position(row.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        row_id: row.id,
+        video_id: video.id,
+        position: position
+      }
+
+      case %RowItem{} |> RowItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(scope, {:row_item_added, %{row: row, video: video}})
+          Audit.log(scope, "row.item_added", item)
+          invalidate_row_cache(scope.organization.id, row.id)
+          {:ok, item}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Removes a video from a curated row.
+
+  Exempt from doctest — hits the database.
+  """
+  def remove_item_from_row(scope, %Row{} = row, %Bobine.Content.Video{} = video) do
+    Bobine.Otel.with_span "bobine.catalog.remove_item_from_row",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case Repo.get_by(RowItem, row_id: row.id, video_id: video.id) do
+        nil ->
+          {:error, :not_found}
+
+        item ->
+          case Repo.delete(item) do
+            {:ok, _} ->
+              Events.broadcast(scope, {:row_item_removed, %{row: row, video: video}})
+              Audit.log(scope, "row.item_removed", item)
+              invalidate_row_cache(scope.organization.id, row.id)
+              :ok
+
+            {:error, changeset} ->
+              {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  @doc """
+  Reorders items within a curated row by updating positions in a single transaction.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_row_items(scope, %Row{} = row, ordered_video_ids) do
+    Bobine.Otel.with_span "bobine.catalog.reorder_row_items",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_video_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {video_id, position} ->
+          RowItem
+          |> where(row_id: ^row.id, video_id: ^video_id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:row_items_reordered, %{row: row}})
+          invalidate_row_cache(scope.organization.id, row.id)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp next_row_item_position(row_id) do
+    RowItem
+    |> where(row_id: ^row_id)
+    |> select([ri], max(ri.position))
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      max_pos -> max_pos + 1
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Row Content Resolution
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns the videos for a row regardless of source type.
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_row_content(%Organization{} = organization, %Row{} = row, opts \\ []) do
+    case row.source_type do
+      :curated ->
+        list_row_items(organization, row, opts)
+
+      :collection ->
+        Content.list_collection_videos(organization, %{id: row.source_id}, opts)
+
+      :tag ->
+        Content.list_videos_by_tag(organization, %{id: row.source_id}, opts)
+
+      :recent ->
+        Content.list_videos(
+          organization,
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}])
+        )
+
+      :popular ->
+        Content.list_videos(
+          organization,
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}])
+        )
+
+      :continue_watching ->
+        %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+    end
+  end
+
+  @doc """
+  Cached version of resolve_row_content for non-personalized rows.
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_row_content_cached(%Organization{} = organization, %Row{} = row, opts \\ []) do
+    case row.source_type do
+      :continue_watching ->
+        resolve_row_content(organization, row, opts)
+
+      _ ->
+        Cache.fetch(
+          "row_content:#{organization.id}:#{row.id}",
+          [ttl: :timer.minutes(1)],
+          fn -> resolve_row_content(organization, row, opts) end
+        )
+    end
+  end
+
+  defp invalidate_row_cache(org_id, row_id) do
+    Cache.delete("row_content:#{org_id}:#{row_id}")
+  end
+
+  defp put_org_id(attrs, org_id) when is_map(attrs) do
+    cond do
+      Map.has_key?(attrs, :organization_id) -> attrs
+      Map.has_key?(attrs, "organization_id") -> attrs
+      has_string_keys?(attrs) -> Map.put(attrs, "organization_id", org_id)
+      true -> Map.put(attrs, :organization_id, org_id)
+    end
+  end
+
+  defp has_string_keys?(map) do
+    map |> Map.keys() |> Enum.any?(&is_binary/1)
   end
 end

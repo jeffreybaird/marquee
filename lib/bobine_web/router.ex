@@ -79,6 +79,8 @@ defmodule BobineWeb.Router do
       on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
       live "/", DashboardLive
       live "/content", ContentLive
+      live "/collections", CollectionsLive
+      live "/tags", TagsLive
       live "/catalog", CatalogLive
       live "/analytics", AnalyticsLive
       live "/branding", BrandingLive

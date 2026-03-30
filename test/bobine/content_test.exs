@@ -299,95 +299,103 @@ defmodule Bobine.ContentTest do
 
   describe "collections" do
     alias Bobine.Content.Collection
-
-    import Bobine.ContentFixtures
-
-    @invalid_attrs %{position: nil, type: nil, description: nil, title: nil, slug: nil}
+    alias Bobine.Accounts.Scope
 
     setup do
-      %{org: insert(:organization)}
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
+      %{org: org, scope: scope}
     end
 
-    test "list_collections/0 returns all collections" do
-      collection = collection_fixture()
-      assert %{results: [^collection]} = Content.list_collections()
+    test "list_collections/2 returns all collections for the org", %{org: org, scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Test", position: 0})
+      assert %{results: [found]} = Content.list_collections(org)
+      assert found.id == collection.id
     end
 
-    test "get_collection!/1 returns the collection with given id" do
-      collection = collection_fixture()
-      assert Content.get_collection!(collection.id) == collection
+    test "get_collection/2 returns the collection in the org", %{org: org, scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Test", position: 0})
+      assert {:ok, found} = Content.get_collection(org, collection.id)
+      assert found.id == collection.id
     end
 
-    test "create_collection/1 with valid data creates a collection", %{org: org} do
+    test "get_collection!/2 returns the collection in the org", %{org: org, scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Test", position: 0})
+      found = Content.get_collection!(org, collection.id)
+      assert found.id == collection.id
+    end
+
+    test "create_collection/2 with valid data creates a collection", %{scope: scope} do
       valid_attrs = %{
         position: 42,
-        type: :series,
         description: "some description",
-        title: "some title",
-        slug: "some slug",
-        organization_id: org.id
+        title: "some title"
       }
 
-      assert {:ok, %Collection{} = collection} = Content.create_collection(valid_attrs)
+      assert {:ok, %Collection{} = collection} = Content.create_collection(scope, valid_attrs)
       assert collection.position == 42
-      assert collection.type == :series
+      assert collection.title == "some title"
     end
 
-    test "create_collection/1 with invalid data returns error changeset" do
-      assert {:error, :validation, %Ecto.Changeset{}} = Content.create_collection(@invalid_attrs)
+    test "create_collection/2 generates slug from title", %{scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "My Collection"})
+      assert collection.slug == "my-collection"
     end
 
-    test "update_collection/2 with valid data updates the collection" do
-      collection = collection_fixture()
+    test "create_collection/2 with invalid data returns error changeset", %{scope: scope} do
+      assert {:error, :validation, %Ecto.Changeset{}} =
+               Content.create_collection(scope, %{title: nil})
+    end
+
+    test "update_collection/3 with valid data updates the collection", %{scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Original", position: 0})
 
       update_attrs = %{
         position: 43,
-        type: :season,
         description: "some updated description",
-        title: "some updated title",
-        slug: "some updated slug"
+        title: "some updated title"
       }
 
-      assert {:ok, %Collection{} = collection} =
-               Content.update_collection(collection, update_attrs)
+      assert {:ok, %Collection{} = updated} =
+               Content.update_collection(scope, collection, update_attrs)
 
-      assert collection.position == 43
-      assert collection.type == :season
+      assert updated.position == 43
+      assert updated.title == "some updated title"
     end
 
-    test "update_collection/2 with invalid data returns error changeset" do
-      collection = collection_fixture()
+    test "update_collection/3 with invalid data returns error changeset", %{scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Original", position: 0})
 
       assert {:error, :validation, %Ecto.Changeset{}} =
-               Content.update_collection(collection, @invalid_attrs)
-
-      assert collection == Content.get_collection!(collection.id)
+               Content.update_collection(scope, collection, %{title: nil})
     end
 
-    test "delete_collection/1 soft-deletes the collection" do
-      collection = collection_fixture()
-      assert {:ok, %Collection{} = deleted} = Content.delete_collection(collection)
+    test "delete_collection/2 soft-deletes the collection", %{org: org, scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "To Delete", position: 0})
+      assert {:ok, %Collection{} = deleted} = Content.delete_collection(scope, collection)
       assert deleted.deleted_at != nil
-      assert %{results: []} = Content.list_collections()
+      assert %{results: []} = Content.list_collections(org)
     end
 
-    test "restore_collection/1 restores a soft-deleted collection" do
-      collection = collection_fixture()
-      {:ok, deleted} = Content.delete_collection(collection)
-      assert {:ok, %Collection{} = restored} = Content.restore_collection(deleted)
+    test "restore_collection/2 restores a soft-deleted collection", %{scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "To Restore", position: 0})
+      {:ok, deleted} = Content.delete_collection(scope, collection)
+      assert {:ok, %Collection{} = restored} = Content.restore_collection(scope, deleted)
       assert restored.deleted_at == nil
     end
 
-    test "list_collections_including_deleted/0 returns soft-deleted collections" do
-      collection = collection_fixture()
-      {:ok, _deleted} = Content.delete_collection(collection)
+    test "list_collections_including_deleted/0 returns soft-deleted collections", %{scope: scope} do
+      {:ok, collection} = Content.create_collection(scope, %{title: "Deletable", position: 0})
+      {:ok, _deleted} = Content.delete_collection(scope, collection)
       assert [found] = Content.list_collections_including_deleted()
       assert found.id == collection.id
       assert found.deleted_at != nil
     end
 
     test "change_collection/1 returns a collection changeset" do
-      collection = collection_fixture()
+      collection = %Collection{}
       assert %Ecto.Changeset{} = Content.change_collection(collection)
     end
   end

@@ -19,6 +19,7 @@ defmodule Bobine.Application do
         Bobine.Repo,
         {DNSCluster, query: Application.get_env(:bobine, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Bobine.PubSub},
+        Bobine.Cache,
         {Oban, Application.fetch_env!(:bobine, Oban)},
         Bobine.Buffers.ProgressBuffer,
         Bobine.Events.AuditSubscriber,

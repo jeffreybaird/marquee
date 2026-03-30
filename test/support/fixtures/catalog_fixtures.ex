@@ -4,26 +4,21 @@ defmodule Bobine.CatalogFixtures do
   entities via the `Bobine.Catalog` context.
   """
 
-  import Bobine.Factory
-
   @doc """
-  Generate a row.
+  Generate a row for a given scope.
   """
-  def row_fixture(attrs \\ %{}) do
-    org = insert(:organization)
-
-    {:ok, row} =
+  def row_fixture(scope, attrs \\ %{}) do
+    attrs =
       attrs
       |> Enum.into(%{
-        organization_id: org.id,
-        filter_config: %{},
         position: 42,
         source_type: :curated,
         title: "some title",
-        visible: true
+        visible: true,
+        max_items: 20
       })
-      |> Bobine.Catalog.create_row()
 
+    {:ok, row} = Bobine.Catalog.create_row(scope, attrs)
     row
   end
 end

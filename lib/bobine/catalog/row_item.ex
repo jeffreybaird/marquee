@@ -5,11 +5,11 @@ defmodule Bobine.Catalog.RowItem do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "row_items" do
-    field :position, :integer
-    field :deleted_at, :utc_datetime
-
+    belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :row, Bobine.Catalog.Row
     belongs_to :video, Bobine.Content.Video
+    field :position, :integer, default: 0
+    field :deleted_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
   end
@@ -17,7 +17,7 @@ defmodule Bobine.Catalog.RowItem do
   @doc false
   def changeset(row_item, attrs) do
     row_item
-    |> cast(attrs, [:position, :row_id, :video_id])
-    |> validate_required([:position, :row_id, :video_id])
+    |> cast(attrs, [:position, :organization_id, :row_id, :video_id])
+    |> validate_required([:organization_id, :row_id, :video_id])
   end
 end

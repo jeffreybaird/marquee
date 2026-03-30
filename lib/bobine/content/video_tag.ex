@@ -5,6 +5,7 @@ defmodule Bobine.Content.VideoTag do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "video_tags" do
+    belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :video, Bobine.Content.Video
     belongs_to :tag, Bobine.Content.Tag
 
@@ -14,8 +15,8 @@ defmodule Bobine.Content.VideoTag do
   @doc false
   def changeset(video_tag, attrs) do
     video_tag
-    |> cast(attrs, [:video_id, :tag_id])
-    |> validate_required([:video_id, :tag_id])
+    |> cast(attrs, [:organization_id, :video_id, :tag_id])
+    |> validate_required([:organization_id, :video_id, :tag_id])
     |> unique_constraint([:video_id, :tag_id])
   end
 end

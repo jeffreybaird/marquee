@@ -2,18 +2,26 @@ defmodule Bobine.Content.Collection do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Bobine.Content.{CollectionItem, Video}
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "collections" do
+    belongs_to :organization, Bobine.Accounts.Organization
     field :title, :string
     field :slug, :string
     field :description, :string
-    field :type, Ecto.Enum, values: [:series, :season, :category]
-    field :position, :integer
+    field :cover_image_url, :string
+    field :position, :integer, default: 0
+    field :visible, :boolean, default: true
     field :deleted_at, :utc_datetime
 
-    belongs_to :organization, Bobine.Accounts.Organization
-    belongs_to :parent, Bobine.Content.Collection, foreign_key: :parent_id
+    # Legacy fields kept for migration compatibility
+    field :type, Ecto.Enum, values: [:series, :season, :category]
+    belongs_to :parent, __MODULE__, foreign_key: :parent_id
+
+    has_many :collection_items, CollectionItem
+    many_to_many :videos, Video, join_through: CollectionItem
 
     timestamps(type: :utc_datetime)
   end
@@ -21,7 +29,32 @@ defmodule Bobine.Content.Collection do
   @doc false
   def changeset(collection, attrs) do
     collection
-    |> cast(attrs, [:title, :slug, :description, :type, :position, :organization_id, :parent_id])
-    |> validate_required([:title, :slug, :type, :position, :organization_id])
+    |> cast(attrs, [
+      :title,
+      :slug,
+      :description,
+      :cover_image_url,
+      :position,
+      :visible,
+      :organization_id,
+      :type,
+      :parent_id
+    ])
+    |> validate_required([:title, :organization_id])
+    |> maybe_generate_slug()
+    |> unique_constraint([:organization_id, :slug])
+  end
+
+  defp maybe_generate_slug(changeset) do
+    case get_field(changeset, :slug) do
+      nil ->
+        put_change(changeset, :slug, Bobine.Content.slugify(get_field(changeset, :title) || ""))
+
+      "" ->
+        put_change(changeset, :slug, Bobine.Content.slugify(get_field(changeset, :title) || ""))
+
+      _ ->
+        changeset
+    end
   end
 end

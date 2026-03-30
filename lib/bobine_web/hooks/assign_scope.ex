@@ -120,6 +120,8 @@ defmodule BobineWeb.Hooks.AssignScope do
     case socket.view do
       BobineWeb.Admin.DashboardLive -> "/admin"
       BobineWeb.Admin.ContentLive -> "/admin/content"
+      BobineWeb.Admin.CollectionsLive -> "/admin/collections"
+      BobineWeb.Admin.TagsLive -> "/admin/tags"
       BobineWeb.Admin.CatalogLive -> "/admin/catalog"
       BobineWeb.Admin.AnalyticsLive -> "/admin/analytics"
       BobineWeb.Admin.BrandingLive -> "/admin/branding"

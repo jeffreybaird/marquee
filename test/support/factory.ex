@@ -58,21 +58,31 @@ defmodule Bobine.Factory do
       organization: build(:organization),
       title: sequence(:collection_title, &"Collection #{&1}"),
       slug: sequence(:collection_slug, &"collection-#{&1}"),
-      type: :series,
-      position: sequence(:collection_position, & &1)
+      position: sequence(:collection_position, & &1),
+      visible: true
+    }
+  end
+
+  def collection_item_factory do
+    %Bobine.Content.CollectionItem{
+      organization: build(:organization),
+      collection: build(:collection),
+      video: build(:video),
+      position: sequence(:collection_item_position, & &1)
     }
   end
 
   def tag_factory do
     %Bobine.Content.Tag{
       organization: build(:organization),
-      name: sequence(:tag_name, &"Tag #{&1}"),
+      name: sequence(:tag_name, &"tag-#{&1}"),
       slug: sequence(:tag_slug, &"tag-#{&1}")
     }
   end
 
   def video_tag_factory do
     %Bobine.Content.VideoTag{
+      organization: build(:organization),
       video: build(:video),
       tag: build(:tag)
     }
@@ -88,12 +98,14 @@ defmodule Bobine.Factory do
       title: sequence(:row_title, &"Row #{&1}"),
       source_type: :curated,
       position: sequence(:row_position, & &1),
-      visible: true
+      visible: true,
+      max_items: 20
     }
   end
 
   def row_item_factory do
     %Bobine.Catalog.RowItem{
+      organization: build(:organization),
       row: build(:row),
       video: build(:video),
       position: sequence(:row_item_position, & &1)

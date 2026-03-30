@@ -33,23 +33,18 @@ defmodule Bobine.ContentFixtures do
   end
 
   @doc """
-  Generate a collection.
+  Generate a collection for a given scope.
   """
-  def collection_fixture(attrs \\ %{}) do
-    org = insert(:organization)
-
-    {:ok, collection} =
+  def collection_fixture(scope, attrs \\ %{}) do
+    attrs =
       attrs
       |> Enum.into(%{
         description: "some description",
         position: 42,
-        slug: "some slug",
-        title: "some title",
-        type: :series,
-        organization_id: org.id
+        title: "some title"
       })
-      |> Bobine.Content.create_collection()
 
+    {:ok, collection} = Bobine.Content.create_collection(scope, attrs)
     collection
   end
 end
