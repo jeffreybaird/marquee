@@ -75,6 +75,31 @@ defmodule BobineWeb.UserLive.LoginTest do
     end
   end
 
+  describe "email input editing" do
+    test "email field value can be changed on the magic link form", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      # Type into the email field — should update, not freeze
+      html =
+        lv
+        |> form("#login_form_magic", user: %{email: "new@example.com"})
+        |> render_change()
+
+      assert html =~ "new@example.com"
+    end
+
+    test "email field value can be changed on the password form", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      html =
+        lv
+        |> form("#login_form_password", user: %{email: "changed@example.com"})
+        |> render_change()
+
+      assert html =~ "changed@example.com"
+    end
+  end
+
   describe "login navigation" do
     test "redirects to registration page when the Register button is clicked", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
@@ -86,6 +111,26 @@ defmodule BobineWeb.UserLive.LoginTest do
         |> follow_redirect(conn, ~p"/users/register")
 
       assert login_html =~ "Register"
+    end
+  end
+
+  describe "header auth links" do
+    test "shows Register and Log in links when not authenticated", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      assert html =~ "Register"
+      assert html =~ "Log in"
+      refute html =~ "Log out"
+    end
+
+    test "shows Log out button when authenticated", %{conn: conn} do
+      user = user_fixture()
+      conn = log_in_user(conn, user)
+
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      assert html =~ "Log out"
+      assert html =~ user.email
     end
   end
 

@@ -3,7 +3,7 @@ defmodule BobineWeb.Components.SuperLayout do
   Super admin layout component.
 
   Responsive sidebar with dark slate styling. On mobile, the sidebar
-  is hidden behind a hamburger menu.
+  slides in via JS commands.
   """
 
   use BobineWeb, :html
@@ -19,29 +19,29 @@ defmodule BobineWeb.Components.SuperLayout do
       <%!-- Mobile header --%>
       <div class="lg:hidden flex items-center justify-between px-4 py-3 bg-slate-900 text-white">
         <p class="font-bold text-sm tracking-wide uppercase">Bobine Platform</p>
-        <label for="super-drawer" class="btn btn-ghost btn-sm btn-square text-white">
+        <button
+          phx-click={show_sidebar()}
+          class="btn btn-ghost btn-sm btn-square text-white"
+          aria-label="Open menu"
+        >
           <.icon name="hero-bars-3" class="size-5" />
-        </label>
+        </button>
       </div>
-
-      <%!-- Drawer checkbox --%>
-      <input type="checkbox" id="super-drawer" class="hidden peer" />
 
       <div class="flex flex-1 overflow-hidden">
         <%!-- Mobile overlay --%>
-        <label
-          for="super-drawer"
-          class="fixed inset-0 bg-black/50 z-30 hidden peer-checked:block lg:!hidden"
+        <div
+          id="super-overlay"
+          phx-click={hide_sidebar()}
+          class="fixed inset-0 bg-black/50 z-30 hidden lg:!hidden"
         >
-        </label>
+        </div>
 
         <%!-- Sidebar --%>
-        <aside class={[
-          "fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 flex flex-col text-slate-100",
-          "transform -translate-x-full transition-transform duration-200 ease-in-out",
-          "peer-checked:translate-x-0",
-          "lg:static lg:translate-x-0 lg:transform-none"
-        ]}>
+        <aside
+          id="super-sidebar"
+          class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 flex flex-col text-slate-100 -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
+        >
           <div class="p-4 border-b border-slate-700 flex items-center justify-between">
             <div>
               <p class="font-bold text-white text-sm tracking-wide uppercase">
@@ -54,9 +54,13 @@ defmodule BobineWeb.Components.SuperLayout do
                 Super Admin
               </span>
             </div>
-            <label for="super-drawer" class="btn btn-ghost btn-sm btn-square text-white lg:hidden">
+            <button
+              phx-click={hide_sidebar()}
+              class="btn btn-ghost btn-sm btn-square text-white lg:hidden"
+              aria-label="Close menu"
+            >
               <.icon name="hero-x-mark" class="size-5" />
-            </label>
+            </button>
           </div>
 
           <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -104,6 +108,20 @@ defmodule BobineWeb.Components.SuperLayout do
       </div>
     </div>
     """
+  end
+
+  defp show_sidebar do
+    %JS{}
+    |> JS.remove_class("hidden", to: "#super-overlay")
+    |> JS.remove_class("-translate-x-full", to: "#super-sidebar")
+    |> JS.add_class("translate-x-0", to: "#super-sidebar")
+  end
+
+  defp hide_sidebar do
+    %JS{}
+    |> JS.add_class("hidden", to: "#super-overlay")
+    |> JS.remove_class("translate-x-0", to: "#super-sidebar")
+    |> JS.add_class("-translate-x-full", to: "#super-sidebar")
   end
 
   attr :href, :string, required: true

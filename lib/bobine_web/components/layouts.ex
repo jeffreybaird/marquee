@@ -41,7 +41,25 @@ defmodule BobineWeb.Layouts do
           Bobine
         </a>
       </div>
-      <div class="flex-none flex items-center gap-2">
+      <div class="flex-none flex items-center gap-2 sm:gap-4">
+        <%= if @current_scope do %>
+          <span class="text-sm text-base-content/70 hidden sm:inline">
+            {@current_scope.user.email}
+          </span>
+          <.link href={~p"/users/settings"} class="text-sm hover:underline hidden sm:inline">
+            Settings
+          </.link>
+          <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost btn-sm">
+            Log out
+          </.link>
+        <% else %>
+          <.link href={~p"/users/register"} class="btn btn-ghost btn-sm">
+            Register
+          </.link>
+          <.link href={~p"/users/log-in"} class="btn btn-primary btn-sm">
+            Log in
+          </.link>
+        <% end %>
         <.theme_toggle />
       </div>
     </header>

@@ -3,7 +3,7 @@ defmodule BobineWeb.Components.AdminLayout do
   Admin dashboard layout component.
 
   Renders a responsive sidebar navigation and main content area.
-  On mobile, the sidebar is hidden behind a hamburger menu.
+  On mobile, the sidebar slides in via JS commands.
   """
 
   use BobineWeb, :html
@@ -40,29 +40,29 @@ defmodule BobineWeb.Components.AdminLayout do
         <p class="font-bold text-base-content truncate" data-test="org-name-mobile">
           {@organization.name}
         </p>
-        <label for="admin-drawer" class="btn btn-ghost btn-sm btn-square">
+        <button
+          phx-click={show_sidebar()}
+          class="btn btn-ghost btn-sm btn-square"
+          aria-label="Open menu"
+        >
           <.icon name="hero-bars-3" class="size-5" />
-        </label>
+        </button>
       </div>
-
-      <%!-- Drawer checkbox for mobile sidebar toggle --%>
-      <input type="checkbox" id="admin-drawer" class="hidden peer" />
 
       <div class="flex flex-1 overflow-hidden">
         <%!-- Mobile overlay --%>
-        <label
-          for="admin-drawer"
-          class="fixed inset-0 bg-black/50 z-30 hidden peer-checked:block lg:!hidden"
+        <div
+          id="admin-overlay"
+          phx-click={hide_sidebar()}
+          class="fixed inset-0 bg-black/50 z-30 hidden lg:!hidden"
         >
-        </label>
+        </div>
 
         <%!-- Sidebar --%>
-        <aside class={[
-          "fixed inset-y-0 left-0 z-40 w-64 bg-base-200 flex flex-col border-r border-base-300",
-          "transform -translate-x-full transition-transform duration-200 ease-in-out",
-          "peer-checked:translate-x-0",
-          "lg:static lg:translate-x-0 lg:transform-none"
-        ]}>
+        <aside
+          id="admin-sidebar"
+          class="fixed inset-y-0 left-0 z-40 w-64 bg-base-200 flex flex-col border-r border-base-300 -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
+        >
           <div class="p-4 border-b border-base-300 flex items-center justify-between">
             <div class="min-w-0">
               <p class="font-bold text-base-content truncate" data-test="org-name">
@@ -70,9 +70,13 @@ defmodule BobineWeb.Components.AdminLayout do
               </p>
               <p class="text-xs text-base-content/60 truncate mt-1">{@current_user.email}</p>
             </div>
-            <label for="admin-drawer" class="btn btn-ghost btn-sm btn-square lg:hidden">
+            <button
+              phx-click={hide_sidebar()}
+              class="btn btn-ghost btn-sm btn-square lg:hidden"
+              aria-label="Close menu"
+            >
               <.icon name="hero-x-mark" class="size-5" />
-            </label>
+            </button>
           </div>
 
           <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -135,6 +139,20 @@ defmodule BobineWeb.Components.AdminLayout do
       </div>
     </div>
     """
+  end
+
+  defp show_sidebar do
+    %JS{}
+    |> JS.remove_class("hidden", to: "#admin-overlay")
+    |> JS.remove_class("-translate-x-full", to: "#admin-sidebar")
+    |> JS.add_class("translate-x-0", to: "#admin-sidebar")
+  end
+
+  defp hide_sidebar do
+    %JS{}
+    |> JS.add_class("hidden", to: "#admin-overlay")
+    |> JS.remove_class("translate-x-0", to: "#admin-sidebar")
+    |> JS.add_class("-translate-x-full", to: "#admin-sidebar")
   end
 
   attr :href, :string, required: true

@@ -41,6 +41,7 @@ defmodule BobineWeb.UserLive.Login do
           id="login_form_magic"
           action={~p"/users/log-in"}
           phx-submit="submit_magic"
+          phx-change="validate"
         >
           <.input
             readonly={!!@current_scope}
@@ -65,6 +66,7 @@ defmodule BobineWeb.UserLive.Login do
           id="login_form_password"
           action={~p"/users/log-in"}
           phx-submit="submit_password"
+          phx-change="validate"
           phx-trigger-action={@trigger_submit}
         >
           <.input
@@ -104,6 +106,12 @@ defmodule BobineWeb.UserLive.Login do
     form = to_form(%{"email" => email}, as: "user")
 
     {:ok, assign(socket, form: form, trigger_submit: false)}
+  end
+
+  @impl true
+  def handle_event("validate", %{"user" => user_params}, socket) do
+    form = to_form(user_params, as: "user")
+    {:noreply, assign(socket, form: form)}
   end
 
   @impl true

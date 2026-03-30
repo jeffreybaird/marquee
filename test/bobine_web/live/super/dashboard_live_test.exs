@@ -3,6 +3,22 @@ defmodule BobineWeb.Super.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
+  describe "responsive layout" do
+    test "mobile sidebar toggle uses JS commands, not checkbox", %{conn: _conn} do
+      # Regression: CSS-only peer-checked drawer broke under LiveView DOM patching.
+      super_admin = insert(:super_admin)
+      conn = conn_for_super_admin(super_admin)
+
+      {:ok, _view, html} = live(conn, ~p"/super")
+
+      assert html =~ ~s(id="super-sidebar")
+      assert html =~ ~s(id="super-overlay")
+      assert html =~ "hero-bars-3"
+      assert html =~ "phx-click"
+      refute html =~ ~s(id="super-drawer")
+    end
+  end
+
   describe "GET /super" do
     test "super admin can access dashboard", %{conn: _conn} do
       super_admin = insert(:super_admin)

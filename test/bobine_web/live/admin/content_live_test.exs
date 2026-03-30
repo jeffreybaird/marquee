@@ -3,6 +3,34 @@ defmodule BobineWeb.Admin.ContentLiveTest do
 
   import Phoenix.LiveViewTest
 
+  describe "responsive layout" do
+    test "mobile sidebar toggle elements are present", %{conn: _conn} do
+      membership = insert(:membership, role: :editor)
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+
+      # Mobile header with hamburger button exists
+      assert html =~ ~s(data-test="org-name-mobile")
+      assert html =~ "hero-bars-3"
+
+      # Sidebar with nav links exists
+      assert html =~ ~s(id="admin-sidebar")
+      assert html =~ ~s(id="admin-overlay")
+      assert html =~ ~s(data-test="admin-nav-content")
+    end
+
+    test "sidebar open uses JS.remove_class not checkbox peer", %{conn: _conn} do
+      # Regression: the CSS-only peer-checked approach broke under LiveView
+      # DOM patching. The fix uses phx-click with JS commands instead.
+      membership = insert(:membership, role: :editor)
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+
+      # Must NOT have a checkbox-based drawer (the broken approach)
+      refute html =~ ~s(id="admin-drawer")
+      # Must use phx-click JS commands on the hamburger button
+      assert html =~ "phx-click"
+    end
+  end
+
   describe "access control" do
     test "admin can access content page", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
