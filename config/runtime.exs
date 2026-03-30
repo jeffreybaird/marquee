@@ -51,10 +51,14 @@ end
 if config_env() == :prod do
   # OpenTelemetry exporter — send traces to the configured OTLP endpoint
   # (Honeycomb, Grafana Cloud, Jaeger, etc.)
+  # When no endpoint is set, disable export to avoid spamming localhost:4318
   if otel_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
     config :opentelemetry_exporter,
       otlp_protocol: :http_protobuf,
       otlp_endpoint: otel_endpoint
+  else
+    config :opentelemetry,
+      traces_exporter: :none
   end
 
   database_url =
