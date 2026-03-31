@@ -26,6 +26,8 @@ defmodule BobineWeb.E2E.ImpersonationE2ETest do
       |> log_in_session(super_admin)
       |> Wallaby.Browser.visit("/super/organizations/#{org.id}")
       |> Wallaby.Browser.click(Query.css("[data-test='impersonate-btn']"))
+      # Wait for admin dashboard to fully load after redirect
+      |> assert_has(Query.css("[data-test='admin-nav-content']"))
       # Navigate to content page while impersonating
       |> Wallaby.Browser.click(Query.css("[data-test='admin-nav-content']"))
       |> assert_has(Query.text("Org Video"))
