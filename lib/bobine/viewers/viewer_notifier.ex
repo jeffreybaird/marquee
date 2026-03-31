@@ -30,7 +30,7 @@ defmodule Bobine.Viewers.ViewerNotifier do
   Exempt from doctest — sends email.
   """
   def deliver_magic_link(viewer, token, organization) do
-    url = viewer_magic_link_url(token)
+    url = viewer_magic_link_url(token, organization)
 
     deliver(viewer.email, "Sign in to #{organization.name}", """
 
@@ -76,10 +76,20 @@ defmodule Bobine.Viewers.ViewerNotifier do
     """)
   end
 
-  defp viewer_magic_link_url(token) do
-    base_url = Application.get_env(:bobine, BobineWeb.Endpoint)[:url][:host] || "localhost"
-    port = Application.get_env(:bobine, BobineWeb.Endpoint)[:url][:port] || 4000
-    scheme = Application.get_env(:bobine, BobineWeb.Endpoint)[:url][:scheme] || "http"
-    "#{scheme}://#{base_url}:#{port}/magic-link/#{token}"
+  defp viewer_magic_link_url(token, organization) do
+    endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
+    base_host = Keyword.get(endpoint_config, :host, "localhost")
+    port = Keyword.get(endpoint_config, :port, 4000)
+    scheme = Keyword.get(endpoint_config, :scheme, "http")
+
+    host =
+      if organization.custom_domain && organization.custom_domain != "" do
+        organization.custom_domain
+      else
+        "#{organization.slug}.#{base_host}"
+      end
+
+    port_suffix = if port in [80, 443], do: "", else: ":#{port}"
+    "#{scheme}://#{host}#{port_suffix}/magic-link/#{token}"
   end
 end

@@ -27,7 +27,10 @@
       "Bash(mix ecto.drop --force-drop)",
       "Bash(mix ecto.create)",
       "Bash(xargs -I {} basename {})",
-      "Bash(grep -l \"viewer\" /Users/jeffreybaird/personal-repos/bobine/test/bobine_web/live/admin/*.exs)"
+      "Bash(grep -l \"viewer\" /Users/jeffreybaird/personal-repos/bobine/test/bobine_web/live/admin/*.exs)",
+      "Bash(curl -s http://localhost:4000/dev/mailbox)",
+      "Bash(curl -sL http://localhost:4000/dev/mailbox)",
+      "Bash(curl -s http://demo.localhost:4000/login)"
     ]
   }
 }

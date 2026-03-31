@@ -65,7 +65,7 @@ defmodule BobineWeb.Viewer.RegisterLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} current_viewer={@current_viewer} organization={@organization}>
       <div class="max-w-md mx-auto">
         <.header>
           Create your account

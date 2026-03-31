@@ -34,7 +34,7 @@ defmodule BobineWeb.Viewer.HomeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} current_viewer={@current_viewer} organization={@organization}>
       <div class="max-w-5xl mx-auto">
         <.header>
           {(assigns[:organization] && assigns[:organization].name) || "Welcome to Bobine"}

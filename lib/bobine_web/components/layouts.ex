@@ -31,6 +31,9 @@ defmodule BobineWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :current_viewer, :map, default: nil, doc: "the currently authenticated viewer"
+  attr :organization, :map, default: nil, doc: "the resolved organization (tenant)"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -38,27 +41,50 @@ defmodule BobineWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
       <div class="flex-1">
         <a href="/" class="flex items-center gap-2 text-lg font-bold tracking-tight">
-          Bobine
+          {if @organization, do: @organization.name, else: "Bobine"}
         </a>
       </div>
       <div class="flex-none flex items-center gap-2 sm:gap-4">
-        <%= if @current_scope do %>
-          <span class="text-sm text-base-content/70 hidden sm:inline">
-            {@current_scope.user.email}
-          </span>
-          <.link href={~p"/users/settings"} class="text-sm hover:underline hidden sm:inline">
-            Settings
-          </.link>
-          <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost btn-sm">
-            Log out
-          </.link>
-        <% else %>
-          <.link href={~p"/users/register"} class="btn btn-ghost btn-sm">
-            Register
-          </.link>
-          <.link href={~p"/users/log-in"} class="btn btn-primary btn-sm">
-            Log in
-          </.link>
+        <%= cond do %>
+          <% @current_scope && @current_scope.user -> %>
+            <span class="text-sm text-base-content/70 hidden sm:inline">
+              {@current_scope.user.email}
+            </span>
+            <.link href={~p"/users/settings"} class="text-sm hover:underline hidden sm:inline">
+              Settings
+            </.link>
+            <.link href={~p"/users/log-out"} method="delete" class="btn btn-ghost btn-sm">
+              Log out
+            </.link>
+          <% @current_viewer -> %>
+            <span class="text-sm text-base-content/70 hidden sm:inline">
+              {@current_viewer.display_name || @current_viewer.email}
+            </span>
+            <.link href={~p"/account"} class="text-sm hover:underline hidden sm:inline">
+              Account
+            </.link>
+            <.link
+              href={~p"/viewer-session"}
+              method="delete"
+              class="btn btn-ghost btn-sm"
+              data-test="viewer-logout-btn"
+            >
+              Log out
+            </.link>
+          <% @organization -> %>
+            <.link href={~p"/register"} class="btn btn-ghost btn-sm">
+              Register
+            </.link>
+            <.link href={~p"/login"} class="btn btn-primary btn-sm">
+              Sign in
+            </.link>
+          <% true -> %>
+            <.link href={~p"/users/register"} class="btn btn-ghost btn-sm">
+              Register
+            </.link>
+            <.link href={~p"/users/log-in"} class="btn btn-primary btn-sm">
+              Log in
+            </.link>
         <% end %>
         <.theme_toggle />
       </div>

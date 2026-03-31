@@ -162,6 +162,11 @@ Tenant admin dashboard:
   Visit http://demo.localhost:4000/users/log-in and request a magic link.
   Emails: owner@demo.localhost | editor@demo.localhost | support@demo.localhost
 
+Viewer login:
+  Visit http://demo.localhost:4000/login and request a magic link.
+  Emails: alice@example.com | bob@example.com | carol@example.com
+  (alice has active subscription, bob has trial, carol has none)
+
 Super admin panel:
   Visit http://localhost:4000/users/log-in and log in as super@bobine.dev.
   Then go to http://localhost:4000/super
