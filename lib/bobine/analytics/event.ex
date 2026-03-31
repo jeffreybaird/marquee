@@ -11,6 +11,7 @@ defmodule Bobine.Analytics.Event do
 
     belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :user, Bobine.Accounts.User
+    belongs_to :viewer, Bobine.Viewers.Viewer
     belongs_to :video, Bobine.Content.Video
 
     timestamps(type: :utc_datetime)

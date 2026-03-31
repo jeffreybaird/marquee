@@ -3,34 +3,66 @@ defmodule BobineWeb.Viewer.WatchLive do
   use BobineWeb, :live_view
 
   alias Bobine.Content
+  alias Bobine.Content.AccessControl
   alias Bobine.Engagement
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     org = socket.assigns.organization
-    scope = socket.assigns.current_scope
+    viewer = socket.assigns[:current_viewer]
+    scope = socket.assigns[:current_scope]
 
     case Content.get_video(org, id) do
       {:ok, %{mux_status: "ready"} = video} ->
-        progress = if scope && scope.user, do: Engagement.get_progress(scope, video.id)
-        resume_position = if progress, do: progress.position, else: 0.0
-
-        if connected?(socket) do
-          Bobine.Metrics.video_viewed(org.id, video.id)
+        if AccessControl.can_watch?(video, viewer) do
+          mount_video(socket, video, viewer, scope, org)
+        else
+          handle_access_denied(socket, video, viewer)
         end
-
-        {:ok,
-         assign(socket,
-           video: video,
-           page_title: video.title,
-           resume_position: resume_position
-         )}
 
       {:ok, _video} ->
         {:ok, push_navigate(socket, to: ~p"/")}
 
       {:error, :not_found} ->
         {:ok, push_navigate(socket, to: ~p"/")}
+    end
+  end
+
+  defp mount_video(socket, video, viewer, scope, org) do
+    # Try viewer progress first, fall back to operator progress
+    progress =
+      cond do
+        viewer && !Map.get(viewer, :__impersonating__, false) ->
+          nil
+
+        scope && scope.user ->
+          Engagement.get_progress(scope, video.id)
+
+        true ->
+          nil
+      end
+
+    resume_position = if progress, do: progress.position, else: 0.0
+
+    if connected?(socket) do
+      Bobine.Metrics.video_viewed(org.id, video.id)
+    end
+
+    {:ok,
+     assign(socket,
+       video: video,
+       page_title: video.title,
+       resume_position: resume_position
+     )}
+  end
+
+  defp handle_access_denied(socket, _video, viewer) do
+    cond do
+      is_nil(viewer) ->
+        {:ok, push_navigate(socket, to: ~p"/login")}
+
+      true ->
+        {:ok, push_navigate(socket, to: ~p"/subscribe")}
     end
   end
 

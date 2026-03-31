@@ -103,4 +103,35 @@ defmodule BobineWeb.ConnCase do
   defp maybe_set_token_authenticated_at(token, authenticated_at) do
     Bobine.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
   end
+
+  @doc """
+  Builds a conn authenticated as a viewer on the given organization.
+
+  Sets the conn host to `<org.slug>.localhost` and puts the viewer session token.
+  """
+  def conn_for_viewer(%Bobine.Viewers.Viewer{} = viewer) do
+    viewer = Bobine.Repo.preload(viewer, [:organization])
+    token = Bobine.Viewers.generate_viewer_session_token(viewer)
+
+    Phoenix.ConnTest.build_conn()
+    |> Map.put(:host, "#{viewer.organization.slug}.localhost")
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:viewer_token, token)
+  end
+
+  @doc """
+  Builds a conn authenticated as both an operator and viewing as a viewer (impersonation).
+  """
+  def conn_for_impersonating_viewer(
+        %Bobine.Accounts.Membership{} = membership,
+        %Bobine.Viewers.Viewer{} = viewer
+      ) do
+    membership = Bobine.Repo.preload(membership, [:user, :organization])
+
+    conn_for(membership)
+    |> Plug.Conn.put_session(:impersonating_viewer_id, viewer.id)
+    |> Plug.Conn.put_session(:impersonating_admin_user_id, membership.user.id)
+    |> Plug.Conn.put_session(:impersonating_return_path, "/admin/members")
+    |> Plug.Conn.put_session(:impersonation_started_at, System.system_time(:second))
+  end
 end

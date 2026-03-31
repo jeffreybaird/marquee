@@ -104,6 +104,54 @@ super_admin =
       existing
   end
 
+# ---------------------------------------------------------------------------
+# Viewers on Demo Studio
+# ---------------------------------------------------------------------------
+
+alias Bobine.Viewers
+alias Bobine.Viewers.Viewer
+
+create_viewer = fn email, display_name, subscription_status, status, org ->
+  case Viewers.get_viewer_by_email(org, email) do
+    nil ->
+      {:ok, viewer} =
+        Viewers.register_viewer(org, %{
+          email: email,
+          display_name: display_name
+        })
+
+      viewer
+      |> Viewer.subscription_changeset(%{subscription_status: subscription_status})
+      |> Repo.update!()
+
+      if status != :active do
+        viewer
+        |> Viewer.status_changeset(%{status: status})
+        |> Repo.update!()
+      end
+
+      IO.puts("  viewer: #{email} (#{subscription_status}, #{status})")
+
+    _existing ->
+      IO.puts("  viewer: #{email} (already exists)")
+  end
+end
+
+IO.puts("\nCreating viewers for #{demo_org.name}:")
+create_viewer.("alice@example.com", "Alice", "active", :active, demo_org)
+create_viewer.("bob@example.com", "Bob", "trial", :active, demo_org)
+create_viewer.("carol@example.com", "Carol", "none", :active, demo_org)
+create_viewer.("dave@example.com", "Dave", "canceled", :active, demo_org)
+create_viewer.("eve@example.com", "Eve", "past_due", :active, demo_org)
+create_viewer.("frank@example.com", "Frank", "active", :suspended, demo_org)
+create_viewer.("grace@example.com", "Grace", "none", :active, demo_org)
+
+IO.puts("\nCreating viewers for #{test_org.name}:")
+# Same emails as demo_org to prove isolation
+create_viewer.("alice@example.com", "Alice (Test)", "active", :active, test_org)
+create_viewer.("bob@example.com", "Bob (Test)", "none", :active, test_org)
+create_viewer.("zoe@example.com", "Zoe", "trial", :active, test_org)
+
 IO.puts("\nSuper admin: #{super_admin.email}")
 
 IO.puts("""

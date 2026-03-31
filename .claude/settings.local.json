@@ -21,7 +21,11 @@
       "Bash(mix dialyzer:*)",
       "Bash(npx tsc:*)",
       "Bash(grep -E \"\\\\.ex$\")",
-      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/catalog.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/content.ex)"
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/catalog.ex /Users/jeffreybaird/personal-repos/bobine/lib/bobine/content.ex)",
+      "Bash(mix ecto.gen.migration create_viewers_and_tokens)",
+      "Bash(mix ecto.reset)",
+      "Bash(mix ecto.drop --force-drop)",
+      "Bash(mix ecto.create)"
     ]
   }
 }

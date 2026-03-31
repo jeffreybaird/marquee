@@ -11,6 +11,7 @@ defmodule Bobine.Billing.Subscription do
 
     belongs_to :organization, Bobine.Accounts.Organization
     belongs_to :user, Bobine.Accounts.User
+    belongs_to :viewer, Bobine.Viewers.Viewer
     belongs_to :plan, Bobine.Billing.Plan
 
     timestamps(type: :utc_datetime)

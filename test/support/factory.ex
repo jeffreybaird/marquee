@@ -38,6 +38,28 @@ defmodule Bobine.Factory do
   end
 
   # -------------------------------------------------------------------------
+  # Viewers
+  # -------------------------------------------------------------------------
+
+  def viewer_factory do
+    %Bobine.Viewers.Viewer{
+      organization: build(:organization),
+      email: sequence(:viewer_email, &"viewer-#{&1}@example.com"),
+      display_name: sequence(:viewer_name, &"Viewer #{&1}"),
+      status: :active,
+      subscription_status: "none",
+      confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  def subscribed_viewer_factory do
+    struct!(
+      viewer_factory(),
+      subscription_status: "active"
+    )
+  end
+
+  # -------------------------------------------------------------------------
   # Content
   # -------------------------------------------------------------------------
 

@@ -42,7 +42,9 @@ defmodule BobineWeb.Router do
     end
   end
 
-  ## Authentication routes (no org resolution — system-level)
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Operator authentication routes (no org resolution — system-level)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", BobineWeb do
     pipe_through [:browser, :require_authenticated_user]
@@ -70,7 +72,9 @@ defmodule BobineWeb.Router do
     delete "/users/log-out", UserSessionController, :delete
   end
 
+  ## ──────────────────────────────────────────────────────────────────────
   ## Admin routes (org resolved, auth required, viewer_support+ role)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/admin", BobineWeb.Admin do
     pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
@@ -90,7 +94,9 @@ defmodule BobineWeb.Router do
     end
   end
 
+  ## ──────────────────────────────────────────────────────────────────────
   ## Super admin routes — no org resolution, super admin only
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/super", BobineWeb do
     pipe_through [:browser, :require_authenticated_user, :require_super_admin]
@@ -116,31 +122,98 @@ defmodule BobineWeb.Router do
     end
   end
 
-  ## Viewer routes — public (org resolved, no auth required)
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Viewer auth routes (org resolved, plain controllers)
+  ## ──────────────────────────────────────────────────────────────────────
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization]
+
+    get "/magic-link/:token", SessionController, :magic_link
+    post "/viewer-session", SessionController, :create
+    delete "/viewer-session", SessionController, :delete
+  end
+
+  ## Viewer impersonation routes (operator must be authenticated)
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization, :require_authenticated_user]
+
+    post "/viewer-session/impersonate", SessionController, :start_impersonation
+    delete "/viewer-session/impersonate", SessionController, :stop_impersonation
+  end
+
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Viewer registration and login (org resolved, optional auth)
+  ## ──────────────────────────────────────────────────────────────────────
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization]
+
+    live_session :viewer_auth,
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :assign_org},
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+      ] do
+      live "/register", RegisterLive
+      live "/login", LoginLive
+    end
+  end
+
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Viewer public pages (org resolved, optional auth)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", BobineWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
     live_session :viewer_public,
-      on_mount: [{BobineWeb.Hooks.AssignScope, :assign_org}] do
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :assign_org},
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+      ] do
       live "/", HomeLive
+      live "/browse", BrowseLive
     end
   end
 
-  ## Viewer routes — authenticated (org resolved, auth required)
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Viewer authenticated pages (org resolved, login required)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", BobineWeb.Viewer do
-    pipe_through [:browser, :set_organization, :require_authenticated_user]
+    pipe_through [:browser, :set_organization]
 
     live_session :viewer_authenticated,
-      on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
-      live "/watch/:id", WatchLive
-      live "/watchlist", WatchlistLive
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :assign_org},
+        {BobineWeb.Hooks.AssignViewerScope, :require_authenticated}
+      ] do
       live "/account", AccountLive
+      live "/subscribe", SubscribeLive
     end
   end
 
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Viewer subscribed pages (org resolved, login + subscription required)
+  ## ──────────────────────────────────────────────────────────────────────
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization]
+
+    live_session :viewer_subscribed,
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :assign_org},
+        {BobineWeb.Hooks.AssignViewerScope, :require_authenticated},
+        {BobineWeb.Hooks.RequireSubscription, :require_subscription}
+      ] do
+      live "/watch/:id", WatchLive
+      live "/watchlist", WatchlistLive
+    end
+  end
+
+  ## ──────────────────────────────────────────────────────────────────────
   ## Health check (no auth, used by Fly.io)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", BobineWeb do
     pipe_through :api
@@ -148,7 +221,9 @@ defmodule BobineWeb.Router do
     get "/health", HealthController, :check
   end
 
+  ## ──────────────────────────────────────────────────────────────────────
   ## Webhook receiver routes (no auth, raw body)
+  ## ──────────────────────────────────────────────────────────────────────
 
   scope "/webhooks", BobineWeb do
     pipe_through :api

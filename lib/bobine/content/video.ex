@@ -15,6 +15,7 @@ defmodule Bobine.Content.Video do
     field :duration, :float
     field :max_resolution, :string
     field :published, :boolean, default: false
+    field :visibility, :string, default: "subscribers_only"
     field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
@@ -36,9 +37,11 @@ defmodule Bobine.Content.Video do
       :duration,
       :max_resolution,
       :published,
+      :visibility,
       :organization_id
     ])
     |> validate_required([:title, :slug, :organization_id])
+    |> validate_inclusion(:visibility, ~w(public free_with_account subscribers_only))
     |> unique_constraint(:slug, name: :videos_slug_organization_id_index)
   end
 
