@@ -9,7 +9,12 @@ defmodule BobineWeb.Viewer.WatchlistLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} current_viewer={@current_viewer} organization={@organization}>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      current_viewer={@current_viewer}
+      organization={@organization}
+    >
       <.header>Watchlist</.header>
       <p class="mt-4 text-base-content/70">Your watchlist coming soon.</p>
     </Layouts.app>

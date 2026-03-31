@@ -78,7 +78,7 @@ defmodule BobineWeb.Plugs.SetOrganization do
     with {:error, _} <- resolve_impersonated_org(conn),
          {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
          {:error, _} <- resolve_by_subdomain(conn.host) do
-      resolve_dev_fallback(conn)
+      resolve_fallback(conn)
     end
   end
 
@@ -111,44 +111,35 @@ defmodule BobineWeb.Plugs.SetOrganization do
     end
   end
 
+  # All environments: resolve from ?org=slug query param or x-bobine-org header.
+  # This enables staging on shared hosts (e.g. app.fly.dev/?org=demo) where
+  # wildcard subdomains are not available.
+  defp resolve_fallback(conn) do
+    slug_from_header = get_req_header(conn, "x-bobine-org") |> List.first()
+
+    slug_from_param =
+      case conn.params do
+        %Plug.Conn.Unfetched{} -> nil
+        params -> Map.get(params, "org")
+      end
+
+    slug = slug_from_header || slug_from_param
+
+    case slug do
+      nil -> resolve_env_fallback()
+      slug -> Accounts.get_organization_by_slug(slug)
+    end
+  end
+
   if Mix.env() == :dev do
-    defp resolve_dev_fallback(conn) do
-      slug_from_header = get_req_header(conn, "x-bobine-org") |> List.first()
-      slug_from_param = conn.params["org"]
-      slug = slug_from_header || slug_from_param
-
-      if slug do
-        Accounts.get_organization_by_slug(slug)
-      else
-        case Bobine.Repo.all(Bobine.Accounts.Organization) do
-          [org | _] -> {:ok, org}
-          [] -> {:error, :not_found}
-        end
+    # In dev, fall back to the first org when no slug is provided
+    defp resolve_env_fallback do
+      case Bobine.Repo.all(Bobine.Accounts.Organization) do
+        [org | _] -> {:ok, org}
+        [] -> {:error, :not_found}
       end
     end
-  end
-
-  if Mix.env() == :test do
-    # In test, support ?org=slug param and x-bobine-org header for E2E tests,
-    # but do NOT fall back to first org — tests must be explicit about which org
-    # they resolve to keep async isolation safe.
-    defp resolve_dev_fallback(conn) do
-      slug_from_header = get_req_header(conn, "x-bobine-org") |> List.first()
-
-      slug_from_param =
-        case conn.params do
-          %Plug.Conn.Unfetched{} -> nil
-          params -> Map.get(params, "org")
-        end
-
-      case slug_from_header || slug_from_param do
-        nil -> {:error, :not_found}
-        slug -> Accounts.get_organization_by_slug(slug)
-      end
-    end
-  end
-
-  if Mix.env() not in [:dev, :test] do
-    defp resolve_dev_fallback(_conn), do: {:error, :not_found}
+  else
+    defp resolve_env_fallback, do: {:error, :not_found}
   end
 end

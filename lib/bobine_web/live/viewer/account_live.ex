@@ -67,7 +67,12 @@ defmodule BobineWeb.Viewer.AccountLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} current_viewer={@current_viewer} organization={@organization}>
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      current_viewer={@current_viewer}
+      organization={@organization}
+    >
       <div class="max-w-lg mx-auto">
         <.header>Account</.header>
 
