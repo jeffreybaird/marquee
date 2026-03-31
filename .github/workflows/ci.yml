@@ -121,6 +121,13 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/bobine_test
 
+      - name: Upload Wallaby screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: wallaby-screenshots
+          path: screenshots/
+
   deploy:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
