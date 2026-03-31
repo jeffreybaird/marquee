@@ -33,7 +33,7 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
       assert classes =~ "bg-primary"
     end
 
-    test "all 8 sidebar links navigate to their pages", %{session: session} do
+    test "all sidebar links navigate to their pages", %{session: session} do
       org = insert(:organization)
       user = insert(:user)
       insert(:membership, organization: org, user: user, role: :admin)
@@ -41,6 +41,8 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
       pages = [
         {"admin-nav-dashboard", "Dashboard"},
         {"admin-nav-content", "Content"},
+        {"admin-nav-collections", "Collections"},
+        {"admin-nav-tags", "Tags"},
         {"admin-nav-catalog", "Catalog"},
         {"admin-nav-analytics", "Analytics"},
         {"admin-nav-branding", "Branding"},

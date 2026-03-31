@@ -28,7 +28,8 @@ config :wallaby,
   screenshot_on_failure: true,
   chromedriver: [
     headless: true
-  ]
+  ],
+  window_size: [width: 1280, height: 800]
 
 # In test we don't send emails
 config :bobine, Bobine.Mailer, adapter: Swoosh.Adapters.Test
