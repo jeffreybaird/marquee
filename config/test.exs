@@ -26,6 +26,7 @@ config :wallaby,
   otp_app: :bobine,
   base_url: "http://localhost:4002",
   screenshot_on_failure: true,
+  max_wait_time: 10_000,
   chromedriver: [
     headless: true
   ],
