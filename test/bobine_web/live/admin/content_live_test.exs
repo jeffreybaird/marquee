@@ -167,14 +167,188 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       refute html =~ "Beta Film"
     end
 
-    test "video title links to watch page for ready videos", %{conn: _conn} do
+    test "video title opens detail view", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user, role: :editor)
       video = insert(:video, organization: org, title: "Watchable", mux_status: "ready")
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
-      assert html =~ ~p"/watch/#{video.id}"
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/content")
+      assert html =~ ~s(data-test="view-video-#{video.id}")
+
+      html = render_click(view, "view_video", %{id: video.id})
+      assert html =~ "data-test=\"video-detail\""
+      assert html =~ "Watchable"
+    end
+  end
+
+  describe "video detail view" do
+    test "shows video detail with back button", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      video = insert(:video, organization: org, title: "Detail Video", mux_status: "ready")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      html = render_click(view, "view_video", %{id: video.id})
+      assert html =~ "data-test=\"video-detail\""
+      assert html =~ "data-test=\"back-to-list-btn\""
+      assert html =~ "Detail Video"
+    end
+
+    test "back button returns to video list", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      video = insert(:video, organization: org, title: "Back Test")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: video.id})
+
+      html = render_click(view, "back_to_list")
+      assert html =~ "data-test=\"video-search\""
+      refute html =~ "data-test=\"video-detail\""
+    end
+
+    test "edit video title and description", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      video = insert(:video, organization: org, title: "Original Title")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: video.id})
+      render_click(view, "edit_video")
+
+      html = render(view)
+      assert html =~ "data-test=\"video-edit-form\""
+
+      html =
+        view
+        |> form("[data-test=\"video-edit-form\"] form", %{
+          video: %{title: "Updated Title", description: "New desc"}
+        })
+        |> render_submit()
+
+      assert html =~ "Updated Title"
+    end
+
+    test "cancel edit returns to read-only view", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      video = insert(:video, organization: org, title: "Cancel Test")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: video.id})
+      render_click(view, "edit_video")
+      render_click(view, "cancel_edit")
+
+      html = render(view)
+      refute html =~ "data-test=\"video-edit-form\""
+      assert html =~ "data-test=\"video-title\""
+    end
+
+    test "viewer_support cannot see edit button on detail", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :viewer_support)
+      video = insert(:video, organization: org, title: "Read Only")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: video.id})
+      refute html =~ "data-test=\"edit-video-btn\""
+    end
+  end
+
+  describe "video tag management" do
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Repo.preload(membership, [:user, :organization])
+        |> then(fn m ->
+          Bobine.Accounts.Scope.for_user(m.user)
+          |> Bobine.Accounts.Scope.with_organization(m.organization, m)
+        end)
+
+      video = insert(:video, organization: org, title: "Taggable")
+      {:ok, tag} = Bobine.Content.create_tag(scope, %{name: "yoga"})
+      {:ok, tag2} = Bobine.Content.create_tag(scope, %{name: "beginner"})
+
+      %{org: org, membership: membership, scope: scope, video: video, tag: tag, tag2: tag2}
+    end
+
+    test "shows no tags message when video has no tags", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: ctx.video.id})
+      assert html =~ "data-test=\"no-tags\""
+      assert html =~ "No tags assigned"
+    end
+
+    test "shows existing tags as pills", ctx do
+      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: ctx.video.id})
+
+      assert html =~ "data-test=\"video-tag-#{ctx.tag.id}\""
+      assert html =~ "yoga"
+    end
+
+    test "add tag via picker", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+
+      render_click(view, "open_tag_picker")
+      html = render(view)
+      assert html =~ "data-test=\"tag-picker\""
+      assert html =~ "data-test=\"pick-tag-#{ctx.tag.id}\""
+
+      html = render_click(view, "add_tag", %{"tag-id" => ctx.tag.id})
+      assert html =~ "data-test=\"video-tag-#{ctx.tag.id}\""
+      assert html =~ "yoga"
+    end
+
+    test "remove tag via pill button", ctx do
+      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+
+      html = render(view)
+      assert html =~ "data-test=\"video-tag-#{ctx.tag.id}\""
+
+      html =
+        view
+        |> element(~s([data-test="remove-tag-#{ctx.tag.id}"]))
+        |> render_click()
+
+      refute html =~ "data-test=\"video-tag-#{ctx.tag.id}\""
+    end
+
+    test "tag picker excludes already-assigned tags", ctx do
+      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+      render_click(view, "open_tag_picker")
+
+      html = render(view)
+      refute html =~ "data-test=\"pick-tag-#{ctx.tag.id}\""
+      assert html =~ "data-test=\"pick-tag-#{ctx.tag2.id}\""
+    end
+
+    test "viewer_support cannot see add tag button", ctx do
+      vs_membership =
+        insert(:membership, organization: ctx.org, user: insert(:user), role: :viewer_support)
+
+      {:ok, view, _html} = live(conn_for(vs_membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: ctx.video.id})
+      refute html =~ "data-test=\"add-tag-btn\""
     end
   end
 
