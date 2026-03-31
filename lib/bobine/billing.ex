@@ -7,6 +7,7 @@ defmodule Bobine.Billing do
   alias Bobine.Repo
   alias Bobine.Pagination
   alias Bobine.Events
+  alias Bobine.Accounts.Organization
 
   require Bobine.Otel
 
@@ -17,8 +18,9 @@ defmodule Bobine.Billing do
 
   Exempt from doctest — hits the database.
   """
-  def list_plans(opts \\ []) do
+  def list_plans(%Organization{id: org_id}, opts \\ []) do
     Plan
+    |> where(organization_id: ^org_id)
     |> where([p], is_nil(p.deleted_at))
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)

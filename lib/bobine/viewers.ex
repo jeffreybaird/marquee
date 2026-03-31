@@ -128,18 +128,21 @@ defmodule Bobine.Viewers do
   Exempt from doctest — sends email.
   """
   def deliver_viewer_magic_link(%Organization{} = organization, email) do
-    case get_viewer_by_email(organization, email) do
-      nil ->
-        {:ok, :not_found}
+    Bobine.Otel.with_span "bobine.viewers.deliver_magic_link",
+                          %{"bobine.org.id" => organization.id} do
+      case get_viewer_by_email(organization, email) do
+        nil ->
+          {:ok, :not_found}
 
-      %Viewer{status: status} when status in [:banned, :suspended] ->
-        {:ok, :not_found}
+        %Viewer{status: status} when status in [:banned, :suspended] ->
+          {:ok, :not_found}
 
-      %Viewer{} = viewer ->
-        {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
-        Repo.insert!(viewer_token)
-        ViewerNotifier.deliver_magic_link(viewer, token, organization)
-        {:ok, :sent}
+        %Viewer{} = viewer ->
+          {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
+          Repo.insert!(viewer_token)
+          ViewerNotifier.deliver_magic_link(viewer, token, organization)
+          {:ok, :sent}
+      end
     end
   end
 

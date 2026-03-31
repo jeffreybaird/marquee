@@ -34,5 +34,45 @@ defmodule BobineWeb.Viewer.LoginLiveTest do
       assert html =~ "Check your email for a sign-in link."
       assert has_element?(view, "[data-test='check-email-message']")
     end
+
+    test "banned viewer sees same check email message (anti-enumeration)", %{conn: _conn} do
+      org = insert(:organization)
+      _banned = insert(:viewer, organization: org, email: "banned@example.com", status: :banned)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "#{org.slug}.localhost")
+
+      {:ok, view, _html} = live(conn, ~p"/login")
+
+      html =
+        view
+        |> form("#login-form", email: "banned@example.com")
+        |> render_submit()
+
+      assert html =~ "Check your email for a sign-in link."
+      assert has_element?(view, "[data-test='check-email-message']")
+    end
+
+    test "suspended viewer sees same check email message (anti-enumeration)", %{conn: _conn} do
+      org = insert(:organization)
+
+      _suspended =
+        insert(:viewer, organization: org, email: "suspended@example.com", status: :suspended)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "#{org.slug}.localhost")
+
+      {:ok, view, _html} = live(conn, ~p"/login")
+
+      html =
+        view
+        |> form("#login-form", email: "suspended@example.com")
+        |> render_submit()
+
+      assert html =~ "Check your email for a sign-in link."
+      assert has_element?(view, "[data-test='check-email-message']")
+    end
   end
 end

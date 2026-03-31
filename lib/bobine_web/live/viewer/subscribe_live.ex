@@ -11,7 +11,7 @@ defmodule BobineWeb.Viewer.SubscribeLive do
 
     plans =
       if org do
-        %{results: plans} = Billing.list_plans(per_page: 100)
+        %{results: plans} = Billing.list_plans(org, per_page: 100)
         plans
       else
         []

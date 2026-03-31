@@ -125,7 +125,7 @@ defmodule BobineWeb.Hooks.AssignViewerScope do
                user
              ) do
           nil -> false
-          membership -> Accounts.role_at_least?(membership, :viewer_support)
+          membership -> membership.role in [:viewer_support, :admin, :owner]
         end
       else
         false

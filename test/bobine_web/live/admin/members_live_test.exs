@@ -157,5 +157,59 @@ defmodule BobineWeb.Admin.MembersLiveTest do
       refute has_element?(view, "[data-test='ban-viewer-#{viewer.id}']")
       refute has_element?(view, "[data-test='grant-access-#{viewer.id}']")
     end
+
+    test "editor role cannot see impersonate button", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :editor)
+      viewer = insert(:viewer, organization: org)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+      refute has_element?(view, "[data-test='impersonate-viewer-#{viewer.id}']")
+    end
+
+    test "viewer_support role can see impersonate button", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :viewer_support)
+      viewer = insert(:viewer, organization: org)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+      assert has_element?(view, "[data-test='impersonate-viewer-#{viewer.id}']")
+    end
+
+    test "admin role can see impersonate button", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      viewer = insert(:viewer, organization: org)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+      assert has_element?(view, "[data-test='impersonate-viewer-#{viewer.id}']")
+    end
+  end
+
+  describe "search and filters" do
+    test "search by display name", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      _v1 = insert(:viewer, organization: org, display_name: "Alice Smith", email: "a@test.com")
+      _v2 = insert(:viewer, organization: org, display_name: "Bob Jones", email: "b@test.com")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      html = render_keyup(view, "search", %{"search" => "Alice"})
+      assert html =~ "Alice Smith"
+      refute html =~ "Bob Jones"
+    end
+
+    test "tenant isolation: other org viewers not shown", %{conn: _conn} do
+      org = insert(:organization)
+      other_org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      _own_viewer = insert(:viewer, organization: org, email: "own@test.com")
+      _other_viewer = insert(:viewer, organization: other_org, email: "other@test.com")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/members")
+      assert html =~ "own@test.com"
+      refute html =~ "other@test.com"
+    end
   end
 end

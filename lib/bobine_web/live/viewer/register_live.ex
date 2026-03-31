@@ -107,6 +107,7 @@ defmodule BobineWeb.Viewer.RegisterLive do
             field={@form[:marketing_opt_in]}
             type="checkbox"
             label="Send me updates and announcements"
+            data-test="register-marketing-opt-in"
           />
           <.button
             phx-disable-with="Creating account..."

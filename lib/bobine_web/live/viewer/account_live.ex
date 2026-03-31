@@ -96,7 +96,7 @@ defmodule BobineWeb.Viewer.AccountLive do
             <h3 class="text-lg font-medium">Profile</h3>
 
             <div :if={!@editing} class="mt-4 space-y-2">
-              <p>
+              <p data-test="account-email">
                 <span class="text-base-content/60">Email:</span>
                 <span>{@viewer.email}</span>
               </p>
@@ -108,17 +108,39 @@ defmodule BobineWeb.Viewer.AccountLive do
                 :if={!@impersonating_viewer}
                 phx-click="edit"
                 class="btn btn-sm btn-outline mt-2"
+                data-test="account-edit-btn"
               >
                 Edit
               </button>
             </div>
 
-            <form :if={@editing} id="profile-form" phx-submit="save" class="mt-4 space-y-4">
-              <.input field={@form[:display_name]} type="text" label="Display name" />
-              <.input field={@form[:marketing_opt_in]} type="checkbox" label="Marketing emails" />
+            <form
+              :if={@editing}
+              id="profile-form"
+              phx-submit="save"
+              class="mt-4 space-y-4"
+              data-test="account-edit-form"
+            >
+              <.input
+                field={@form[:display_name]}
+                type="text"
+                label="Display name"
+                data-test="account-display-name-input"
+              />
+              <.input
+                field={@form[:marketing_opt_in]}
+                type="checkbox"
+                label="Marketing emails"
+                data-test="account-marketing-opt-in"
+              />
               <div class="flex gap-2">
-                <.button type="submit">Save</.button>
-                <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
+                <.button type="submit" data-test="account-save-btn">Save</.button>
+                <button
+                  type="button"
+                  phx-click="cancel_edit"
+                  class="btn btn-ghost btn-sm"
+                  data-test="account-cancel-btn"
+                >
                   Cancel
                 </button>
               </div>

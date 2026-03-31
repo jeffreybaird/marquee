@@ -21,9 +21,10 @@ defmodule Bobine.BillingTest do
       %{org: insert(:organization)}
     end
 
-    test "list_plans/0 returns all plans" do
+    test "list_plans/2 returns plans for the given org" do
       plan = plan_fixture()
-      assert %{results: [^plan]} = Billing.list_plans()
+      org = Bobine.Repo.preload(plan, :organization).organization
+      assert %{results: [^plan]} = Billing.list_plans(org)
     end
 
     test "get_plan!/1 returns the plan with given id" do
@@ -84,9 +85,10 @@ defmodule Bobine.BillingTest do
 
     test "delete_plan/1 soft-deletes the plan" do
       plan = plan_fixture()
+      org = Bobine.Repo.preload(plan, :organization).organization
       assert {:ok, %Plan{} = deleted} = Billing.delete_plan(plan)
       assert deleted.deleted_at != nil
-      assert %{results: []} = Billing.list_plans()
+      assert %{results: []} = Billing.list_plans(org)
     end
 
     test "restore_plan/1 restores a soft-deleted plan" do

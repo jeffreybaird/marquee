@@ -25,6 +25,7 @@ defmodule Bobine.Admin do
   alias Bobine.Notifications.Notification
   alias Bobine.Analytics.Event, as: AnalyticsEvent
   alias Bobine.Audit.Log, as: AuditLog
+  alias Bobine.Viewers.{Viewer, ViewerToken}
 
   ## Organizations
 
@@ -389,7 +390,17 @@ defmodule Bobine.Admin do
         favorites: Repo.all(from(f in Favorite, where: f.organization_id == ^org_id)),
         watch_histories: Repo.all(from(w in WatchHistory, where: w.organization_id == ^org_id)),
         progresses: Repo.all(from(p in Progress, where: p.organization_id == ^org_id)),
-        analytics_events: Repo.all(from(e in AnalyticsEvent, where: e.organization_id == ^org_id))
+        analytics_events:
+          Repo.all(from(e in AnalyticsEvent, where: e.organization_id == ^org_id)),
+        viewers: Repo.all(from(v in Viewer, where: v.organization_id == ^org_id)),
+        viewer_tokens:
+          Repo.all(
+            from(t in ViewerToken,
+              join: v in Viewer,
+              on: t.viewer_id == v.id,
+              where: v.organization_id == ^org_id
+            )
+          )
       }
     end
   end

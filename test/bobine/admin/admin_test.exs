@@ -210,4 +210,37 @@ defmodule Bobine.AdminTest do
       refute Enum.any?(result, &(!&1.is_super_admin))
     end
   end
+
+  describe "export_organization_data/1" do
+    test "includes viewers in export" do
+      org = insert(:organization)
+      _viewer = insert(:viewer, organization: org, email: "exported@test.com")
+
+      data = Admin.export_organization_data(org)
+      assert Map.has_key?(data, :viewers)
+      assert length(data.viewers) == 1
+      assert hd(data.viewers).email == "exported@test.com"
+    end
+
+    test "includes viewer_tokens in export" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      _token = Bobine.Viewers.generate_viewer_session_token(viewer)
+
+      data = Admin.export_organization_data(org)
+      assert Map.has_key?(data, :viewer_tokens)
+      assert length(data.viewer_tokens) == 1
+    end
+
+    test "does not include viewers from other orgs" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+      _viewer_a = insert(:viewer, organization: org_a, email: "a@test.com")
+      _viewer_b = insert(:viewer, organization: org_b, email: "b@test.com")
+
+      data = Admin.export_organization_data(org_a)
+      assert length(data.viewers) == 1
+      assert hd(data.viewers).email == "a@test.com"
+    end
+  end
 end

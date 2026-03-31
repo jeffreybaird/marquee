@@ -61,27 +61,23 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
     end
   end
 
-  describe "viewer pages exist" do
-    test "/watchlist page renders for authenticated user", %{session: session} do
+  describe "viewer pages via magic link" do
+    test "viewer registration form renders", %{session: session} do
       org = insert(:organization)
-      user = insert(:user)
-      insert(:membership, organization: org, user: user)
 
       session
-      |> log_in_session(user, org)
-      |> Wallaby.Browser.visit("/watchlist?org=#{org.slug}")
-      |> assert_has(Query.css("h1", text: "Watchlist"))
+      |> Wallaby.Browser.visit("/register?org=#{org.slug}")
+      |> assert_has(Query.css("[data-test='register-form']"))
+      |> assert_has(Query.css("[data-test='register-email-input']"))
     end
 
-    test "/account page renders for authenticated user", %{session: session} do
+    test "viewer login form renders", %{session: session} do
       org = insert(:organization)
-      user = insert(:user)
-      insert(:membership, organization: org, user: user)
 
       session
-      |> log_in_session(user, org)
-      |> Wallaby.Browser.visit("/account?org=#{org.slug}")
-      |> assert_has(Query.css("h1", text: "Account"))
+      |> Wallaby.Browser.visit("/login?org=#{org.slug}")
+      |> assert_has(Query.css("[data-test='login-form']"))
+      |> assert_has(Query.css("[data-test='login-email-input']"))
     end
   end
 end

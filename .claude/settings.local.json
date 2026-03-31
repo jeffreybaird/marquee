@@ -25,7 +25,9 @@
       "Bash(mix ecto.gen.migration create_viewers_and_tokens)",
       "Bash(mix ecto.reset)",
       "Bash(mix ecto.drop --force-drop)",
-      "Bash(mix ecto.create)"
+      "Bash(mix ecto.create)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(grep -l \"viewer\" /Users/jeffreybaird/personal-repos/bobine/test/bobine_web/live/admin/*.exs)"
     ]
   }
 }
