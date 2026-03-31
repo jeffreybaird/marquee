@@ -20,6 +20,7 @@ defmodule BobineWeb.E2E.AdminDashboardTest do
 
       session
       |> log_in_session(user, org)
+      |> Wallaby.Browser.take_screenshot(name: "after-login")
       |> assert_has(Query.css("[data-test='org-name']", text: org.name))
       |> assert_has(Query.css("[data-test='admin-nav-content']"))
       |> assert_has(Query.css("[data-test='admin-nav-catalog']"))
@@ -29,6 +30,11 @@ defmodule BobineWeb.E2E.AdminDashboardTest do
       org = insert(:organization)
       user = insert(:user)
       insert(:membership, organization: org, user: user, role: :admin)
+
+      Wallaby.Browser.take_screenshot(
+        session,
+        name: "before-login"
+      )
 
       session
       |> log_in_session(user, org)

@@ -34,9 +34,15 @@ defmodule BobineWeb.E2E.ImpersonationE2ETest do
       session = assert_has(session, Query.css(".phx-connected"))
       session = assert_has(session, Query.css("[data-test='impersonate-btn']"))
 
+      # DEBUG: screenshot before clicking impersonate
+      Wallaby.Browser.take_screenshot(session, name: "before-impersonate-click")
+
       session =
         session
         |> Wallaby.Browser.click(Query.css("[data-test='impersonate-btn']"))
+
+      # DEBUG: screenshot after clicking impersonate (should be admin dashboard)
+      Wallaby.Browser.take_screenshot(session, name: "after-impersonate-click")
 
       # Wait for admin dashboard to fully load after POST redirect
       session = assert_has(session, Query.css("[data-test='impersonation-banner']"))
