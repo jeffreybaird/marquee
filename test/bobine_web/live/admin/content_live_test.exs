@@ -1,6 +1,7 @@
 defmodule BobineWeb.Admin.ContentLiveTest do
   use BobineWeb.ConnCase, async: true
 
+  import Mox
   import Phoenix.LiveViewTest
 
   describe "responsive layout" do
@@ -130,6 +131,34 @@ defmodule BobineWeb.Admin.ContentLiveTest do
 
       # The LiveView should still be alive and rendering
       assert render(view) =~ "Content"
+    end
+
+    test "submit_upload shows clearer mux failure feedback", %{conn: _conn} do
+      verify_on_exit!()
+
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+        {:error, :mux_error,
+         %{type: "invalid_parameters", messages: ["asset limit reached on free tier"]}}
+      end)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      render_click(view, "open_upload")
+
+      render_submit(view, "submit_upload", %{
+        "title" => "Quota Test",
+        "description" => ""
+      })
+
+      html = render(view)
+
+      assert html =~ "Mux could not start this upload."
+      assert html =~ "asset or upload limit"
+      assert html =~ "asset limit reached on free tier"
     end
 
     test "upload_complete event closes modal", %{conn: _conn} do

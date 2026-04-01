@@ -37,6 +37,57 @@ defmodule Bobine.Catalog.CatalogTest do
     end
   end
 
+  describe "list_visible_rows/2" do
+    test "returns only visible, non-deleted rows in position order", %{org: org, scope: scope} do
+      {:ok, _hidden} =
+        Catalog.create_row(scope, %{
+          title: "Hidden",
+          source_type: :curated,
+          visible: false,
+          position: 0,
+          max_items: 20
+        })
+
+      {:ok, visible2} =
+        Catalog.create_row(scope, %{
+          title: "Visible Second",
+          source_type: :curated,
+          visible: true,
+          position: 2,
+          max_items: 20
+        })
+
+      {:ok, visible1} =
+        Catalog.create_row(scope, %{
+          title: "Visible First",
+          source_type: :curated,
+          visible: true,
+          position: 1,
+          max_items: 20
+        })
+
+      %{results: rows} = Catalog.list_visible_rows(org)
+      ids = Enum.map(rows, & &1.id)
+      assert ids == [visible1.id, visible2.id]
+    end
+
+    test "excludes soft-deleted rows", %{org: org, scope: scope} do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Will Delete",
+          source_type: :curated,
+          visible: true,
+          position: 0,
+          max_items: 20
+        })
+
+      Catalog.delete_row(scope, row)
+
+      %{results: rows} = Catalog.list_visible_rows(org)
+      assert rows == []
+    end
+  end
+
   describe "create_row/2" do
     test "with curated source type succeeds", %{scope: scope} do
       assert {:ok, row} =
@@ -447,6 +498,89 @@ defmodule Bobine.Catalog.CatalogTest do
       # Cache invalidated
       cached_after = Catalog.resolve_row_content_cached(org, row)
       assert cached_after.total == 0
+    end
+  end
+
+  describe "build_hero_items/2" do
+    test "returns a list of HeroItem structs", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready", mux_playback_id: "pb_hero")
+
+      items = Catalog.build_hero_items(org)
+      assert [%BobineWeb.Viewer.HeroItem{} | _] = items
+    end
+
+    test "returns empty list when no videos exist", %{org: org} do
+      assert [] = Catalog.build_hero_items(org)
+    end
+
+    test "returns at most limit items", %{org: org} do
+      for _ <- 1..5 do
+        insert(:video, organization: org, mux_status: "ready")
+      end
+
+      items = Catalog.build_hero_items(org, limit: 2)
+      assert length(items) <= 2
+    end
+
+    test "items have valid Mux thumbnail URLs", %{org: org} do
+      insert(:video,
+        organization: org,
+        mux_status: "ready",
+        mux_playback_id: "pb_test_123"
+      )
+
+      [item] = Catalog.build_hero_items(org, limit: 1)
+      assert item.background_image_url =~ "https://image.mux.com/pb_test_123/thumbnail.webp"
+      assert item.background_image_url =~ "width=1920"
+      assert item.background_image_url =~ "height=1080"
+    end
+
+    test "items have valid CTA paths", %{org: org} do
+      video = insert(:video, organization: org, mux_status: "ready")
+
+      [item] = Catalog.build_hero_items(org, limit: 1)
+      assert item.primary_cta_path == "/watch/#{video.id}"
+      assert item.primary_cta_label == "Watch Now"
+      assert is_nil(item.secondary_cta_label)
+      assert is_nil(item.secondary_cta_path)
+    end
+
+    test "uses featured row content when a visible row exists", %{org: org, scope: scope} do
+      video = insert(:video, organization: org, title: "Featured")
+
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Hero",
+          source_type: :curated,
+          visible: true,
+          position: 0,
+          max_items: 20
+        })
+
+      {:ok, _} = Catalog.add_item_to_row(scope, row, video)
+
+      items = Catalog.build_hero_items(org, limit: 5)
+      assert length(items) == 1
+      assert hd(items).title == "Featured"
+    end
+
+    test "falls back to recent videos when no visible rows exist", %{org: org} do
+      insert(:video, organization: org, title: "Recent Vid", mux_status: "ready")
+
+      items = Catalog.build_hero_items(org, limit: 5)
+      assert length(items) == 1
+      assert hd(items).title == "Recent Vid"
+    end
+
+    test "does not include videos from other orgs", %{org: org} do
+      other_org = insert(:organization)
+      insert(:video, organization: other_org, title: "Other Org Video", mux_status: "ready")
+      insert(:video, organization: org, title: "My Video", mux_status: "ready")
+
+      items = Catalog.build_hero_items(org, limit: 10)
+      titles = Enum.map(items, & &1.title)
+      assert "My Video" in titles
+      refute "Other Org Video" in titles
     end
   end
 

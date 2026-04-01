@@ -13,6 +13,10 @@ defmodule Bobine.Content.MuxClient do
 
   @impl true
   def create_direct_upload(params) do
+    Logger.info(
+      "Mux create_direct_upload requested params=#{inspect(params, pretty: true, limit: :infinity)}"
+    )
+
     traced_call("create_direct_upload", fn ->
       Mux.Video.Uploads.create(client(), params)
     end)
@@ -47,12 +51,20 @@ defmodule Bobine.Content.MuxClient do
 
         {:error, reason, _} ->
           Tracer.set_status(:error, inspect(reason))
-          Logger.error("Mux delete_asset failed", reason: inspect(reason))
+
+          Logger.error(
+            "Mux delete_asset failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
+          )
+
           {:error, :mux_error, reason}
 
         {:error, reason} ->
           Tracer.set_status(:error, inspect(reason))
-          Logger.error("Mux delete_asset failed", reason: inspect(reason))
+
+          Logger.error(
+            "Mux delete_asset failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
+          )
+
           {:error, :mux_error, reason}
       end
     end
@@ -78,25 +90,36 @@ defmodule Bobine.Content.MuxClient do
       case result do
         {:ok, data, _env} ->
           Tracer.set_attribute("http.status_code", 200)
-          Logger.info("Mux #{operation} succeeded", operation: operation)
+          Logger.info("Mux #{operation} succeeded")
           {:ok, data}
 
         {:ok, data} ->
           Tracer.set_attribute("http.status_code", 200)
-          Logger.info("Mux #{operation} succeeded", operation: operation)
+          Logger.info("Mux #{operation} succeeded")
           {:ok, data}
 
-        {:error, reason, _env} ->
-          Tracer.set_status(:error, inspect(reason))
-          Logger.error("Mux #{operation} failed", operation: operation, reason: inspect(reason))
-          {:error, :mux_error, reason}
+        {:error, type, messages} ->
+          Tracer.set_status(:error, inspect(%{type: type, messages: messages}))
+          log_mux_validation_failure(operation, type, messages)
+          {:error, :mux_error, %{type: type, messages: messages}}
 
         {:error, reason} ->
           Tracer.set_status(:error, inspect(reason))
-          Logger.error("Mux #{operation} failed", operation: operation, reason: inspect(reason))
+
+          Logger.error(
+            "Mux #{operation} failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
+          )
+
           {:error, :mux_error, reason}
       end
     end
+  end
+
+  defp log_mux_validation_failure(operation, type, messages) do
+    Logger.error(
+      "Mux #{operation} failed type=#{inspect(type, pretty: true, limit: :infinity)} " <>
+        "messages=#{inspect(messages, pretty: true, limit: :infinity)}"
+    )
   end
 
   defp client do

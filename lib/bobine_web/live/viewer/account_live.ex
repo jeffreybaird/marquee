@@ -71,29 +71,11 @@ defmodule BobineWeb.Viewer.AccountLive do
       flash={@flash}
       current_scope={@current_scope}
       current_viewer={@current_viewer}
+      impersonating_viewer={@impersonating_viewer}
       organization={@organization}
     >
       <div class="max-w-lg mx-auto">
         <.header>Account</.header>
-
-        <%!-- Impersonation banner --%>
-        <div
-          :if={@impersonating_viewer}
-          class="mt-4 p-3 bg-amber-500/20 border border-amber-500 rounded-lg flex items-center justify-between"
-          data-test="impersonation-banner"
-        >
-          <span class="text-amber-200 text-sm">
-            Viewing as {@viewer.email}
-          </span>
-          <.link
-            href={~p"/viewer-session/impersonate"}
-            method="delete"
-            class="text-amber-200 hover:text-amber-100 text-sm font-medium"
-            data-test="stop-impersonation-btn"
-          >
-            Stop viewing
-          </.link>
-        </div>
 
         <div class="mt-6 space-y-6">
           <%!-- Profile section --%>

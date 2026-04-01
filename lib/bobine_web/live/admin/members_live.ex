@@ -244,7 +244,9 @@ defmodule BobineWeb.Admin.MembersLive do
               <div class="flex gap-1" data-test={"viewer-row-#{viewer.id}"}>
                 <.link
                   :if={@can_manage}
-                  href={~p"/viewer-session/impersonate"}
+                  href={
+                    ~p"/viewer-session/impersonate?#{%{viewer_id: viewer.id, return_path: ~p"/admin/members"}}"
+                  }
                   method="post"
                   data-test={"impersonate-viewer-#{viewer.id}"}
                   class="btn btn-xs btn-ghost"

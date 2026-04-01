@@ -216,6 +216,8 @@ defmodule Bobine.ContentTest do
       expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
         # Must use the configured :cors_origin, not the production domain
         assert params.cors_origin == "http://localhost:4000"
+        assert params.new_asset_settings.playback_policy == ["public"]
+        assert params.new_asset_settings.video_quality == "plus"
 
         {:ok, %{"id" => "upload_abc", "url" => "https://storage.mux.com/upload_abc"}}
       end)
@@ -277,6 +279,47 @@ defmodule Bobine.ContentTest do
       assert {:ok, _} = Content.create_upload_url(scope, %{title: "Prod CORS Test"})
     end
 
+    test "uses current request origin when cors_origin is wildcard" do
+      Application.put_env(:bobine, :cors_origin, "*")
+
+      org = insert(:organization, slug: "my-studio", custom_domain: nil)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        assert params.cors_origin == "http://demo.localhost:4000"
+        {:ok, %{"id" => "upload_demo", "url" => "https://storage.mux.com/demo"}}
+      end)
+
+      assert {:ok, _} =
+               Content.create_upload_url(scope, %{title: "Wildcard CORS Test"},
+                 current_origin: "http://demo.localhost:4000"
+               )
+    end
+
+    test "uses localhost fallback when cors_origin is wildcard and current origin is missing" do
+      Application.put_env(:bobine, :cors_origin, "*")
+
+      org = insert(:organization, slug: "my-studio", custom_domain: nil)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        assert params.cors_origin == "http://localhost:4000"
+        {:ok, %{"id" => "upload_local", "url" => "https://storage.mux.com/local"}}
+      end)
+
+      assert {:ok, _} = Content.create_upload_url(scope, %{title: "Wildcard Local Fallback"})
+    end
+
     test "returns mux_error when Mux API fails" do
       org = insert(:organization)
       user = insert(:user)
@@ -294,6 +337,30 @@ defmodule Bobine.ContentTest do
 
       # No video record should be created when Mux fails
       assert %{results: []} = Content.list_videos(org)
+    end
+
+    test "uses configured mux_video_quality" do
+      Application.put_env(:bobine, :mux_video_quality, "basic")
+
+      on_exit(fn ->
+        Application.delete_env(:bobine, :mux_video_quality)
+      end)
+
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Bobine.Accounts.Scope.for_user(user)
+        |> Bobine.Accounts.Scope.with_organization(org, membership)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+        assert params.new_asset_settings.video_quality == "basic"
+        {:ok, %{"id" => "upload_basic", "url" => "https://storage.mux.com/basic"}}
+      end)
+
+      assert {:ok, %{upload_url: "https://storage.mux.com/basic"}} =
+               Content.create_upload_url(scope, %{title: "Basic Quality Test"})
     end
   end
 

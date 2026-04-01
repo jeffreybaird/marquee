@@ -39,6 +39,20 @@ defmodule Bobine.Catalog do
   end
 
   @doc """
+  Returns visible, non-deleted rows for an organization, ordered by position.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_visible_rows(%Organization{id: org_id}, opts \\ []) do
+    Row
+    |> where(organization_id: ^org_id)
+    |> where([r], is_nil(r.deleted_at))
+    |> where([r], r.visible == true)
+    |> order_by(asc: :position)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
   Returns the list of rows including soft-deleted records.
 
   Exempt from doctest — hits the database.
@@ -352,6 +366,95 @@ defmodule Bobine.Catalog do
         )
     end
   end
+
+  ## -----------------------------------------------------------------------
+  ## Hero Items
+  ## -----------------------------------------------------------------------
+
+  alias BobineWeb.Viewer.HeroItem
+
+  @doc """
+  Builds a list of `HeroItem` structs for the homepage hero carousel.
+
+  Uses the first visible row marked as "featured" or falls back to the most
+  recent videos with Mux playback IDs.
+
+  Exempt from doctest — hits the database.
+  """
+  def build_hero_items(%Organization{} = organization, opts \\ []) do
+    Bobine.Otel.with_span "bobine.catalog.build_hero_items",
+                          %{"bobine.org.id" => organization.id} do
+      limit = Keyword.get(opts, :limit, 5)
+
+      organization
+      |> fetch_hero_videos(limit)
+      |> Enum.map(&video_to_hero_item/1)
+    end
+  end
+
+  defp fetch_hero_videos(organization, limit) do
+    # Try to find a featured/curated row first
+    case find_featured_row(organization) do
+      nil ->
+        # Fallback: most recent ready videos
+        %{results: videos} =
+          Content.list_videos(organization,
+            per_page: limit,
+            order_by: [{:desc, :inserted_at}]
+          )
+
+        videos
+
+      row ->
+        %{results: videos} =
+          resolve_row_content_cached(organization, row, per_page: limit)
+
+        videos
+    end
+  end
+
+  defp find_featured_row(organization) do
+    %{results: rows} = list_visible_rows(organization, per_page: 1)
+    List.first(rows)
+  end
+
+  defp video_to_hero_item(video) do
+    %HeroItem{
+      id: video.id,
+      background_image_url: mux_thumbnail_url(video.mux_playback_id, width: 1920, height: 1080),
+      title: video.title,
+      status_text: hero_status_text(video),
+      metadata_text: hero_metadata_text(video),
+      primary_cta_label: "Watch Now",
+      primary_cta_path: "/watch/#{video.id}",
+      secondary_cta_label: nil,
+      secondary_cta_path: nil
+    }
+  end
+
+  defp mux_thumbnail_url(nil, _opts), do: nil
+
+  defp mux_thumbnail_url(playback_id, opts) do
+    width = Keyword.get(opts, :width, 1920)
+    height = Keyword.get(opts, :height, 1080)
+
+    "https://image.mux.com/#{playback_id}/thumbnail.webp?width=#{width}&height=#{height}&fit_mode=smartcrop"
+  end
+
+  defp hero_status_text(_), do: nil
+
+  defp hero_metadata_text(%{duration: duration}) when is_float(duration) and duration > 0 do
+    total = round(duration)
+    mins = div(total, 60)
+
+    cond do
+      mins >= 60 -> "#{div(mins, 60)}h #{rem(mins, 60)}m"
+      mins > 0 -> "#{mins} min"
+      true -> "#{total}s"
+    end
+  end
+
+  defp hero_metadata_text(_), do: nil
 
   defp invalidate_row_cache(org_id, row_id) do
     Cache.delete("row_content:#{org_id}:#{row_id}")

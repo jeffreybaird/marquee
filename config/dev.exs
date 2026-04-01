@@ -96,5 +96,9 @@ config :opentelemetry,
 # (e.g. demo.localhost:4000, test-channel.localhost:4000)
 config :bobine, cors_origin: "*"
 
+# Use Mux basic quality in dev. This is the lowest supported quality tier and
+# is the closest match to the desired 720p/dev behavior.
+config :bobine, mux_video_quality: "basic"
+
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

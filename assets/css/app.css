@@ -103,3 +103,358 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* =========================================================================
+   Viewer Layout — tenant-branded streaming platform shell
+   All colors reference CSS custom properties set by the tenant's theme.
+   ========================================================================= */
+
+:root {
+  --sv-bg-primary: var(--color-base-300, #0f0f0f);
+  --sv-bg-secondary: var(--color-base-200, #1c1c1c);
+  --sv-text-primary: var(--color-base-content, #ffffff);
+  --sv-text-secondary: color-mix(in oklch, var(--color-base-content, #ffffff) 60%, transparent);
+  --sv-accent: var(--color-primary, #e8a21a);
+  --sv-font-heading: inherit;
+  --sv-font-body: inherit;
+}
+
+.viewer-layout {
+  min-height: 100vh;
+  background: var(--sv-bg-primary);
+  color: var(--sv-text-primary);
+  font-family: var(--sv-font-body);
+}
+
+.viewer-main {
+  min-height: calc(100vh - 64px);
+}
+
+/* Header */
+.viewer-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--sv-bg-primary);
+  border-bottom: 1px solid color-mix(in oklch, var(--sv-text-primary) 10%, transparent);
+}
+
+.viewer-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 64px;
+}
+
+/* Brand */
+.viewer-brand {
+  text-decoration: none;
+  color: var(--sv-text-primary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.viewer-brand-text {
+  font-family: var(--sv-font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.viewer-brand-img {
+  height: 32px;
+  width: auto;
+}
+
+/* Navigation */
+.viewer-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.viewer-nav-item {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sv-text-secondary);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color 200ms;
+}
+
+.viewer-nav-item:hover {
+  color: var(--sv-text-primary);
+}
+
+.viewer-nav-item.active {
+  color: var(--sv-accent);
+}
+
+/* Utilities */
+.viewer-utilities {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.viewer-search-btn {
+  color: var(--sv-text-secondary);
+  transition: color 200ms;
+}
+
+.viewer-search-btn:hover {
+  color: var(--sv-text-primary);
+}
+
+.viewer-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sv-accent);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.viewer-sign-in {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid color-mix(in oklch, var(--sv-text-primary) 25%, transparent);
+  border-radius: 4px;
+  transition: background 200ms;
+}
+
+.viewer-sign-in:hover {
+  background: color-mix(in oklch, var(--sv-text-primary) 10%, transparent);
+}
+
+/* =========================================================================
+   Hero Carousel
+   ========================================================================= */
+
+.hero-carousel-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  overflow: hidden;
+}
+
+.hero-slides {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+
+.hero-slide.active {
+  opacity: 1;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.4) 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+}
+
+.hero-content {
+  position: absolute;
+  left: 48px;
+  bottom: 25%;
+  max-width: 500px;
+  z-index: 2;
+}
+
+.hero-brand-tag {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sv-text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.hero-title {
+  font-family: var(--sv-font-heading);
+  font-size: 2.5rem;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 8px 0;
+  line-height: 1.1;
+}
+
+.hero-status {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 4px 0;
+}
+
+.hero-metadata {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 24px 0;
+}
+
+.hero-cta-group {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.hero-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--sv-accent);
+  color: #fff;
+  font-weight: 500;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  transition: opacity 200ms;
+}
+
+.hero-cta-primary:hover {
+  opacity: 0.9;
+}
+
+.hero-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-weight: 400;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: background 200ms;
+}
+
+.hero-cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.hero-pagination {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+
+.hero-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 200ms;
+}
+
+.hero-dot.active {
+  background: var(--sv-accent);
+}
+
+/* =========================================================================
+   Catalog Content Rows
+   ========================================================================= */
+
+.catalog-rows {
+  padding: 32px 48px;
+}
+
+.content-row {
+  margin-bottom: 48px;
+}
+
+.content-row-title {
+  font-family: var(--sv-font-heading);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 16px 0;
+}
+
+.content-row-items {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 8px;
+}
+
+.content-row-items::-webkit-scrollbar {
+  display: none;
+}
+
+.content-card {
+  flex-shrink: 0;
+  width: 240px;
+  scroll-snap-align: start;
+  text-decoration: none;
+  transition: transform 200ms;
+}
+
+.content-card:hover {
+  transform: scale(1.03);
+}
+
+.content-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.content-card-title {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--sv-text-primary);
+  margin-top: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

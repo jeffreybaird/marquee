@@ -16,3 +16,7 @@ Ready to run in production? Please [check our deployment guides](https://hexdocs
 * Docs: https://hexdocs.pm/phoenix
 * Forum: https://elixirforum.com/c/phoenix-forum
 * Source: https://github.com/phoenixframework/phoenix
+
+##
+**create a user `fly ssh console -C 'bin/bobine eval "Bobine.Release.create_admin_with_login(\"jeffreybaird@hey.com\", \"https://bobine-4-dvyq.fly.dev/\")"'`
+`

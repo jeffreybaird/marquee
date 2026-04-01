@@ -72,6 +72,7 @@ defmodule BobineWeb.Hooks.AssignScope do
         |> assign(:current_user, user)
         |> assign(:organization, nil)
         |> assign(:current_membership, nil)
+        |> assign(:current_origin, derive_current_origin(socket))
         |> assign(:current_path, derive_current_path(socket))
         |> assign(:impersonating, false)
 
@@ -112,6 +113,7 @@ defmodule BobineWeb.Hooks.AssignScope do
     |> assign(:current_user, user)
     |> assign(:organization, org)
     |> assign(:current_membership, membership)
+    |> assign(:current_origin, derive_current_origin(socket))
     |> assign(:current_path, derive_current_path(socket))
     |> assign(:impersonating, impersonating)
   end
@@ -134,6 +136,20 @@ defmodule BobineWeb.Hooks.AssignScope do
       _ -> nil
     end
   end
+
+  defp derive_current_origin(%{host_uri: %URI{scheme: scheme, host: host, port: port}})
+       when is_binary(host) do
+    normalized_scheme = scheme || "http"
+
+    "#{normalized_scheme}://#{host}#{origin_port_suffix(normalized_scheme, port)}"
+  end
+
+  defp derive_current_origin(_socket), do: nil
+
+  defp origin_port_suffix("http", 80), do: ""
+  defp origin_port_suffix("https", 443), do: ""
+  defp origin_port_suffix(_scheme, nil), do: ""
+  defp origin_port_suffix(_scheme, port), do: ":#{port}"
 
   defp impersonating?(nil, _session), do: false
 

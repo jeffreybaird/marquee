@@ -18,6 +18,7 @@ defmodule BobineWeb.Hooks.ImpersonationTest do
 
       assert html =~ viewer.email
       assert has_element?(view, "[data-test='impersonation-banner']")
+      assert has_element?(view, "[data-test='viewer-header-identity']")
     end
 
     test "viewer_support can impersonate viewers on their org", %{conn: _conn} do
@@ -103,6 +104,7 @@ defmodule BobineWeb.Hooks.ImpersonationTest do
       {:ok, view, html} = live(conn, ~p"/account")
       assert html =~ viewer.email
       assert has_element?(view, "[data-test='impersonation-banner']")
+      assert has_element?(view, "[data-test='viewer-header-identity']")
     end
   end
 

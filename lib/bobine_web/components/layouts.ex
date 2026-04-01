@@ -32,12 +32,40 @@ defmodule BobineWeb.Layouts do
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
   attr :current_viewer, :map, default: nil, doc: "the currently authenticated viewer"
+
+  attr :impersonating_viewer, :boolean,
+    default: false,
+    doc: "whether a viewer is being impersonated"
+
   attr :organization, :map, default: nil, doc: "the resolved organization (tenant)"
 
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
+    <div
+      :if={@impersonating_viewer && @current_viewer}
+      class="bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm sm:px-6 lg:px-8"
+      data-test="impersonation-banner"
+    >
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+          <span>
+            You are impersonating {viewer_identity(@current_viewer)}.
+          </span>
+        </div>
+        <.link
+          href={~p"/viewer-session/impersonate"}
+          method="delete"
+          class="shrink-0 rounded-full border border-white/50 px-3 py-1 text-xs uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-red-700"
+          data-test="stop-impersonation-btn"
+        >
+          Stop viewing
+        </.link>
+      </div>
+    </div>
+
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
       <div class="flex-1">
         <a href="/" class="flex items-center gap-2 text-lg font-bold tracking-tight">
@@ -46,6 +74,24 @@ defmodule BobineWeb.Layouts do
       </div>
       <div class="flex-none flex items-center gap-2 sm:gap-4">
         <%= cond do %>
+          <% @impersonating_viewer && @current_viewer -> %>
+            <span
+              class="text-sm text-base-content/70 hidden sm:inline"
+              data-test="viewer-header-identity"
+            >
+              {viewer_identity(@current_viewer)}
+            </span>
+            <.link href={~p"/account"} class="text-sm hover:underline hidden sm:inline">
+              Account
+            </.link>
+            <.link
+              href={~p"/viewer-session/impersonate"}
+              method="delete"
+              class="btn btn-ghost btn-sm"
+              data-test="viewer-stop-impersonation-btn"
+            >
+              Stop viewing
+            </.link>
           <% @current_scope && @current_scope.user -> %>
             <span class="text-sm text-base-content/70 hidden sm:inline">
               {@current_scope.user.email}
@@ -179,4 +225,11 @@ defmodule BobineWeb.Layouts do
     </div>
     """
   end
+
+  defp viewer_identity(%{display_name: display_name, email: email})
+       when is_binary(display_name) and display_name != "" do
+    "#{display_name} (#{email})"
+  end
+
+  defp viewer_identity(%{email: email}), do: email
 end

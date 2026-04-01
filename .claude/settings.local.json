@@ -30,7 +30,8 @@
       "Bash(grep -l \"viewer\" /Users/jeffreybaird/personal-repos/bobine/test/bobine_web/live/admin/*.exs)",
       "Bash(curl -s http://localhost:4000/dev/mailbox)",
       "Bash(curl -sL http://localhost:4000/dev/mailbox)",
-      "Bash(curl -s http://demo.localhost:4000/login)"
+      "Bash(curl -s http://demo.localhost:4000/login)",
+      "Bash(find /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/viewer -name *.heex)"
     ]
   }
 }

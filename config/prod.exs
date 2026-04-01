@@ -34,5 +34,8 @@ config :logger, :default_handler,
   formatter:
     {LoggerJSON.Formatters.Basic, metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]}
 
+# Production uploads should request Mux plus quality.
+config :bobine, mux_video_quality: "basic"
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

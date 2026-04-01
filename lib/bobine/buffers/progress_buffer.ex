@@ -109,11 +109,11 @@ defmodule Bobine.Buffers.ProgressBuffer do
     )
   rescue
     error ->
-      Logger.error("Failed to flush progress",
-        org_id: org_id,
-        user_id: user_id,
-        video_id: video_id,
-        error: inspect(error)
+      Logger.error(
+        "Failed to flush progress org_id=#{org_id} " <>
+          "user_id=#{user_id} " <>
+          "video_id=#{video_id} " <>
+          "error=#{inspect(error, pretty: true, limit: :infinity)}"
       )
   end
 end

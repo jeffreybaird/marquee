@@ -13,6 +13,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
       flash={@flash}
       current_scope={@current_scope}
       current_viewer={@current_viewer}
+      impersonating_viewer={@impersonating_viewer}
       organization={@organization}
     >
       <.header>Watchlist</.header>

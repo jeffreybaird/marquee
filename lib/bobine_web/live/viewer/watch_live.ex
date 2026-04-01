@@ -105,6 +105,7 @@ defmodule BobineWeb.Viewer.WatchLive do
       flash={@flash}
       current_scope={@current_scope}
       current_viewer={@current_viewer}
+      impersonating_viewer={@impersonating_viewer}
       organization={@organization}
     >
       <div class="max-w-5xl mx-auto">

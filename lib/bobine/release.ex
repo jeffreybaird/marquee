@@ -64,7 +64,7 @@ defmodule Bobine.Release do
 
     Bobine.Repo.insert!(user_token)
 
-    url = "https://#{host}/users/log-in/#{encoded_token}"
+    url = "#{normalize_base_url(host)}/users/log-in/#{encoded_token}"
     IO.puts("\nSuper admin created: #{email}")
     IO.puts("\nLogin URL (use within 30 minutes):\n")
     IO.puts(url)
@@ -83,6 +83,18 @@ defmodule Bobine.Release do
   defp load_app do
     Application.ensure_all_started(:ssl)
     Application.ensure_loaded(@app)
+  end
+
+  defp normalize_base_url(host) do
+    host
+    |> to_string()
+    |> String.trim()
+    |> String.trim_trailing("/")
+    |> case do
+      <<"http://", _::binary>> = base_url -> base_url
+      <<"https://", _::binary>> = base_url -> base_url
+      bare_host -> "https://#{bare_host}"
+    end
   end
 
   # Starts the services that context functions depend on (Repo, PubSub)

@@ -4,6 +4,8 @@ defmodule BobineWeb.Admin.ContentLive do
   alias Bobine.Content
   alias Bobine.Events
 
+  require Logger
+
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
@@ -60,7 +62,9 @@ defmodule BobineWeb.Admin.ContentLive do
     else
       scope = socket.assigns.current_scope
 
-      case Content.create_upload_url(scope, %{title: title, description: desc}) do
+      case Content.create_upload_url(scope, %{title: title, description: desc},
+             current_origin: socket.assigns.current_origin
+           ) do
         {:ok, %{video: video, upload_url: url}} ->
           {:noreply,
            socket
@@ -69,8 +73,15 @@ defmodule BobineWeb.Admin.ContentLive do
            |> push_event("start_upload", %{upload_url: url, video_id: video.id})
            |> load_videos()}
 
-        {:error, :mux_error, _reason} ->
-          {:noreply, put_flash(socket, :error, "Failed to initiate upload. Please try again.")}
+        {:error, :mux_error, reason} ->
+          Logger.error(
+            "Admin upload initiation failed organization_id=#{scope.organization.id} " <>
+              "user_id=#{scope.user.id} " <>
+              "title=#{inspect(title)} " <>
+              "reason=#{inspect(reason, pretty: true, limit: :infinity)}"
+          )
+
+          {:noreply, put_flash(socket, :error, mux_upload_error_message(reason))}
 
         {:error, :validation, _changeset} ->
           {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
@@ -245,6 +256,32 @@ defmodule BobineWeb.Admin.ContentLive do
     end
   end
 
+  defp mux_upload_error_message(%{type: type, messages: messages}) do
+    base =
+      "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
+
+    details =
+      [type | List.wrap(messages)]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&to_string/1)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.join("; ")
+
+    if details == "" do
+      base
+    else
+      "#{base} Details: #{details}"
+    end
+  end
+
+  defp mux_upload_error_message(reason) when is_binary(reason) do
+    "Mux could not start this upload. #{reason}"
+  end
+
+  defp mux_upload_error_message(_reason) do
+    "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
+  end
+
   # --- PubSub handlers ---
 
   @impl true
@@ -293,6 +330,7 @@ defmodule BobineWeb.Admin.ContentLive do
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
+      flash={@flash}
     >
       <%!-- Persistent MuxUploader hook — lives outside the modal so it survives modal close --%>
       <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>

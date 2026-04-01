@@ -12,6 +12,7 @@ defmodule BobineWeb.Components.AdminLayout do
   attr :organization, :any, required: true
   attr :current_user, :any, required: true
   attr :impersonating, :boolean, default: false
+  attr :flash, :map, default: %{}
   slot :inner_block, required: true
 
   def admin_layout(assigns) do
@@ -163,6 +164,9 @@ defmodule BobineWeb.Components.AdminLayout do
           </main>
         </div>
       </div>
+
+      <.flash kind={:info} flash={@flash} />
+      <.flash kind={:error} flash={@flash} />
     </div>
     """
   end

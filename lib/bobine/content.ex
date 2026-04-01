@@ -97,21 +97,38 @@ defmodule Bobine.Content do
 
   Exempt from doctest — calls Mux API.
   """
-  def create_upload_url(scope, attrs) do
+  def create_upload_url(scope, attrs, opts \\ []) do
+    mux_upload_params =
+      build_mux_upload_params(scope.organization, Keyword.get(opts, :current_origin))
+
     Bobine.Otel.with_span "bobine.content.create_upload_url",
                           %{"bobine.org.id" => scope.organization.id} do
-      with {:ok, upload} <-
-             mux_client().create_direct_upload(%{
-               cors_origin: build_cors_origin(scope.organization),
-               new_asset_settings: %{
-                 playback_policy: ["public"],
-                 video_quality: "plus"
-               }
-             }),
+      Logger.info(
+        "Creating Mux direct upload organization_id=#{scope.organization.id} " <>
+          "user_id=#{scope.user.id} " <>
+          "title=#{inspect(attrs[:title] || attrs["title"])} " <>
+          "mux_upload_params=#{inspect(mux_upload_params, pretty: true, limit: :infinity)}"
+      )
+
+      with {:ok, upload} <- mux_client().create_direct_upload(mux_upload_params),
            {:ok, video} <- create_video_record(scope, attrs, upload) do
         Events.broadcast(scope, {:video_upload_initiated, video})
         Bobine.Metrics.video_upload_initiated(scope.organization.id)
         {:ok, %{video: video, upload_url: upload_url_from(upload)}}
+      else
+        {:error, :mux_error, reason} = error ->
+          Logger.error(
+            "Failed to create Mux direct upload organization_id=#{scope.organization.id} " <>
+              "user_id=#{scope.user.id} " <>
+              "title=#{inspect(attrs[:title] || attrs["title"])} " <>
+              "reason=#{inspect(reason, pretty: true, limit: :infinity)} " <>
+              "mux_upload_params=#{inspect(mux_upload_params, pretty: true, limit: :infinity)}"
+          )
+
+          error
+
+        other ->
+          other
       end
     end
   end
@@ -143,9 +160,24 @@ defmodule Bobine.Content do
   defp upload_id_from(%{id: id}), do: id
   defp upload_id_from(upload), do: Map.get(upload, "id") || Map.get(upload, :id)
 
-  defp build_cors_origin(org) do
+  defp build_mux_upload_params(org, current_origin) do
+    %{
+      cors_origin: build_cors_origin(org, current_origin),
+      new_asset_settings: %{
+        playback_policy: ["public"],
+        video_quality: mux_video_quality()
+      }
+    }
+  end
+
+  defp mux_video_quality do
+    Application.get_env(:bobine, :mux_video_quality, "plus")
+  end
+
+  defp build_cors_origin(org, current_origin) do
     case Application.get_env(:bobine, :cors_origin) do
       nil -> prod_cors_origin(org)
+      "*" -> current_origin || default_dev_cors_origin()
       origin -> origin
     end
   end
@@ -154,6 +186,8 @@ defmodule Bobine.Content do
     do: "https://#{domain}"
 
   defp prod_cors_origin(%{slug: slug}), do: "https://#{slug}.bobine.dev"
+
+  defp default_dev_cors_origin, do: "http://localhost:4000"
 
   ## -----------------------------------------------------------------------
   ## Mux webhook handlers

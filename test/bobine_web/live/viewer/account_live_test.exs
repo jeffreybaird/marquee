@@ -100,6 +100,9 @@ defmodule BobineWeb.Viewer.AccountLiveTest do
       assert html =~ "target@example.com"
       assert has_element?(view, "[data-test='impersonation-banner']")
       assert has_element?(view, "[data-test='stop-impersonation-btn']")
+      assert has_element?(view, "[data-test='viewer-header-identity']")
+      assert render(view) =~ "You are impersonating"
+      assert render(view) =~ "target@example.com"
     end
 
     test "edit button hidden when impersonating", %{conn: _conn} do
