@@ -23,7 +23,10 @@ defmodule BobineWeb.Admin.ContentLive do
      |> assign(:page_title, "Content")
      |> assign(:search, "")
      |> assign(:show_upload_modal, false)
+     |> assign(:upload_files, [])
      |> assign(:uploading, false)
+     |> assign(:upload_total, 0)
+     |> assign(:upload_completed, 0)
      |> assign(:upload_percent, 0)
      |> assign(:can_manage, can_manage)
      |> assign(:viewing_video, nil)
@@ -41,7 +44,15 @@ defmodule BobineWeb.Admin.ContentLive do
 
   @impl true
   def handle_event("open_upload", _params, socket) do
-    {:noreply, assign(socket, show_upload_modal: true, uploading: false, upload_percent: 0)}
+    {:noreply,
+     assign(socket,
+       show_upload_modal: true,
+       upload_files: [],
+       uploading: false,
+       upload_total: 0,
+       upload_completed: 0,
+       upload_percent: 0
+     )}
   end
 
   @impl true
@@ -49,43 +60,87 @@ defmodule BobineWeb.Admin.ContentLive do
     if socket.assigns.uploading do
       {:noreply, socket}
     else
-      {:noreply, assign(socket, :show_upload_modal, false)}
+      {:noreply, assign(socket, show_upload_modal: false, upload_files: [])}
     end
   end
 
   @impl true
-  def handle_event("submit_upload", %{"title" => title, "description" => desc}, socket) do
-    title = String.trim(title)
+  def handle_event("files_selected", %{"files" => files}, socket) do
+    upload_files =
+      Enum.map(files, fn %{"client_id" => cid, "name" => name} ->
+        title = name |> Path.rootname() |> String.replace(~r/[_\-\.]+/, " ") |> String.trim()
+        %{client_id: cid, name: name, title: title}
+      end)
 
-    if title == "" do
-      {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
-    else
-      scope = socket.assigns.current_scope
+    {:noreply, assign(socket, :upload_files, upload_files)}
+  end
 
-      case Content.create_upload_url(scope, %{title: title, description: desc},
-             current_origin: socket.assigns.current_origin
-           ) do
-        {:ok, %{video: video, upload_url: url}} ->
-          {:noreply,
-           socket
-           |> assign(:uploading, true)
-           |> assign(:upload_percent, 0)
-           |> push_event("start_upload", %{upload_url: url, video_id: video.id})
-           |> load_videos()}
+  @impl true
+  def handle_event("submit_upload", params, socket) do
+    titles = params["titles"] || %{}
+    scope = socket.assigns.current_scope
+    upload_files = socket.assigns.upload_files
 
-        {:error, :mux_error, reason} ->
-          Logger.error(
-            "Admin upload initiation failed organization_id=#{scope.organization.id} " <>
-              "user_id=#{scope.user.id} " <>
-              "title=#{inspect(title)} " <>
-              "reason=#{inspect(reason, pretty: true, limit: :infinity)}"
-          )
+    # Build the upload queue: create a Mux upload URL for each file
+    upload_queue =
+      Enum.reduce_while(upload_files, {:ok, []}, fn file, {:ok, acc} ->
+        title = String.trim(Map.get(titles, file.client_id, file.title))
+        title = if title == "", do: file.title, else: title
 
-          {:noreply, put_flash(socket, :error, mux_upload_error_message(reason))}
+        case Content.create_upload_url(scope, %{title: title, description: ""},
+               current_origin: socket.assigns.current_origin
+             ) do
+          {:ok, %{video: video, upload_url: url}} ->
+            entry = %{
+              client_id: file.client_id,
+              video_id: video.id,
+              upload_url: url,
+              title: title
+            }
 
-        {:error, :validation, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Please provide a title for the video.")}
-      end
+            {:cont, {:ok, acc ++ [entry]}}
+
+          {:error, :mux_error, reason} ->
+            Logger.error("Admin upload initiation failed",
+              organization_id: scope.organization.id,
+              user_id: scope.user.id,
+              title: title,
+              reason: inspect(reason)
+            )
+
+            {:halt, {:error, :mux_error, reason}}
+
+          {:error, :validation, _changeset} ->
+            {:halt, {:error, :validation_failed, title}}
+        end
+      end)
+
+    case upload_queue do
+      {:ok, queue} when queue != [] ->
+        {:noreply,
+         socket
+         |> assign(
+           uploading: true,
+           upload_total: length(queue),
+           upload_completed: 0,
+           upload_percent: 0
+         )
+         |> push_event("start_multi_upload", %{queue: queue})
+         |> load_videos()}
+
+      {:ok, []} ->
+        {:noreply, put_flash(socket, :error, "No files to upload.")}
+
+      {:error, :mux_error, reason} ->
+        {:noreply, put_flash(socket, :error, mux_upload_error_message(reason))}
+
+      {:error, :validation_failed, title} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Invalid title for \"#{title}\". Please provide a valid title."
+         )}
     end
   end
 
@@ -96,19 +151,55 @@ defmodule BobineWeb.Admin.ContentLive do
 
   @impl true
   def handle_event("upload_complete", %{"video_id" => _id}, socket) do
-    {:noreply,
-     socket
-     |> assign(show_upload_modal: false, uploading: false, upload_percent: 0)
-     |> put_flash(:info, "Upload complete. Processing video...")
-     |> load_videos()}
+    completed = socket.assigns.upload_completed + 1
+    total = socket.assigns.upload_total
+
+    if completed >= total do
+      {:noreply,
+       socket
+       |> assign(
+         show_upload_modal: false,
+         uploading: false,
+         upload_files: [],
+         upload_total: 0,
+         upload_completed: 0,
+         upload_percent: 0
+       )
+       |> put_flash(:info, upload_complete_message(total))
+       |> load_videos()}
+    else
+      {:noreply,
+       socket
+       |> assign(upload_completed: completed, upload_percent: 0)
+       |> load_videos()}
+    end
   end
 
   @impl true
   def handle_event("upload_error", %{"video_id" => _id, "error" => error}, socket) do
-    {:noreply,
-     socket
-     |> assign(uploading: false, upload_percent: 0)
-     |> put_flash(:error, "Upload failed: #{error}")}
+    completed = socket.assigns.upload_completed + 1
+    total = socket.assigns.upload_total
+
+    if completed >= total do
+      {:noreply,
+       socket
+       |> assign(
+         show_upload_modal: false,
+         uploading: false,
+         upload_files: [],
+         upload_total: 0,
+         upload_completed: 0,
+         upload_percent: 0
+       )
+       |> put_flash(:error, "Upload failed: #{error}")
+       |> load_videos()}
+    else
+      {:noreply,
+       socket
+       |> assign(upload_completed: completed, upload_percent: 0)
+       |> put_flash(:error, "Upload failed: #{error}")
+       |> load_videos()}
+    end
   end
 
   @impl true
@@ -256,6 +347,11 @@ defmodule BobineWeb.Admin.ContentLive do
     end
   end
 
+  defp upload_complete_message(1), do: "Upload complete. Processing video..."
+
+  defp upload_complete_message(count),
+    do: "All #{count} uploads complete. Processing videos..."
+
   defp mux_upload_error_message(%{type: type, messages: messages}) do
     base =
       "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
@@ -350,7 +446,10 @@ defmodule BobineWeb.Admin.ContentLive do
           search={@search}
           can_manage={@can_manage}
           show_upload_modal={@show_upload_modal}
+          upload_files={@upload_files}
           uploading={@uploading}
+          upload_total={@upload_total}
+          upload_completed={@upload_completed}
           upload_percent={@upload_percent}
         />
       <% end %>
@@ -458,12 +557,14 @@ defmodule BobineWeb.Admin.ContentLive do
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       data-test="upload-modal"
     >
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-lg font-semibold mb-4">Upload Video</h3>
+      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
+        <h3 class="text-lg font-semibold mb-4">Upload Videos</h3>
 
         <%!-- Upload progress --%>
-        <div :if={@uploading} class="mb-4">
-          <p class="text-sm text-base-content/70 mb-2">Uploading... {@upload_percent}%</p>
+        <div :if={@uploading} class="mb-4" data-test="upload-progress-section">
+          <p class="text-sm text-base-content/70 mb-2">
+            Uploading {@upload_completed + 1} of {@upload_total}… {@upload_percent}%
+          </p>
           <progress
             class="progress progress-primary w-full"
             value={@upload_percent}
@@ -473,46 +574,62 @@ defmodule BobineWeb.Admin.ContentLive do
           </progress>
         </div>
 
-        <%!-- Upload form (hidden while uploading) --%>
-        <form
-          :if={!@uploading}
-          phx-submit="submit_upload"
-          action="#"
-          data-test="upload-form"
-        >
+        <%!-- Step 1: File selection (no files chosen yet, not uploading) --%>
+        <div :if={!@uploading && @upload_files == []} data-test="upload-file-picker">
           <div class="mb-4">
-            <label class="label" for="upload-title">Title</label>
-            <input
-              type="text"
-              id="upload-title"
-              name="title"
-              required
-              class="input input-bordered w-full"
-              data-test="upload-title"
-            />
-          </div>
-          <div class="mb-4">
-            <label class="label" for="upload-desc">Description</label>
-            <textarea
-              id="upload-desc"
-              name="description"
-              class="textarea textarea-bordered w-full"
-              rows="3"
-              data-test="upload-description"
-            >
-            </textarea>
-          </div>
-          <div class="mb-4">
-            <label class="label" for="upload-file">Video file</label>
+            <label class="label" for="upload-file">Select video files</label>
             <input
               type="file"
               id="upload-file"
               name="video_file"
               accept="video/*"
+              multiple
               class="file-input file-input-bordered w-full"
               data-test="upload-file"
             />
           </div>
+          <div class="flex justify-end">
+            <button
+              type="button"
+              phx-click="close_upload"
+              class="btn btn-ghost"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <%!-- Step 2: Assign titles to each file --%>
+        <form
+          :if={!@uploading && @upload_files != []}
+          phx-submit="submit_upload"
+          action="#"
+          data-test="upload-form"
+        >
+          <p class="text-sm text-base-content/60 mb-3">
+            {length(@upload_files)} file(s) selected. Assign a title to each video:
+          </p>
+
+          <div class="space-y-3 mb-4">
+            <div
+              :for={file <- @upload_files}
+              class="flex items-center gap-3"
+              data-test={"upload-file-row-#{file.client_id}"}
+            >
+              <div class="text-xs text-base-content/50 w-32 truncate flex-shrink-0" title={file.name}>
+                {file.name}
+              </div>
+              <input
+                type="text"
+                name={"titles[#{file.client_id}]"}
+                value={file.title}
+                class="input input-bordered input-sm flex-1"
+                placeholder="Video title"
+                data-test={"upload-title-#{file.client_id}"}
+              />
+            </div>
+          </div>
+
           <div class="flex justify-end gap-2">
             <button
               type="button"
@@ -522,7 +639,7 @@ defmodule BobineWeb.Admin.ContentLive do
               Cancel
             </button>
             <button type="submit" class="btn btn-primary" data-test="upload-submit">
-              Upload
+              Upload {length(@upload_files)} Video{if length(@upload_files) > 1, do: "s", else: ""}
             </button>
           </div>
         </form>

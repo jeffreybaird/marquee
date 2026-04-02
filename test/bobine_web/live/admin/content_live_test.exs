@@ -149,9 +149,13 @@ defmodule BobineWeb.Admin.ContentLiveTest do
 
       render_click(view, "open_upload")
 
+      # Simulate file selection from the hook
+      render_hook(view, "files_selected", %{
+        "files" => [%{"client_id" => "file_1", "name" => "quota_test.mp4"}]
+      })
+
       render_submit(view, "submit_upload", %{
-        "title" => "Quota Test",
-        "description" => ""
+        "titles" => %{"file_1" => "Quota Test"}
       })
 
       html = render(view)
@@ -378,6 +382,138 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       {:ok, view, _html} = live(conn_for(vs_membership), ~p"/admin/content")
       html = render_click(view, "view_video", %{id: ctx.video.id})
       refute html =~ "data-test=\"add-tag-btn\""
+    end
+  end
+
+  describe "multi-file upload" do
+    test "files_selected event shows title inputs for each file", %{conn: _conn} do
+      membership = insert(:membership, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "open_upload")
+
+      html =
+        render_hook(view, "files_selected", %{
+          "files" => [
+            %{"client_id" => "file_1", "name" => "my_video.mp4"},
+            %{"client_id" => "file_2", "name" => "another-clip.mov"}
+          ]
+        })
+
+      # Title inputs should appear with auto-generated titles from filenames
+      assert html =~ ~s(data-test="upload-title-file_1")
+      assert html =~ ~s(data-test="upload-title-file_2")
+      assert html =~ "my video"
+      assert html =~ "another clip"
+      assert html =~ "Upload 2 Videos"
+    end
+
+    test "files_selected strips file extension and cleans up filename for title", %{conn: _conn} do
+      membership = insert(:membership, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "open_upload")
+
+      html =
+        render_hook(view, "files_selected", %{
+          "files" => [%{"client_id" => "file_1", "name" => "my_awesome_video.mp4"}]
+        })
+
+      assert html =~ "my awesome video"
+      assert html =~ "Upload 1 Video"
+    end
+
+    test "submit_upload with multiple files creates upload URLs for each", %{conn: _conn} do
+      import Mox
+
+      verify_on_exit!()
+
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      # Expect two Mux upload URL creations
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, 2, fn _params ->
+        upload_id = "upload_#{System.unique_integer([:positive])}"
+        {:ok, %{"id" => upload_id, "url" => "https://storage.mux.com/#{upload_id}"}}
+      end)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "open_upload")
+
+      render_hook(view, "files_selected", %{
+        "files" => [
+          %{"client_id" => "file_1", "name" => "first.mp4"},
+          %{"client_id" => "file_2", "name" => "second.mp4"}
+        ]
+      })
+
+      html =
+        render_submit(view, "submit_upload", %{
+          "titles" => %{"file_1" => "First Video", "file_2" => "Second Video"}
+        })
+
+      # Should be in uploading state
+      assert html =~ "Uploading"
+    end
+
+    test "upload_complete for last file in batch closes modal", %{conn: _conn} do
+      import Mox
+
+      verify_on_exit!()
+
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      expect(Bobine.Content.MockMuxClient, :create_direct_upload, 2, fn _params ->
+        upload_id = "upload_#{System.unique_integer([:positive])}"
+        {:ok, %{"id" => upload_id, "url" => "https://storage.mux.com/#{upload_id}"}}
+      end)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "open_upload")
+
+      render_hook(view, "files_selected", %{
+        "files" => [
+          %{"client_id" => "file_1", "name" => "a.mp4"},
+          %{"client_id" => "file_2", "name" => "b.mp4"}
+        ]
+      })
+
+      render_submit(view, "submit_upload", %{
+        "titles" => %{"file_1" => "Video A", "file_2" => "Video B"}
+      })
+
+      # Complete first upload — modal stays open
+      render_hook(view, "upload_complete", %{"video_id" => Ecto.UUID.generate()})
+      html = render(view)
+      assert html =~ "Uploading"
+
+      # Complete second upload — modal closes
+      render_hook(view, "upload_complete", %{"video_id" => Ecto.UUID.generate()})
+      html = render(view)
+      refute html =~ ~s(data-test="upload-modal")
+      assert html =~ "All 2 uploads complete"
+    end
+
+    test "close_upload resets file selection", %{conn: _conn} do
+      membership = insert(:membership, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      render_click(view, "open_upload")
+
+      render_hook(view, "files_selected", %{
+        "files" => [%{"client_id" => "file_1", "name" => "video.mp4"}]
+      })
+
+      assert render(view) =~ ~s(data-test="upload-form")
+
+      # Close and reopen — should be back to file picker
+      render_click(view, "close_upload")
+      html = render_click(view, "open_upload")
+      assert html =~ ~s(data-test="upload-file-picker")
+      refute html =~ ~s(data-test="upload-form")
     end
   end
 
