@@ -34,7 +34,12 @@
       "Bash(find /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/viewer -name *.heex)",
       "Bash(mix ecto.gen.migration create_hero_slides)",
       "Bash(mix ecto.rollback)",
-      "Bash(MIX_ENV=test mix ecto.reset)"
+      "Bash(MIX_ENV=test mix ecto.reset)",
+      "Bash(mix ecto.gen.migration update_platform_plans_and_subscriptions)",
+      "Bash(psql bobine_dev -c \"SELECT indexname FROM pg_indexes WHERE indexname = 'platform_subscriptions_stripe_subscription_id_index';\")",
+      "Bash(psql bobine_dev -c \"SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 5;\")",
+      "Bash(psql bobine_dev -c \"\\\\d platform_plans\")",
+      "Bash(git stash:*)"
     ]
   }
 }

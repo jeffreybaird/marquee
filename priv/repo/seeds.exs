@@ -152,6 +152,187 @@ create_viewer.("alice@example.com", "Alice (Test)", "active", :active, test_org)
 create_viewer.("bob@example.com", "Bob (Test)", "none", :active, test_org)
 create_viewer.("zoe@example.com", "Zoe", "trial", :active, test_org)
 
+# ---------------------------------------------------------------------------
+# Platform Plans (the 3x3 grid)
+# ---------------------------------------------------------------------------
+
+alias Bobine.Billing.PlatformPlan
+
+platform_plans = [
+  %{
+    slug: "individual_basic",
+    name: "Individual Basic",
+    usage_tier: :basic,
+    business_tier: :individual,
+    amount: 2900,
+    max_videos: 50,
+    max_monthly_views: 5_000,
+    max_team_seats: 1,
+    max_webhook_endpoints: 1,
+    enabled_features: [],
+    position: 0
+  },
+  %{
+    slug: "individual_super",
+    name: "Individual Super",
+    usage_tier: :super,
+    business_tier: :individual,
+    amount: 7900,
+    max_videos: 500,
+    max_monthly_views: 50_000,
+    max_team_seats: 1,
+    max_webhook_endpoints: 1,
+    enabled_features: [],
+    position: 1
+  },
+  %{
+    slug: "individual_premium",
+    name: "Individual Premium",
+    usage_tier: :premium,
+    business_tier: :individual,
+    amount: 14900,
+    max_videos: 2_000,
+    max_monthly_views: 200_000,
+    max_team_seats: 1,
+    max_webhook_endpoints: 1,
+    enabled_features: [],
+    position: 2,
+    highlight: true
+  },
+  %{
+    slug: "small_business_basic",
+    name: "Small Business Basic",
+    usage_tier: :basic,
+    business_tier: :small_business,
+    amount: 4900,
+    max_videos: 50,
+    max_monthly_views: 5_000,
+    max_team_seats: 5,
+    max_webhook_endpoints: 5,
+    enabled_features: ["custom_domain", "advanced_drm", "api_access"],
+    position: 3
+  },
+  %{
+    slug: "small_business_super",
+    name: "Small Business Super",
+    usage_tier: :super,
+    business_tier: :small_business,
+    amount: 12900,
+    max_videos: 500,
+    max_monthly_views: 50_000,
+    max_team_seats: 5,
+    max_webhook_endpoints: 5,
+    enabled_features: [
+      "custom_domain",
+      "advanced_drm",
+      "api_access",
+      "analytics_export_full"
+    ],
+    position: 4,
+    highlight: true
+  },
+  %{
+    slug: "small_business_premium",
+    name: "Small Business Premium",
+    usage_tier: :premium,
+    business_tier: :small_business,
+    amount: 24900,
+    max_videos: 2_000,
+    max_monthly_views: 200_000,
+    max_team_seats: 10,
+    max_webhook_endpoints: 5,
+    enabled_features: [
+      "custom_domain",
+      "advanced_drm",
+      "api_access",
+      "analytics_export_full"
+    ],
+    position: 5
+  },
+  %{
+    slug: "enterprise_basic",
+    name: "Enterprise Basic",
+    usage_tier: :basic,
+    business_tier: :enterprise,
+    amount: 9900,
+    max_videos: 200,
+    max_monthly_views: 20_000,
+    max_team_seats: nil,
+    max_webhook_endpoints: nil,
+    enabled_features: [
+      "custom_domain",
+      "advanced_drm",
+      "api_access",
+      "live_streaming",
+      "ai_recommendations",
+      "priority_support",
+      "custom_email_domain",
+      "white_label",
+      "analytics_export_full"
+    ],
+    position: 6
+  },
+  %{
+    slug: "enterprise_super",
+    name: "Enterprise Super",
+    usage_tier: :super,
+    business_tier: :enterprise,
+    amount: 24900,
+    max_videos: 2_000,
+    max_monthly_views: 200_000,
+    max_team_seats: nil,
+    max_webhook_endpoints: nil,
+    enabled_features: [
+      "custom_domain",
+      "advanced_drm",
+      "api_access",
+      "live_streaming",
+      "ai_recommendations",
+      "priority_support",
+      "custom_email_domain",
+      "white_label",
+      "analytics_export_full"
+    ],
+    position: 7
+  },
+  %{
+    slug: "enterprise_premium",
+    name: "Enterprise Premium",
+    usage_tier: :premium,
+    business_tier: :enterprise,
+    amount: 49900,
+    max_videos: nil,
+    max_monthly_views: nil,
+    max_team_seats: nil,
+    max_webhook_endpoints: nil,
+    enabled_features: [
+      "custom_domain",
+      "advanced_drm",
+      "api_access",
+      "live_streaming",
+      "ai_recommendations",
+      "priority_support",
+      "custom_email_domain",
+      "white_label",
+      "analytics_export_full"
+    ],
+    position: 8,
+    highlight: true
+  }
+]
+
+IO.puts("\nCreating platform plans:")
+
+for plan_attrs <- platform_plans do
+  unless Repo.get_by(PlatformPlan, slug: plan_attrs.slug) do
+    %PlatformPlan{}
+    |> PlatformPlan.changeset(plan_attrs)
+    |> Repo.insert!()
+
+    IO.puts("  #{plan_attrs.name} ($#{plan_attrs.amount / 100}/mo)")
+  end
+end
+
 IO.puts("\nSuper admin: #{super_admin.email}")
 
 IO.puts("""

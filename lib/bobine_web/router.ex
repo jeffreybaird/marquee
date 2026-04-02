@@ -91,6 +91,7 @@ defmodule BobineWeb.Router do
       live "/members", MembersLive
       live "/webhooks", WebhooksLive
       live "/settings", SettingsLive
+      live "/settings/billing", BillingLive
     end
   end
 
@@ -119,6 +120,7 @@ defmodule BobineWeb.Router do
       live "/organizations/:id", OrganizationShowLive
       live "/organizations/:id/edit", OrganizationEditLive
       live "/users", UsersLive
+      live "/plans", PlansLive
     end
   end
 

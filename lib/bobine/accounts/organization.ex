@@ -33,7 +33,8 @@ defmodule Bobine.Accounts.Organization do
       :stripe_connect_account_id,
       :stripe_connect_onboarding_complete,
       :stripe_customer_id,
-      :template
+      :template,
+      :features
     ])
     |> validate_required([:name, :slug])
     |> unique_constraint(:slug)

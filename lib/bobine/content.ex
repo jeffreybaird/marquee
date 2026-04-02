@@ -19,6 +19,7 @@ defmodule Bobine.Content do
   require Bobine.Otel
 
   alias Bobine.Content.{Video, Collection, CollectionItem, Tag, VideoTag}
+  alias Bobine.PlatformBilling.UsageLimits
 
   ## -----------------------------------------------------------------------
   ## Video queries
@@ -98,6 +99,15 @@ defmodule Bobine.Content do
   Exempt from doctest — calls Mux API.
   """
   def create_upload_url(scope, attrs, opts \\ []) do
+    unless UsageLimits.can_upload_video?(scope.organization) do
+      limit_status = UsageLimits.video_limit_status(scope.organization)
+      {:error, :plan_limit_reached, limit_status}
+    else
+      do_create_upload_url(scope, attrs, opts)
+    end
+  end
+
+  defp do_create_upload_url(scope, attrs, opts) do
     mux_upload_params =
       build_mux_upload_params(scope.organization, Keyword.get(opts, :current_origin))
 

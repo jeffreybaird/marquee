@@ -11,6 +11,34 @@ defmodule Bobine.Billing.StripeClient do
   require OpenTelemetry.Tracer, as: Tracer
 
   @impl true
+  def create_product(params) do
+    traced_call("create_product", fn ->
+      Stripe.Product.create(params)
+    end)
+  end
+
+  @impl true
+  def create_price(params) do
+    traced_call("create_price", fn ->
+      Stripe.Price.create(params)
+    end)
+  end
+
+  @impl true
+  def update_product(product_id, params) do
+    traced_call("update_product", fn ->
+      Stripe.Product.update(product_id, params)
+    end)
+  end
+
+  @impl true
+  def deactivate_price(price_id) do
+    traced_call("deactivate_price", fn ->
+      Stripe.Price.update(price_id, %{active: false})
+    end)
+  end
+
+  @impl true
   def create_customer(params) do
     traced_call("create_customer", fn ->
       Stripe.Customer.create(params)
@@ -39,9 +67,9 @@ defmodule Bobine.Billing.StripeClient do
   end
 
   @impl true
-  def create_checkout_session(params) do
+  def create_checkout_session(params, opts \\ []) do
     traced_call("create_checkout_session", fn ->
-      Stripe.Checkout.Session.create(params)
+      Stripe.Checkout.Session.create(params, opts)
     end)
   end
 

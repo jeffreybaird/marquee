@@ -155,7 +155,24 @@ defmodule BobineWeb.Components.AdminLayout do
               current_path={@current_path}
               data_test="admin-nav-settings"
             />
+            <.nav_link
+              href={~p"/admin/settings/billing"}
+              label="Billing"
+              current_path={@current_path}
+              data_test="admin-nav-billing"
+            />
           </nav>
+
+          <div class="p-3 border-t border-base-300">
+            <.link
+              href={~p"/users/log-out"}
+              method="delete"
+              class="block px-3 py-2 rounded-md text-sm font-medium text-base-content hover:bg-base-300 transition-colors"
+              data-test="admin-nav-logout"
+            >
+              Log out
+            </.link>
+          </div>
         </aside>
 
         <div class="flex-1 flex flex-col overflow-hidden">

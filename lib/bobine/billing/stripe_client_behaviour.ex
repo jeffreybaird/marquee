@@ -7,10 +7,14 @@ defmodule Bobine.Billing.StripeClientBehaviour do
   `Mox`-generated mock is injected via config.
   """
 
+  @callback create_product(map()) :: {:ok, map()} | {:error, term()}
+  @callback create_price(map()) :: {:ok, map()} | {:error, term()}
+  @callback update_product(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  @callback deactivate_price(String.t()) :: {:ok, map()} | {:error, term()}
   @callback create_customer(map()) :: {:ok, map()} | {:error, term()}
   @callback create_subscription(String.t(), String.t()) :: {:ok, map()} | {:error, term()}
   @callback cancel_subscription(String.t()) :: {:ok, map()} | {:error, term()}
-  @callback create_checkout_session(map()) :: {:ok, map()} | {:error, term()}
+  @callback create_checkout_session(map(), keyword()) :: {:ok, map()} | {:error, term()}
   @callback create_billing_portal_session(String.t(), String.t()) ::
               {:ok, map()} | {:error, term()}
   @callback retrieve_subscription(String.t()) :: {:ok, map()} | {:error, term()}

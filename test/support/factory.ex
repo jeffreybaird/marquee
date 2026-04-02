@@ -225,9 +225,19 @@ defmodule Bobine.Factory do
   def platform_plan_factory do
     %Bobine.Billing.PlatformPlan{
       name: sequence(:platform_plan_name, &"Platform Plan #{&1}"),
+      slug: sequence(:platform_plan_slug, &"platform-plan-#{&1}"),
       stripe_price_id: sequence(:platform_price_id, &"price_platform_#{&1}"),
+      stripe_product_id: sequence(:platform_product_id, &"prod_platform_#{&1}"),
       amount: 4900,
+      currency: "usd",
       interval: :monthly,
+      usage_tier: :basic,
+      business_tier: :individual,
+      max_videos: 50,
+      max_monthly_views: 5_000,
+      max_team_seats: 1,
+      max_webhook_endpoints: 1,
+      enabled_features: [],
       transaction_fee_percent: 5.0,
       active: true
     }
@@ -238,7 +248,10 @@ defmodule Bobine.Factory do
       organization: build(:organization),
       platform_plan: build(:platform_plan),
       stripe_subscription_id: sequence(:platform_sub_id, &"sub_platform_#{&1}"),
-      status: :active
+      stripe_customer_id: sequence(:platform_cus_id, &"cus_platform_#{&1}"),
+      status: :active,
+      current_period_end:
+        DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
     }
   end
 

@@ -52,6 +52,15 @@ defmodule Bobine.Accounts do
     Repo.get_by(Membership, organization_id: org_id, user_id: user_id)
   end
 
+  @doc """
+  Returns true if the user has a membership in any organization.
+
+  Exempt from doctest — hits the database.
+  """
+  def has_any_membership?(%User{id: user_id}) do
+    Repo.exists?(from m in Membership, where: m.user_id == ^user_id)
+  end
+
   ## Database getters
 
   @doc """

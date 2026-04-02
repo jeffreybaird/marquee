@@ -402,7 +402,9 @@ defmodule Bobine.Admin do
               on: t.viewer_id == v.id,
               where: v.organization_id == ^org_id
             )
-          )
+          ),
+        platform_subscription:
+          Repo.get_by(Bobine.Billing.PlatformSubscription, organization_id: org_id)
       }
     end
   end

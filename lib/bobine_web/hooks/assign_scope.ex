@@ -130,9 +130,11 @@ defmodule BobineWeb.Hooks.AssignScope do
       BobineWeb.Admin.MembersLive -> "/admin/members"
       BobineWeb.Admin.WebhooksLive -> "/admin/webhooks"
       BobineWeb.Admin.SettingsLive -> "/admin/settings"
+      BobineWeb.Admin.BillingLive -> "/admin/settings/billing"
       BobineWeb.Super.DashboardLive -> "/super"
       BobineWeb.Super.OrganizationsLive -> "/super/organizations"
       BobineWeb.Super.UsersLive -> "/super/users"
+      BobineWeb.Super.PlansLive -> "/super/plans"
       _ -> nil
     end
   end

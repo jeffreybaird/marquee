@@ -87,4 +87,46 @@ defmodule Bobine.Metrics do
       %{org_id: org_id, event_type: event_type, status: status}
     )
   end
+
+  @doc """
+  Records a platform subscription created event.
+
+      iex> Bobine.Metrics.platform_subscription_created("org_123", "small_business_super")
+      :ok
+  """
+  def platform_subscription_created(org_id, plan_slug) do
+    :telemetry.execute(
+      [:bobine, :platform_subscription, :created],
+      %{count: 1},
+      %{org_id: org_id, plan: plan_slug}
+    )
+  end
+
+  @doc """
+  Records a platform subscription canceled event.
+
+      iex> Bobine.Metrics.platform_subscription_canceled("org_123")
+      :ok
+  """
+  def platform_subscription_canceled(org_id) do
+    :telemetry.execute(
+      [:bobine, :platform_subscription, :canceled],
+      %{count: 1},
+      %{org_id: org_id}
+    )
+  end
+
+  @doc """
+  Records a platform payment failure event.
+
+      iex> Bobine.Metrics.platform_payment_failed("org_123")
+      :ok
+  """
+  def platform_payment_failed(org_id) do
+    :telemetry.execute(
+      [:bobine, :platform_payment, :failed],
+      %{count: 1},
+      %{org_id: org_id}
+    )
+  end
 end

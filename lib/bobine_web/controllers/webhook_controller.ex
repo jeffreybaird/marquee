@@ -31,7 +31,24 @@ defmodule BobineWeb.WebhookController do
   Receives Stripe webhook events. Validates signature and enqueues processing.
   """
   def stripe(conn, _params) do
-    send_resp(conn, 200, "ok")
+    raw_body = Process.get(:raw_body) || ""
+
+    with {:ok, event} <- verify_stripe_signature(raw_body, conn),
+         {:ok, _job} <- enqueue_stripe_webhook(event) do
+      send_resp(conn, 200, "ok")
+    else
+      {:error, :invalid_signature} ->
+        Logger.warning("Invalid Stripe webhook signature")
+        send_resp(conn, 400, "invalid signature")
+
+      {:error, reason} ->
+        Logger.error("Stripe webhook error",
+          reason: inspect(reason),
+          request_path: conn.request_path
+        )
+
+        send_resp(conn, 500, "error")
+    end
   end
 
   defp verify_mux_signature(raw_body, conn) do
@@ -67,9 +84,52 @@ defmodule BobineWeb.WebhookController do
     end
   end
 
+  defp verify_stripe_signature(raw_body, conn) do
+    secret = Application.get_env(:bobine, :stripe_webhook_secret)
+
+    if secret do
+      sig_header = Plug.Conn.get_req_header(conn, "stripe-signature") |> List.first()
+
+      if sig_header do
+        case Stripe.Webhook.construct_event(raw_body, sig_header, secret) do
+          {:ok, event} ->
+            {:ok, normalize_stripe_event(event)}
+
+          {:error, reason} ->
+            Logger.warning("Stripe signature verification failed",
+              reason: inspect(reason)
+            )
+
+            {:error, :invalid_signature}
+        end
+      else
+        Logger.warning("No Stripe-Signature header present")
+        {:error, :invalid_signature}
+      end
+    else
+      # In dev/test, accept the payload without signature verification
+      case Jason.decode(raw_body) do
+        {:ok, event} -> {:ok, event}
+        {:error, _} -> {:error, :invalid_signature}
+      end
+    end
+  end
+
+  defp normalize_stripe_event(%{} = event) when is_struct(event) do
+    Jason.encode!(event) |> Jason.decode!()
+  end
+
+  defp normalize_stripe_event(event) when is_map(event), do: event
+
   defp enqueue_mux_webhook(payload) do
     %{payload: payload}
     |> Bobine.Workers.MuxWebhookProcessor.new()
+    |> Oban.insert()
+  end
+
+  defp enqueue_stripe_webhook(event) do
+    %{event: event, event_id: event["id"]}
+    |> Bobine.Workers.StripeWebhookProcessor.new()
     |> Oban.insert()
   end
 end

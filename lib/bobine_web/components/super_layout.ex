@@ -82,6 +82,12 @@ defmodule BobineWeb.Components.SuperLayout do
               current_path={@current_path}
               data_test="super-nav-users"
             />
+            <.super_nav_link
+              href={~p"/super/plans"}
+              label="Plans"
+              current_path={@current_path}
+              data_test="super-nav-plans"
+            />
           </nav>
 
           <div class="p-4 border-t border-slate-700 space-y-3">

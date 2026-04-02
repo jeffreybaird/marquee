@@ -14,6 +14,7 @@ defmodule BobineWeb.Plugs.SetOrganization do
   """
 
   import Plug.Conn
+  import Ecto.Query, only: [from: 2]
 
   alias Bobine.Accounts
   alias Bobine.Accounts.Scope
@@ -77,10 +78,42 @@ defmodule BobineWeb.Plugs.SetOrganization do
   defp resolve_organization(conn) do
     with {:error, _} <- resolve_impersonated_org(conn),
          {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
-         {:error, _} <- resolve_by_subdomain(conn.host) do
+         {:error, _} <- resolve_by_subdomain(conn.host),
+         {:error, _} <- resolve_from_session(conn),
+         {:error, _} <- resolve_from_user_membership(conn) do
       resolve_fallback(conn)
     end
   end
+
+  defp resolve_from_session(conn) do
+    case get_session(conn, :organization_id) do
+      nil -> {:error, :not_found}
+      org_id -> Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
+    end
+  end
+
+  defp resolve_from_user_membership(conn) do
+    scope = conn.assigns[:current_scope]
+
+    if scope && scope.user do
+      case Bobine.Repo.one(
+             from m in Bobine.Accounts.Membership,
+               where: m.user_id == ^scope.user.id,
+               join: o in assoc(m, :organization),
+               where: is_nil(o.deleted_at),
+               select: o,
+               limit: 1
+           ) do
+        nil -> {:error, :not_found}
+        org -> {:ok, org}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  defp wrap_org(nil), do: {:error, :not_found}
+  defp wrap_org(org), do: {:ok, org}
 
   # When a super admin is impersonating, use the impersonated org regardless of host.
   defp resolve_impersonated_org(conn) do
