@@ -19,13 +19,16 @@ defmodule BobineWeb.Viewer.HomeLive do
 
       # Authenticated user with org resolved -> show org home
       org ->
-        hero_items = Catalog.build_hero_items(org, limit: 5)
+        %{slides: hero_slides, auto_advance_ms: auto_advance_ms} =
+          Catalog.resolve_hero_slides_cached(org)
+
         rows = load_catalog_rows(org)
 
         {:ok,
          socket
          |> assign(:page_title, org.name)
-         |> assign(:hero_items, hero_items)
+         |> assign(:hero_slides, hero_slides)
+         |> assign(:hero_auto_advance_ms, auto_advance_ms)
          |> assign(:rows, rows)}
 
       # No org, no super admin -> show generic landing
@@ -33,7 +36,8 @@ defmodule BobineWeb.Viewer.HomeLive do
         {:ok,
          socket
          |> assign(:page_title, "Welcome")
-         |> assign(:hero_items, [])
+         |> assign(:hero_slides, [])
+         |> assign(:hero_auto_advance_ms, 0)
          |> assign(:rows, [])}
     end
   end
@@ -49,9 +53,16 @@ defmodule BobineWeb.Viewer.HomeLive do
       flash={@flash}
     >
       <%!-- Hero carousel --%>
-      <.hero_carousel :if={@hero_items != []} items={@hero_items} />
+      <.hero_carousel
+        :if={@hero_slides != []}
+        slides={@hero_slides}
+        auto_advance_ms={@hero_auto_advance_ms}
+      />
 
-      <div :if={@hero_items == [] && @rows == []} class="py-12 text-center text-base-content/60">
+      <div
+        :if={@hero_slides == [] && @rows == []}
+        class="py-12 text-center text-base-content/60"
+      >
         <p class="text-lg">No videos available yet.</p>
       </div>
 
@@ -63,21 +74,22 @@ defmodule BobineWeb.Viewer.HomeLive do
     """
   end
 
-  attr :items, :list, required: true
+  attr :slides, :list, required: true
+  attr :auto_advance_ms, :integer, required: true
 
   defp hero_carousel(assigns) do
     ~H"""
     <section
       id="hero-carousel"
       phx-hook="HeroCarousel"
-      data-auto-advance="8000"
+      data-auto-advance={@auto_advance_ms}
       data-test="hero-carousel"
       class="hero-carousel-wrapper"
     >
       <%!-- Background slides --%>
       <div class="hero-slides">
         <div
-          :for={{item, index} <- Enum.with_index(@items)}
+          :for={{slide, index} <- Enum.with_index(@slides)}
           class={["hero-slide", index == 0 && "active"]}
           data-index={index}
           data-test={"hero-slide-#{index}"}
@@ -85,9 +97,9 @@ defmodule BobineWeb.Viewer.HomeLive do
           <%!-- Background image with gradient overlay --%>
           <div class="hero-bg">
             <img
-              :if={item.background_image_url}
-              src={item.background_image_url}
-              alt={item.title}
+              :if={slide.background_image_url}
+              src={slide.background_image_url}
+              alt={slide.headline}
               loading={if index == 0, do: "eager", else: "lazy"}
             />
             <div class="hero-gradient" />
@@ -95,37 +107,53 @@ defmodule BobineWeb.Viewer.HomeLive do
 
           <%!-- Content overlay (left-aligned) --%>
           <div class="hero-content" data-test={"hero-content-#{index}"}>
-            <span :if={item.brand_tag} class="hero-brand-tag">{item.brand_tag}</span>
-            <h1 class="hero-title">{item.title}</h1>
-            <p :if={item.status_text} class="hero-status">{item.status_text}</p>
-            <p :if={item.metadata_text} class="hero-metadata">{item.metadata_text}</p>
+            <span :if={slide.brand_tag} class="hero-brand-tag">{slide.brand_tag}</span>
+            <h1 class="hero-title">{slide.headline}</h1>
+            <p :if={slide.subheadline} class="hero-status">{slide.subheadline}</p>
+            <p :if={slide.description} class="hero-metadata">{slide.description}</p>
 
             <%!-- CTA group --%>
             <div class="hero-cta-group">
               <.link
-                navigate={item.primary_cta_path}
+                navigate={slide.primary_cta_path}
                 class="hero-cta-primary"
                 data-test={"hero-primary-cta-#{index}"}
               >
-                {item.primary_cta_label}
+                {slide.primary_cta_label}
               </.link>
               <.link
-                :if={item.secondary_cta_path}
-                navigate={item.secondary_cta_path}
+                :if={slide.secondary_cta_path}
+                navigate={slide.secondary_cta_path}
                 class="hero-cta-secondary"
                 data-test={"hero-secondary-cta-#{index}"}
               >
-                {item.secondary_cta_label}
+                {slide.secondary_cta_label}
               </.link>
             </div>
           </div>
         </div>
       </div>
 
+      <%!-- Navigation arrows --%>
+      <button
+        class="hero-arrow hero-arrow-prev"
+        aria-label="Previous slide"
+        data-test="hero-arrow-prev"
+      >
+        <.icon name="hero-chevron-left" class="size-6" />
+      </button>
+      <button
+        class="hero-arrow hero-arrow-next"
+        aria-label="Next slide"
+        data-test="hero-arrow-next"
+      >
+        <.icon name="hero-chevron-right" class="size-6" />
+      </button>
+
       <%!-- Pagination dots --%>
       <div class="hero-pagination" data-test="hero-pagination">
         <button
-          :for={{_item, index} <- Enum.with_index(@items)}
+          :for={{_slide, index} <- Enum.with_index(@slides)}
           class={["hero-dot", index == 0 && "active"]}
           data-index={index}
           aria-label={"Go to slide #{index + 1}"}
@@ -141,23 +169,44 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   defp content_row(assigns) do
     ~H"""
-    <section class="content-row" data-test={"content-row-#{@row.id}"}>
+    <section
+      class="content-row"
+      id={"row-#{@row.id}"}
+      phx-hook="RowScroller"
+      data-test={"content-row-#{@row.id}"}
+    >
       <h2 class="content-row-title">{@row.title}</h2>
-      <div class="content-row-items">
-        <.link
-          :for={video <- @videos}
-          navigate={~p"/watch/#{video.id}"}
-          class="content-card"
-          data-test={"content-card-#{video.id}"}
+      <div class="content-row-scroll">
+        <button
+          class="row-arrow row-arrow-prev row-arrow-hidden"
+          aria-label="Scroll left"
+          data-test={"row-arrow-prev-#{@row.id}"}
         >
-          <img
-            :if={video.mux_playback_id}
-            src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=400&height=225&fit_mode=smartcrop"}
-            alt={video.title}
-            loading="lazy"
-          />
-          <span class="content-card-title">{video.title}</span>
-        </.link>
+          <.icon name="hero-chevron-left" class="size-5" />
+        </button>
+        <div class="content-row-items">
+          <.link
+            :for={video <- @videos}
+            navigate={~p"/watch/#{video.id}"}
+            class="content-card"
+            data-test={"content-card-#{video.id}"}
+          >
+            <img
+              :if={video.mux_playback_id}
+              src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=400&height=225&fit_mode=smartcrop"}
+              alt={video.title}
+              loading="lazy"
+            />
+            <span class="content-card-title">{video.title}</span>
+          </.link>
+        </div>
+        <button
+          class="row-arrow row-arrow-next"
+          aria-label="Scroll right"
+          data-test={"row-arrow-next-#{@row.id}"}
+        >
+          <.icon name="hero-chevron-right" class="size-5" />
+        </button>
       </div>
     </section>
     """
@@ -167,6 +216,7 @@ defmodule BobineWeb.Viewer.HomeLive do
     %{results: rows} = Catalog.list_visible_rows(org, per_page: 100)
 
     rows
+    |> Enum.reject(&(&1.source_type == :hero))
     |> Enum.map(fn row ->
       %{results: videos} = Catalog.resolve_row_content_cached(org, row, per_page: row.max_items)
       %{row: row, videos: videos}

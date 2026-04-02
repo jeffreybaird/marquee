@@ -9,7 +9,7 @@ defmodule Bobine.Catalog.Row do
     field :title, :string
 
     field :source_type, Ecto.Enum,
-      values: [:curated, :collection, :tag, :recent, :continue_watching, :popular]
+      values: [:curated, :collection, :tag, :recent, :continue_watching, :popular, :hero]
 
     field :source_id, :binary_id
     field :filter_config, :map
@@ -19,6 +19,7 @@ defmodule Bobine.Catalog.Row do
     field :deleted_at, :utc_datetime
 
     has_many :row_items, Bobine.Catalog.RowItem
+    has_many :hero_slides, Bobine.Catalog.HeroSlide
 
     timestamps(type: :utc_datetime)
   end

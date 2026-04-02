@@ -19,7 +19,7 @@ defmodule Bobine.Catalog do
 
   require Bobine.Otel
 
-  alias Bobine.Catalog.{Row, RowItem}
+  alias Bobine.Catalog.{Row, RowItem, HeroSlide}
 
   ## -----------------------------------------------------------------------
   ## Rows
@@ -114,6 +114,11 @@ defmodule Bobine.Catalog do
         Events.broadcast(scope, {:row_updated, row})
         Audit.log(scope, "row.updated", row, attrs)
         invalidate_row_cache(scope.organization.id, row.id)
+
+        if row.source_type == :hero do
+          invalidate_hero_cache(scope.organization.id)
+        end
+
         {:ok, row}
       else
         {:error, changeset} -> {:error, :validation, changeset}
@@ -345,6 +350,10 @@ defmodule Bobine.Catalog do
 
       :continue_watching ->
         %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+
+      :hero ->
+        # Hero rows resolve their content through resolve_hero_slides/1, not here
+        %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
     end
   end
 
@@ -368,93 +377,286 @@ defmodule Bobine.Catalog do
   end
 
   ## -----------------------------------------------------------------------
-  ## Hero Items
+  ## Hero Row
   ## -----------------------------------------------------------------------
 
-  alias BobineWeb.Viewer.HeroItem
-
   @doc """
-  Builds a list of `HeroItem` structs for the homepage hero carousel.
+  Gets the hero row for an organization. Each org can have at most one.
 
-  Uses the first visible row marked as "featured" or falls back to the most
-  recent videos with Mux playback IDs.
+  Returns `{:ok, row}` or `{:error, :not_found}`.
 
   Exempt from doctest — hits the database.
   """
-  def build_hero_items(%Organization{} = organization, opts \\ []) do
-    Bobine.Otel.with_span "bobine.catalog.build_hero_items",
+  def get_hero_row(%Organization{id: org_id}) do
+    Row
+    |> where(organization_id: ^org_id, source_type: :hero)
+    |> where([r], is_nil(r.deleted_at))
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      row -> {:ok, row}
+    end
+  end
+
+  @doc """
+  Creates a hero row. Returns `{:error, :already_exists}` if one already exists.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_hero_row(scope, attrs) do
+    case get_hero_row(scope.organization) do
+      {:ok, _existing} ->
+        {:error, :already_exists}
+
+      {:error, :not_found} ->
+        attrs =
+          attrs
+          |> Map.merge(%{source_type: :hero, visible: true})
+          |> Map.put_new(:title, "Hero")
+
+        create_row(scope, attrs)
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Hero Slides
+  ## -----------------------------------------------------------------------
+
+  @hero_slide_limit 4
+
+  @doc """
+  Lists hero slides for a hero row, ordered by position.
+  Excludes soft-deleted slides.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_hero_slides(%Organization{id: org_id}, %Row{id: row_id}) do
+    HeroSlide
+    |> where(organization_id: ^org_id, row_id: ^row_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> order_by(asc: :position)
+    |> Repo.all()
+  end
+
+  @doc """
+  Creates a hero slide. Enforces max 4 slides per hero row.
+
+  Returns `{:error, :hero_limit_reached, %{limit: 4, current: n}}` if at capacity.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_hero_slide(scope, %Row{} = row, attrs) do
+    Bobine.Otel.with_span "bobine.catalog.create_hero_slide",
+                          %{"bobine.org.id" => scope.organization.id} do
+      current_count = count_active_hero_slides(scope.organization, row)
+
+      if current_count >= @hero_slide_limit do
+        {:error, :hero_limit_reached, %{limit: @hero_slide_limit, current: current_count}}
+      else
+        position = Map.get(attrs, :position, current_count)
+
+        %HeroSlide{organization_id: scope.organization.id, row_id: row.id}
+        |> HeroSlide.changeset(Map.put(attrs, :position, position))
+        |> Repo.insert()
+        |> case do
+          {:ok, slide} ->
+            Events.broadcast(scope, {:hero_slide_created, slide})
+            Audit.log(scope, "hero_slide.created", slide)
+            invalidate_hero_cache(scope.organization.id)
+            {:ok, slide}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+      end
+    end
+  end
+
+  @doc """
+  Updates a hero slide's custom text fields or background image.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_hero_slide(scope, %HeroSlide{} = slide, attrs) do
+    Bobine.Otel.with_span "bobine.catalog.update_hero_slide",
+                          %{"bobine.org.id" => scope.organization.id} do
+      slide
+      |> HeroSlide.changeset(attrs)
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          Events.broadcast(scope, {:hero_slide_updated, updated})
+          Audit.log(scope, "hero_slide.updated", updated, attrs)
+          invalidate_hero_cache(scope.organization.id)
+          {:ok, updated}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Soft-deletes a hero slide.
+
+  Exempt from doctest — hits the database.
+  """
+  def delete_hero_slide(scope, %HeroSlide{} = slide) do
+    Bobine.Otel.with_span "bobine.catalog.delete_hero_slide",
+                          %{"bobine.org.id" => scope.organization.id} do
+      slide
+      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+      |> Repo.update()
+      |> case do
+        {:ok, deleted} ->
+          Events.broadcast(scope, {:hero_slide_deleted, deleted})
+          Audit.log(scope, "hero_slide.deleted", deleted)
+          invalidate_hero_cache(scope.organization.id)
+          {:ok, deleted}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Reorders hero slides within the hero row.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_hero_slides(scope, %Row{} = row, ordered_slide_ids) do
+    Bobine.Otel.with_span "bobine.catalog.reorder_hero_slides",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_slide_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {slide_id, position} ->
+          HeroSlide
+          |> where(id: ^slide_id, row_id: ^row.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:hero_slides_reordered, %{row: row}})
+          invalidate_hero_cache(scope.organization.id)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking hero slide changes.
+
+  Exempt from doctest — changeset building only.
+  """
+  def change_hero_slide(%HeroSlide{} = slide, attrs \\ %{}) do
+    HeroSlide.changeset(slide, attrs)
+  end
+
+  @doc """
+  Gets a single hero slide within an organization.
+
+  Returns `{:ok, slide}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_hero_slide(%Organization{id: org_id}, id) do
+    case Repo.get_by(HeroSlide, id: id, organization_id: org_id) do
+      nil -> {:error, :not_found}
+      slide -> {:ok, slide}
+    end
+  end
+
+  defp count_active_hero_slides(%Organization{id: org_id}, %Row{id: row_id}) do
+    HeroSlide
+    |> where(organization_id: ^org_id, row_id: ^row_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> Repo.aggregate(:count)
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Resolve Hero Slides for Viewer
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns resolved hero slides for rendering. Custom text fields fall back
+  to the linked video's data when blank.
+
+  Returns a list of maps with all slide data needed for rendering.
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_hero_slides(%Organization{} = organization) do
+    Bobine.Otel.with_span "bobine.catalog.resolve_hero_slides",
                           %{"bobine.org.id" => organization.id} do
-      limit = Keyword.get(opts, :limit, 5)
+      case get_hero_row(organization) do
+        {:ok, %Row{visible: true} = row} ->
+          slides =
+            row
+            |> then(&list_hero_slides(organization, &1))
+            |> Enum.map(fn slide ->
+              video = Content.get_video!(slide.video_id)
+              resolve_slide_with_fallbacks(slide, video)
+            end)
 
-      organization
-      |> fetch_hero_videos(limit)
-      |> Enum.map(&video_to_hero_item/1)
+          auto_advance_ms = get_in(row.filter_config || %{}, ["auto_advance_ms"]) || 8000
+
+          %{slides: slides, auto_advance_ms: auto_advance_ms}
+
+        _ ->
+          %{slides: [], auto_advance_ms: 8000}
+      end
     end
   end
 
-  defp fetch_hero_videos(organization, limit) do
-    # Try to find a featured/curated row first
-    case find_featured_row(organization) do
-      nil ->
-        # Fallback: most recent ready videos
-        %{results: videos} =
-          Content.list_videos(organization,
-            per_page: limit,
-            order_by: [{:desc, :inserted_at}]
-          )
+  @doc """
+  Cached version of `resolve_hero_slides/1`. Invalidated when hero slides
+  or the hero row are modified.
 
-        videos
-
-      row ->
-        %{results: videos} =
-          resolve_row_content_cached(organization, row, per_page: limit)
-
-        videos
-    end
+  Exempt from doctest — hits the database.
+  """
+  def resolve_hero_slides_cached(%Organization{} = organization) do
+    Cache.fetch(
+      "hero:#{organization.id}",
+      [ttl: :timer.minutes(2)],
+      fn -> resolve_hero_slides(organization) end
+    )
   end
 
-  defp find_featured_row(organization) do
-    %{results: rows} = list_visible_rows(organization, per_page: 1)
-    List.first(rows)
-  end
-
-  defp video_to_hero_item(video) do
-    %HeroItem{
-      id: video.id,
-      background_image_url: mux_thumbnail_url(video.mux_playback_id, width: 1920, height: 1080),
-      title: video.title,
-      status_text: hero_status_text(video),
-      metadata_text: hero_metadata_text(video),
-      primary_cta_label: "Watch Now",
+  defp resolve_slide_with_fallbacks(slide, video) do
+    %{
+      id: slide.id,
+      video_id: video.id,
+      background_image_url: slide.background_image_url || mux_hero_thumbnail(video),
+      headline: presence(slide.headline) || video.title,
+      subheadline: slide.subheadline,
+      brand_tag: slide.brand_tag,
+      description: presence(slide.description) || video.description,
+      primary_cta_label: presence(slide.primary_cta_label) || "Watch now",
       primary_cta_path: "/watch/#{video.id}",
-      secondary_cta_label: nil,
-      secondary_cta_path: nil
+      secondary_cta_label: presence(slide.secondary_cta_label) || "More info",
+      secondary_cta_path: "/watch/#{video.id}"
     }
   end
 
-  defp mux_thumbnail_url(nil, _opts), do: nil
+  defp mux_hero_thumbnail(%{mux_playback_id: nil}), do: nil
 
-  defp mux_thumbnail_url(playback_id, opts) do
-    width = Keyword.get(opts, :width, 1920)
-    height = Keyword.get(opts, :height, 1080)
-
-    "https://image.mux.com/#{playback_id}/thumbnail.webp?width=#{width}&height=#{height}&fit_mode=smartcrop"
+  defp mux_hero_thumbnail(%{mux_playback_id: playback_id}) do
+    "https://image.mux.com/#{playback_id}/thumbnail.webp?width=1920&height=1080&fit_mode=smartcrop"
   end
 
-  defp hero_status_text(_), do: nil
+  defp presence(nil), do: nil
+  defp presence(""), do: nil
+  defp presence(str) when is_binary(str), do: str
 
-  defp hero_metadata_text(%{duration: duration}) when is_float(duration) and duration > 0 do
-    total = round(duration)
-    mins = div(total, 60)
-
-    cond do
-      mins >= 60 -> "#{div(mins, 60)}h #{rem(mins, 60)}m"
-      mins > 0 -> "#{mins} min"
-      true -> "#{total}s"
-    end
+  defp invalidate_hero_cache(org_id) do
+    Cache.delete("hero:#{org_id}")
   end
-
-  defp hero_metadata_text(_), do: nil
 
   defp invalidate_row_cache(org_id, row_id) do
     Cache.delete("row_content:#{org_id}:#{row_id}")

@@ -19,6 +19,7 @@ defmodule Bobine.Admin do
   alias Bobine.Branding.Theme
   alias Bobine.Content.{Video, Collection, CollectionItem, Tag}
   alias Bobine.Catalog.Row
+  alias Bobine.Catalog.HeroSlide
   alias Bobine.Billing.{Plan, Subscription}
   alias Bobine.Engagement.{WatchlistItem, Favorite, WatchHistory, Progress}
   alias Bobine.Webhooks.Endpoint, as: WebhookEndpoint
@@ -379,6 +380,7 @@ defmodule Bobine.Admin do
           Repo.all(from(ci in CollectionItem, where: ci.organization_id == ^org_id)),
         tags: Repo.all(from(t in Tag, where: t.organization_id == ^org_id)),
         rows: Repo.all(from(r in Row, where: r.organization_id == ^org_id)),
+        hero_slides: Repo.all(from(hs in HeroSlide, where: hs.organization_id == ^org_id)),
         plans: Repo.all(from(p in Plan, where: p.organization_id == ^org_id)),
         subscriptions: Repo.all(from(s in Subscription, where: s.organization_id == ^org_id)),
         theme: Repo.get_by(Theme, organization_id: org_id),

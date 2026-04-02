@@ -40,8 +40,17 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:show_video_picker, false)
      |> assign(:available_videos, [])
      |> assign(:row_videos, [])
-     |> load_rows()}
+     # Hero editor state
+     |> assign(:hero_row, nil)
+     |> assign(:hero_slides, [])
+     |> assign(:hero_slide_forms, %{})
+     |> assign(:show_hero_video_picker, false)
+     |> assign(:hero_available_videos, [])
+     |> load_rows()
+     |> load_hero_row()}
   end
+
+  # ── Row events ──────────────────────────────────────────────────────────
 
   @impl true
   def handle_event("new_row", _params, socket) do
@@ -142,7 +151,11 @@ defmodule BobineWeb.Admin.CatalogLive do
     case Catalog.get_row(org, id) do
       {:ok, row} ->
         {:ok, _} = Catalog.update_row(scope, row, %{visible: !row.visible})
-        {:noreply, load_rows(socket)}
+
+        {:noreply,
+         socket
+         |> load_rows()
+         |> load_hero_row()}
 
       {:error, :not_found} ->
         {:noreply, socket}
@@ -178,7 +191,8 @@ defmodule BobineWeb.Admin.CatalogLive do
     reorder_row(socket, id, :down)
   end
 
-  # Curated row video management
+  # ── Curated row item events ────────────────────────────────────────────
+
   @impl true
   def handle_event("manage_items", %{"id" => id}, socket) do
     org = socket.assigns.organization
@@ -270,10 +284,168 @@ defmodule BobineWeb.Admin.CatalogLive do
     end
   end
 
+  # ── Hero events ────────────────────────────────────────────────────────
+
+  @impl true
+  def handle_event("create_hero", _params, socket) do
+    scope = socket.assigns.current_scope
+
+    case Catalog.create_hero_row(scope, %{}) do
+      {:ok, _row} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Hero carousel created.")
+         |> load_rows()
+         |> load_hero_row()}
+
+      {:error, :already_exists} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Hero carousel already exists.")
+         |> load_hero_row()}
+    end
+  end
+
+  @impl true
+  def handle_event("toggle_hero_visibility", _params, socket) do
+    scope = socket.assigns.current_scope
+    hero_row = socket.assigns.hero_row
+
+    if hero_row do
+      {:ok, _} = Catalog.update_row(scope, hero_row, %{visible: !hero_row.visible})
+
+      {:noreply,
+       socket
+       |> load_rows()
+       |> load_hero_row()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("open_hero_video_picker", _params, socket) do
+    org = socket.assigns.organization
+    %{results: all_videos} = Content.list_videos(org, per_page: 100)
+    hero_video_ids = MapSet.new(socket.assigns.hero_slides, & &1.video_id)
+    available = Enum.reject(all_videos, &MapSet.member?(hero_video_ids, &1.id))
+
+    {:noreply, assign(socket, show_hero_video_picker: true, hero_available_videos: available)}
+  end
+
+  @impl true
+  def handle_event("close_hero_video_picker", _params, socket) do
+    {:noreply, assign(socket, show_hero_video_picker: false, hero_available_videos: [])}
+  end
+
+  @impl true
+  def handle_event("add_hero_slide", %{"video-id" => video_id}, socket) do
+    scope = socket.assigns.current_scope
+    hero_row = socket.assigns.hero_row
+
+    case Catalog.create_hero_slide(scope, hero_row, %{video_id: video_id}) do
+      {:ok, _slide} ->
+        {:noreply,
+         socket
+         |> assign(show_hero_video_picker: false, hero_available_videos: [])
+         |> load_hero_slides()}
+
+      {:error, :hero_limit_reached, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "Maximum of 4 hero slides reached.")
+         |> assign(show_hero_video_picker: false, hero_available_videos: [])}
+
+      {:error, :validation, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to add hero slide.")}
+    end
+  end
+
+  @impl true
+  def handle_event("save_hero_slide", %{"slide-id" => slide_id} = params, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    case Catalog.get_hero_slide(org, slide_id) do
+      {:ok, slide} ->
+        attrs = %{
+          headline: blank_to_nil(params["headline"]),
+          subheadline: blank_to_nil(params["subheadline"]),
+          brand_tag: blank_to_nil(params["brand_tag"]),
+          description: blank_to_nil(params["description"]),
+          primary_cta_label: blank_to_nil(params["primary_cta_label"]),
+          secondary_cta_label: blank_to_nil(params["secondary_cta_label"]),
+          background_image_url: blank_to_nil(params["background_image_url"])
+        }
+
+        case Catalog.update_hero_slide(scope, slide, attrs) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "Slide updated.")
+             |> load_hero_slides()}
+
+          {:error, :validation, _changeset} ->
+            {:noreply, put_flash(socket, :error, "Failed to update slide.")}
+        end
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Slide not found.")}
+    end
+  end
+
+  @impl true
+  def handle_event("remove_hero_slide", %{"slide-id" => slide_id}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    case Catalog.get_hero_slide(org, slide_id) do
+      {:ok, slide} ->
+        {:ok, _} = Catalog.delete_hero_slide(scope, slide)
+        {:noreply, load_hero_slides(socket)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Slide not found.")}
+    end
+  end
+
+  @impl true
+  def handle_event("move_hero_slide_up", %{"slide-id" => slide_id}, socket) do
+    reorder_hero_slide(socket, slide_id, :up)
+  end
+
+  @impl true
+  def handle_event("move_hero_slide_down", %{"slide-id" => slide_id}, socket) do
+    reorder_hero_slide(socket, slide_id, :down)
+  end
+
+  @impl true
+  def handle_event("save_hero_auto_advance", %{"auto_advance_ms" => ms_str}, socket) do
+    scope = socket.assigns.current_scope
+    hero_row = socket.assigns.hero_row
+
+    if hero_row do
+      ms = String.to_integer(ms_str)
+      config = Map.merge(hero_row.filter_config || %{}, %{"auto_advance_ms" => ms})
+      {:ok, _} = Catalog.update_row(scope, hero_row, %{filter_config: config})
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Auto-rotate setting saved.")
+       |> load_hero_row()}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # ── PubSub ─────────────────────────────────────────────────────────────
+
   @impl true
   def handle_info({:bobine_event, _event, _scope}, socket) do
     {:noreply, load_rows(socket)}
   end
+
+  # ── Render ─────────────────────────────────────────────────────────────
 
   @impl true
   def render(assigns) do
@@ -293,6 +465,18 @@ defmodule BobineWeb.Admin.CatalogLive do
           available_videos={@available_videos}
         />
       <% else %>
+        <%!-- Hero editor section --%>
+        <.hero_editor
+          hero_row={@hero_row}
+          hero_slides={@hero_slides}
+          can_manage={@can_manage}
+          show_hero_video_picker={@show_hero_video_picker}
+          hero_available_videos={@hero_available_videos}
+        />
+
+        <div class="divider my-8" />
+
+        <%!-- Regular rows list --%>
         <.rows_list_view
           rows={@rows}
           can_manage={@can_manage}
@@ -310,10 +494,264 @@ defmodule BobineWeb.Admin.CatalogLive do
     """
   end
 
+  # ── Hero editor component ──────────────────────────────────────────────
+
+  defp hero_editor(assigns) do
+    ~H"""
+    <div data-test="hero-editor">
+      <div class="flex items-center justify-between pb-4">
+        <.header>Hero Carousel</.header>
+        <%= if @hero_row do %>
+          <div class="flex items-center gap-2">
+            <button
+              :if={@can_manage}
+              phx-click="toggle_hero_visibility"
+              data-test="hero-visibility-toggle"
+              class={"badge badge-sm #{if @hero_row.visible, do: "badge-success", else: "badge-ghost"}"}
+            >
+              {if @hero_row.visible, do: "Visible", else: "Hidden"}
+            </button>
+          </div>
+        <% end %>
+      </div>
+
+      <%= if is_nil(@hero_row) do %>
+        <div class="py-8 text-center bg-base-200 rounded-lg">
+          <p class="text-base-content/60 mb-4">
+            Create a hero carousel to feature up to 4 items at the top of your homepage.
+          </p>
+          <button
+            :if={@can_manage}
+            phx-click="create_hero"
+            class="btn btn-primary"
+            data-test="create-hero-btn"
+          >
+            Create hero carousel
+          </button>
+        </div>
+      <% else %>
+        <%!-- Auto-advance config --%>
+        <div :if={@can_manage} class="flex items-center gap-4 mb-4 p-3 bg-base-200 rounded-lg">
+          <label class="text-sm font-medium">Auto-rotate:</label>
+          <form phx-submit="save_hero_auto_advance" class="flex items-center gap-2">
+            <select
+              name="auto_advance_ms"
+              class="select select-bordered select-sm"
+              data-test="hero-auto-advance-select"
+            >
+              <option value="0" selected={hero_auto_advance_ms(@hero_row) == 0}>
+                Disabled
+              </option>
+              <option value="5000" selected={hero_auto_advance_ms(@hero_row) == 5000}>
+                5 seconds
+              </option>
+              <option value="8000" selected={hero_auto_advance_ms(@hero_row) == 8000}>
+                8 seconds
+              </option>
+              <option value="10000" selected={hero_auto_advance_ms(@hero_row) == 10_000}>
+                10 seconds
+              </option>
+              <option value="15000" selected={hero_auto_advance_ms(@hero_row) == 15_000}>
+                15 seconds
+              </option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+          </form>
+        </div>
+
+        <div class="space-y-4">
+          <%!-- Existing slides --%>
+          <div
+            :for={slide <- @hero_slides}
+            class="p-4 bg-base-200 rounded-lg"
+            data-test={"hero-slide-editor-#{slide.position}"}
+          >
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="badge badge-sm">Slide {slide.position + 1}</span>
+                <span class="text-sm text-base-content/60">
+                  Video: {slide.video_title}
+                </span>
+              </div>
+              <div :if={@can_manage} class="flex gap-1">
+                <button
+                  phx-click="move_hero_slide_up"
+                  phx-value-slide-id={slide.id}
+                  class="btn btn-xs btn-ghost"
+                >
+                  ↑
+                </button>
+                <button
+                  phx-click="move_hero_slide_down"
+                  phx-value-slide-id={slide.id}
+                  class="btn btn-xs btn-ghost"
+                >
+                  ↓
+                </button>
+                <button
+                  phx-click="remove_hero_slide"
+                  phx-value-slide-id={slide.id}
+                  class="btn btn-xs btn-outline btn-error"
+                  data-test={"hero-remove-slide-#{slide.position}"}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            <form phx-submit="save_hero_slide" class="grid grid-cols-2 gap-3">
+              <input type="hidden" name="slide-id" value={slide.id} />
+              <div>
+                <label class="label text-xs">Headline</label>
+                <input
+                  type="text"
+                  name="headline"
+                  value={slide.headline}
+                  placeholder={slide.video_title}
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-headline-input-#{slide.position}"}
+                />
+              </div>
+              <div>
+                <label class="label text-xs">Subheadline</label>
+                <input
+                  type="text"
+                  name="subheadline"
+                  value={slide.subheadline}
+                  placeholder="optional"
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-subheadline-input-#{slide.position}"}
+                />
+              </div>
+              <div>
+                <label class="label text-xs">Brand Tag</label>
+                <input
+                  type="text"
+                  name="brand_tag"
+                  value={slide.brand_tag}
+                  placeholder="optional"
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-brand-tag-input-#{slide.position}"}
+                />
+              </div>
+              <div>
+                <label class="label text-xs">Primary CTA Label</label>
+                <input
+                  type="text"
+                  name="primary_cta_label"
+                  value={slide.primary_cta_label}
+                  placeholder="Watch now"
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-primary-cta-input-#{slide.position}"}
+                />
+              </div>
+              <div>
+                <label class="label text-xs">Secondary CTA Label</label>
+                <input
+                  type="text"
+                  name="secondary_cta_label"
+                  value={slide.secondary_cta_label}
+                  placeholder="More info"
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-secondary-cta-input-#{slide.position}"}
+                />
+              </div>
+              <div>
+                <label class="label text-xs">Custom Background URL</label>
+                <input
+                  type="text"
+                  name="background_image_url"
+                  value={slide.background_image_url}
+                  placeholder="Uses video thumbnail if empty"
+                  class="input input-bordered input-sm w-full"
+                  data-test={"hero-bg-url-input-#{slide.position}"}
+                />
+              </div>
+              <div class="col-span-2">
+                <label class="label text-xs">Description</label>
+                <textarea
+                  name="description"
+                  placeholder={slide.video_description || "optional"}
+                  rows="2"
+                  class="textarea textarea-bordered textarea-sm w-full"
+                  data-test={"hero-description-input-#{slide.position}"}
+                >{slide.description}</textarea>
+              </div>
+              <div class="col-span-2 flex justify-end">
+                <button :if={@can_manage} type="submit" class="btn btn-sm btn-primary">
+                  Save
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <%!-- Add slide button --%>
+          <div :if={@can_manage && length(@hero_slides) < 4}>
+            <button
+              phx-click="open_hero_video_picker"
+              class="btn btn-outline btn-sm w-full"
+              data-test="hero-add-slide-btn"
+            >
+              + Add slide ({length(@hero_slides)}/4)
+            </button>
+          </div>
+
+          <div
+            :if={@can_manage && length(@hero_slides) >= 4}
+            class="text-center text-sm text-base-content/50"
+          >
+            Maximum of 4 slides reached.
+          </div>
+        </div>
+
+        <%!-- Hero video picker modal --%>
+        <div
+          :if={@show_hero_video_picker}
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        >
+          <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold">Select a Video for Hero Slide</h3>
+              <button phx-click="close_hero_video_picker" class="btn btn-ghost btn-sm">
+                ✕
+              </button>
+            </div>
+            <div
+              :if={@hero_available_videos == []}
+              class="py-4 text-center text-base-content/60"
+            >
+              No available videos.
+            </div>
+            <div :if={@hero_available_videos != []} class="space-y-2">
+              <div
+                :for={video <- @hero_available_videos}
+                class="flex items-center justify-between p-2 bg-base-200 rounded"
+              >
+                <span class="truncate" data-test={"hero-video-select-#{video.id}"}>
+                  {video.title}
+                </span>
+                <button
+                  phx-click="add_hero_slide"
+                  phx-value-video-id={video.id}
+                  class="btn btn-xs btn-primary"
+                >
+                  Select
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  # ── Rows list ──────────────────────────────────────────────────────────
+
   defp rows_list_view(assigns) do
     ~H"""
     <div class="flex items-center justify-between pb-4">
-      <.header>Catalog</.header>
+      <.header>Content Rows</.header>
       <button
         :if={@can_manage}
         phx-click="new_row"
@@ -631,11 +1069,64 @@ defmodule BobineWeb.Admin.CatalogLive do
     """
   end
 
+  # ── Data loading ───────────────────────────────────────────────────────
+
   defp load_rows(socket) do
     org = socket.assigns.organization
     %{results: rows} = Catalog.list_rows(org)
-    assign(socket, :rows, rows)
+    # Filter hero rows from the regular rows list — hero is managed separately
+    non_hero_rows = Enum.reject(rows, &(&1.source_type == :hero))
+    assign(socket, :rows, non_hero_rows)
   end
+
+  defp load_hero_row(socket) do
+    org = socket.assigns.organization
+
+    case Catalog.get_hero_row(org) do
+      {:ok, row} ->
+        socket
+        |> assign(:hero_row, row)
+        |> load_hero_slides()
+
+      {:error, :not_found} ->
+        assign(socket, hero_row: nil, hero_slides: [])
+    end
+  end
+
+  defp load_hero_slides(socket) do
+    org = socket.assigns.organization
+    hero_row = socket.assigns.hero_row
+
+    if hero_row do
+      slides = Catalog.list_hero_slides(org, hero_row)
+
+      enriched =
+        Enum.map(slides, fn slide ->
+          video = Content.get_video!(slide.video_id)
+
+          %{
+            id: slide.id,
+            position: slide.position,
+            video_id: slide.video_id,
+            video_title: video.title,
+            video_description: video.description,
+            headline: slide.headline,
+            subheadline: slide.subheadline,
+            brand_tag: slide.brand_tag,
+            description: slide.description,
+            primary_cta_label: slide.primary_cta_label,
+            secondary_cta_label: slide.secondary_cta_label,
+            background_image_url: slide.background_image_url
+          }
+        end)
+
+      assign(socket, :hero_slides, enriched)
+    else
+      assign(socket, :hero_slides, [])
+    end
+  end
+
+  # ── Helpers ────────────────────────────────────────────────────────────
 
   defp reorder_row(socket, id, direction) do
     rows = socket.assigns.rows
@@ -658,11 +1149,37 @@ defmodule BobineWeb.Admin.CatalogLive do
     end
   end
 
+  defp reorder_hero_slide(socket, slide_id, direction) do
+    slides = socket.assigns.hero_slides
+    index = Enum.find_index(slides, &(&1.id == slide_id))
+
+    new_index =
+      case direction do
+        :up -> max(0, index - 1)
+        :down -> min(length(slides) - 1, index + 1)
+      end
+
+    if index != nil && index != new_index do
+      scope = socket.assigns.current_scope
+      hero_row = socket.assigns.hero_row
+      reordered = swap(slides, index, new_index)
+      ordered_ids = Enum.map(reordered, & &1.id)
+      :ok = Catalog.reorder_hero_slides(scope, hero_row, ordered_ids)
+      {:noreply, load_hero_slides(socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   defp swap(list, i, j) do
     list
     |> List.replace_at(i, Enum.at(list, j))
     |> List.replace_at(j, Enum.at(list, i))
   end
+
+  defp blank_to_nil(nil), do: nil
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(str) when is_binary(str), do: str
 
   defp source_type_label(:curated), do: "Curated"
   defp source_type_label(:collection), do: "Collection"
@@ -670,11 +1187,18 @@ defmodule BobineWeb.Admin.CatalogLive do
   defp source_type_label(:recent), do: "Recent"
   defp source_type_label(:popular), do: "Popular"
   defp source_type_label(:continue_watching), do: "Continue Watching"
+  defp source_type_label(:hero), do: "Hero"
   defp source_type_label(other), do: to_string(other)
 
   defp show_source_select?(current, target) do
     to_string(current) == to_string(target)
   end
+
+  defp hero_auto_advance_ms(%{filter_config: config}) when is_map(config) do
+    Map.get(config, "auto_advance_ms", 8000)
+  end
+
+  defp hero_auto_advance_ms(_), do: 8000
 
   defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
 

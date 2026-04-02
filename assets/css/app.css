@@ -396,6 +396,38 @@
   background: var(--sv-accent);
 }
 
+/* Hero arrows */
+.hero-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 200ms, color 200ms;
+}
+
+.hero-arrow:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.hero-arrow-prev {
+  left: 16px;
+}
+
+.hero-arrow-next {
+  right: 16px;
+}
+
 /* =========================================================================
    Catalog Content Rows
    ========================================================================= */
@@ -416,6 +448,10 @@
   margin: 0 0 16px 0;
 }
 
+.content-row-scroll {
+  position: relative;
+}
+
 .content-row-items {
   display: flex;
   gap: 16px;
@@ -424,10 +460,48 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding-bottom: 8px;
+  scroll-behavior: smooth;
 }
 
 .content-row-items::-webkit-scrollbar {
   display: none;
+}
+
+/* Row arrows */
+.row-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(128, 128, 128, 0.5);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 200ms, color 200ms, opacity 200ms;
+}
+
+.row-arrow:hover {
+  background: rgba(128, 128, 128, 0.8);
+  color: #fff;
+}
+
+.row-arrow-prev {
+  left: -18px;
+}
+
+.row-arrow-next {
+  right: -18px;
+}
+
+.row-arrow-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .content-card {

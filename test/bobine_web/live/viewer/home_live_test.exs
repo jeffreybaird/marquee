@@ -291,21 +291,25 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
   end
 
   describe "hero carousel" do
-    test "hero carousel section is present when videos exist", %{conn: _conn} do
+    test "hero carousel section is present when hero slides exist", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
-      insert(:video, organization: org, title: "Hero Vid", mux_status: "ready")
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ ~s(data-test="hero-carousel")
     end
 
-    test "hero slide elements match the number of hero items", %{conn: _conn} do
+    test "hero slide elements match the number of hero slides", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
 
-      for i <- 1..3 do
-        insert(:video, organization: org, title: "Video #{i}", mux_status: "ready")
+      for i <- 0..2 do
+        video = insert(:video, organization: org, title: "Video #{i}", mux_status: "ready")
+        insert(:hero_slide, organization: org, row: hero_row, video: video, position: i)
       end
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
@@ -317,21 +321,101 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
     test "hero has pagination dots", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
-      insert(:video, organization: org, mux_status: "ready")
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ ~s(data-test="hero-pagination")
       assert html =~ ~s(data-test="hero-dot-0")
     end
 
-    test "hero has primary CTA", %{conn: _conn} do
+    test "hero has primary CTA with default label", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
-      insert(:video, organization: org, mux_status: "ready")
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ ~s(data-test="hero-primary-cta-0")
-      assert html =~ "Watch Now"
+      assert html =~ "Watch now"
+    end
+
+    test "hero does NOT render when no hero row exists", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ ~s(data-test="hero-carousel")
+    end
+
+    test "hero does NOT render when hero row is hidden", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org, visible: false)
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ ~s(data-test="hero-carousel")
+    end
+
+    test "hero slide headline shows custom text when set", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, title: "Default Title", mux_status: "ready")
+
+      insert(:hero_slide,
+        organization: org,
+        row: hero_row,
+        video: video,
+        position: 0,
+        headline: "Custom Headline"
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Custom Headline"
+      refute html =~ "Default Title"
+    end
+
+    test "hero slide falls back to video title when headline is blank", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, title: "Video Title", mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Video Title"
+    end
+
+    test "hero CTA links to the correct video", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "/watch/#{video.id}"
+    end
+
+    test "maximum 4 slides rendered", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
+
+      for i <- 0..3 do
+        video = insert(:video, organization: org, mux_status: "ready")
+        insert(:hero_slide, organization: org, row: hero_row, video: video, position: i)
+      end
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="hero-slide-0")
+      assert html =~ ~s(data-test="hero-slide-3")
+      refute html =~ ~s(data-test="hero-slide-4")
     end
   end
 

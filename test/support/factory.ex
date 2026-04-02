@@ -125,6 +125,26 @@ defmodule Bobine.Factory do
     }
   end
 
+  def hero_row_factory do
+    %Bobine.Catalog.Row{
+      organization: build(:organization),
+      title: "Hero",
+      source_type: :hero,
+      position: 0,
+      visible: true,
+      max_items: 5
+    }
+  end
+
+  def hero_slide_factory do
+    %Bobine.Catalog.HeroSlide{
+      organization: build(:organization),
+      row: build(:hero_row),
+      video: build(:video),
+      position: sequence(:hero_slide_position, & &1)
+    }
+  end
+
   def row_item_factory do
     %Bobine.Catalog.RowItem{
       organization: build(:organization),
