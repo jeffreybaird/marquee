@@ -69,7 +69,7 @@ defmodule BobineWeb.Components.ViewerLayout do
     >
       <div class="mx-auto flex max-w-7xl items-center justify-between gap-4">
         <div class="flex items-center gap-2">
-          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
+          <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" aria-hidden="true" />
           <span>
             You are impersonating {@current_viewer.display_name || @current_viewer.email}.
           </span>
@@ -109,6 +109,7 @@ defmodule BobineWeb.Components.ViewerLayout do
             :for={item <- @nav_items}
             navigate={item.path}
             class={["viewer-nav-item", @current_path == item.path && "active"]}
+            aria-current={if @current_path == item.path, do: "page"}
             data-test={"nav-#{item.id}"}
           >
             {item.label}
@@ -117,6 +118,8 @@ defmodule BobineWeb.Components.ViewerLayout do
 
         <%!-- Utilities (right) --%>
         <div class="viewer-utilities" data-test="viewer-utilities">
+          <Layouts.theme_toggle />
+
           <.link
             navigate="/browse"
             data-test="search-icon"
@@ -127,7 +130,12 @@ defmodule BobineWeb.Components.ViewerLayout do
           </.link>
 
           <%= if @current_viewer do %>
-            <.link navigate="/account" data-test="profile-avatar" class="viewer-avatar">
+            <.link
+              navigate="/account"
+              data-test="profile-avatar"
+              class="viewer-avatar"
+              aria-label="Your account"
+            >
               {String.first(@current_viewer.display_name || @current_viewer.email)}
             </.link>
           <% else %>

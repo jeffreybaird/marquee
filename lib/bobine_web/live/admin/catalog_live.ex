@@ -532,9 +532,10 @@ defmodule BobineWeb.Admin.CatalogLive do
       <% else %>
         <%!-- Auto-advance config --%>
         <div :if={@can_manage} class="flex items-center gap-4 mb-4 p-3 bg-base-200 rounded-lg">
-          <label class="text-sm font-medium">Auto-rotate:</label>
+          <label for="hero-auto-advance" class="text-sm font-medium">Auto-rotate:</label>
           <form phx-submit="save_hero_auto_advance" class="flex items-center gap-2">
             <select
+              id="hero-auto-advance"
               name="auto_advance_ms"
               class="select select-bordered select-sm"
               data-test="hero-auto-advance-select"
@@ -578,6 +579,7 @@ defmodule BobineWeb.Admin.CatalogLive do
                   phx-click="move_hero_slide_up"
                   phx-value-slide-id={slide.id}
                   class="btn btn-xs btn-ghost"
+                  aria-label="Move slide up"
                 >
                   ↑
                 </button>
@@ -585,6 +587,7 @@ defmodule BobineWeb.Admin.CatalogLive do
                   phx-click="move_hero_slide_down"
                   phx-value-slide-id={slide.id}
                   class="btn btn-xs btn-ghost"
+                  aria-label="Move slide down"
                 >
                   ↓
                 </button>
@@ -712,7 +715,11 @@ defmodule BobineWeb.Admin.CatalogLive do
           <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-lg font-semibold">Select a Video for Hero Slide</h3>
-              <button phx-click="close_hero_video_picker" class="btn btn-ghost btn-sm">
+              <button
+                phx-click="close_hero_video_picker"
+                class="btn btn-ghost btn-sm"
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
@@ -807,6 +814,7 @@ defmodule BobineWeb.Admin.CatalogLive do
                 phx-click="move_up"
                 phx-value-id={row.id}
                 class="btn btn-xs btn-ghost"
+                aria-label="Move row up"
               >
                 ↑
               </button>
@@ -815,6 +823,7 @@ defmodule BobineWeb.Admin.CatalogLive do
                 phx-click="move_down"
                 phx-value-id={row.id}
                 class="btn btn-xs btn-ghost"
+                aria-label="Move row down"
               >
                 ↓
               </button>
@@ -914,8 +923,9 @@ defmodule BobineWeb.Admin.CatalogLive do
             </select>
           </div>
           <div :if={show_source_select?(@form[:source_type].value, :collection)} class="mb-4">
-            <label class="label">Collection</label>
+            <label class="label" for="row-collection-select">Collection</label>
             <select
+              id="row-collection-select"
               name="row[source_id]"
               class="select select-bordered w-full"
               data-test="row-source-id-select"
@@ -931,8 +941,9 @@ defmodule BobineWeb.Admin.CatalogLive do
             </select>
           </div>
           <div :if={show_source_select?(@form[:source_type].value, :tag)} class="mb-4">
-            <label class="label">Tag</label>
+            <label class="label" for="row-tag-select">Tag</label>
             <select
+              id="row-tag-select"
               name="row[source_id]"
               class="select select-bordered w-full"
               data-test="row-source-id-select"
@@ -975,7 +986,7 @@ defmodule BobineWeb.Admin.CatalogLive do
       <div class="bg-base-100 rounded-lg p-6 w-full max-w-2xl shadow-xl" data-test="row-preview">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">Preview: {@row.title}</h3>
-          <button phx-click="close_preview" class="btn btn-ghost btn-sm">✕</button>
+          <button phx-click="close_preview" class="btn btn-ghost btn-sm" aria-label="Close">✕</button>
         </div>
         <div class="flex gap-3 overflow-x-auto pb-2">
           <div :for={video <- @videos} class="flex-shrink-0 w-40">
@@ -1044,7 +1055,9 @@ defmodule BobineWeb.Admin.CatalogLive do
       <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">Add Videos</h3>
-          <button phx-click="close_video_picker" class="btn btn-ghost btn-sm">✕</button>
+          <button phx-click="close_video_picker" class="btn btn-ghost btn-sm" aria-label="Close">
+            ✕
+          </button>
         </div>
         <div :if={@available_videos == []} class="py-4 text-center text-base-content/60">
           All videos are already in this row.

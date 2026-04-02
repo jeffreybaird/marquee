@@ -84,7 +84,8 @@ defmodule BobineWeb.Components.SuperLayout do
             />
           </nav>
 
-          <div class="p-4 border-t border-slate-700">
+          <div class="p-4 border-t border-slate-700 space-y-3">
+            <Layouts.theme_toggle />
             <p class="text-xs text-slate-400 truncate" data-test="super-current-user">
               {@current_user.email}
             </p>
@@ -134,6 +135,7 @@ defmodule BobineWeb.Components.SuperLayout do
     <.link
       navigate={@href}
       class={super_nav_link_class(@current_path, @href)}
+      aria-current={if @current_path == @href, do: "page"}
       data-test={@data_test}
     >
       {@label}

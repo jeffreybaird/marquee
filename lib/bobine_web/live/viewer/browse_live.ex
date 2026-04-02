@@ -2,6 +2,7 @@ defmodule BobineWeb.Viewer.BrowseLive do
   use BobineWeb, :live_view
 
   alias Bobine.Content
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,14 +26,14 @@ defmodule BobineWeb.Viewer.BrowseLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app
-      flash={@flash}
-      current_scope={@current_scope}
+    <ViewerLayout.viewer_layout
+      organization={@organization}
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
-      organization={@organization}
+      current_path="/browse"
+      flash={@flash}
     >
-      <div class="max-w-5xl mx-auto">
+      <div class="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <.header>Browse</.header>
 
         <div :if={@videos == []} class="py-12 text-center text-base-content/60">
@@ -59,7 +60,7 @@ defmodule BobineWeb.Viewer.BrowseLive do
           </.link>
         </div>
       </div>
-    </Layouts.app>
+    </ViewerLayout.viewer_layout>
     """
   end
 end

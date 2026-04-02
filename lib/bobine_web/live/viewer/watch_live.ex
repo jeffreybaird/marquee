@@ -5,6 +5,7 @@ defmodule BobineWeb.Viewer.WatchLive do
   alias Bobine.Content
   alias Bobine.Content.AccessControl
   alias Bobine.Engagement
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -101,14 +102,14 @@ defmodule BobineWeb.Viewer.WatchLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app
-      flash={@flash}
-      current_scope={@current_scope}
+    <ViewerLayout.viewer_layout
+      organization={@organization}
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
-      organization={@organization}
+      current_path={~p"/watch/#{@video.id}"}
+      flash={@flash}
     >
-      <div class="max-w-5xl mx-auto">
+      <div class="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div
           id="player-container"
           phx-hook="MuxPlayer"
@@ -140,7 +141,7 @@ defmodule BobineWeb.Viewer.WatchLive do
           <button class="btn btn-outline btn-sm" disabled>Favorite</button>
         </div>
       </div>
-    </Layouts.app>
+    </ViewerLayout.viewer_layout>
     """
   end
 end

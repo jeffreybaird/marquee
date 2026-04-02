@@ -196,31 +196,48 @@ defmodule BobineWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+    <div
+      class="relative flex flex-row items-center bg-base-300/50 rounded-full p-0.5 border border-base-content/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(0,0,0,0.3)]"
+      role="radiogroup"
+      aria-label="Theme"
+    >
+      <div
+        class="absolute w-1/3 h-full rounded-full bg-base-100 shadow-md ring-1 ring-base-content/10 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left] duration-200 ease-in-out"
+        aria-hidden="true"
+      />
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative z-10 flex items-center justify-center p-2 cursor-pointer w-1/3 rounded-full"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="System theme"
+        title="System theme"
       >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon
+          name="hero-computer-desktop-micro"
+          class="size-4 opacity-75 hover:opacity-100"
+          aria-hidden="true"
+        />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative z-10 flex items-center justify-center p-2 cursor-pointer w-1/3 rounded-full"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
+        aria-label="Light theme"
+        title="Light theme"
       >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" aria-hidden="true" />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="relative z-10 flex items-center justify-center p-2 cursor-pointer w-1/3 rounded-full"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
+        aria-label="Dark theme"
+        title="Dark theme"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" aria-hidden="true" />
       </button>
     </div>
     """

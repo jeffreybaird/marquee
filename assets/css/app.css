@@ -382,17 +382,31 @@
 }
 
 .hero-dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: background 200ms;
+}
+
+.hero-dot::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.4);
-  border: none;
-  cursor: pointer;
-  padding: 0;
   transition: background 200ms;
 }
 
-.hero-dot.active {
+.hero-dot.active::after {
   background: var(--sv-accent);
 }
 
@@ -476,8 +490,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: rgba(128, 128, 128, 0.5);
@@ -531,4 +545,35 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* =========================================================================
+   Reduced Motion — disable animations and auto-advance for users who
+   prefer reduced motion (WCAG 2.3.3)
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide {
+    transition: none;
+  }
+
+  .hero-arrow,
+  .hero-dot::after,
+  .hero-cta-primary,
+  .hero-cta-secondary,
+  .row-arrow,
+  .content-card,
+  .viewer-nav-item,
+  .viewer-sign-in,
+  .viewer-search-btn {
+    transition: none;
+  }
+
+  .content-card:hover {
+    transform: none;
+  }
+
+  .content-row-items {
+    scroll-behavior: auto;
+  }
 }

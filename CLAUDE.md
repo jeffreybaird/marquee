@@ -18,6 +18,7 @@ file(s) when working in a specific area:
 - `.claude/observability.md` — OpenTelemetry spans, metrics, structured logging
 - `.claude/scalability.md` — write buffers, caching, connection management, PubSub, rate limiting
 - `.claude/brand-system.md` - Visual design and tone
+- `.claude/commands/a11y-audit.md` — WCAG 2.1 AA accessibility audit slash command
 
 ---
 
@@ -291,6 +292,34 @@ and the full test category requirements.
 
 ---
 
+## Accessibility — WCAG 2.1 AA Compliance
+
+Every UI addition or modification MUST comply with WCAG 2.1 AA. Accessibility
+violations are bugs, not nice-to-haves. These rules apply to every template,
+component, CSS rule, and JS hook that touches the UI.
+
+1. **Semantic HTML over ARIA** — use `<button>`, `<a>`, `<nav>`, `<main>` etc.
+   Never put `phx-click` on a `<div>` or `<span>`.
+2. **Keyboard navigable** — all interactive elements reachable via Tab. Carousels
+   and custom widgets support arrow keys, Escape, Enter/Space. No keyboard traps.
+3. **Visible focus indicators** — never remove outlines without a replacement.
+4. **ARIA labels on icon-only controls** — every button/link without visible text
+   needs `aria-label`. Active nav links need `aria-current="page"`.
+5. **Color contrast** — text >= 4.5:1, large text >= 3:1, UI boundaries >= 3:1.
+   Never convey information by color alone.
+6. **Images** — every `<img>` has `alt`. Decorative images use `alt=""`.
+7. **Forms** — every input has a linked `<label>`. Errors linked via
+   `aria-describedby`. Required fields marked with `required` or `aria-required`.
+8. **Motion** — auto-advancing content (carousels) respects
+   `prefers-reduced-motion` and has a visible pause control.
+9. **Touch targets** — minimum 44x44 CSS pixels.
+10. **Dynamic content** — flash messages and loading states use `aria-live` regions.
+
+Run `/a11y-audit` (`.claude/commands/a11y-audit.md`) to audit recent UI changes
+against the full checklist.
+
+---
+
 ## What Not to Do
 
 ### Code
@@ -325,6 +354,10 @@ and the full test category requirements.
 - **No business logic in TypeScript hooks** — hooks are thin DOM/JS bridges
 - **No CSS classes as test selectors** — use `data-test` attributes
 - **No hardcoded tenant data** — slugs, domains, theme values from the DB
+- **No `phx-click` on `<div>` or `<span>`** — use `<button>` or `<a>`
+- **No icon-only button without `aria-label`**
+- **No interactive element without a visible focus indicator**
+- **No auto-advancing content without `prefers-reduced-motion` support**
 
 ### Logging
 - **No string interpolation in Logger calls** — use structured metadata

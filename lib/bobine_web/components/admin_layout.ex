@@ -162,6 +162,9 @@ defmodule BobineWeb.Components.AdminLayout do
           <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {render_slot(@inner_block)}
           </main>
+          <div class="flex justify-end px-4 py-2 border-t border-base-300">
+            <Layouts.theme_toggle />
+          </div>
         </div>
       </div>
 
@@ -195,6 +198,7 @@ defmodule BobineWeb.Components.AdminLayout do
     <.link
       navigate={@href}
       class={nav_link_class(@current_path, @href)}
+      aria-current={if @current_path == @href, do: "page"}
       data-test={@data_test}
     >
       {@label}

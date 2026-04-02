@@ -3,11 +3,16 @@
  *
  * Auto-advancing carousel for the homepage hero section.
  * Handles slide transitions, pagination dots, auto-advance timer,
- * pause-on-hover, and prev/next arrow navigation.
+ * pause-on-hover, prev/next arrow navigation, and keyboard support.
  *
  * DOM attributes read:
  *   - data-auto-advance: Interval in ms between auto-advances.
  *     Set to "0" to disable auto-advance entirely. Default: 8000.
+ *
+ * Accessibility:
+ *   - Respects prefers-reduced-motion (disables auto-advance + transitions)
+ *   - Arrow key navigation when carousel is focused
+ *   - Updates aria-selected on pagination dots
  *
  * No server events -- this is purely client-side behavior.
  */
@@ -19,6 +24,9 @@ const HeroCarousel = {
     this.nextBtn = this.el.querySelector<HTMLElement>(".hero-arrow-next")
     this.activeIndex = 0
     this.totalSlides = this.slides.length
+    this.prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches
 
     if (this.totalSlides <= 1) {
       this.prevBtn?.classList.add("hidden")
@@ -38,8 +46,19 @@ const HeroCarousel = {
     this.prevBtn?.addEventListener("click", () => this.prevSlide())
     this.nextBtn?.addEventListener("click", () => this.nextSlide())
 
-    // Auto-advance (only if interval > 0)
-    if (interval > 0) {
+    // Keyboard navigation
+    this.el.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        this.prevSlide()
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        this.nextSlide()
+      }
+    })
+
+    // Auto-advance (only if interval > 0 and user hasn't requested reduced motion)
+    if (interval > 0 && !this.prefersReducedMotion) {
       this.startAutoAdvance(interval)
 
       // Pause on hover
@@ -55,10 +74,12 @@ const HeroCarousel = {
 
     this.slides[this.activeIndex]?.classList.remove("active")
     this.dots[this.activeIndex]?.classList.remove("active")
+    this.dots[this.activeIndex]?.setAttribute("aria-selected", "false")
 
     this.activeIndex = index
     this.slides[this.activeIndex]?.classList.add("active")
     this.dots[this.activeIndex]?.classList.add("active")
+    this.dots[this.activeIndex]?.setAttribute("aria-selected", "true")
   },
 
   nextSlide() {
@@ -73,7 +94,7 @@ const HeroCarousel = {
 
   startAutoAdvance(interval: number) {
     this.stopAutoAdvance()
-    if (interval > 0) {
+    if (interval > 0 && !this.prefersReducedMotion) {
       this.timer = setInterval(() => this.nextSlide(), interval)
     }
   },

@@ -3,6 +3,7 @@ defmodule BobineWeb.Viewer.SubscribeLive do
 
   alias Bobine.Billing
   alias Bobine.Viewers
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(_params, _session, socket) do
@@ -49,14 +50,14 @@ defmodule BobineWeb.Viewer.SubscribeLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app
-      flash={@flash}
-      current_scope={@current_scope}
+    <ViewerLayout.viewer_layout
+      organization={@organization}
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
-      organization={@organization}
+      current_path="/subscribe"
+      flash={@flash}
     >
-      <div class="max-w-2xl mx-auto">
+      <div class="max-w-2xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <.header>
           Choose a plan
           <:subtitle>
@@ -107,7 +108,7 @@ defmodule BobineWeb.Viewer.SubscribeLive do
           </button>
         </div>
       </div>
-    </Layouts.app>
+    </ViewerLayout.viewer_layout>
     """
   end
 

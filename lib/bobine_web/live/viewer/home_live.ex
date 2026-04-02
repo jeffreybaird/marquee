@@ -85,12 +85,17 @@ defmodule BobineWeb.Viewer.HomeLive do
       data-auto-advance={@auto_advance_ms}
       data-test="hero-carousel"
       class="hero-carousel-wrapper"
+      aria-roledescription="carousel"
+      aria-label="Featured content"
     >
       <%!-- Background slides --%>
-      <div class="hero-slides">
+      <div class="hero-slides" aria-live="off">
         <div
           :for={{slide, index} <- Enum.with_index(@slides)}
           class={["hero-slide", index == 0 && "active"]}
+          role="group"
+          aria-roledescription="slide"
+          aria-label={"Slide #{index + 1} of #{length(@slides)}: #{slide.headline}"}
           data-index={index}
           data-test={"hero-slide-#{index}"}
         >
@@ -102,7 +107,7 @@ defmodule BobineWeb.Viewer.HomeLive do
               alt={slide.headline}
               loading={if index == 0, do: "eager", else: "lazy"}
             />
-            <div class="hero-gradient" />
+            <div class="hero-gradient" aria-hidden="true" />
           </div>
 
           <%!-- Content overlay (left-aligned) --%>
@@ -140,21 +145,28 @@ defmodule BobineWeb.Viewer.HomeLive do
         aria-label="Previous slide"
         data-test="hero-arrow-prev"
       >
-        <.icon name="hero-chevron-left" class="size-6" />
+        <.icon name="hero-chevron-left" class="size-6" aria-hidden="true" />
       </button>
       <button
         class="hero-arrow hero-arrow-next"
         aria-label="Next slide"
         data-test="hero-arrow-next"
       >
-        <.icon name="hero-chevron-right" class="size-6" />
+        <.icon name="hero-chevron-right" class="size-6" aria-hidden="true" />
       </button>
 
       <%!-- Pagination dots --%>
-      <div class="hero-pagination" data-test="hero-pagination">
+      <div
+        class="hero-pagination"
+        role="tablist"
+        aria-label="Slide controls"
+        data-test="hero-pagination"
+      >
         <button
           :for={{_slide, index} <- Enum.with_index(@slides)}
           class={["hero-dot", index == 0 && "active"]}
+          role="tab"
+          aria-selected={if index == 0, do: "true", else: "false"}
           data-index={index}
           aria-label={"Go to slide #{index + 1}"}
           data-test={"hero-dot-#{index}"}
@@ -182,7 +194,7 @@ defmodule BobineWeb.Viewer.HomeLive do
           aria-label="Scroll left"
           data-test={"row-arrow-prev-#{@row.id}"}
         >
-          <.icon name="hero-chevron-left" class="size-5" />
+          <.icon name="hero-chevron-left" class="size-5" aria-hidden="true" />
         </button>
         <div class="content-row-items">
           <.link
@@ -205,7 +217,7 @@ defmodule BobineWeb.Viewer.HomeLive do
           aria-label="Scroll right"
           data-test={"row-arrow-next-#{@row.id}"}
         >
-          <.icon name="hero-chevron-right" class="size-5" />
+          <.icon name="hero-chevron-right" class="size-5" aria-hidden="true" />
         </button>
       </div>
     </section>
