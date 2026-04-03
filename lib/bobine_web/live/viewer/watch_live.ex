@@ -6,6 +6,7 @@ defmodule BobineWeb.Viewer.WatchLive do
   alias Bobine.Content.AccessControl
   alias Bobine.Engagement
   alias BobineWeb.Components.ViewerLayout
+  alias BobineWeb.Components.ViewerComponents
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -45,6 +46,10 @@ defmodule BobineWeb.Viewer.WatchLive do
 
     resume_position = if progress, do: progress.position, else: 0.0
 
+    # Load related content
+    %{results: related} = Content.list_videos(org, per_page: 12)
+    related = Enum.reject(related, &(&1.id == video.id)) |> Enum.take(8)
+
     if connected?(socket) do
       Bobine.Metrics.video_viewed(org.id, video.id)
     end
@@ -53,7 +58,8 @@ defmodule BobineWeb.Viewer.WatchLive do
      assign(socket,
        video: video,
        page_title: video.title,
-       resume_position: resume_position
+       resume_position: resume_position,
+       related_videos: related
      )}
   end
 
@@ -107,41 +113,72 @@ defmodule BobineWeb.Viewer.WatchLive do
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
       current_path={~p"/watch/#{@video.id}"}
+      theme={@theme}
       flash={@flash}
     >
-      <div class="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div
-          id="player-container"
-          phx-hook="MuxPlayer"
-          data-playback-id={@video.mux_playback_id}
-          data-video-id={@video.id}
-          data-resume-position={@resume_position}
-          data-test="player-container"
-        >
-          <mux-player
-            stream-type="on-demand"
-            playback-id={@video.mux_playback_id}
-            metadata-video-title={@video.title}
-            class="w-full aspect-video rounded-lg"
-            data-test="mux-player"
-          >
-          </mux-player>
-        </div>
+      <div class="sv-watch-layout">
+        <%!-- Player --%>
+        <ViewerComponents.video_player
+          video={@video}
+          resume_position={@resume_position}
+        />
 
-        <div class="mt-6">
-          <h1 class="text-2xl font-bold" data-test="video-title">{@video.title}</h1>
-          <p :if={@video.description} class="mt-2 text-base-content/70" data-test="video-description">
+        <%!-- Video metadata --%>
+        <div class="sv-video-meta">
+          <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
+
+          <div :if={@video.duration} class="sv-video-badges">
+            <ViewerComponents.badge label={format_duration(@video.duration)} />
+          </div>
+
+          <p
+            :if={@video.description}
+            class="sv-video-desc"
+            data-test="video-description"
+          >
             {@video.description}
           </p>
+
+          <div class="sv-video-actions">
+            <button class="sv-btn sv-btn-secondary" disabled aria-label="Add to watchlist">
+              <.icon name="hero-bookmark" class="size-5 mr-2" aria-hidden="true" /> Watchlist
+            </button>
+            <button class="sv-btn sv-btn-secondary" disabled aria-label="Favorite">
+              <.icon name="hero-heart" class="size-5 mr-2" aria-hidden="true" /> Favorite
+            </button>
+          </div>
         </div>
 
-        <div class="mt-4 flex gap-2">
-          <%!-- Placeholder for Feature 06: Watchlist + Favorites --%>
-          <button class="btn btn-outline btn-sm" disabled>Add to Watchlist</button>
-          <button class="btn btn-outline btn-sm" disabled>Favorite</button>
+        <%!-- Related content --%>
+        <div :if={@related_videos != []} class="sv-row" style="margin-top: 48px;">
+          <h2 class="sv-row-title">More from {@organization.name}</h2>
+          <div class="sv-browse-grid">
+            <ViewerComponents.content_card
+              :for={video <- @related_videos}
+              video={video}
+              size="grid"
+            />
+          </div>
         </div>
       </div>
     </ViewerLayout.viewer_layout>
     """
   end
+
+  defp format_duration(nil), do: ""
+
+  defp format_duration(seconds) when is_number(seconds) do
+    minutes = div(trunc(seconds), 60)
+    secs = rem(trunc(seconds), 60)
+
+    if minutes >= 60 do
+      hours = div(minutes, 60)
+      mins = rem(minutes, 60)
+      "#{hours}h #{mins}m"
+    else
+      "#{minutes}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
+    end
+  end
+
+  defp format_duration(_), do: ""
 end

@@ -290,6 +290,7 @@ defmodule BobineWeb.Viewer.HomeLive do
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
       current_path="/"
+      theme={@theme}
       flash={@flash}
     >
       <%!-- Hero carousel --%>

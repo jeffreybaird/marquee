@@ -24,4 +24,12 @@ defmodule Bobine.Engagement.WatchlistItem do
     |> validate_required([:organization_id, :user_id, :video_id])
     |> unique_constraint([:user_id, :video_id, :organization_id])
   end
+
+  @doc false
+  def viewer_changeset(watchlist_item, attrs) do
+    watchlist_item
+    |> cast(attrs, [:position, :organization_id, :viewer_id, :video_id])
+    |> validate_required([:organization_id, :viewer_id, :video_id])
+    |> unique_constraint([:viewer_id, :video_id, :organization_id])
+  end
 end

@@ -55,53 +55,49 @@ defmodule BobineWeb.Viewer.SubscribeLive do
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
       current_path="/subscribe"
+      theme={@theme}
       flash={@flash}
     >
-      <div class="max-w-2xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <.header>
-          Choose a plan
-          <:subtitle>
-            {if @organization, do: "Subscribe to #{@organization.name}", else: ""}
-          </:subtitle>
-        </.header>
+      <div class="sv-page-content" style="max-width: 800px">
+        <div class="sv-page-header" style="text-align: center">
+          <h1 class="sv-page-title">Choose a plan</h1>
+          <p :if={@organization} style="color: var(--sv-text-secondary); margin-top: 8px">
+            Subscribe to {@organization.name}
+          </p>
+        </div>
 
-        <div :if={@plans == []} class="mt-6 p-4 bg-base-200 rounded-lg text-center">
-          <p class="text-base-content/70">No plans available yet. Check back later.</p>
+        <div :if={@plans == []} class="sv-empty-state">
+          <p class="sv-empty-state-title">No plans available yet</p>
+          <p class="sv-empty-state-desc">Check back later.</p>
         </div>
 
         <div
           :if={@plans != []}
-          class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4"
+          class="sv-plan-grid"
           data-test="subscribe-plan-list"
         >
-          <div
-            :for={plan <- @plans}
-            class="bg-base-200 rounded-lg p-6 border border-base-300"
-          >
-            <h3 class="text-lg font-bold">{plan.name}</h3>
-            <p class="mt-2 text-2xl font-bold">
-              ${format_amount(plan.amount)}
-              <span class="text-sm font-normal text-base-content/60">
-                /{plan.interval}
-              </span>
-            </p>
-            <button class="btn btn-primary btn-sm mt-4 w-full" disabled>
-              Subscribe (coming soon)
+          <div :for={plan <- @plans} class="sv-plan-card">
+            <h3 class="sv-plan-name">{plan.name}</h3>
+            <p class="sv-plan-price">${format_amount(plan.amount)}</p>
+            <p class="sv-plan-interval">per {plan.interval}</p>
+            <button class="sv-btn sv-btn-accent" style="width: 100%" disabled>
+              Subscribe
             </button>
           </div>
         </div>
 
         <div
           :if={Application.get_env(:bobine, :dev_routes, false)}
-          class="mt-8 p-4 border-2 border-dashed border-warning rounded-lg"
+          style="margin-top: 32px; padding: 16px; border: 2px dashed var(--sv-accent); border-radius: var(--sv-radius-lg); text-align: center"
         >
-          <p class="text-warning text-sm font-medium">Dev Mode</p>
-          <p class="text-sm text-base-content/60 mt-1">
+          <p style="color: var(--sv-accent); font-size: 0.875rem; font-weight: 500">Dev Mode</p>
+          <p style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px">
             Activate subscription instantly for testing.
           </p>
           <button
             phx-click="dev_activate"
-            class="btn btn-warning btn-sm mt-2"
+            class="sv-btn sv-btn-accent"
+            style="margin-top: 12px"
             data-test="subscribe-dev-activate-btn"
           >
             Activate (dev only)

@@ -5,6 +5,7 @@ import PlaybackTracker from "./playback_tracker"
 import PushNotifications from "./push_notifications"
 import RowScroller from "./row_scroller"
 import Sortable from "./sortable"
+import ViewerNav from "./viewer_nav"
 
 export const hooks = {
   HeroCarousel,
@@ -14,4 +15,5 @@ export const hooks = {
   PushNotifications,
   RowScroller,
   Sortable,
+  ViewerNav,
 }

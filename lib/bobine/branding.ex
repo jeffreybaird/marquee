@@ -102,6 +102,29 @@ defmodule Bobine.Branding do
   end
 
   @doc """
+  Returns the theme for an organization, or an empty struct with defaults when none exists.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_theme_or_default(%Bobine.Accounts.Organization{} = org) do
+    case get_theme_by_org(org) do
+      nil -> %Theme{}
+      theme -> theme
+    end
+  end
+
+  @doc """
+  Returns the CSS custom property string for an organization's theme.
+
+  Exempt from doctest — hits the database.
+  """
+  def build_theme_css_vars(%Bobine.Accounts.Organization{} = org) do
+    org
+    |> get_theme_or_default()
+    |> Theme.build_css_vars()
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking theme changes.
 
   ## Examples

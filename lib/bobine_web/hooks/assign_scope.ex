@@ -28,6 +28,7 @@ defmodule BobineWeb.Hooks.AssignScope do
 
   alias Bobine.Accounts
   alias Bobine.Accounts.Scope
+  alias Bobine.Branding
 
   def on_mount(:require_authenticated, _params, session, socket) do
     socket = mount_full_scope(socket, session)
@@ -75,6 +76,7 @@ defmodule BobineWeb.Hooks.AssignScope do
         |> assign(:current_origin, derive_current_origin(socket))
         |> assign(:current_path, derive_current_path(socket))
         |> assign(:impersonating, false)
+        |> assign(:theme, nil)
 
       {:cont, socket}
     else
@@ -108,6 +110,8 @@ defmodule BobineWeb.Hooks.AssignScope do
           s
       end
 
+    theme = if org, do: Branding.get_theme_or_default(org), else: nil
+
     socket
     |> assign(:current_scope, scope)
     |> assign(:current_user, user)
@@ -116,6 +120,7 @@ defmodule BobineWeb.Hooks.AssignScope do
     |> assign(:current_origin, derive_current_origin(socket))
     |> assign(:current_path, derive_current_path(socket))
     |> assign(:impersonating, impersonating)
+    |> assign(:theme, theme)
   end
 
   defp derive_current_path(socket) do

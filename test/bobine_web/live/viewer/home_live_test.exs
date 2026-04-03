@@ -246,8 +246,8 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       viewer = insert(:viewer, organization: org)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ ~s(data-test="viewer-layout")
-      assert html =~ ~s(data-test="viewer-header")
+      assert html =~ ~s(data-test="sv-root")
+      assert html =~ ~s(data-test="sv-nav")
     end
 
     test "navigation shows correct items", %{conn: _conn} do
@@ -520,7 +520,7 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
 
       {:ok, _view, html} = live(conn_for(membership), ~p"/")
       assert html =~ "Public Platform"
-      assert html =~ ~s(data-test="viewer-layout")
+      assert html =~ ~s(data-test="sv-root")
     end
 
     test "shows org landing page for unauthenticated visitor with org", %{conn: conn} do

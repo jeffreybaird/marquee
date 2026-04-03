@@ -113,6 +113,69 @@ defmodule Bobine.Engagement do
   end
 
   ## -----------------------------------------------------------------------
+  ## Viewer watchlist
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a paginated list of watchlist items for a viewer, with preloaded videos.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_viewer_watchlist(%Bobine.Accounts.Organization{id: org_id}, viewer_id, opts \\ [])
+      when is_binary(viewer_id) do
+    WatchlistItem
+    |> where([w], w.organization_id == ^org_id)
+    |> where([w], w.viewer_id == ^viewer_id)
+    |> where([w], is_nil(w.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> preload(:video)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Adds a video to a viewer's watchlist.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_to_viewer_watchlist(org_id, viewer_id, video_id)
+      when is_binary(org_id) and is_binary(viewer_id) and is_binary(video_id) do
+    attrs = %{
+      organization_id: org_id,
+      viewer_id: viewer_id,
+      video_id: video_id
+    }
+
+    case %WatchlistItem{} |> WatchlistItem.viewer_changeset(attrs) |> Repo.insert() do
+      {:ok, item} ->
+        Events.broadcast(nil, {:watchlist_item_added, item})
+        {:ok, item}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
+  Removes a video from a viewer's watchlist (soft delete).
+
+  Exempt from doctest — hits the database.
+  """
+  def remove_from_viewer_watchlist(org_id, viewer_id, video_id) do
+    query =
+      WatchlistItem
+      |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video_id)
+      |> where([w], is_nil(w.deleted_at))
+
+    case Repo.one(query) do
+      nil ->
+        {:error, :not_found}
+
+      item ->
+        delete_watchlist_item(item)
+    end
+  end
+
+  ## -----------------------------------------------------------------------
   ## Playback progress
   ## -----------------------------------------------------------------------
 

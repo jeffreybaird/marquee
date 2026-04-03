@@ -21,7 +21,7 @@ defmodule BobineWeb.Viewer.WatchLiveTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ "My Great Video"
-      assert html =~ ~s(data-test="player-container")
+      assert html =~ ~s(data-test="sv-player")
       assert html =~ "playback_abc"
     end
 

@@ -266,13 +266,21 @@ defmodule Bobine.Factory do
       brand_secondary: "#174ea6",
       background: "#0f0f0f",
       surface: "#1c1c1c",
+      elevated: "#252525",
       text_primary: "#ffffff",
       text_secondary: "#aaaaaa",
+      text_on_accent: "#ffffff",
       accent: "#e8a21a",
+      brand_primary_hover: "#2186fc",
       font_heading: "Inter",
       font_body: "Inter",
       border_radius: "0.5rem",
-      card_border_radius: "0.75rem"
+      card_border_radius: "0.75rem",
+      border_color: "rgba(255, 255, 255, 0.08)",
+      divider_color: "rgba(255, 255, 255, 0.05)",
+      nav_background: "rgba(0, 0, 0, 0.85)",
+      card_background: "#1c1c1c",
+      overlay_color: "rgba(0, 0, 0, 0.7)"
     }
   end
 

@@ -73,109 +73,113 @@ defmodule BobineWeb.Viewer.AccountLive do
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
       current_path="/account"
+      theme={@theme}
       flash={@flash}
     >
-      <div class="max-w-lg mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <.header>Account</.header>
+      <div class="sv-page-content" style="max-width: 600px">
+        <div class="sv-page-header">
+          <h1 class="sv-page-title">Account</h1>
+        </div>
 
-        <div class="mt-6 space-y-6">
-          <%!-- Profile section --%>
-          <div class="bg-base-200 rounded-lg p-6">
-            <h3 class="text-lg font-medium">Profile</h3>
+        <%!-- Profile section --%>
+        <div class="sv-account-section">
+          <h3 class="sv-account-section-title">Profile</h3>
 
-            <div :if={!@editing} class="mt-4 space-y-2">
-              <p data-test="account-email">
-                <span class="text-base-content/60">Email:</span>
-                <span>{@viewer.email}</span>
-              </p>
-              <p data-test="account-display-name">
-                <span class="text-base-content/60">Display name:</span>
-                <span>{@viewer.display_name}</span>
-              </p>
-              <button
-                :if={!@impersonating_viewer}
-                phx-click="edit"
-                class="btn btn-sm btn-outline mt-2"
-                data-test="account-edit-btn"
-              >
-                Edit
-              </button>
+          <div :if={!@editing}>
+            <div class="sv-account-field" data-test="account-email">
+              <span class="sv-account-label">Email:</span>
+              <span class="sv-account-value">{@viewer.email}</span>
             </div>
-
-            <form
-              :if={@editing}
-              id="profile-form"
-              phx-submit="save"
-              class="mt-4 space-y-4"
-              data-test="account-edit-form"
-            >
-              <.input
-                field={@form[:display_name]}
-                type="text"
-                label="Display name"
-                data-test="account-display-name-input"
-              />
-              <.input
-                field={@form[:marketing_opt_in]}
-                type="checkbox"
-                label="Marketing emails"
-                data-test="account-marketing-opt-in"
-              />
-              <div class="flex gap-2">
-                <.button type="submit" data-test="account-save-btn">Save</.button>
-                <button
-                  type="button"
-                  phx-click="cancel_edit"
-                  class="btn btn-ghost btn-sm"
-                  data-test="account-cancel-btn"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <%!-- Subscription section --%>
-          <div class="bg-base-200 rounded-lg p-6">
-            <h3 class="text-lg font-medium">Subscription</h3>
-            <p class="mt-2" data-test="account-subscription-status">
-              <span class="text-base-content/60">Status:</span>
-              <span class={"badge #{subscription_badge_class(@viewer.subscription_status)}"}>
-                {@viewer.subscription_status}
-              </span>
-            </p>
-            <p :if={@viewer.subscription_expires_at} class="mt-1 text-sm text-base-content/60">
-              Expires: {Calendar.strftime(@viewer.subscription_expires_at, "%B %d, %Y")}
-            </p>
-          </div>
-
-          <%!-- Danger zone --%>
-          <div
-            :if={!@impersonating_viewer}
-            class="bg-base-200 rounded-lg p-6 border border-error/30"
-          >
-            <h3 class="text-lg font-medium text-error">Danger Zone</h3>
-            <p class="mt-2 text-sm text-base-content/60">
-              Deleting your account is permanent. All your data will be removed.
-            </p>
+            <div class="sv-account-field" data-test="account-display-name">
+              <span class="sv-account-label">Display name:</span>
+              <span class="sv-account-value">{@viewer.display_name}</span>
+            </div>
             <button
-              phx-click="delete_account"
-              data-confirm="Are you sure you want to delete your account? This cannot be undone."
-              class="btn btn-error btn-sm mt-3"
-              data-test="account-delete-btn"
+              :if={!@impersonating_viewer}
+              phx-click="edit"
+              class="sv-btn sv-btn-secondary"
+              style="margin-top: 12px"
+              data-test="account-edit-btn"
             >
-              Delete my account
+              Edit
             </button>
           </div>
+
+          <form
+            :if={@editing}
+            id="profile-form"
+            phx-submit="save"
+            class="mt-4 space-y-4"
+            data-test="account-edit-form"
+          >
+            <.input
+              field={@form[:display_name]}
+              type="text"
+              label="Display name"
+              data-test="account-display-name-input"
+            />
+            <.input
+              field={@form[:marketing_opt_in]}
+              type="checkbox"
+              label="Marketing emails"
+              data-test="account-marketing-opt-in"
+            />
+            <div class="flex gap-2">
+              <.button type="submit" data-test="account-save-btn">Save</.button>
+              <button
+                type="button"
+                phx-click="cancel_edit"
+                class="sv-btn sv-btn-ghost"
+                data-test="account-cancel-btn"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <%!-- Subscription section --%>
+        <div class="sv-account-section">
+          <h3 class="sv-account-section-title">Subscription</h3>
+          <div class="sv-account-field" data-test="account-subscription-status">
+            <span class="sv-account-label">Status:</span>
+            <span class={["sv-badge", subscription_badge_variant(@viewer.subscription_status)]}>
+              {@viewer.subscription_status}
+            </span>
+          </div>
+          <p
+            :if={@viewer.subscription_expires_at}
+            style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px"
+          >
+            Expires: {Calendar.strftime(@viewer.subscription_expires_at, "%B %d, %Y")}
+          </p>
+        </div>
+
+        <%!-- Danger zone --%>
+        <div
+          :if={!@impersonating_viewer}
+          class="sv-account-section"
+          style="border: 1px solid rgba(255, 80, 80, 0.3)"
+        >
+          <h3 class="sv-account-section-title" style="color: #ff5050">Danger Zone</h3>
+          <p style="font-size: 0.875rem; color: var(--sv-text-secondary); margin-bottom: 12px">
+            Deleting your account is permanent. All your data will be removed.
+          </p>
+          <button
+            phx-click="delete_account"
+            data-confirm="Are you sure you want to delete your account? This cannot be undone."
+            class="sv-btn"
+            style="background: #ff5050; color: #fff"
+            data-test="account-delete-btn"
+          >
+            Delete my account
+          </button>
         </div>
       </div>
     </ViewerLayout.viewer_layout>
     """
   end
 
-  defp subscription_badge_class("active"), do: "badge-success"
-  defp subscription_badge_class("trial"), do: "badge-info"
-  defp subscription_badge_class("past_due"), do: "badge-warning"
-  defp subscription_badge_class("canceled"), do: "badge-error"
-  defp subscription_badge_class(_), do: "badge-ghost"
+  defp subscription_badge_variant("active"), do: "sv-badge-accent"
+  defp subscription_badge_variant(_), do: ""
 end

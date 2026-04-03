@@ -34,6 +34,7 @@ defmodule BobineWeb.Viewer.LoginLive do
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
       current_path="/login"
+      theme={@theme}
       flash={@flash}
     >
       <div class="max-w-md mx-auto px-4 py-8 sm:px-6 lg:px-8">

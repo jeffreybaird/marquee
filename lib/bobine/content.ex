@@ -413,6 +413,25 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Gets a collection by slug within an organization.
+
+  Returns `{:ok, collection}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_collection_by_slug(%Organization{id: org_id}, slug) do
+    query =
+      Collection
+      |> where(organization_id: ^org_id, slug: ^slug)
+      |> where([c], is_nil(c.deleted_at))
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      collection -> {:ok, collection}
+    end
+  end
+
+  @doc """
   Creates a collection.
 
   Exempt from doctest — hits the database.
