@@ -175,11 +175,9 @@ defmodule BobineWeb.Hooks.AssignScope do
     with {:error, _} <- resolve_impersonated_org(session),
          {:error, _} <- Accounts.get_organization_by_custom_domain(host),
          {:error, _} <- resolve_by_subdomain(host),
-         {:error, _} <- resolve_org_from_session(session) do
-      case resolve_dev_fallback() do
-        {:ok, org} -> org
-        {:error, _} -> nil
-      end
+         {:error, _} <- resolve_org_from_session(session),
+         {:error, _} <- resolve_dev_fallback() do
+      nil
     else
       {:ok, org} -> org
       nil -> nil
