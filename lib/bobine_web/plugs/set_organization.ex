@@ -99,10 +99,16 @@ defmodule BobineWeb.Plugs.SetOrganization do
     end
   end
 
-  # Implicit sources (session, membership, dev fallback) are skipped in
-  # optional mode so that `/` without an explicit org signal shows the
-  # platform marketing page instead of a sticky/fallback org.
-  defp maybe_resolve_implicit(_conn, true = _optional), do: {:error, :not_found}
+  # In optional mode, only resolve from session if an impersonation is active
+  # (the admin chose a specific org). Skip membership fallback and dev fallback
+  # so that `/` without an explicit org signal shows the marketing page.
+  defp maybe_resolve_implicit(conn, true = _optional) do
+    if get_session(conn, :impersonating_viewer_id) || get_session(conn, :impersonated_org_id) do
+      resolve_from_session(conn)
+    else
+      {:error, :not_found}
+    end
+  end
 
   defp maybe_resolve_implicit(conn, false) do
     with {:error, _} <- resolve_from_session(conn),

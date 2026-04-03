@@ -2,7 +2,8 @@ defmodule BobineWeb.UserLive.Registration do
   use BobineWeb, :live_view
 
   alias Bobine.Accounts
-  alias Bobine.Accounts.User
+
+  @types %{email: :string, organization_name: :string}
 
   @impl true
   def render(assigns) do
@@ -24,16 +25,29 @@ defmodule BobineWeb.UserLive.Registration do
 
         <.form for={@form} id="registration_form" phx-submit="save" phx-change="validate">
           <.input
+            field={@form[:organization_name]}
+            type="text"
+            label="Organization name"
+            autocomplete="organization"
+            required
+            phx-mounted={JS.focus()}
+            data-test="registration-org-name"
+          />
+          <.input
             field={@form[:email]}
             type="email"
             label="Email"
             autocomplete="username"
             spellcheck="false"
             required
-            phx-mounted={JS.focus()}
+            data-test="registration-email"
           />
 
-          <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
+          <.button
+            phx-disable-with="Creating account..."
+            class="btn btn-primary w-full"
+            data-test="registration-submit"
+          >
             Create an account
           </.button>
         </.form>
@@ -49,41 +63,70 @@ defmodule BobineWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
-
-    {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
+    changeset = registration_changeset(%{})
+    {:ok, assign(socket, form: to_form(changeset, as: "user")), temporary_assigns: [form: nil]}
   end
 
   @impl true
-  def handle_event("save", %{"user" => user_params}, socket) do
-    case Accounts.register_user(user_params) do
-      {:ok, user} ->
-        {:ok, _} =
-          Accounts.deliver_login_instructions(
-            user,
-            &url(~p"/users/log-in/#{&1}")
-          )
+  def handle_event("save", %{"user" => params}, socket) do
+    changeset =
+      registration_changeset(params)
+      |> Map.put(:action, :validate)
 
-        {:noreply,
-         socket
-         |> put_flash(
-           :info,
-           "An email was sent to #{user.email}, please access it to confirm your account."
-         )
-         |> push_navigate(to: ~p"/users/log-in")}
+    if changeset.valid? do
+      org_name = Ecto.Changeset.get_change(changeset, :organization_name)
 
-      {:error, :validation, changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+      case Accounts.register_user_with_organization(params, org_name) do
+        {:ok, user} ->
+          {:ok, _} =
+            Accounts.deliver_login_instructions(
+              user,
+              &url(~p"/users/log-in/#{&1}")
+            )
+
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             "An email was sent to #{user.email}, please access it to confirm your account."
+           )
+           |> push_navigate(to: ~p"/users/log-in")}
+
+        {:error, :validation, %Ecto.Changeset{} = user_changeset} ->
+          # Merge user changeset errors back into our registration form
+          merged =
+            registration_changeset(params)
+            |> merge_user_errors(user_changeset)
+            |> Map.put(:action, :validate)
+
+          {:noreply, assign(socket, form: to_form(merged, as: "user"))}
+      end
+    else
+      {:noreply, assign(socket, form: to_form(changeset, as: "user"))}
     end
   end
 
-  def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+  def handle_event("validate", %{"user" => params}, socket) do
+    changeset =
+      registration_changeset(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, form: to_form(changeset, as: "user"))}
   end
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    form = to_form(changeset, as: "user")
-    assign(socket, form: form)
+  defp registration_changeset(params) do
+    {%{}, @types}
+    |> Ecto.Changeset.cast(params, Map.keys(@types))
+    |> Ecto.Changeset.validate_required([:email, :organization_name])
+    |> Ecto.Changeset.validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
+    |> Ecto.Changeset.validate_length(:organization_name, min: 1, max: 100)
+  end
+
+  defp merge_user_errors(changeset, user_changeset) do
+    Enum.reduce(user_changeset.errors, changeset, fn {field, error}, cs ->
+      Ecto.Changeset.add_error(cs, field, elem(error, 0), elem(error, 1))
+    end)
   end
 end

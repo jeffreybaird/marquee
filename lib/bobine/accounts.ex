@@ -134,6 +134,75 @@ defmodule Bobine.Accounts do
     end
   end
 
+  @doc """
+  Registers a new user and creates an organization with the user as owner.
+
+  The organization gets a default theme and the user is assigned the `:owner` role.
+
+  Exempt from doctest — hits the database.
+  """
+  def register_user_with_organization(user_attrs, org_name) do
+    slug = slugify(org_name)
+
+    Repo.transaction(fn ->
+      with {:ok, user} <- %User{} |> User.email_changeset(user_attrs) |> Repo.insert(),
+           {:ok, org} <- create_organization_inline(org_name, slug),
+           {:ok, _membership} <-
+             %Membership{}
+             |> Membership.changeset(%{user_id: user.id, organization_id: org.id, role: :owner})
+             |> Repo.insert() do
+        {user, org}
+      else
+        {:error, :validation, changeset} -> Repo.rollback(changeset)
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+    |> case do
+      {:ok, {user, _org}} -> {:ok, user}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  # Inline org creation without a nested transaction. Creates the org record
+  # and a default theme, matching what Admin.create_organization does.
+  defp create_organization_inline(name, slug) do
+    changeset =
+      Organization.changeset(%Organization{}, %{name: name, slug: slug, template: "default"})
+
+    case Repo.insert(changeset) do
+      {:ok, org} ->
+        {:ok, _theme} =
+          Bobine.Branding.create_theme(%{
+            organization_id: org.id,
+            background: "#0f0f0f",
+            surface: "#1c1c1c",
+            text_primary: "#ffffff",
+            text_secondary: "#aaaaaa",
+            brand_primary: "#1a73e8",
+            brand_secondary: "#174ea6",
+            accent: "#e8a21a",
+            font_heading: "Inter",
+            font_body: "Inter",
+            border_radius: "0.5rem",
+            card_border_radius: "0.75rem"
+          })
+
+        Bobine.Events.broadcast(nil, {:organization_created, org})
+        {:ok, org}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  defp slugify(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9\s-]/, "")
+    |> String.replace(~r/[\s]+/, "-")
+    |> String.trim("-")
+  end
+
   ## Settings
 
   @doc """
