@@ -11,12 +11,12 @@ defmodule Bobine.PlatformBilling do
 
   require Logger
 
-  alias Bobine.Repo
-  alias Bobine.Pagination
-  alias Bobine.Events
-  alias Bobine.Audit
   alias Bobine.Accounts.Organization
+  alias Bobine.Audit
   alias Bobine.Billing.{PlatformPlan, PlatformSubscription}
+  alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   require Bobine.Otel
 
@@ -175,9 +175,8 @@ defmodule Bobine.PlatformBilling do
   end
 
   defp sync_updated_plan_to_stripe(%PlatformPlan{} = original, %PlatformPlan{} = updated) do
-    with :ok <- maybe_update_stripe_product(original, updated),
-         {:ok, updated} <- maybe_replace_stripe_price(original, updated) do
-      {:ok, updated}
+    with :ok <- maybe_update_stripe_product(original, updated) do
+      maybe_replace_stripe_price(original, updated)
     end
   end
 

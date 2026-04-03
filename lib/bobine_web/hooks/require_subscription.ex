@@ -24,6 +24,9 @@ defmodule BobineWeb.Hooks.RequireSubscription do
          |> put_flash(:error, "Your account has been suspended.")
          |> redirect(to: ~p"/")}
 
+      viewer.subscription_status == "past_due" ->
+        {:halt, redirect(socket, to: ~p"/account/payment-issue")}
+
       SubscriptionAccess.has_access?(viewer) ->
         {:cont, socket}
 

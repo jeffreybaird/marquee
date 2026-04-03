@@ -1,9 +1,9 @@
 defmodule Bobine.AuditTest do
   use Bobine.DataCase, async: true
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Audit
   alias Bobine.Audit.Log
-  alias Bobine.Accounts.Scope
 
   describe "log/4" do
     test "creates an audit log with all fields populated" do

@@ -28,7 +28,7 @@ defmodule BobineWeb.Admin.BillingLiveTest do
         name: "Small Business Super",
         usage_tier: :super,
         business_tier: :small_business,
-        amount: 12900
+        amount: 12_900
       )
 
       {:ok, view, html} =
@@ -98,7 +98,7 @@ defmodule BobineWeb.Admin.BillingLiveTest do
           slug: "change_plan",
           usage_tier: :premium,
           business_tier: :enterprise,
-          amount: 49900
+          amount: 49_900
         )
 
       insert(:platform_subscription, organization: org, platform_plan: plan)

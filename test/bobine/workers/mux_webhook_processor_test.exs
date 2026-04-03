@@ -2,8 +2,8 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
   use Bobine.DataCase, async: true
   use Oban.Testing, repo: Bobine.Repo
 
-  alias Bobine.Workers.MuxWebhookProcessor
   alias Bobine.Content
+  alias Bobine.Workers.MuxWebhookProcessor
 
   describe "video.upload.asset_created" do
     test "links upload to asset and sets status to preparing" do

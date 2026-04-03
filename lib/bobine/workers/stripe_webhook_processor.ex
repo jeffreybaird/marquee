@@ -13,8 +13,11 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
-  alias Bobine.PlatformBilling
+  alias Bobine.Accounts
   alias Bobine.Admin
+  alias Bobine.Billing
+  alias Bobine.PlatformBilling
+  alias Bobine.Viewers
 
   @impl true
   def perform(%Oban.Job{args: %{"event" => event}, attempt: attempt}) do
@@ -128,11 +131,129 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
     end
   end
 
-  # ── Connected account events (viewer subscription) — future handlers ──
+  # ══════════════════════════════════════════════════════════════════════
+  # Connected account events (viewer subscriptions)
+  # These have a non-nil connect_account_id
+  # ══════════════════════════════════════════════════════════════════════
 
+  defp handle_event("checkout.session.completed", session, connect_account_id)
+       when not is_nil(connect_account_id) do
+    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+         {:ok, viewer} <- find_or_create_viewer_from_checkout(org, session),
+         {:ok, subscription} <- Billing.create_subscription_from_checkout(org, viewer, session) do
+      Billing.activate_viewer_subscription(org, viewer, subscription)
+      Bobine.Metrics.subscription_created(org.id, "viewer")
+
+      Logger.info("Viewer subscription created",
+        org_id: org.id,
+        viewer_id: viewer.id,
+        stripe_subscription_id: subscription.stripe_subscription_id
+      )
+
+      :ok
+    else
+      {:error, :not_found} ->
+        Logger.warning("Connected account org not found",
+          connect_account_id: connect_account_id
+        )
+
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Connected checkout processing failed",
+          connect_account_id: connect_account_id,
+          reason: inspect(reason)
+        )
+
+        :ok
+
+      {:error, _type, _detail} ->
+        Logger.error("Connected checkout processing failed",
+          connect_account_id: connect_account_id
+        )
+
+        :ok
+    end
+  end
+
+  defp handle_event("customer.subscription.updated", data, connect_account_id)
+       when not is_nil(connect_account_id) do
+    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+         {:ok, subscription} <- Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
+      {:ok, updated} = Billing.update_subscription_from_stripe(org, subscription, data)
+      viewer = Viewers.get_viewer!(org, updated.viewer_id)
+      Billing.sync_viewer_subscription_status(viewer, updated)
+      :ok
+    else
+      {:error, :not_found} ->
+        Logger.warning("Connected subscription not found for update",
+          stripe_subscription_id: data["id"],
+          connect_account_id: connect_account_id
+        )
+
+        :ok
+    end
+  end
+
+  defp handle_event("invoice.payment_failed", invoice, connect_account_id)
+       when not is_nil(connect_account_id) do
+    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+         {:ok, subscription} <-
+           Billing.get_viewer_subscription_by_stripe_id(org, invoice["subscription"]) do
+      viewer = Viewers.get_viewer!(org, subscription.viewer_id)
+      Billing.mark_payment_failed(org, viewer, subscription)
+      Bobine.Metrics.viewer_payment_failed(org.id, subscription.plan_id)
+
+      Logger.warning("Viewer payment failed",
+        org_id: org.id,
+        viewer_id: viewer.id
+      )
+
+      :ok
+    else
+      {:error, :not_found} -> :ok
+    end
+  end
+
+  defp handle_event("invoice.payment_succeeded", invoice, connect_account_id)
+       when not is_nil(connect_account_id) do
+    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+         {:ok, subscription} <-
+           Billing.get_viewer_subscription_by_stripe_id(org, invoice["subscription"]) do
+      viewer = Viewers.get_viewer!(org, subscription.viewer_id)
+      Billing.mark_payment_succeeded(org, viewer, subscription)
+      :ok
+    else
+      {:error, :not_found} -> :ok
+    end
+  end
+
+  defp handle_event("customer.subscription.deleted", data, connect_account_id)
+       when not is_nil(connect_account_id) do
+    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+         {:ok, subscription} <- Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
+      viewer = Viewers.get_viewer!(org, subscription.viewer_id)
+      Billing.cancel_subscription_from_stripe(org, viewer, subscription)
+      Bobine.Metrics.subscription_canceled(org.id, "viewer")
+      :ok
+    else
+      {:error, :not_found} -> :ok
+    end
+  end
+
+  defp handle_event("customer.subscription.trial_will_end", _data, connect_account_id)
+       when not is_nil(connect_account_id) do
+    # Trial ending notification — log for now, full notification system is future work
+    Logger.info("Viewer trial ending soon",
+      connect_account_id: connect_account_id
+    )
+
+    :ok
+  end
+
+  # Catch-all for unhandled connected account events
   defp handle_event(_type, _data, connect_account_id) when not is_nil(connect_account_id) do
-    # Connected account events will be handled in Feature 05a
-    Logger.debug("Ignoring connected account event",
+    Logger.debug("Unhandled connected account event",
       connect_account_id: connect_account_id
     )
 
@@ -146,15 +267,39 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
     :ok
   end
 
+  # ── Connected account helpers ──
+
+  defp find_or_create_viewer_from_checkout(org, session) do
+    email =
+      session["customer_email"] ||
+        get_in(session, ["customer_details", "email"])
+
+    case Viewers.get_viewer_by_email(org, email) do
+      nil ->
+        Viewers.register_viewer(org, %{
+          email: email,
+          stripe_customer_id: session["customer"],
+          subscription_status: "active"
+        })
+
+      viewer ->
+        if is_nil(viewer.stripe_customer_id) do
+          viewer
+          |> Ecto.Changeset.change(stripe_customer_id: session["customer"])
+          |> Bobine.Repo.update()
+        else
+          {:ok, viewer}
+        end
+    end
+  end
+
   defp plan_changed?(%{platform_plan_id: old_id}, %{platform_plan_id: new_id}) do
     old_id != new_id
   end
 
   defp get_organization(org_id) do
-    try do
-      {:ok, Admin.get_organization!(org_id)}
-    rescue
-      Ecto.NoResultsError -> {:error, :not_found}
-    end
+    {:ok, Admin.get_organization!(org_id)}
+  rescue
+    Ecto.NoResultsError -> {:error, :not_found}
   end
 end

@@ -4,8 +4,8 @@ defmodule Bobine.Branding do
   """
 
   import Ecto.Query, warn: false
-  alias Bobine.Repo
   alias Bobine.Events
+  alias Bobine.Repo
 
   alias Bobine.Branding.Theme
 
@@ -77,11 +77,13 @@ defmodule Bobine.Branding do
 
   """
   def update_theme(%Theme{} = theme, attrs) do
-    with {:ok, theme} <- theme |> Theme.changeset(attrs) |> Repo.update() do
-      Events.broadcast(nil, {:theme_updated, theme})
-      {:ok, theme}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case theme |> Theme.changeset(attrs) |> Repo.update() do
+      {:ok, theme} ->
+        Events.broadcast(nil, {:theme_updated, theme})
+        {:ok, theme}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 

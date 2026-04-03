@@ -8,7 +8,7 @@ defmodule Bobine.Accounts.Scope do
   tenant scoping can be enforced consistently.
   """
 
-  alias Bobine.Accounts.{User, Organization, Membership}
+  alias Bobine.Accounts.{Membership, Organization, User}
 
   defstruct user: nil, organization: nil, membership: nil
 

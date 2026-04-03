@@ -1,8 +1,8 @@
 defmodule BobineWeb.Admin.MembersLive do
   use BobineWeb, :live_view
 
-  alias Bobine.Viewers
   alias Bobine.Accounts
+  alias Bobine.Viewers
 
   @impl true
   def mount(_params, _session, socket) do

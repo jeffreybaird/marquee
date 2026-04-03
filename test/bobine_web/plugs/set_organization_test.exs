@@ -1,8 +1,8 @@
 defmodule BobineWeb.Plugs.SetOrganizationTest do
   use BobineWeb.ConnCase, async: true
 
-  alias BobineWeb.Plugs.SetOrganization
   alias Bobine.Accounts.Scope
+  alias BobineWeb.Plugs.SetOrganization
 
   setup %{conn: conn} do
     {:ok, conn: Plug.Test.init_test_session(conn, %{})}

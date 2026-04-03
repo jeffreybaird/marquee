@@ -3,8 +3,8 @@ defmodule BobineWeb.Admin.TagsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Bobine.Content
   alias Bobine.Accounts.Scope
+  alias Bobine.Content
 
   defp build_scope(membership) do
     membership = Bobine.Repo.preload(membership, [:user, :organization])

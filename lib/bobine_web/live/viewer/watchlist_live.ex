@@ -2,8 +2,8 @@ defmodule BobineWeb.Viewer.WatchlistLive do
   use BobineWeb, :live_view
 
   alias Bobine.Engagement
-  alias BobineWeb.Components.ViewerLayout
   alias BobineWeb.Components.ViewerComponents
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(_params, _session, socket) do

@@ -71,7 +71,7 @@ defmodule BobineWeb.Super.PlansLiveTest do
 
       expect(Bobine.Billing.MockStripeClient, :create_price, fn params ->
         assert params.product == "prod_existing"
-        assert params.unit_amount == 19900
+        assert params.unit_amount == 19_900
         {:ok, %{id: "price_replacement"}}
       end)
 
@@ -103,7 +103,7 @@ defmodule BobineWeb.Super.PlansLiveTest do
 
       updated = Bobine.PlatformBilling.get_platform_plan!(plan.id)
       assert updated.name == "Updated Name"
-      assert updated.amount == 19900
+      assert updated.amount == 19_900
       assert updated.stripe_price_id == "price_replacement"
       refute has_element?(view, "[data-test=plan-edit-modal]")
     end

@@ -9,11 +9,12 @@ defmodule BobineWeb.Viewer.SubscribeLive do
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
+    stripe_ready = org && org.stripe_connect_onboarding_complete
 
     plans =
       if org do
-        %{results: plans} = Billing.list_plans(org, per_page: 100)
-        plans
+        %{results: plans} = Billing.list_plans(org, per_page: 10)
+        Enum.filter(plans, & &1.active)
       else
         []
       end
@@ -22,7 +23,26 @@ defmodule BobineWeb.Viewer.SubscribeLive do
      socket
      |> assign(:page_title, "Subscribe")
      |> assign(:plans, plans)
-     |> assign(:viewer, viewer)}
+     |> assign(:viewer, viewer)
+     |> assign(:stripe_ready, stripe_ready)}
+  end
+
+  @impl true
+  def handle_event("select_plan", %{"plan-id" => plan_id}, socket) do
+    viewer = socket.assigns.viewer
+    org = socket.assigns.organization
+    plan = Billing.get_plan!(org, plan_id)
+
+    case Billing.create_viewer_checkout(org, viewer, plan) do
+      {:ok, session} ->
+        {:noreply, redirect(socket, external: session.url)}
+
+      {:error, :stripe_not_connected} ->
+        {:noreply, put_flash(socket, :error, "This site is not ready to accept payments yet.")}
+
+      {:error, :stripe_error, _} ->
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
+    end
   end
 
   @impl true
@@ -66,7 +86,7 @@ defmodule BobineWeb.Viewer.SubscribeLive do
           </p>
         </div>
 
-        <div :if={@plans == []} class="sv-empty-state">
+        <div :if={@plans == []} class="sv-empty-state" data-test="subscribe-no-plans">
           <p class="sv-empty-state-title">No plans available yet</p>
           <p class="sv-empty-state-desc">Check back later.</p>
         </div>
@@ -76,12 +96,44 @@ defmodule BobineWeb.Viewer.SubscribeLive do
           class="sv-plan-grid"
           data-test="subscribe-plan-list"
         >
-          <div :for={plan <- @plans} class="sv-plan-card">
+          <div :for={plan <- @plans} class="sv-plan-card" data-test={"plan-card-#{plan.id}"}>
             <h3 class="sv-plan-name">{plan.name}</h3>
             <p class="sv-plan-price">${format_amount(plan.amount)}</p>
             <p class="sv-plan-interval">per {plan.interval}</p>
-            <button class="sv-btn sv-btn-accent" style="width: 100%" disabled>
-              Subscribe
+
+            <p
+              :if={plan.description}
+              style="color: var(--sv-text-secondary); font-size: 0.875rem; margin: 8px 0"
+            >
+              {plan.description}
+            </p>
+
+            <ul :if={plan.features != []} style="list-style: none; padding: 0; margin: 12px 0">
+              <li
+                :for={feature <- plan.features}
+                style="font-size: 0.8125rem; color: var(--sv-text-secondary); padding: 2px 0"
+              >
+                {feature}
+              </li>
+            </ul>
+
+            <p
+              :if={plan.trial_period_days && plan.trial_period_days > 0}
+              style="font-size: 0.8125rem; color: var(--sv-accent); margin: 8px 0"
+            >
+              {plan.trial_period_days}-day free trial
+            </p>
+
+            <button
+              phx-click="select_plan"
+              phx-value-plan-id={plan.id}
+              class="sv-btn sv-btn-accent"
+              style="width: 100%"
+              data-test={"subscribe-btn-#{plan.id}"}
+            >
+              {if plan.trial_period_days && plan.trial_period_days > 0,
+                do: "Start free trial",
+                else: "Subscribe"}
             </button>
           </div>
         </div>

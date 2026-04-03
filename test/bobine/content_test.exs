@@ -365,8 +365,8 @@ defmodule Bobine.ContentTest do
   end
 
   describe "collections" do
-    alias Bobine.Content.Collection
     alias Bobine.Accounts.Scope
+    alias Bobine.Content.Collection
 
     setup do
       org = insert(:organization)

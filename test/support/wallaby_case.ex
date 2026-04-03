@@ -1,4 +1,5 @@
 defmodule BobineWeb.WallabyCase do
+  @moduledoc false
   use ExUnit.CaseTemplate
 
   using do

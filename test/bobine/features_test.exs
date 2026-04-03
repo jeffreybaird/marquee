@@ -1,8 +1,8 @@
 defmodule Bobine.FeaturesTest do
   use Bobine.DataCase, async: true
 
-  alias Bobine.Features
   alias Bobine.Accounts.Organization
+  alias Bobine.Features
 
   describe "enabled?/2" do
     test "returns true when feature is set to true" do

@@ -117,6 +117,34 @@ defmodule Bobine.Metrics do
   end
 
   @doc """
+  Records a viewer checkout initiated event.
+
+      iex> Bobine.Metrics.checkout_initiated("org_123", "plan_456")
+      :ok
+  """
+  def checkout_initiated(org_id, plan_id) do
+    :telemetry.execute(
+      [:bobine, :checkout, :initiated],
+      %{count: 1},
+      %{org_id: org_id, plan_id: plan_id}
+    )
+  end
+
+  @doc """
+  Records a viewer payment failure event.
+
+      iex> Bobine.Metrics.viewer_payment_failed("org_123", "plan_456")
+      :ok
+  """
+  def viewer_payment_failed(org_id, plan_id) do
+    :telemetry.execute(
+      [:bobine, :viewer_payment, :failed],
+      %{count: 1},
+      %{org_id: org_id, plan_id: plan_id}
+    )
+  end
+
+  @doc """
   Records a platform payment failure event.
 
       iex> Bobine.Metrics.platform_payment_failed("org_123")

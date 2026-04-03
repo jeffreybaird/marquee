@@ -1,4 +1,4 @@
-# TODO: Convert to static page with LiveView islands for hero carousel
+# NOTE: Convert to static page with LiveView islands for hero carousel
 # and any interactive elements. The catalog rows are read-only and should
 # be server-rendered HTML for performance at scale.
 defmodule BobineWeb.Viewer.HomeLive do

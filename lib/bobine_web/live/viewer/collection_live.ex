@@ -2,8 +2,8 @@ defmodule BobineWeb.Viewer.CollectionLive do
   use BobineWeb, :live_view
 
   alias Bobine.Content
-  alias BobineWeb.Components.ViewerLayout
   alias BobineWeb.Components.ViewerComponents
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do

@@ -1,8 +1,8 @@
 defmodule Bobine.CatalogTest do
   use Bobine.DataCase
 
-  alias Bobine.Catalog
   alias Bobine.Accounts.Scope
+  alias Bobine.Catalog
 
   describe "rows" do
     alias Bobine.Catalog.Row

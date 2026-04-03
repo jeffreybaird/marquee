@@ -3,9 +3,9 @@ defmodule BobineWeb.Admin.CatalogLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Catalog
   alias Bobine.Content
-  alias Bobine.Accounts.Scope
 
   defp build_scope(membership) do
     membership = Bobine.Repo.preload(membership, [:user, :organization])

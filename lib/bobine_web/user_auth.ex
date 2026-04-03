@@ -1,4 +1,5 @@
 defmodule BobineWeb.UserAuth do
+  @moduledoc false
   use BobineWeb, :verified_routes
 
   import Plug.Conn

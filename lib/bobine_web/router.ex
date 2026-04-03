@@ -97,7 +97,17 @@ defmodule BobineWeb.Router do
       live "/settings", SettingsLive
       live "/settings/billing", BillingLive
       live "/settings/billing/success", PlanSuccessLive
+      live "/plans", PlansLive
+      live "/coupons", CouponsLive
     end
+  end
+
+  # Stripe Connect return/refresh — controller routes (not LiveView)
+  scope "/admin/settings/stripe", BobineWeb do
+    pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
+
+    get "/return", StripeConnectController, :return
+    get "/refresh", StripeConnectController, :refresh
   end
 
   ## ──────────────────────────────────────────────────────────────────────
@@ -212,7 +222,9 @@ defmodule BobineWeb.Router do
         {BobineWeb.Hooks.AssignViewerScope, :require_authenticated}
       ] do
       live "/account", AccountLive
+      live "/account/payment-issue", PaymentIssueLive
       live "/subscribe", SubscribeLive
+      live "/subscribe/success", SubscribeSuccessLive
     end
   end
 

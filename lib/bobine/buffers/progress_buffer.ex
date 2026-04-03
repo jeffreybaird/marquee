@@ -8,8 +8,8 @@ defmodule Bobine.Buffers.ProgressBuffer do
 
   require Logger
 
-  alias Bobine.Repo
   alias Bobine.Engagement.Progress
+  alias Bobine.Repo
 
   @flush_interval_ms 30_000
   @table :progress_buffer

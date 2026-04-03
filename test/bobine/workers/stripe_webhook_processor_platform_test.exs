@@ -2,8 +2,8 @@ defmodule Bobine.Workers.StripeWebhookProcessorPlatformTest do
   use Bobine.DataCase, async: true
   use Oban.Testing, repo: Bobine.Repo
 
-  alias Bobine.Workers.StripeWebhookProcessor
   alias Bobine.PlatformBilling
+  alias Bobine.Workers.StripeWebhookProcessor
 
   describe "platform checkout.session.completed" do
     test "creates subscription and syncs features" do

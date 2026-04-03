@@ -1,18 +1,23 @@
 defmodule BobineWeb.Viewer.AccountLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Billing
   alias Bobine.Viewers
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(_params, _session, socket) do
     viewer = socket.assigns.current_viewer
+    org = socket.assigns.organization
     changeset = Viewers.Viewer.profile_changeset(viewer, %{})
+
+    subscription = load_subscription(org, viewer)
 
     {:ok,
      socket
      |> assign(:page_title, "Account")
      |> assign(:viewer, viewer)
+     |> assign(:subscription, subscription)
      |> assign(:editing, false)
      |> assign_form(changeset)}
   end
@@ -47,6 +52,23 @@ defmodule BobineWeb.Viewer.AccountLive do
   end
 
   @impl true
+  def handle_event("manage_subscription", _params, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.viewer
+
+    case Billing.create_viewer_portal_session(org, viewer) do
+      {:ok, session} ->
+        {:noreply, redirect(socket, external: session.url)}
+
+      {:error, :stripe_not_connected} ->
+        {:noreply, put_flash(socket, :error, "Subscription management is not available.")}
+
+      {:error, :stripe_error, _} ->
+        {:noreply, put_flash(socket, :error, "Something went wrong. Please try again.")}
+    end
+  end
+
+  @impl true
   def handle_event("delete_account", _params, socket) do
     viewer = socket.assigns.viewer
     scope = socket.assigns[:current_scope]
@@ -64,6 +86,13 @@ defmodule BobineWeb.Viewer.AccountLive do
   end
 
   defp assign_form(socket, changeset), do: assign(socket, :form, to_form(changeset))
+
+  defp load_subscription(org, viewer) do
+    case Billing.get_active_viewer_subscription(org, viewer) do
+      {:ok, sub} -> sub
+      {:error, :not_found} -> nil
+    end
+  end
 
   @impl true
   def render(assigns) do
@@ -141,18 +170,122 @@ defmodule BobineWeb.Viewer.AccountLive do
         <%!-- Subscription section --%>
         <div class="sv-account-section">
           <h3 class="sv-account-section-title">Subscription</h3>
-          <div class="sv-account-field" data-test="account-subscription-status">
-            <span class="sv-account-label">Status:</span>
-            <span class={["sv-badge", subscription_badge_variant(@viewer.subscription_status)]}>
-              {@viewer.subscription_status}
-            </span>
+
+          <%!-- Active status --%>
+          <div :if={@viewer.subscription_status == "active"} data-test="subscription-active-status">
+            <div class="sv-account-field" data-test="account-subscription-status">
+              <span class="sv-account-label">Status:</span>
+              <span class="sv-badge sv-badge-accent">active</span>
+            </div>
+            <p
+              :if={@subscription && @subscription.current_period_end}
+              style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px"
+            >
+              Renews on {Calendar.strftime(@subscription.current_period_end, "%B %d, %Y")}
+            </p>
+            <button
+              :if={@viewer.stripe_customer_id}
+              phx-click="manage_subscription"
+              class="sv-btn sv-btn-secondary"
+              style="margin-top: 12px"
+              data-test="manage-subscription-btn"
+            >
+              Manage subscription
+            </button>
           </div>
-          <p
-            :if={@viewer.subscription_expires_at}
-            style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px"
+
+          <%!-- Trialing status --%>
+          <div :if={@viewer.subscription_status == "trial"} data-test="subscription-trial-status">
+            <div class="sv-account-field" data-test="account-subscription-status">
+              <span class="sv-account-label">Status:</span>
+              <span class="sv-badge sv-badge-accent">free trial</span>
+            </div>
+            <p
+              :if={@viewer.trial_expires_at}
+              style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px"
+            >
+              Trial ends {Calendar.strftime(@viewer.trial_expires_at, "%B %d, %Y")}
+            </p>
+            <button
+              :if={@viewer.stripe_customer_id}
+              phx-click="manage_subscription"
+              class="sv-btn sv-btn-secondary"
+              style="margin-top: 12px"
+              data-test="manage-subscription-btn"
+            >
+              Add payment method
+            </button>
+          </div>
+
+          <%!-- Past due status --%>
+          <div
+            :if={@viewer.subscription_status == "past_due"}
+            data-test="subscription-past-due-status"
           >
-            Expires: {Calendar.strftime(@viewer.subscription_expires_at, "%B %d, %Y")}
-          </p>
+            <div class="sv-account-field" data-test="account-subscription-status">
+              <span class="sv-account-label">Status:</span>
+              <span class="sv-badge" style="background: #ff5050; color: #fff">past due</span>
+            </div>
+            <p style="font-size: 0.8125rem; color: #ff5050; margin-top: 4px">
+              Your last payment didn't go through. Update your payment method to keep access.
+            </p>
+            <button
+              :if={@viewer.stripe_customer_id}
+              phx-click="manage_subscription"
+              class="sv-btn sv-btn-accent"
+              style="margin-top: 12px"
+              data-test="update-payment-btn"
+            >
+              Update payment method
+            </button>
+          </div>
+
+          <%!-- Canceled status --%>
+          <div
+            :if={@viewer.subscription_status == "canceled"}
+            data-test="subscription-canceled-status"
+          >
+            <div class="sv-account-field" data-test="account-subscription-status">
+              <span class="sv-account-label">Status:</span>
+              <span class="sv-badge">canceled</span>
+            </div>
+            <p
+              :if={@viewer.subscription_expires_at}
+              style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-top: 4px"
+            >
+              Your subscription ended on {Calendar.strftime(
+                @viewer.subscription_expires_at,
+                "%B %d, %Y"
+              )}
+            </p>
+            <a
+              href="/subscribe"
+              class="sv-btn sv-btn-accent"
+              style="margin-top: 12px; display: inline-block"
+              data-test="resubscribe-link"
+            >
+              Resubscribe
+            </a>
+          </div>
+
+          <%!-- No subscription --%>
+          <div
+            :if={@viewer.subscription_status in ["none", "expired"]}
+            data-test="subscription-none-status"
+          >
+            <div class="sv-account-field" data-test="account-subscription-status">
+              <span class="sv-account-label">Status:</span>
+              <span class="sv-badge">{@viewer.subscription_status}</span>
+            </div>
+            <a
+              href="/subscribe"
+              class="sv-btn sv-btn-accent"
+              style="margin-top: 12px; display: inline-block"
+              data-test="subscribe-link"
+            >
+              Subscribe to start watching
+            </a>
+          </div>
         </div>
 
         <%!-- Danger zone --%>
@@ -179,7 +312,4 @@ defmodule BobineWeb.Viewer.AccountLive do
     </ViewerLayout.viewer_layout>
     """
   end
-
-  defp subscription_badge_variant("active"), do: "sv-badge-accent"
-  defp subscription_badge_variant(_), do: ""
 end

@@ -5,8 +5,8 @@ defmodule Bobine.PlatformBilling.UsageLimits do
   """
 
   alias Bobine.Accounts.Organization
-  alias Bobine.PlatformBilling
   alias Bobine.Admin
+  alias Bobine.PlatformBilling
 
   @doc """
   Returns true if the organization can upload another video.

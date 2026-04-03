@@ -46,6 +46,14 @@ if config_env() != :test do
   if stripe_secret = System.get_env("STRIPE_SECRET_KEY") do
     config :stripity_stripe, api_key: stripe_secret
   end
+
+  if stripe_webhook_secret = System.get_env("STRIPE_WEBHOOK_SECRET") do
+    config :bobine, :stripe_webhook_secret, stripe_webhook_secret
+  end
+
+  if stripe_connect_webhook_secret = System.get_env("STRIPE_CONNECT_WEBHOOK_SECRET") do
+    config :bobine, :stripe_connect_webhook_secret, stripe_connect_webhook_secret
+  end
 end
 
 if config_env() == :prod do

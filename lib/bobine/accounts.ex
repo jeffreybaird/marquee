@@ -6,7 +6,7 @@ defmodule Bobine.Accounts do
   import Ecto.Query, warn: false
   alias Bobine.Repo
 
-  alias Bobine.Accounts.{User, UserToken, UserNotifier, Organization, Membership}
+  alias Bobine.Accounts.{Membership, Organization, User, UserNotifier, UserToken}
 
   ## Organization getters
 
@@ -39,6 +39,31 @@ defmodule Bobine.Accounts do
       nil -> {:error, :not_found}
       org -> {:ok, org}
     end
+  end
+
+  @doc """
+  Gets an organization by its Stripe Connect account ID.
+
+  Returns `{:ok, organization}` if found, `{:error, :not_found}` otherwise.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_by_stripe_connect_id(stripe_account_id)
+      when is_binary(stripe_account_id) do
+    case Repo.get_by(Organization, stripe_connect_account_id: stripe_account_id) do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
+  Gets an organization by its Stripe Connect account ID. Raises on not found.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_by_stripe_connect_id!(stripe_account_id)
+      when is_binary(stripe_account_id) do
+    Repo.get_by!(Organization, stripe_connect_account_id: stripe_account_id)
   end
 
   @doc """

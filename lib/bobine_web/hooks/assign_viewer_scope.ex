@@ -26,8 +26,9 @@ defmodule BobineWeb.Hooks.AssignViewerScope do
   import Phoenix.Component, only: [assign: 3]
   import Phoenix.LiveView, only: [put_flash: 3, redirect: 2]
 
-  alias Bobine.Viewers
   alias Bobine.Accounts
+  alias Bobine.Accounts.Organization
+  alias Bobine.Viewers
 
   @impersonation_max_age_seconds 3600
 
@@ -93,12 +94,17 @@ defmodule BobineWeb.Hooks.AssignViewerScope do
       true ->
         admin_user_id = session["impersonating_admin_user_id"]
 
-        if authorized_to_impersonate?(admin_user_id, viewer_id) do
-          case Viewers.get_viewer_by_id(viewer_id) do
-            nil -> nil
-            viewer -> %{viewer | __impersonating__: true}
-          end
+        case authorized_to_impersonate?(admin_user_id, viewer_id) do
+          true -> fetch_viewer_for_impersonation(viewer_id)
+          false -> nil
         end
+    end
+  end
+
+  defp fetch_viewer_for_impersonation(viewer_id) do
+    case Viewers.get_viewer_by_id(viewer_id) do
+      nil -> nil
+      viewer -> %{viewer | __impersonating__: true}
     end
   end
 
@@ -117,19 +123,17 @@ defmodule BobineWeb.Hooks.AssignViewerScope do
     if user.is_super_admin do
       true
     else
-      viewer = Viewers.get_viewer_by_id(viewer_id)
+      authorize_viewer_impersonation(user, viewer_id)
+    end
+  end
 
-      if viewer do
-        case Accounts.get_membership(
-               %Bobine.Accounts.Organization{id: viewer.organization_id},
-               user
-             ) do
-          nil -> false
-          membership -> membership.role in [:viewer_support, :admin, :owner]
-        end
-      else
-        false
-      end
+  defp authorize_viewer_impersonation(user, viewer_id) do
+    with %{organization_id: organization_id} <- Viewers.get_viewer_by_id(viewer_id),
+         membership when not is_nil(membership) <-
+           Accounts.get_membership(%Organization{id: organization_id}, user) do
+      membership.role in [:viewer_support, :admin, :owner]
+    else
+      _ -> false
     end
   end
 end

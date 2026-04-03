@@ -32,6 +32,7 @@ defmodule Bobine.Viewers.Viewer do
     field :subscription_status, :string, default: "none"
     field :subscription_expires_at, :utc_datetime
     field :trial_expires_at, :utc_datetime
+    field :stripe_customer_id, :string
 
     # Profile
     field :onboarding_completed, :boolean, default: false
@@ -59,7 +60,14 @@ defmodule Bobine.Viewers.Viewer do
   """
   def registration_changeset(viewer, attrs) do
     viewer
-    |> cast(attrs, [:email, :display_name, :password, :marketing_opt_in, :organization_id])
+    |> cast(attrs, [
+      :email,
+      :display_name,
+      :password,
+      :marketing_opt_in,
+      :organization_id,
+      :stripe_customer_id
+    ])
     |> validate_required([:email, :organization_id])
     |> validate_email()
     |> maybe_set_display_name()
@@ -104,7 +112,12 @@ defmodule Bobine.Viewers.Viewer do
   """
   def subscription_changeset(viewer, attrs) do
     viewer
-    |> cast(attrs, [:subscription_status, :subscription_expires_at, :trial_expires_at])
+    |> cast(attrs, [
+      :subscription_status,
+      :subscription_expires_at,
+      :trial_expires_at,
+      :stripe_customer_id
+    ])
     |> validate_required([:subscription_status])
     |> validate_inclusion(:subscription_status, ~w(none trial active past_due canceled expired))
   end

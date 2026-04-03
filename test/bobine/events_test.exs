@@ -3,8 +3,8 @@ defmodule Bobine.EventsTest do
 
   import Ecto.Query
 
-  alias Bobine.Events
   alias Bobine.Accounts.Scope
+  alias Bobine.Events
 
   describe "broadcast/2" do
     test "sends to org-specific and global PubSub topics" do
@@ -59,7 +59,7 @@ defmodule Bobine.EventsTest do
           )
         )
 
-      assert length(logs) > 0
+      assert logs != []
       assert hd(logs).resource_type == "Video"
     end
   end

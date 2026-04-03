@@ -1,15 +1,21 @@
 defmodule Bobine.Billing do
   @moduledoc """
-  The Billing context.
+  Viewer-facing billing operations via Stripe Connect.
+
+  Separate from `Bobine.PlatformBilling` which handles org-to-Bobine subscriptions.
+  This context manages plans, coupons, checkout sessions, and viewer subscriptions
+  on each organization's connected Stripe account.
   """
 
   import Ecto.Query, warn: false
-  alias Bobine.Repo
-  alias Bobine.Pagination
-  alias Bobine.Events
   alias Bobine.Accounts.Organization
+  alias Bobine.Audit
+  alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   require Bobine.Otel
+  require Logger
 
   alias Bobine.Billing.Plan
 
@@ -57,11 +63,13 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def create_plan(attrs) do
-    with {:ok, plan} <- %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:plan_created, plan})
-      {:ok, plan}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
+      {:ok, plan} ->
+        Events.broadcast(nil, {:plan_created, plan})
+        {:ok, plan}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
@@ -71,11 +79,13 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def update_plan(%Plan{} = plan, attrs) do
-    with {:ok, plan} <- plan |> Plan.changeset(attrs) |> Repo.update() do
-      Events.broadcast(nil, {:plan_updated, plan})
-      {:ok, plan}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case plan |> Plan.changeset(attrs) |> Repo.update() do
+      {:ok, plan} ->
+        Events.broadcast(nil, {:plan_updated, plan})
+        {:ok, plan}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
@@ -150,11 +160,13 @@ defmodule Bobine.Billing do
   """
   def create_subscription(attrs) do
     Bobine.Otel.with_span "bobine.billing.create_subscription" do
-      with {:ok, sub} <- %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
-        Events.broadcast(nil, {:subscription_created, sub})
-        {:ok, sub}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
+        {:ok, sub} ->
+          Events.broadcast(nil, {:subscription_created, sub})
+          {:ok, sub}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -191,5 +203,727 @@ defmodule Bobine.Billing do
   """
   def change_subscription(%Subscription{} = subscription, attrs \\ %{}) do
     Subscription.changeset(subscription, attrs)
+  end
+
+  # ── Plan management with Stripe sync ────────────────────────────────────
+
+  @doc """
+  Creates a plan on the org's connected Stripe account and stores it locally.
+
+  Creates a Stripe Product and Price on the connected account, then inserts
+  the Plan record with the Stripe IDs.
+
+  Exempt from doctest — calls external API.
+  """
+  def create_plan_with_stripe(%Organization{} = org, attrs) do
+    Bobine.Otel.with_span "bobine.billing.create_plan",
+                          %{"bobine.org.id" => org.id} do
+      with :ok <- ensure_stripe_connected(org),
+           {:ok, product} <- create_connected_product(org, attrs),
+           {:ok, price} <- create_connected_price(org, product, attrs) do
+        plan_attrs =
+          attrs
+          |> stringify_keys()
+          |> Map.merge(%{
+            "organization_id" => org.id,
+            "stripe_product_id" => product.id,
+            "stripe_price_id" => price.id,
+            "active" => true
+          })
+
+        case create_plan(plan_attrs) do
+          {:ok, plan} ->
+            Audit.log(nil, "plan.created", plan, %{amount: plan.amount, interval: plan.interval})
+            {:ok, plan}
+
+          error ->
+            error
+        end
+      end
+    end
+  end
+
+  @doc """
+  Updates a plan. If the price changed, creates a new Stripe Price on the
+  connected account (Stripe Prices are immutable).
+
+  Exempt from doctest — calls external API.
+  """
+  def update_plan_with_stripe(%Organization{} = org, %Plan{} = plan, attrs) do
+    Bobine.Otel.with_span "bobine.billing.update_plan",
+                          %{"bobine.org.id" => org.id} do
+      if price_changed?(plan, attrs) do
+        with :ok <- ensure_stripe_connected(org),
+             {:ok, new_price} <- create_connected_price(org, plan, attrs) do
+          update_plan(plan, Map.put(attrs, :stripe_price_id, new_price.id))
+        end
+      else
+        update_plan(plan, attrs)
+      end
+    end
+  end
+
+  @doc """
+  Deactivates a plan by setting `active: false`. The plan remains in the
+  database but is hidden from the subscriber-facing page.
+
+  Exempt from doctest — hits the database.
+  """
+  def deactivate_plan(%Plan{} = plan) do
+    plan
+    |> Ecto.Changeset.change(active: false)
+    |> Repo.update()
+  end
+
+  @doc """
+  Reactivates a deactivated plan.
+
+  Exempt from doctest — hits the database.
+  """
+  def reactivate_plan(%Plan{} = plan) do
+    plan
+    |> Ecto.Changeset.change(active: true)
+    |> Repo.update()
+  end
+
+  @doc """
+  Gets a plan by ID scoped to an organization.
+
+  Returns `{:ok, plan}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_plan(%Organization{id: org_id}, id) do
+    Plan
+    |> where(organization_id: ^org_id, id: ^id)
+    |> where([p], is_nil(p.deleted_at))
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      plan -> {:ok, plan}
+    end
+  end
+
+  @doc """
+  Gets a plan by ID scoped to an organization. Raises on not found.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_plan!(%Organization{id: org_id}, id) do
+    Plan
+    |> where(organization_id: ^org_id, id: ^id)
+    |> where([p], is_nil(p.deleted_at))
+    |> Repo.one!()
+  end
+
+  defp price_changed?(plan, attrs) do
+    amount = get_attr(attrs, :amount)
+    interval = get_attr(attrs, :interval)
+    currency = get_attr(attrs, :currency)
+
+    (amount && amount != plan.amount) ||
+      (interval && interval != plan.interval) ||
+      (currency && currency != plan.currency)
+  end
+
+  defp create_connected_product(org, attrs) do
+    stripe_client().create_connected_product(
+      %{name: get_attr(attrs, :name), description: get_attr(attrs, :description)},
+      connect_account: org.stripe_connect_account_id
+    )
+  end
+
+  defp create_connected_price(org, product_or_plan, attrs) do
+    product_id =
+      case product_or_plan do
+        %{stripe_product_id: id} -> id
+        %{id: id} -> id
+      end
+
+    stripe_client().create_connected_price(
+      %{
+        product: product_id,
+        unit_amount: get_attr(attrs, :amount),
+        currency: get_attr(attrs, :currency) || "usd",
+        recurring: %{interval: stripe_interval(get_attr(attrs, :interval))}
+      },
+      connect_account: org.stripe_connect_account_id
+    )
+  end
+
+  defp get_attr(map, key) when is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp stripe_interval(:monthly), do: "month"
+  defp stripe_interval(:yearly), do: "year"
+  defp stripe_interval("monthly"), do: "month"
+  defp stripe_interval("yearly"), do: "year"
+  defp stripe_interval(other), do: to_string(other)
+
+  # ── Coupons ─────────────────────────────────────────────────────────────
+
+  alias Bobine.Billing.Coupon
+
+  @doc """
+  Returns a paginated list of coupons for an organization, excluding soft-deleted records.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_coupons(%Organization{id: org_id}, opts \\ []) do
+    Coupon
+    |> where(organization_id: ^org_id)
+    |> where([c], is_nil(c.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Creates a coupon on the org's connected Stripe account and stores it locally.
+
+  Exempt from doctest — calls external API.
+  """
+  def create_coupon(%Organization{} = org, attrs) do
+    Bobine.Otel.with_span "bobine.billing.create_coupon",
+                          %{"bobine.org.id" => org.id} do
+      with :ok <- ensure_stripe_connected(org),
+           {:ok, stripe_coupon} <-
+             stripe_client().create_connected_coupon(
+               build_stripe_coupon_params(attrs),
+               connect_account: org.stripe_connect_account_id
+             ),
+           {:ok, promo_code} <-
+             stripe_client().create_connected_promotion_code(
+               %{
+                 coupon: stripe_coupon.id,
+                 code: String.upcase(to_string(attrs[:code] || attrs["code"]))
+               },
+               connect_account: org.stripe_connect_account_id
+             ) do
+        coupon_attrs =
+          Map.merge(attrs, %{
+            organization_id: org.id,
+            stripe_coupon_id: stripe_coupon.id,
+            stripe_promotion_code_id: promo_code.id,
+            active: true
+          })
+
+        case %Coupon{} |> Coupon.changeset(coupon_attrs) |> Repo.insert() do
+          {:ok, coupon} ->
+            Events.broadcast(%{organization: org}, {:coupon_created, coupon})
+            Audit.log(nil, "coupon.created", coupon, %{code: coupon.code})
+            {:ok, coupon}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+      end
+    end
+  end
+
+  @doc """
+  Deactivates a coupon locally. The Stripe promotion code remains but is
+  no longer referenced by new checkouts.
+
+  Exempt from doctest — hits the database.
+  """
+  def deactivate_coupon(%Coupon{} = coupon) do
+    coupon
+    |> Ecto.Changeset.change(active: false)
+    |> Repo.update()
+  end
+
+  @doc """
+  Soft-deletes a coupon.
+
+  Exempt from doctest — hits the database.
+  """
+  def delete_coupon(%Coupon{} = coupon) do
+    coupon
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a changeset for coupon form tracking.
+
+  ## Examples
+
+      iex> change_coupon(%Bobine.Billing.Coupon{})
+      %Ecto.Changeset{data: %Bobine.Billing.Coupon{}}
+  """
+  def change_coupon(%Coupon{} = coupon, attrs \\ %{}) do
+    Coupon.changeset(coupon, attrs)
+  end
+
+  defp build_stripe_coupon_params(attrs) do
+    duration = attr_value(attrs, :duration)
+
+    %{name: attr_value(attrs, :name)}
+    |> maybe_put_discount(attrs)
+    |> Map.put(:duration, to_string(duration))
+    |> maybe_put_duration_months(duration, attrs)
+    |> maybe_put_max_redemptions(attrs)
+  end
+
+  defp maybe_put_discount(params, attrs) do
+    cond do
+      present?(attr_value(attrs, :percent_off)) ->
+        Map.put(params, :percent_off, attr_value(attrs, :percent_off))
+
+      present?(attr_value(attrs, :amount_off)) ->
+        params
+        |> Map.put(:amount_off, attr_value(attrs, :amount_off))
+        |> Map.put(:currency, attr_value(attrs, :currency) || "usd")
+
+      true ->
+        params
+    end
+  end
+
+  defp maybe_put_duration_months(params, duration, attrs) do
+    case duration do
+      :repeating -> Map.put(params, :duration_in_months, attr_value(attrs, :duration_in_months))
+      "repeating" -> Map.put(params, :duration_in_months, attr_value(attrs, :duration_in_months))
+      _ -> params
+    end
+  end
+
+  defp maybe_put_max_redemptions(params, attrs) do
+    case attr_value(attrs, :max_redemptions) do
+      nil -> params
+      max -> Map.put(params, :max_redemptions, max)
+    end
+  end
+
+  defp attr_value(attrs, key) when is_atom(key) do
+    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  end
+
+  defp present?(value), do: not is_nil(value)
+
+  # ── Viewer checkout and subscription lifecycle ──────────────────────────
+
+  alias Bobine.Billing.ViewerSubscription
+  alias Bobine.Viewers.Viewer
+
+  @doc """
+  Creates a Stripe Checkout Session for a viewer to subscribe to a plan.
+
+  Returns `{:ok, session}` with a `.url` field for redirect, or an error tuple.
+
+  Exempt from doctest — calls external API.
+  """
+  def create_viewer_checkout(%Organization{} = org, %Viewer{} = viewer, %Plan{} = plan) do
+    Bobine.Otel.with_span "bobine.billing.create_viewer_checkout",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      with :ok <- ensure_stripe_connected(org) do
+        params = %{
+          organization_id: org.id,
+          viewer_id: viewer.id,
+          viewer_email: viewer.email,
+          stripe_connect_account_id: org.stripe_connect_account_id,
+          line_items: [%{price: plan.stripe_price_id, quantity: 1}],
+          success_url: "#{org_base_url(org)}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
+          cancel_url: "#{org_base_url(org)}/subscribe",
+          trial_period_days: plan.trial_period_days
+        }
+
+        case stripe_client().create_connected_checkout_session(params) do
+          {:ok, session} ->
+            Bobine.Metrics.checkout_initiated(org.id, plan.id)
+            {:ok, session}
+
+          {:error, :stripe_error, reason} ->
+            Logger.error("Viewer checkout failed",
+              org_id: org.id,
+              viewer_id: viewer.id,
+              reason: inspect(reason)
+            )
+
+            {:error, :stripe_error, reason}
+        end
+      end
+    end
+  end
+
+  @doc """
+  Creates a Stripe Customer Portal session for a viewer to manage their subscription.
+
+  Exempt from doctest — calls external API.
+  """
+  def create_viewer_portal_session(%Organization{} = org, %Viewer{} = viewer) do
+    Bobine.Otel.with_span "bobine.billing.create_viewer_portal_session",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      with :ok <- ensure_stripe_connected(org) do
+        stripe_client().create_connected_portal_session(
+          %{customer: viewer.stripe_customer_id, return_url: "#{org_base_url(org)}/account"},
+          connect_account: org.stripe_connect_account_id
+        )
+      end
+    end
+  end
+
+  @doc """
+  Creates a ViewerSubscription record from a completed Stripe Checkout session.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_subscription_from_checkout(%Organization{} = org, %Viewer{} = viewer, session) do
+    Bobine.Otel.with_span "bobine.billing.create_subscription_from_checkout",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      stripe_sub_id = session["subscription"]
+      stripe_customer_id = session["customer"]
+
+      plan = find_plan_by_stripe_price(org, session)
+
+      attrs = %{
+        organization_id: org.id,
+        viewer_id: viewer.id,
+        plan_id: plan && plan.id,
+        stripe_subscription_id: stripe_sub_id,
+        stripe_customer_id: stripe_customer_id,
+        status: "active"
+      }
+
+      case %ViewerSubscription{} |> ViewerSubscription.changeset(attrs) |> Repo.insert() do
+        {:ok, subscription} ->
+          Events.broadcast(%{organization: org}, {:viewer_subscription_created, subscription})
+          Audit.log(nil, "viewer_subscription.created", subscription, %{viewer_id: viewer.id})
+          {:ok, subscription}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Activates a viewer's subscription status based on the subscription state.
+
+  Exempt from doctest — hits the database.
+  """
+  def activate_viewer_subscription(%Organization{} = org, %Viewer{} = viewer, subscription) do
+    status = if subscription.trial_end, do: "trial", else: "active"
+
+    attrs = %{subscription_status: status}
+
+    attrs =
+      if subscription.trial_end do
+        Map.put(attrs, :trial_expires_at, subscription.trial_end)
+      else
+        attrs
+      end
+
+    viewer
+    |> Viewer.subscription_changeset(attrs)
+    |> Repo.update!()
+
+    Events.broadcast(%{organization: org}, {:subscription_activated, viewer})
+    :ok
+  end
+
+  @doc """
+  Gets a ViewerSubscription by its Stripe subscription ID, scoped to an org.
+
+  Returns `{:ok, subscription}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_viewer_subscription_by_stripe_id(%Organization{id: org_id}, stripe_sub_id) do
+    ViewerSubscription
+    |> where(organization_id: ^org_id, stripe_subscription_id: ^stripe_sub_id)
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      sub -> {:ok, sub}
+    end
+  end
+
+  @doc """
+  Updates a ViewerSubscription from Stripe webhook data.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_subscription_from_stripe(%Organization{} = org, %ViewerSubscription{} = sub, data) do
+    new_plan = find_plan_from_subscription_data(org, data)
+
+    attrs = %{
+      status: data["status"],
+      current_period_start: parse_stripe_timestamp(data["current_period_start"]),
+      current_period_end: parse_stripe_timestamp(data["current_period_end"]),
+      cancel_at_period_end: data["cancel_at_period_end"] || false,
+      canceled_at: parse_stripe_timestamp(data["canceled_at"]),
+      trial_start: parse_stripe_timestamp(get_in(data, ["trial_start"])),
+      trial_end: parse_stripe_timestamp(get_in(data, ["trial_end"]))
+    }
+
+    attrs =
+      if new_plan && new_plan.id != sub.plan_id do
+        Logger.info("Viewer plan changed",
+          org_id: org.id,
+          viewer_id: sub.viewer_id,
+          old_plan_id: sub.plan_id,
+          new_plan_id: new_plan.id
+        )
+
+        Map.put(attrs, :plan_id, new_plan.id)
+      else
+        attrs
+      end
+
+    sub
+    |> ViewerSubscription.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Syncs the viewer's subscription_status field with the ViewerSubscription state.
+
+  Exempt from doctest — hits the database.
+  """
+  def sync_viewer_subscription_status(%Viewer{} = viewer, %ViewerSubscription{} = sub) do
+    attrs = %{subscription_status: sub.status}
+
+    attrs =
+      if sub.cancel_at_period_end do
+        Map.put(attrs, :subscription_expires_at, sub.current_period_end)
+      else
+        attrs
+      end
+
+    viewer
+    |> Viewer.subscription_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Marks a viewer's subscription as past_due after payment failure.
+
+  Exempt from doctest — hits the database.
+  """
+  def mark_payment_failed(%Organization{} = org, %Viewer{} = viewer, %ViewerSubscription{} = sub) do
+    Bobine.Otel.with_span "bobine.billing.mark_payment_failed",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      sub |> Ecto.Changeset.change(status: "past_due") |> Repo.update!()
+
+      viewer
+      |> Viewer.subscription_changeset(%{subscription_status: "past_due"})
+      |> Repo.update!()
+
+      Events.broadcast(%{organization: org}, {:payment_failed, viewer, sub})
+      Audit.log(nil, "subscription.payment_failed", sub, %{viewer_id: viewer.id})
+      :ok
+    end
+  end
+
+  @doc """
+  Restores a viewer's subscription to active after successful payment recovery.
+
+  Exempt from doctest — hits the database.
+  """
+  def mark_payment_succeeded(
+        %Organization{} = org,
+        %Viewer{} = viewer,
+        %ViewerSubscription{} = sub
+      ) do
+    if viewer.subscription_status == "past_due" do
+      sub |> Ecto.Changeset.change(status: "active") |> Repo.update!()
+      viewer |> Viewer.subscription_changeset(%{subscription_status: "active"}) |> Repo.update!()
+
+      Events.broadcast(%{organization: org}, {:payment_recovered, viewer, sub})
+    end
+
+    :ok
+  end
+
+  @doc """
+  Cancels a viewer's subscription from a Stripe webhook.
+
+  Exempt from doctest — hits the database.
+  """
+  def cancel_subscription_from_stripe(
+        %Organization{} = org,
+        %Viewer{} = viewer,
+        %ViewerSubscription{} = sub
+      ) do
+    sub
+    |> Ecto.Changeset.change(
+      status: "canceled",
+      canceled_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    )
+    |> Repo.update!()
+
+    viewer
+    |> Viewer.subscription_changeset(%{subscription_status: "canceled"})
+    |> Repo.update!()
+
+    Events.broadcast(%{organization: org}, {:subscription_canceled, viewer, sub})
+    Audit.log(nil, "subscription.canceled", sub, %{viewer_id: viewer.id})
+    :ok
+  end
+
+  @doc """
+  Gets the active ViewerSubscription for a viewer.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_active_viewer_subscription(%Organization{id: org_id}, %Viewer{id: viewer_id}) do
+    ViewerSubscription
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([s], s.status in ["active", "trialing", "past_due"])
+    |> where([s], is_nil(s.deleted_at))
+    |> order_by(desc: :inserted_at)
+    |> limit(1)
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      sub -> {:ok, sub}
+    end
+  end
+
+  defp find_plan_by_stripe_price(org, session) do
+    price_id = extract_price_id(session, "line_items")
+
+    if price_id do
+      Plan
+      |> where(organization_id: ^org.id, stripe_price_id: ^price_id)
+      |> Repo.one()
+    end
+  end
+
+  defp find_plan_from_subscription_data(org, data) do
+    price_id = extract_price_id(data, "items")
+
+    if price_id do
+      Plan
+      |> where(organization_id: ^org.id, stripe_price_id: ^price_id)
+      |> Repo.one()
+    end
+  end
+
+  defp extract_price_id(data, items_key) do
+    case get_in(data, [items_key, "data"]) do
+      [%{"price" => %{"id" => id}} | _] -> id
+      [%{"price" => price_id} | _] when is_binary(price_id) -> price_id
+      _ -> nil
+    end
+  end
+
+  defp parse_stripe_timestamp(nil), do: nil
+  defp parse_stripe_timestamp(ts) when is_integer(ts), do: DateTime.from_unix!(ts)
+  defp parse_stripe_timestamp(%DateTime{} = dt), do: dt
+  defp parse_stripe_timestamp(_), do: nil
+
+  # ── Stripe Connect onboarding ──────────────────────────────────────────
+
+  @doc """
+  Initiates Stripe Connect onboarding for an organization.
+
+  Creates a Stripe Connect account if one doesn't exist, then returns
+  the onboarding URL. Returns `{:ok, url}` or `{:error, :stripe_error, reason}`.
+
+  Exempt from doctest — calls external API.
+  """
+  def initiate_connect_onboarding(%Organization{} = org) do
+    Bobine.Otel.with_span "bobine.billing.initiate_connect_onboarding",
+                          %{"bobine.org.id" => org.id} do
+      with {:ok, account_id} <- ensure_connect_account(org),
+           {:ok, link} <-
+             stripe_client().create_connect_account_link(account_id, %{
+               return_url: "#{org_base_url(org)}/admin/settings/stripe/return",
+               refresh_url: "#{org_base_url(org)}/admin/settings/stripe/refresh"
+             }) do
+        {:ok, link.url}
+      else
+        {:error, :stripe_error, reason} -> {:error, :stripe_error, reason}
+        {:error, reason} -> {:error, :stripe_error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Completes Stripe Connect onboarding by storing the account ID and setting
+  the onboarding complete flag.
+
+  Exempt from doctest — hits the database.
+  """
+  def complete_connect_onboarding(%Organization{} = org, stripe_account_id) do
+    Bobine.Otel.with_span "bobine.billing.complete_connect_onboarding",
+                          %{"bobine.org.id" => org.id} do
+      org
+      |> Organization.changeset(%{
+        stripe_connect_account_id: stripe_account_id,
+        stripe_connect_onboarding_complete: true
+      })
+      |> Repo.update()
+      |> case do
+        {:ok, org} ->
+          Events.broadcast(%{organization: org}, {:stripe_connected, org})
+          Audit.log(nil, "organization.stripe_connected", org, %{})
+          {:ok, org}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Checks whether the organization has completed Stripe Connect onboarding.
+
+  Returns `:ok` if connected, `{:error, :stripe_not_connected}` otherwise.
+
+  ## Examples
+
+      iex> ensure_stripe_connected(%Bobine.Accounts.Organization{stripe_connect_onboarding_complete: true})
+      :ok
+
+      iex> ensure_stripe_connected(%Bobine.Accounts.Organization{stripe_connect_onboarding_complete: false})
+      {:error, :stripe_not_connected}
+  """
+  def ensure_stripe_connected(%Organization{stripe_connect_onboarding_complete: true}), do: :ok
+  def ensure_stripe_connected(%Organization{}), do: {:error, :stripe_not_connected}
+
+  defp ensure_connect_account(%Organization{stripe_connect_account_id: id})
+       when is_binary(id) and id != "" do
+    {:ok, id}
+  end
+
+  defp ensure_connect_account(%Organization{} = org) do
+    case stripe_client().create_connect_account(%{
+           type: "standard",
+           metadata: %{bobine_org_id: org.id}
+         }) do
+      {:ok, account} ->
+        org
+        |> Ecto.Changeset.change(stripe_connect_account_id: account.id)
+        |> Repo.update!()
+
+        {:ok, account.id}
+
+      {:error, :stripe_error, reason} ->
+        {:error, :stripe_error, reason}
+    end
+  end
+
+  defp stripe_client, do: Application.get_env(:bobine, :stripe_client)
+
+  defp stringify_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_atom(key) -> {Atom.to_string(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp org_base_url(%Organization{custom_domain: domain})
+       when is_binary(domain) and domain != "" do
+    "https://#{domain}"
+  end
+
+  defp org_base_url(%Organization{slug: slug}) do
+    base = Application.get_env(:bobine, BobineWeb.Endpoint)[:url][:host] || "localhost:4000"
+    scheme = if base =~ "localhost", do: "http", else: "https"
+    "#{scheme}://#{slug}.#{base}"
   end
 end

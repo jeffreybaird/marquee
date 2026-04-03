@@ -1,8 +1,8 @@
 defmodule BobineWeb.Super.PlansLive do
   use BobineWeb, :live_view
 
-  alias Bobine.PlatformBilling
   alias Bobine.Billing.PlatformPlan
+  alias Bobine.PlatformBilling
 
   @impl true
   def mount(_params, _session, socket) do

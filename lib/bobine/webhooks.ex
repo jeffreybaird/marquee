@@ -4,9 +4,9 @@ defmodule Bobine.Webhooks do
   """
 
   import Ecto.Query, warn: false
-  alias Bobine.Repo
-  alias Bobine.Pagination
   alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   alias Bobine.Webhooks.Endpoint
 
@@ -53,11 +53,13 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def create_endpoint(attrs) do
-    with {:ok, endpoint} <- %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:endpoint_created, endpoint})
-      {:ok, endpoint}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
+      {:ok, endpoint} ->
+        Events.broadcast(nil, {:endpoint_created, endpoint})
+        {:ok, endpoint}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
@@ -67,11 +69,13 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def update_endpoint(%Endpoint{} = endpoint, attrs) do
-    with {:ok, endpoint} <- endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
-      Events.broadcast(nil, {:endpoint_updated, endpoint})
-      {:ok, endpoint}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
+      {:ok, endpoint} ->
+        Events.broadcast(nil, {:endpoint_updated, endpoint})
+        {:ok, endpoint}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 

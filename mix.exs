@@ -93,7 +93,8 @@ defmodule Bobine.MixProject do
       {:opentelemetry_logger_metadata, "~> 0.1"},
 
       # Structured JSON logging for production
-      {:logger_json, "~> 6.0"}
+      {:logger_json, "~> 6.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 

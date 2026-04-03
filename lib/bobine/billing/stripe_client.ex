@@ -90,6 +90,138 @@ defmodule Bobine.Billing.StripeClient do
     end)
   end
 
+  # ── Connected account operations (Stripe Connect) ──────────────────────
+
+  @impl true
+  def create_connect_account(params) do
+    traced_call("create_connect_account", fn ->
+      Stripe.Account.create(params)
+    end)
+  end
+
+  @impl true
+  def create_connect_account_link(account_id, params) do
+    traced_call("create_connect_account_link", fn ->
+      Stripe.AccountLink.create(%{
+        account: account_id,
+        type: :account_onboarding,
+        return_url: params[:return_url] || params["return_url"],
+        refresh_url: params[:refresh_url] || params["refresh_url"]
+      })
+    end)
+  end
+
+  @impl true
+  def get_connect_account(account_id) do
+    traced_call("get_connect_account", fn ->
+      Stripe.Account.retrieve(account_id)
+    end)
+  end
+
+  @impl true
+  def create_connected_product(params, opts) do
+    traced_call("create_connected_product", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.Product.create(params, opts)
+    end)
+  end
+
+  @impl true
+  def create_connected_price(params, opts) do
+    traced_call("create_connected_price", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.Price.create(params, opts)
+    end)
+  end
+
+  @impl true
+  def deactivate_connected_price(price_id, opts) do
+    traced_call("deactivate_connected_price", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.Price.update(price_id, %{active: false}, opts)
+    end)
+  end
+
+  @impl true
+  def create_connected_coupon(params, opts) do
+    traced_call("create_connected_coupon", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.Coupon.create(params, opts)
+    end)
+  end
+
+  @impl true
+  def deactivate_connected_coupon(coupon_id, opts) do
+    traced_call("deactivate_connected_coupon", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.Coupon.update(coupon_id, %{metadata: %{"deactivated" => "true"}}, opts)
+    end)
+  end
+
+  @impl true
+  def create_connected_promotion_code(params, opts) do
+    traced_call("create_connected_promotion_code", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.PromotionCode.create(params, opts)
+    end)
+  end
+
+  @dialyzer {:nowarn_function, create_connected_checkout_session: 1}
+  @impl true
+  def create_connected_checkout_session(params) do
+    account_id = params[:stripe_connect_account_id] || params["stripe_connect_account_id"]
+    key = Bobine.Idempotency.key("viewer_checkout", params[:organization_id], params[:viewer_id])
+
+    traced_call("create_connected_checkout_session", fn ->
+      Tracer.set_attribute("stripe.connect_account", account_id)
+      Tracer.set_attribute("bobine.idempotency_key", key)
+
+      checkout_params = %{
+        mode: :subscription,
+        line_items: params[:line_items],
+        success_url: params[:success_url],
+        cancel_url: params[:cancel_url],
+        customer_email: params[:viewer_email],
+        subscription_data: build_subscription_data(params),
+        allow_promotion_codes: true,
+        application_fee_percent: 2.0,
+        metadata: %{
+          "bobine_org_id" => to_string(params[:organization_id]),
+          "bobine_viewer_id" => to_string(params[:viewer_id])
+        }
+      }
+
+      Stripe.Checkout.Session.create(
+        checkout_params,
+        connect_account: account_id,
+        idempotency_key: key
+      )
+    end)
+  end
+
+  @impl true
+  def create_connected_portal_session(params, opts) do
+    traced_call("create_connected_portal_session", fn ->
+      Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
+      Stripe.BillingPortal.Session.create(params, opts)
+    end)
+  end
+
+  defp build_subscription_data(params) do
+    base = %{
+      metadata: %{
+        "bobine_org_id" => to_string(params[:organization_id]),
+        "bobine_viewer_id" => to_string(params[:viewer_id])
+      }
+    }
+
+    if params[:trial_period_days] && params[:trial_period_days] > 0 do
+      Map.put(base, :trial_period_days, params[:trial_period_days])
+    else
+      base
+    end
+  end
+
   defp traced_call(operation, fun) do
     Tracer.with_span "bobine.stripe.#{operation}" do
       Tracer.set_attribute("stripe.operation", operation)

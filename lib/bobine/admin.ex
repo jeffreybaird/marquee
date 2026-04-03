@@ -9,24 +9,24 @@ defmodule Bobine.Admin do
 
   import Ecto.Query, warn: false
 
-  alias Bobine.Repo
-  alias Bobine.Pagination
   alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   require Bobine.Otel
-  alias Bobine.Accounts.{Organization, User, Membership}
-  alias Bobine.Branding
-  alias Bobine.Branding.Theme
-  alias Bobine.Content.{Video, Collection, CollectionItem, Tag}
-  alias Bobine.Catalog.Row
-  alias Bobine.Catalog.HeroSlide
-  alias Bobine.Billing.{Plan, Subscription}
-  alias Bobine.Engagement.{WatchlistItem, Favorite, WatchHistory, Progress}
-  alias Bobine.Webhooks.Endpoint, as: WebhookEndpoint
-  alias Bobine.Notifications.Notification
+  alias Bobine.Accounts.{Membership, Organization, User}
   alias Bobine.Analytics.Event, as: AnalyticsEvent
   alias Bobine.Audit.Log, as: AuditLog
+  alias Bobine.Billing.{Plan, Subscription}
+  alias Bobine.Branding
+  alias Bobine.Branding.Theme
+  alias Bobine.Catalog.HeroSlide
+  alias Bobine.Catalog.Row
+  alias Bobine.Content.{Collection, CollectionItem, Tag, Video}
+  alias Bobine.Engagement.{Favorite, Progress, WatchHistory, WatchlistItem}
+  alias Bobine.Notifications.Notification
   alias Bobine.Viewers.{Viewer, ViewerToken}
+  alias Bobine.Webhooks.Endpoint, as: WebhookEndpoint
 
   ## Organizations
 

@@ -1,8 +1,12 @@
 defmodule Bobine.Accounts.UserNotifier do
+  @moduledoc """
+  Email delivery helpers for user account flows.
+  """
+
   import Swoosh.Email
 
-  alias Bobine.Mailer
   alias Bobine.Accounts.User
+  alias Bobine.Mailer
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do

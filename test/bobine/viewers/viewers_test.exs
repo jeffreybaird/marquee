@@ -1,9 +1,9 @@
 defmodule Bobine.ViewersTest do
   use Bobine.DataCase
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Viewers
   alias Bobine.Viewers.Viewer
-  alias Bobine.Accounts.Scope
 
   defp build_scope(org) do
     %Scope{user: nil, organization: org, membership: nil}

@@ -9,17 +9,16 @@ defmodule Bobine.Catalog do
 
   import Ecto.Query, warn: false
 
-  alias Bobine.Repo
-  alias Bobine.Pagination
-  alias Bobine.Events
+  alias Bobine.Accounts.Organization
   alias Bobine.Audit
   alias Bobine.Cache
+  alias Bobine.Catalog.{HeroSlide, Row, RowItem}
   alias Bobine.Content
-  alias Bobine.Accounts.Organization
+  alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   require Bobine.Otel
-
-  alias Bobine.Catalog.{Row, RowItem, HeroSlide}
 
   ## -----------------------------------------------------------------------
   ## Rows
@@ -92,12 +91,14 @@ defmodule Bobine.Catalog do
                           %{"bobine.org.id" => scope.organization.id} do
       attrs = put_org_id(attrs, scope.organization.id)
 
-      with {:ok, row} <- %Row{} |> Row.changeset(attrs) |> Repo.insert() do
-        Events.broadcast(scope, {:row_created, row})
-        Audit.log(scope, "row.created", row)
-        {:ok, row}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case %Row{} |> Row.changeset(attrs) |> Repo.insert() do
+        {:ok, row} ->
+          Events.broadcast(scope, {:row_created, row})
+          Audit.log(scope, "row.created", row)
+          {:ok, row}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -110,18 +111,20 @@ defmodule Bobine.Catalog do
   def update_row(scope, %Row{} = row, attrs) do
     Bobine.Otel.with_span "bobine.catalog.update_row",
                           %{"bobine.org.id" => scope.organization.id} do
-      with {:ok, row} <- row |> Row.changeset(attrs) |> Repo.update() do
-        Events.broadcast(scope, {:row_updated, row})
-        Audit.log(scope, "row.updated", row, attrs)
-        invalidate_row_cache(scope.organization.id, row.id)
+      case row |> Row.changeset(attrs) |> Repo.update() do
+        {:ok, row} ->
+          Events.broadcast(scope, {:row_updated, row})
+          Audit.log(scope, "row.updated", row, attrs)
+          invalidate_row_cache(scope.organization.id, row.id)
 
-        if row.source_type == :hero do
-          invalidate_hero_cache(scope.organization.id)
-        end
+          if row.source_type == :hero do
+            invalidate_hero_cache(scope.organization.id)
+          end
 
-        {:ok, row}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+          {:ok, row}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end

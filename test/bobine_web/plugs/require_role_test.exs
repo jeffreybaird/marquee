@@ -1,8 +1,8 @@
 defmodule BobineWeb.Plugs.RequireRoleTest do
   use BobineWeb.ConnCase, async: true
 
-  alias BobineWeb.Plugs.RequireRole
   alias Bobine.Accounts.Scope
+  alias BobineWeb.Plugs.RequireRole
 
   # The RequireRole plug calls put_flash, which requires flash to be fetched.
   # Simulate the browser pipeline setup for plug unit tests.

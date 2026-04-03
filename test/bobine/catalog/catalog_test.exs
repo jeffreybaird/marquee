@@ -1,9 +1,9 @@
 defmodule Bobine.Catalog.CatalogTest do
   use Bobine.DataCase
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Catalog
   alias Bobine.Content
-  alias Bobine.Accounts.Scope
 
   setup do
     org = insert(:organization)

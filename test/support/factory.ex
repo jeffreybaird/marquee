@@ -1,4 +1,5 @@
 defmodule Bobine.Factory do
+  @moduledoc false
   use ExMachina.Ecto, repo: Bobine.Repo
 
   # -------------------------------------------------------------------------
@@ -217,6 +218,31 @@ defmodule Bobine.Factory do
       plan: build(:plan),
       stripe_subscription_id: sequence(:stripe_sub_id, &"sub_#{&1}"),
       status: :active,
+      current_period_end:
+        DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
+    }
+  end
+
+  def coupon_factory do
+    %Bobine.Billing.Coupon{
+      organization: build(:organization),
+      code: sequence(:coupon_code, &"CODE#{&1}"),
+      name: sequence(:coupon_name, &"Coupon #{&1}"),
+      percent_off: Decimal.new("10"),
+      duration: :once,
+      stripe_coupon_id: sequence(:stripe_coupon_id, &"coupon_#{&1}"),
+      stripe_promotion_code_id: sequence(:stripe_promo_id, &"promo_#{&1}"),
+      active: true
+    }
+  end
+
+  def viewer_subscription_factory do
+    %Bobine.Billing.ViewerSubscription{
+      organization: build(:organization),
+      viewer: build(:viewer),
+      stripe_subscription_id: sequence(:viewer_sub_id, &"sub_viewer_#{&1}"),
+      stripe_customer_id: sequence(:viewer_cus_id, &"cus_viewer_#{&1}"),
+      status: "active",
       current_period_end:
         DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
     }

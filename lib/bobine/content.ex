@@ -10,15 +10,15 @@ defmodule Bobine.Content do
 
   require Logger
 
-  alias Bobine.Repo
-  alias Bobine.Pagination
-  alias Bobine.Events
-  alias Bobine.Audit
   alias Bobine.Accounts.Organization
+  alias Bobine.Audit
+  alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   require Bobine.Otel
 
-  alias Bobine.Content.{Video, Collection, CollectionItem, Tag, VideoTag}
+  alias Bobine.Content.{Collection, CollectionItem, Tag, Video, VideoTag}
   alias Bobine.PlatformBilling.UsageLimits
 
   ## -----------------------------------------------------------------------
@@ -99,11 +99,11 @@ defmodule Bobine.Content do
   Exempt from doctest — calls Mux API.
   """
   def create_upload_url(scope, attrs, opts \\ []) do
-    unless UsageLimits.can_upload_video?(scope.organization) do
+    if UsageLimits.can_upload_video?(scope.organization) do
+      do_create_upload_url(scope, attrs, opts)
+    else
       limit_status = UsageLimits.video_limit_status(scope.organization)
       {:error, :plan_limit_reached, limit_status}
-    else
-      do_create_upload_url(scope, attrs, opts)
     end
   end
 
@@ -293,11 +293,13 @@ defmodule Bobine.Content do
   """
   def create_video(attrs) do
     Bobine.Otel.with_span "bobine.content.create_video" do
-      with {:ok, video} <- %Video{} |> Video.changeset(attrs) |> Repo.insert() do
-        Events.broadcast(nil, {:video_created, video})
-        {:ok, video}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case %Video{} |> Video.changeset(attrs) |> Repo.insert() do
+        {:ok, video} ->
+          Events.broadcast(nil, {:video_created, video})
+          {:ok, video}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -309,11 +311,13 @@ defmodule Bobine.Content do
   """
   def update_video(%Video{} = video, attrs) do
     Bobine.Otel.with_span "bobine.content.update_video" do
-      with {:ok, video} <- video |> Video.changeset(attrs) |> Repo.update() do
-        Events.broadcast(nil, {:video_updated, video})
-        {:ok, video}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case video |> Video.changeset(attrs) |> Repo.update() do
+        {:ok, video} ->
+          Events.broadcast(nil, {:video_updated, video})
+          {:ok, video}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -441,12 +445,14 @@ defmodule Bobine.Content do
                           %{"bobine.org.id" => scope.organization.id} do
       attrs = put_org_id(attrs, scope.organization.id)
 
-      with {:ok, collection} <- %Collection{} |> Collection.changeset(attrs) |> Repo.insert() do
-        Events.broadcast(scope, {:collection_created, collection})
-        Audit.log(scope, "collection.created", collection)
-        {:ok, collection}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case %Collection{} |> Collection.changeset(attrs) |> Repo.insert() do
+        {:ok, collection} ->
+          Events.broadcast(scope, {:collection_created, collection})
+          Audit.log(scope, "collection.created", collection)
+          {:ok, collection}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -459,12 +465,14 @@ defmodule Bobine.Content do
   def update_collection(scope, %Collection{} = collection, attrs) do
     Bobine.Otel.with_span "bobine.content.update_collection",
                           %{"bobine.org.id" => scope.organization.id} do
-      with {:ok, collection} <- collection |> Collection.changeset(attrs) |> Repo.update() do
-        Events.broadcast(scope, {:collection_updated, collection})
-        Audit.log(scope, "collection.updated", collection, attrs)
-        {:ok, collection}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case collection |> Collection.changeset(attrs) |> Repo.update() do
+        {:ok, collection} ->
+          Events.broadcast(scope, {:collection_updated, collection})
+          Audit.log(scope, "collection.updated", collection, attrs)
+          {:ok, collection}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end
@@ -752,12 +760,14 @@ defmodule Bobine.Content do
   def update_tag(scope, %Tag{} = tag, attrs) do
     Bobine.Otel.with_span "bobine.content.update_tag",
                           %{"bobine.org.id" => scope.organization.id} do
-      with {:ok, tag} <- tag |> Tag.changeset(attrs) |> Repo.update() do
-        Events.broadcast(scope, {:tag_updated, tag})
-        Audit.log(scope, "tag.updated", tag, attrs)
-        {:ok, tag}
-      else
-        {:error, changeset} -> {:error, :validation, changeset}
+      case tag |> Tag.changeset(attrs) |> Repo.update() do
+        {:ok, tag} ->
+          Events.broadcast(scope, {:tag_updated, tag})
+          Audit.log(scope, "tag.updated", tag, attrs)
+          {:ok, tag}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
       end
     end
   end

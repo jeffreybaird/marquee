@@ -1,9 +1,9 @@
 defmodule BobineWeb.Admin.BillingLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Admin
   alias Bobine.PlatformBilling
   alias Bobine.PlatformBilling.UsageLimits
-  alias Bobine.Admin
 
   @impl true
   def mount(_params, _session, socket) do

@@ -44,7 +44,15 @@
       "Bash(lsof -ti:4002)",
       "Bash(xargs kill:*)",
       "Bash(grep -r \"\\\\.viewers\\\\.\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/viewer/*.ex)",
-      "Bash(mix ecto.gen.migration add_viewer_theme_fields_to_themes)"
+      "Bash(mix ecto.gen.migration add_viewer_theme_fields_to_themes)",
+      "Bash(mix ecto.gen.migration add_plan_fields_for_viewer_billing)",
+      "Bash(MIX_ENV=test mix ecto.migrate)",
+      "Bash(mix ecto.gen.migration create_coupons)",
+      "Bash(mix ecto.gen.migration create_viewer_subscriptions_and_add_stripe_customer_id)",
+      "Bash(mix deps.get)",
+      "Bash(MIX_ENV=test mix test --exclude e2e)",
+      "Bash(PORT=4099 mix test --exclude e2e)",
+      "Bash(python3 -c \" import json, sys data = json.load\\(sys.stdin\\) issues = data.get\\('issues', []\\) for i in issues: print\\(f\\\\\"{i['check'].split\\('.'\\)[-1]}|{i['filename']}:{i['line_no']}|{i.get\\('message',''\\)}|{i.get\\('trigger', ''\\)}\\\\\"\\) \")"
     ]
   }
 }

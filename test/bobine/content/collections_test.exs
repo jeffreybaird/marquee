@@ -1,8 +1,8 @@
 defmodule Bobine.Content.CollectionsTest do
   use Bobine.DataCase
 
-  alias Bobine.Content
   alias Bobine.Accounts.Scope
+  alias Bobine.Content
 
   setup do
     org = insert(:organization)

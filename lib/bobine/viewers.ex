@@ -12,12 +12,12 @@ defmodule Bobine.Viewers do
   require Bobine.Otel
   require Logger
 
-  alias Bobine.Repo
-  alias Bobine.Events
-  alias Bobine.Audit
-  alias Bobine.Pagination
   alias Bobine.Accounts.Organization
-  alias Bobine.Viewers.{Viewer, ViewerToken, ViewerNotifier}
+  alias Bobine.Audit
+  alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
+  alias Bobine.Viewers.{Viewer, ViewerNotifier, ViewerToken}
 
   ## -----------------------------------------------------------------------
   ## Registration

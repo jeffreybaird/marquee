@@ -4,9 +4,10 @@ defmodule Bobine.Engagement do
   """
 
   import Ecto.Query, warn: false
-  alias Bobine.Repo
-  alias Bobine.Pagination
+  alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Events
+  alias Bobine.Pagination
+  alias Bobine.Repo
 
   alias Bobine.Engagement.WatchlistItem
 
@@ -53,11 +54,13 @@ defmodule Bobine.Engagement do
   Exempt from doctest — hits the database.
   """
   def create_watchlist_item(attrs) do
-    with {:ok, item} <- %WatchlistItem{} |> WatchlistItem.changeset(attrs) |> Repo.insert() do
-      Events.broadcast(nil, {:watchlist_item_added, item})
-      {:ok, item}
-    else
-      {:error, changeset} -> {:error, :validation, changeset}
+    case %WatchlistItem{} |> WatchlistItem.changeset(attrs) |> Repo.insert() do
+      {:ok, item} ->
+        Events.broadcast(nil, {:watchlist_item_added, item})
+        {:ok, item}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
@@ -187,7 +190,7 @@ defmodule Bobine.Engagement do
   Exempt from doctest — writes to buffer.
   """
   def update_progress(scope, video_id, position) when is_number(position) do
-    Bobine.Buffers.ProgressBuffer.update(
+    ProgressBuffer.update(
       scope.organization.id,
       scope.user.id,
       video_id,
@@ -206,7 +209,7 @@ defmodule Bobine.Engagement do
     org_id = scope.organization.id
     user_id = scope.user.id
 
-    case Bobine.Buffers.ProgressBuffer.get(org_id, user_id, video_id) do
+    case ProgressBuffer.get(org_id, user_id, video_id) do
       nil ->
         Repo.get_by(Progress,
           organization_id: org_id,

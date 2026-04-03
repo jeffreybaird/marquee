@@ -1,10 +1,10 @@
 defmodule BobineWeb.UserAuthTest do
   use BobineWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
   alias Bobine.Accounts
   alias Bobine.Accounts.Scope
   alias BobineWeb.UserAuth
+  alias Phoenix.LiveView
 
   import Bobine.AccountsFixtures
 

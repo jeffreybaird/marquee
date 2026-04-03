@@ -1,9 +1,9 @@
 defmodule BobineWeb.Super.OrganizationNewLive do
   use BobineWeb, :live_view
 
-  alias Bobine.Admin
   alias Bobine.Accounts
   alias Bobine.Accounts.Organization
+  alias Bobine.Admin
 
   @impl true
   def mount(_params, _session, socket) do

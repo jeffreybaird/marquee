@@ -1,12 +1,12 @@
-# TODO: Convert to static page with LiveView island for the player
+# NOTE: Convert to static page with LiveView island for the player
 defmodule BobineWeb.Viewer.WatchLive do
   use BobineWeb, :live_view
 
   alias Bobine.Content
   alias Bobine.Content.AccessControl
   alias Bobine.Engagement
-  alias BobineWeb.Components.ViewerLayout
   alias BobineWeb.Components.ViewerComponents
+  alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -64,12 +64,10 @@ defmodule BobineWeb.Viewer.WatchLive do
   end
 
   defp handle_access_denied(socket, _video, viewer) do
-    cond do
-      is_nil(viewer) ->
-        {:ok, push_navigate(socket, to: ~p"/login")}
-
-      true ->
-        {:ok, push_navigate(socket, to: ~p"/subscribe")}
+    if is_nil(viewer) do
+      {:ok, push_navigate(socket, to: ~p"/login")}
+    else
+      {:ok, push_navigate(socket, to: ~p"/subscribe")}
     end
   end
 
