@@ -1,7 +1,6 @@
 defmodule BobineWeb.Plugs.RequireSuperAdminTest do
   use BobineWeb.ConnCase, async: true
 
-  import Plug.Test
   import Phoenix.LiveView.Router, only: [fetch_live_flash: 2]
 
   alias Bobine.Accounts.Scope
