@@ -39,7 +39,10 @@
       "Bash(psql bobine_dev -c \"SELECT indexname FROM pg_indexes WHERE indexname = 'platform_subscriptions_stripe_subscription_id_index';\")",
       "Bash(psql bobine_dev -c \"SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 5;\")",
       "Bash(psql bobine_dev -c \"\\\\d platform_plans\")",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(grep -n \"def conn_for\\\\|def log_in_user\" /Users/jeffreybaird/personal-repos/bobine/test/support/*.ex)",
+      "Bash(lsof -ti:4002)",
+      "Bash(xargs kill:*)"
     ]
   }
 }

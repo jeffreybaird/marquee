@@ -351,8 +351,9 @@ defmodule Bobine.AccountsTest do
     end
 
     test "raises when unconfirmed user has password set" do
+      import Ecto.Query
       user = unconfirmed_user_fixture()
-      {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
+      {1, nil} = Repo.update_all(where(User, id: ^user.id), set: [hashed_password: "hashed"])
       {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
 
       assert_raise RuntimeError, ~r/magic link log in is not allowed/, fn ->

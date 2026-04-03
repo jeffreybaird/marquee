@@ -46,6 +46,7 @@ defmodule BobineWeb.Components.ViewerLayout do
       <.viewer_header
         organization={@organization}
         current_viewer={@current_viewer}
+        impersonating_viewer={@impersonating_viewer}
         current_path={@current_path}
         nav_items={@resolved_nav_items}
       />
@@ -89,6 +90,7 @@ defmodule BobineWeb.Components.ViewerLayout do
 
   attr :organization, :map, required: true
   attr :current_viewer, :map, default: nil
+  attr :impersonating_viewer, :boolean, default: false
   attr :current_path, :string, required: true
   attr :nav_items, :list, required: true
 
@@ -130,6 +132,13 @@ defmodule BobineWeb.Components.ViewerLayout do
           </.link>
 
           <%= if @current_viewer do %>
+            <span
+              :if={@impersonating_viewer}
+              class="text-sm text-base-content/70 hidden sm:inline"
+              data-test="viewer-header-identity"
+            >
+              {@current_viewer.display_name || @current_viewer.email}
+            </span>
             <.link
               navigate="/account"
               data-test="profile-avatar"

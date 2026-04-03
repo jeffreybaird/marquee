@@ -10,16 +10,14 @@ defmodule Bobine.Branding do
   alias Bobine.Branding.Theme
 
   @doc """
-  Returns the list of themes.
+  Returns the list of themes for a given organization.
 
-  ## Examples
-
-      iex> list_themes()
-      [%Theme{}, ...]
-
+  Exempt from doctest — hits the database.
   """
-  def list_themes do
-    Repo.all(Theme)
+  def list_themes(%Bobine.Accounts.Organization{id: org_id}) do
+    Theme
+    |> where([t], t.organization_id == ^org_id)
+    |> Repo.all()
   end
 
   @doc """

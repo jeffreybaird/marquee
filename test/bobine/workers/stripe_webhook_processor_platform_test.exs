@@ -53,7 +53,7 @@ defmodule Bobine.Workers.StripeWebhookProcessorPlatformTest do
           enabled_features: ["custom_domain"]
         )
 
-      new_plan =
+      _new_plan =
         insert(:platform_plan,
           slug: "new_plan",
           stripe_price_id: "price_new",
@@ -225,7 +225,7 @@ defmodule Bobine.Workers.StripeWebhookProcessorPlatformTest do
           enabled_features: ["custom_domain", "advanced_drm", "api_access"]
         )
 
-      ent_premium =
+      _ent_premium =
         insert(:platform_plan,
           slug: "enterprise_premium_lc",
           usage_tier: :premium,

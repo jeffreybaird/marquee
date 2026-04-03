@@ -92,6 +92,7 @@ defmodule BobineWeb.Router do
       live "/webhooks", WebhooksLive
       live "/settings", SettingsLive
       live "/settings/billing", BillingLive
+      live "/settings/billing/success", PlanSuccessLive
     end
   end
 

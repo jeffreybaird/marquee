@@ -188,8 +188,7 @@ defmodule BobineWeb.Admin.BillingLive do
     <div
       class={[
         "rounded-lg border p-6",
-        if(@is_current, do: "border-primary bg-primary/5", else: "border-base-300 bg-base-200"),
-        if(@plan.highlight, do: "ring-2 ring-primary", else: "")
+        if(@is_current, do: "border-primary bg-primary/5", else: "border-base-300 bg-base-200")
       ]}
       data-test={"platform-plan-#{@plan.slug}"}
     >
