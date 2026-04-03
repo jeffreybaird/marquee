@@ -345,8 +345,7 @@ defmodule BobineWeb.Viewer.WatchLive do
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
         timer = Process.send_after(self(), :go_back_expired, 60_000)
 
-        {:noreply,
-         assign(socket, queue_items: [], go_back_available: true, go_back_timer: timer)}
+        {:noreply, assign(socket, queue_items: [], go_back_available: true, go_back_timer: timer)}
 
       _ ->
         {:noreply, socket}

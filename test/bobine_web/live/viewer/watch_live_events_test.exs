@@ -202,14 +202,22 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
   end
 
   describe "favorite and watchlist initial state on load" do
-    test "favorite button shows filled state when already favorited", %{org: org, viewer: viewer, video: video} do
+    test "favorite button shows filled state when already favorited", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ "hero-heart-solid"
     end
 
-    test "watchlist button shows filled state when already in watchlist", %{org: org, viewer: viewer, video: video} do
+    test "watchlist button shows filled state when already in watchlist", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, _} = Engagement.add_to_watchlist(org, viewer, video)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")

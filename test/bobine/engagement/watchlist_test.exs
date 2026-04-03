@@ -23,7 +23,11 @@ defmodule Bobine.Engagement.WatchlistTest do
       assert {:error, :already_in_watchlist} = Engagement.add_to_watchlist(org, viewer, video)
     end
 
-    test "restores soft-deleted item rather than creating duplicate", %{org: org, viewer: viewer, video: video} do
+    test "restores soft-deleted item rather than creating duplicate", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, _} = Engagement.add_to_watchlist(org, viewer, video)
       {:ok, _} = Engagement.remove_from_watchlist(org, viewer, video)
 

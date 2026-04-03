@@ -43,7 +43,12 @@ defmodule Bobine.Engagement do
 
   Exempt from doctest — hits the database.
   """
-  def add_to_queue(%Organization{id: org_id} = org, %{id: viewer_id} = viewer, video, source \\ "browse") do
+  def add_to_queue(
+        %Organization{id: org_id} = org,
+        %{id: viewer_id} = viewer,
+        video,
+        source \\ "browse"
+      ) do
     Bobine.Otel.with_span "bobine.engagement.add_to_queue",
                           %{"bobine.org.id" => org_id, "bobine.viewer.id" => viewer_id} do
       max_pos = get_max_queue_position(org_id, viewer_id)
@@ -59,7 +64,11 @@ defmodule Bobine.Engagement do
 
       case %QueueItem{} |> QueueItem.changeset(attrs) |> Repo.insert() do
         {:ok, item} ->
-          Events.broadcast(nil, {:queue_item_added, %{organization: org, viewer: viewer, item: item}})
+          Events.broadcast(
+            nil,
+            {:queue_item_added, %{organization: org, viewer: viewer, item: item}}
+          )
+
           {:ok, Repo.preload(item, :video)}
 
         {:error, %Ecto.Changeset{errors: errors} = _changeset} ->
@@ -78,7 +87,12 @@ defmodule Bobine.Engagement do
 
   Exempt from doctest — hits the database.
   """
-  def play_next(%Organization{id: org_id} = org, %{id: viewer_id} = viewer, video, source \\ "browse") do
+  def play_next(
+        %Organization{id: org_id} = org,
+        %{id: viewer_id} = viewer,
+        video,
+        source \\ "browse"
+      ) do
     Bobine.Otel.with_span "bobine.engagement.play_next",
                           %{"bobine.org.id" => org_id, "bobine.viewer.id" => viewer_id} do
       Repo.transaction(fn ->
@@ -103,7 +117,11 @@ defmodule Bobine.Engagement do
               }
               |> Repo.insert()
 
-            Events.broadcast(nil, {:queue_item_added, %{organization: org, viewer: viewer, item: item}})
+            Events.broadcast(
+              nil,
+              {:queue_item_added, %{organization: org, viewer: viewer, item: item}}
+            )
+
             Repo.preload(item, :video)
 
           existing ->
@@ -120,7 +138,11 @@ defmodule Bobine.Engagement do
 
   Exempt from doctest — hits the database.
   """
-  def add_collection_to_queue(%Organization{id: org_id} = org, %{id: viewer_id} = viewer, collection) do
+  def add_collection_to_queue(
+        %Organization{id: org_id} = org,
+        %{id: viewer_id} = viewer,
+        collection
+      ) do
     Bobine.Otel.with_span "bobine.engagement.add_collection_to_queue",
                           %{"bobine.org.id" => org_id} do
       %{results: videos} = Content.list_collection_videos(org, collection, per_page: 100)
@@ -150,7 +172,11 @@ defmodule Bobine.Engagement do
 
       {count, _} = Repo.insert_all(QueueItem, new_items, on_conflict: :nothing)
 
-      Events.broadcast(nil, {:queue_collection_added, %{organization: org, viewer: viewer, count: count}})
+      Events.broadcast(
+        nil,
+        {:queue_collection_added, %{organization: org, viewer: viewer, count: count}}
+      )
+
       {:ok, count}
     end
   end
@@ -173,7 +199,12 @@ defmodule Bobine.Engagement do
 
       if deleted > 0 do
         recompact_positions(org_id, viewer_id)
-        Events.broadcast(nil, {:queue_item_removed, %{organization: org, viewer: viewer, video: video}})
+
+        Events.broadcast(
+          nil,
+          {:queue_item_removed, %{organization: org, viewer: viewer, video: video}}
+        )
+
         :ok
       else
         {:error, :not_found}
@@ -216,7 +247,10 @@ defmodule Bobine.Engagement do
         next = peek_next(org, viewer)
 
         if next do
-          Events.broadcast(nil, {:queue_advanced, %{organization: org, viewer: viewer, video: next.video}})
+          Events.broadcast(
+            nil,
+            {:queue_advanced, %{organization: org, viewer: viewer, video: next.video}}
+          )
         end
 
         %{next_video: next && next.video, previous_video: completed_video}
@@ -342,7 +376,7 @@ defmodule Bobine.Engagement do
       select: max(q.position)
     )
     |> Repo.one()
-    |> Kernel.||(- 1)
+    |> Kernel.||(-1)
   end
 
   defp list_queue_video_ids(org_id, viewer_id) do
@@ -739,7 +773,11 @@ defmodule Bobine.Engagement do
           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
           |> Repo.update!()
 
-          Events.broadcast(nil, {:favorite_removed, %{organization: org, viewer: viewer, video: video}})
+          Events.broadcast(
+            nil,
+            {:favorite_removed, %{organization: org, viewer: viewer, video: video}}
+          )
+
           {:ok, :removed}
 
         %Favorite{deleted_at: _} = fav ->
@@ -747,7 +785,11 @@ defmodule Bobine.Engagement do
           |> Ecto.Changeset.change(deleted_at: nil)
           |> Repo.update!()
 
-          Events.broadcast(nil, {:favorite_added, %{organization: org, viewer: viewer, video: video}})
+          Events.broadcast(
+            nil,
+            {:favorite_added, %{organization: org, viewer: viewer, video: video}}
+          )
+
           {:ok, :added}
 
         nil ->
@@ -758,7 +800,11 @@ defmodule Bobine.Engagement do
           }
           |> Repo.insert!()
 
-          Events.broadcast(nil, {:favorite_added, %{organization: org, viewer: viewer, video: video}})
+          Events.broadcast(
+            nil,
+            {:favorite_added, %{organization: org, viewer: viewer, video: video}}
+          )
+
           {:ok, :added}
       end
     end
@@ -874,7 +920,13 @@ defmodule Bobine.Engagement do
 
   Exempt from doctest — writes to buffer/database.
   """
-  def update_progress(%Organization{id: org_id}, %{id: viewer_id} = viewer, video_id, position, duration)
+  def update_progress(
+        %Organization{id: org_id},
+        %{id: viewer_id} = viewer,
+        video_id,
+        position,
+        duration
+      )
       when is_number(position) and is_number(duration) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
@@ -890,7 +942,9 @@ defmodule Bobine.Engagement do
         updated_at: now
       },
       on_conflict: [set: [position: position / 1, duration: duration, updated_at: now]],
-      conflict_target: {:unsafe_fragment, ~s|("viewer_id","video_id","organization_id") WHERE viewer_id IS NOT NULL|}
+      conflict_target:
+        {:unsafe_fragment,
+         ~s|("viewer_id","video_id","organization_id") WHERE viewer_id IS NOT NULL|}
     )
 
     # Check for completion (99% threshold)
@@ -948,7 +1002,11 @@ defmodule Bobine.Engagement do
     Bobine.Otel.with_span "bobine.engagement.mark_completed",
                           %{"bobine.org.id" => org.id} do
       # Update or create progress record
-      case Repo.get_by(Progress, organization_id: org.id, viewer_id: viewer_id, video_id: video.id) do
+      case Repo.get_by(Progress,
+             organization_id: org.id,
+             viewer_id: viewer_id,
+             video_id: video.id
+           ) do
         %Progress{} = progress ->
           progress
           |> Ecto.Changeset.change(completed: true)
@@ -972,7 +1030,10 @@ defmodule Bobine.Engagement do
       advance_queue(org, viewer, video)
 
       # Broadcast for UI
-      Events.broadcast(nil, {:video_completed, %{organization: org, viewer: viewer, video: video}})
+      Events.broadcast(
+        nil,
+        {:video_completed, %{organization: org, viewer: viewer, video: video}}
+      )
 
       Metrics.video_completed(org.id, video.id)
       :ok

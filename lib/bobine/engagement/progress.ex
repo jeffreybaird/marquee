@@ -25,7 +25,15 @@ defmodule Bobine.Engagement.Progress do
   @doc false
   def changeset(progress, attrs) do
     progress
-    |> cast(attrs, [:position, :completed, :duration, :organization_id, :user_id, :viewer_id, :video_id])
+    |> cast(attrs, [
+      :position,
+      :completed,
+      :duration,
+      :organization_id,
+      :user_id,
+      :viewer_id,
+      :video_id
+    ])
     |> validate_required([:position, :organization_id, :video_id])
     |> unique_constraint([:user_id, :video_id, :organization_id])
     |> unique_constraint([:viewer_id, :video_id, :organization_id])

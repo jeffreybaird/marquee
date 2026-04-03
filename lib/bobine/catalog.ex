@@ -355,9 +355,7 @@ defmodule Bobine.Catalog do
         viewer = Keyword.get(opts, :viewer)
 
         if viewer do
-          Bobine.Engagement.list_continue_watching(organization, viewer,
-            per_page: row.max_items
-          )
+          Bobine.Engagement.list_continue_watching(organization, viewer, per_page: row.max_items)
         else
           %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
         end

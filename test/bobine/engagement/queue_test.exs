@@ -14,7 +14,12 @@ defmodule Bobine.Engagement.QueueTest do
 
     videos =
       for i <- 1..5 do
-        insert(:video, organization: org, title: "Video #{i}", mux_status: "ready", duration: 100.0)
+        insert(:video,
+          organization: org,
+          title: "Video #{i}",
+          mux_status: "ready",
+          duration: 100.0
+        )
       end
 
     %{org: org, viewer: viewer, videos: videos}
@@ -27,7 +32,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert item.position == 0
     end
 
-    test "appends subsequent videos after the first", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "appends subsequent videos after the first", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, item2} = Engagement.add_to_queue(org, viewer, v2)
 
@@ -50,7 +59,11 @@ defmodule Bobine.Engagement.QueueTest do
   end
 
   describe "play_next/4" do
-    test "inserts at position 0 and shifts others down", %{org: org, viewer: viewer, videos: [v1, v2, v3 | _]} do
+    test "inserts at position 0 and shifts others down", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2, v3 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
 
@@ -61,7 +74,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert Enum.map(queue, & &1.video_id) == [v3.id, v1.id, v2.id]
     end
 
-    test "with video already in queue moves it to position 0", %{org: org, viewer: viewer, videos: [v1, v2, v3 | _]} do
+    test "with video already in queue moves it to position 0", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2, v3 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v3)
@@ -139,7 +156,11 @@ defmodule Bobine.Engagement.QueueTest do
   end
 
   describe "peek_next/2" do
-    test "returns the item at lowest position without removing", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "returns the item at lowest position without removing", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
 
@@ -156,7 +177,11 @@ defmodule Bobine.Engagement.QueueTest do
   end
 
   describe "advance_queue/3" do
-    test "removes the completed video and returns next AND previous", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "removes the completed video and returns next AND previous", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
 
@@ -171,7 +196,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert hd(queue).video_id == v2.id
     end
 
-    test "returns nil for next_video when queue is empty after removal", %{org: org, viewer: viewer, videos: [v1 | _]} do
+    test "returns nil for next_video when queue is empty after removal", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
 
       {:ok, result} = Engagement.advance_queue(org, viewer, v1)
@@ -193,7 +222,11 @@ defmodule Bobine.Engagement.QueueTest do
   end
 
   describe "go_back_in_queue/2" do
-    test "re-inserts previous video at front of queue", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "re-inserts previous video at front of queue", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
 
@@ -206,7 +239,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert hd(queue).video_id == v1.id
     end
 
-    test "returns the video and its resume position", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "returns the video and its resume position", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       # Create a progress record
       insert(:progress, organization: org, viewer: viewer, video: v1, position: 45.0)
 
@@ -226,7 +263,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert {:ok, _} = Engagement.go_back_in_queue(org, viewer)
     end
 
-    test "after 60 seconds returns go_back_expired", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "after 60 seconds returns go_back_expired", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
       {:ok, _} = Engagement.advance_queue(org, viewer, v1)
@@ -244,7 +285,11 @@ defmodule Bobine.Engagement.QueueTest do
       assert {:error, :no_go_back_available} = Engagement.go_back_in_queue(org, viewer)
     end
 
-    test "clears the go-back state after use (can't go back twice)", %{org: org, viewer: viewer, videos: [v1, v2 | _]} do
+    test "clears the go-back state after use (can't go back twice)", %{
+      org: org,
+      viewer: viewer,
+      videos: [v1, v2 | _]
+    } do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v1)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
       {:ok, _} = Engagement.advance_queue(org, viewer, v1)
@@ -328,7 +373,10 @@ defmodule Bobine.Engagement.QueueTest do
   end
 
   describe "multi-tenant isolation" do
-    test "viewer A's queue on org X is not visible to viewer B on org X", %{org: org, videos: [v1 | _]} do
+    test "viewer A's queue on org X is not visible to viewer B on org X", %{
+      org: org,
+      videos: [v1 | _]
+    } do
       viewer_a = insert(:subscribed_viewer, organization: org)
       viewer_b = insert(:subscribed_viewer, organization: org)
 

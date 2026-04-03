@@ -57,7 +57,8 @@
       "Bash(mix eval:*)",
       "Bash(git checkout:*)",
       "Bash(MIX_ENV=test mix ecto.rollback --step 3)",
-      "Bash(MIX_ENV=test mix run -e 'Bobine.Repo.query!\\(\"SELECT indexname FROM pg_indexes WHERE tablename = '\\\\''progresses'\\\\'' AND indexdef LIKE '\\\\''%viewer_id%video_id%organization_id%'\\\\''\"\\) |> IO.inspect\\(\\)')"
+      "Bash(MIX_ENV=test mix run -e 'Bobine.Repo.query!\\(\"SELECT indexname FROM pg_indexes WHERE tablename = '\\\\''progresses'\\\\'' AND indexdef LIKE '\\\\''%viewer_id%video_id%organization_id%'\\\\''\"\\) |> IO.inspect\\(\\)')",
+      "Bash(python3 -c:*)"
     ]
   }
 }

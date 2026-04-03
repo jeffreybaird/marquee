@@ -63,7 +63,10 @@ defmodule BobineWeb.Viewer.HistoryLive do
         <div :if={@history != []} class="sv-browse-grid" data-test="sv-history-grid">
           <div :for={entry <- @history} class="sv-history-card-wrapper">
             <ViewerComponents.content_card :if={entry.video} video={entry.video} size="grid" />
-            <div class="sv-history-meta" style="margin-top: 4px; font-size: 0.75rem; color: var(--sv-text-secondary);">
+            <div
+              class="sv-history-meta"
+              style="margin-top: 4px; font-size: 0.75rem; color: var(--sv-text-secondary);"
+            >
               {format_relative_time(entry.watched_at)}
             </div>
           </div>

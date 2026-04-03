@@ -12,18 +12,30 @@ defmodule Bobine.Engagement.FavoritesTest do
   end
 
   describe "toggle_favorite/3" do
-    test "adds when not favorited, returns {:ok, :added}", %{org: org, viewer: viewer, video: video} do
+    test "adds when not favorited, returns {:ok, :added}", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       assert {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
       assert Engagement.favorited?(org, viewer, video) == true
     end
 
-    test "removes when favorited, returns {:ok, :removed}", %{org: org, viewer: viewer, video: video} do
+    test "removes when favorited, returns {:ok, :removed}", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
       assert {:ok, :removed} = Engagement.toggle_favorite(org, viewer, video)
       assert Engagement.favorited?(org, viewer, video) == false
     end
 
-    test "re-adds after removal (restores soft-deleted)", %{org: org, viewer: viewer, video: video} do
+    test "re-adds after removal (restores soft-deleted)", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
       {:ok, :removed} = Engagement.toggle_favorite(org, viewer, video)
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)

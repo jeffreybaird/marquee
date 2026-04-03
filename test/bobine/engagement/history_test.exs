@@ -18,7 +18,11 @@ defmodule Bobine.Engagement.HistoryTest do
       assert entry.video_id == video.id
     end
 
-    test "updates existing recent entry instead of creating duplicate", %{org: org, viewer: viewer, video: video} do
+    test "updates existing recent entry instead of creating duplicate", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       {:ok, entry1} = Engagement.record_watch_activity(org, viewer, video)
       {:ok, entry2} = Engagement.record_watch_activity(org, viewer, video)
 
@@ -57,8 +61,21 @@ defmodule Bobine.Engagement.HistoryTest do
       v1 = insert(:video, organization: org)
       v2 = insert(:video, organization: org)
 
-      insert(:progress, organization: org, viewer: viewer, video: v1, position: 50.0, completed: false)
-      insert(:progress, organization: org, viewer: viewer, video: v2, position: 0.0, completed: false)
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: v1,
+        position: 50.0,
+        completed: false
+      )
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: v2,
+        position: 0.0,
+        completed: false
+      )
 
       result = Engagement.list_continue_watching(org, viewer)
       # Only v1 has position > 0
@@ -70,8 +87,21 @@ defmodule Bobine.Engagement.HistoryTest do
       v1 = insert(:video, organization: org)
       v2 = insert(:video, organization: org)
 
-      insert(:progress, organization: org, viewer: viewer, video: v1, position: 50.0, completed: false)
-      insert(:progress, organization: org, viewer: viewer, video: v2, position: 90.0, completed: true)
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: v1,
+        position: 50.0,
+        completed: false
+      )
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: v2,
+        position: 90.0,
+        completed: true
+      )
 
       result = Engagement.list_continue_watching(org, viewer)
       assert result.total == 1
@@ -81,7 +111,13 @@ defmodule Bobine.Engagement.HistoryTest do
 
   describe "mark_completed/3" do
     test "sets completed flag on progress", %{org: org, viewer: viewer, video: video} do
-      insert(:progress, organization: org, viewer: viewer, video: video, position: 99.0, completed: false)
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 99.0,
+        completed: false
+      )
 
       :ok = Engagement.mark_completed(org, viewer, video)
 
