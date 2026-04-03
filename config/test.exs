@@ -21,6 +21,8 @@ config :bobine, BobineWeb.Endpoint,
   secret_key_base: "+H1LTl9izQwD8HqXzX9He8N/JlmXvWw2I4hQyOHzgvXJCSYkXnbbjxXDjc67M3Gm",
   server: true
 
+config :bobine, :sql_sandbox, true
+
 config :wallaby,
   driver: Wallaby.Chrome,
   otp_app: :bobine,

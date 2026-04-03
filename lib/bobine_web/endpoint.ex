@@ -40,6 +40,10 @@ defmodule BobineWeb.Endpoint do
     param_key: "request_logger",
     cookie_key: "request_logger"
 
+  if Application.compile_env(:bobine, :sql_sandbox) do
+    plug Phoenix.Ecto.SQL.Sandbox
+  end
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
