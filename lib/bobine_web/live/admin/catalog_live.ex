@@ -47,6 +47,7 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:hero_slide_forms, %{})
      |> assign(:show_hero_video_picker, false)
      |> assign(:hero_available_videos, [])
+     |> assign(:hero_save_status, %{})
      |> load_rows()
      |> load_hero_row()}
   end
@@ -381,13 +382,21 @@ defmodule BobineWeb.Admin.CatalogLive do
 
         case Catalog.update_hero_slide(scope, slide, attrs) do
           {:ok, _} ->
+            Process.send_after(self(), {:clear_hero_save_status, slide_id}, 3_000)
+
             {:noreply,
              socket
              |> put_flash(:info, "Slide updated.")
+             |> update(:hero_save_status, &Map.put(&1, slide_id, :ok))
              |> load_hero_slides()}
 
           {:error, :validation, _changeset} ->
-            {:noreply, put_flash(socket, :error, "Failed to update slide.")}
+            Process.send_after(self(), {:clear_hero_save_status, slide_id}, 5_000)
+
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to update slide.")
+             |> update(:hero_save_status, &Map.put(&1, slide_id, :error))}
         end
 
       {:error, :not_found} ->
@@ -430,13 +439,23 @@ defmodule BobineWeb.Admin.CatalogLive do
       config = Map.merge(hero_row.filter_config || %{}, %{"auto_advance_ms" => ms})
       {:ok, _} = Catalog.update_row(scope, hero_row, %{filter_config: config})
 
+      Process.send_after(self(), {:clear_hero_save_status, "auto_advance"}, 3_000)
+
       {:noreply,
        socket
        |> put_flash(:info, "Auto-rotate setting saved.")
+       |> update(:hero_save_status, &Map.put(&1, "auto_advance", :ok))
        |> load_hero_row()}
     else
       {:noreply, socket}
     end
+  end
+
+  # ── Save status auto-clear ──────────────────────────────────────────────
+
+  @impl true
+  def handle_info({:clear_hero_save_status, key}, socket) do
+    {:noreply, update(socket, :hero_save_status, &Map.delete(&1, key))}
   end
 
   # ── PubSub ─────────────────────────────────────────────────────────────
@@ -558,7 +577,22 @@ defmodule BobineWeb.Admin.CatalogLive do
                 15 seconds
               </option>
             </select>
-            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              phx-disable-with="Saving..."
+              data-test="hero-auto-advance-save-btn"
+            >
+              Save
+            </button>
+            <span
+              :if={@hero_save_status["auto_advance"] == :ok}
+              class="text-sm text-success flex items-center gap-1"
+              data-test="hero-auto-advance-save-success"
+              role="status"
+            >
+              <.icon name="hero-check-circle" class="size-4" /> Saved
+            </span>
           </form>
         </div>
 
@@ -682,8 +716,30 @@ defmodule BobineWeb.Admin.CatalogLive do
                   data-test={"hero-description-input-#{slide.position}"}
                 >{slide.description}</textarea>
               </div>
-              <div class="col-span-2 flex justify-end">
-                <button :if={@can_manage} type="submit" class="btn btn-sm btn-primary">
+              <div class="col-span-2 flex items-center justify-end gap-2">
+                <span
+                  :if={@hero_save_status[slide.id] == :ok}
+                  class="text-sm text-success flex items-center gap-1"
+                  data-test={"hero-slide-save-success-#{slide.position}"}
+                  role="status"
+                >
+                  <.icon name="hero-check-circle" class="size-4" /> Saved
+                </span>
+                <span
+                  :if={@hero_save_status[slide.id] == :error}
+                  class="text-sm text-error flex items-center gap-1"
+                  data-test={"hero-slide-save-error-#{slide.position}"}
+                  role="alert"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-4" /> Save failed
+                </span>
+                <button
+                  :if={@can_manage}
+                  type="submit"
+                  class="btn btn-sm btn-primary"
+                  phx-disable-with="Saving..."
+                  data-test={"hero-slide-save-btn-#{slide.position}"}
+                >
                   Save
                 </button>
               </div>

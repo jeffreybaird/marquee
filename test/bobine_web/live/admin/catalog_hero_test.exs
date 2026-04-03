@@ -109,6 +109,70 @@ defmodule BobineWeb.Admin.CatalogHeroTest do
       assert updated_slide.headline == "Custom Hero Text"
     end
 
+    test "saving a slide shows inline success feedback", %{org: org, membership: membership} do
+      hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
+      video = insert(:video, organization: org, title: "Default Title")
+      slide = insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      html =
+        view
+        |> element(~s(form[phx-submit="save_hero_slide"]))
+        |> render_submit(%{
+          "slide-id" => slide.id,
+          "headline" => "Updated Headline",
+          "subheadline" => "",
+          "brand_tag" => "",
+          "description" => "",
+          "primary_cta_label" => "",
+          "secondary_cta_label" => "",
+          "background_image_url" => ""
+        })
+
+      assert html =~ ~s(data-test="hero-slide-save-success-0")
+      assert html =~ "Saved"
+    end
+
+    test "saving auto-advance shows inline success feedback", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      html =
+        view
+        |> element(~s(form[phx-submit="save_hero_auto_advance"]))
+        |> render_submit(%{"auto_advance_ms" => "5000"})
+
+      assert html =~ ~s(data-test="hero-auto-advance-save-success")
+      assert html =~ "Saved"
+    end
+
+    test "inline success feedback clears after timeout", %{org: org, membership: membership} do
+      hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
+      video = insert(:video, organization: org)
+      slide = insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      view
+      |> element(~s(form[phx-submit="save_hero_slide"]))
+      |> render_submit(%{
+        "slide-id" => slide.id,
+        "headline" => "Test",
+        "subheadline" => "",
+        "brand_tag" => "",
+        "description" => "",
+        "primary_cta_label" => "",
+        "secondary_cta_label" => "",
+        "background_image_url" => ""
+      })
+
+      # Simulate the clear message
+      send(view.pid, {:clear_hero_save_status, slide.id})
+      html = render(view)
+
+      refute html =~ ~s(data-test="hero-slide-save-success-0")
+    end
+
     test "remove slide soft-deletes it", %{org: org, membership: membership} do
       hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
       video = insert(:video, organization: org)
