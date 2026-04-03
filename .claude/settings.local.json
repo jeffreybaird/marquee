@@ -54,7 +54,8 @@
       "Bash(PORT=4099 mix test --exclude e2e)",
       "Bash(python3 -c \" import json, sys data = json.load\\(sys.stdin\\) issues = data.get\\('issues', []\\) for i in issues: print\\(f\\\\\"{i['check'].split\\('.'\\)[-1]}|{i['filename']}:{i['line_no']}|{i.get\\('message',''\\)}|{i.get\\('trigger', ''\\)}\\\\\"\\) \")",
       "Bash(kill -9 47187)",
-      "Bash(mix eval:*)"
+      "Bash(mix eval:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

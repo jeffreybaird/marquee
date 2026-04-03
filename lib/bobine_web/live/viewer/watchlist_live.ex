@@ -10,15 +10,12 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
 
-    %{results: items} = Engagement.list_viewer_watchlist(org, viewer.id, per_page: 100)
-
-    videos = Enum.map(items, & &1.video) |> Enum.reject(&is_nil/1)
+    videos = Engagement.list_viewer_watchlist_videos(org, viewer.id, per_page: 100)
 
     {:ok,
      socket
      |> assign(:page_title, "Watchlist")
-     |> assign(:videos, videos)
-     |> assign(:watchlist_items, items)}
+     |> assign(:videos, videos)}
   end
 
   @impl true

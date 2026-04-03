@@ -379,6 +379,63 @@ defmodule Bobine.Catalog do
     end
   end
 
+  @doc """
+  Loads catalog rows with their resolved content for the viewer-facing homepage.
+
+  Fetches visible rows, excludes hero rows (which render separately), resolves
+  each row's video content via cache, and filters out rows with no results.
+
+  Accepts an `%Organization{}` and optional keyword opts (currently unused but
+  reserved for future filtering).
+
+  Returns a list of `%{row: row, videos: videos}` maps.
+
+  Exempt from doctest — hits the database.
+  """
+  def load_catalog_rows_with_content(%Organization{} = organization, _opts \\ []) do
+    %{results: rows} = list_visible_rows(organization, per_page: 100)
+
+    rows
+    |> Enum.reject(&(&1.source_type == :hero))
+    |> Enum.map(fn row ->
+      %{results: videos} = resolve_row_content_cached(organization, row, per_page: row.max_items)
+      %{row: row, videos: videos}
+    end)
+    |> Enum.reject(fn %{videos: videos} -> Enum.empty?(videos) end)
+  end
+
+  @doc """
+  Lists hero slides enriched with their associated video title and description.
+
+  Accepts an `%Organization{}` and a hero `%Row{}`. Returns a list of maps
+  containing all slide fields plus `video_title` and `video_description`
+  from the linked video.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_enriched_hero_slides(%Organization{} = organization, %Row{} = hero_row) do
+    organization
+    |> list_hero_slides(hero_row)
+    |> Enum.map(fn slide ->
+      video = Content.get_video!(slide.video_id)
+
+      %{
+        id: slide.id,
+        position: slide.position,
+        video_id: slide.video_id,
+        video_title: video.title,
+        video_description: video.description,
+        headline: slide.headline,
+        subheadline: slide.subheadline,
+        brand_tag: slide.brand_tag,
+        description: slide.description,
+        primary_cta_label: slide.primary_cta_label,
+        secondary_cta_label: slide.secondary_cta_label,
+        background_image_url: slide.background_image_url
+      }
+    end)
+  end
+
   ## -----------------------------------------------------------------------
   ## Hero Row
   ## -----------------------------------------------------------------------

@@ -483,14 +483,6 @@ defmodule BobineWeb.Viewer.HomeLive do
   end
 
   defp load_catalog_rows(org) do
-    %{results: rows} = Catalog.list_visible_rows(org, per_page: 100)
-
-    rows
-    |> Enum.reject(&(&1.source_type == :hero))
-    |> Enum.map(fn row ->
-      %{results: videos} = Catalog.resolve_row_content_cached(org, row, per_page: row.max_items)
-      %{row: row, videos: videos}
-    end)
-    |> Enum.reject(fn %{videos: videos} -> Enum.empty?(videos) end)
+    Catalog.load_catalog_rows_with_content(org)
   end
 end

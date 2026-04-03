@@ -33,6 +33,21 @@ defmodule Bobine.Billing do
   end
 
   @doc """
+  Returns a paginated list of active plans, excluding soft-deleted and
+  inactive records. Use this for viewer-facing plan selection.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_active_plans(%Organization{id: org_id}, opts \\ []) do
+    Plan
+    |> where(organization_id: ^org_id)
+    |> where([p], is_nil(p.deleted_at))
+    |> where([p], p.active == true)
+    |> order_by(desc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
   Returns the list of plans including soft-deleted records.
 
   Exempt from doctest — hits the database.

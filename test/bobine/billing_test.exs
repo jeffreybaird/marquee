@@ -111,6 +111,45 @@ defmodule Bobine.BillingTest do
     end
   end
 
+  describe "list_active_plans/2" do
+    import Bobine.BillingFixtures
+
+    setup do
+      %{org: insert(:organization)}
+    end
+
+    test "returns only active, non-deleted plans for the org", %{org: org} do
+      active_plan = insert(:plan, organization: org, active: true)
+      _inactive_plan = insert(:plan, organization: org, active: false)
+
+      assert %{results: results} = Billing.list_active_plans(org)
+      assert length(results) == 1
+      assert hd(results).id == active_plan.id
+    end
+
+    test "excludes soft-deleted plans even if active", %{org: org} do
+      plan = insert(:plan, organization: org, active: true)
+      {:ok, _deleted} = Billing.delete_plan(plan)
+
+      assert %{results: []} = Billing.list_active_plans(org)
+    end
+
+    test "does not return plans from a different org", %{org: org} do
+      other_org = insert(:organization)
+      _other_plan = insert(:plan, organization: other_org, active: true)
+      own_plan = insert(:plan, organization: org, active: true)
+
+      assert %{results: results} = Billing.list_active_plans(org)
+      assert length(results) == 1
+      assert hd(results).id == own_plan.id
+    end
+
+    test "returns empty results when no active plans exist", %{org: org} do
+      _inactive = insert(:plan, organization: org, active: false)
+      assert %{results: []} = Billing.list_active_plans(org)
+    end
+  end
+
   describe "subscriptions" do
     alias Bobine.Billing.Subscription
 

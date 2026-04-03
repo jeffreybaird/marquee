@@ -1,6 +1,7 @@
 defmodule BobineWeb.Admin.ContentLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Accounts
   alias Bobine.Content
   alias Bobine.Events
   alias Bobine.Workers.MuxAssetCleanup
@@ -17,7 +18,7 @@ defmodule BobineWeb.Admin.ContentLive do
       Events.subscribe_global()
     end
 
-    can_manage = can_manage_content?(scope)
+    can_manage = Accounts.can_manage_content?(scope)
 
     {:ok,
      socket
@@ -871,11 +872,4 @@ defmodule BobineWeb.Admin.ContentLive do
 
     assign(socket, :videos, videos)
   end
-
-  defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
-
-  defp can_manage_content?(%{membership: %{role: role}}) when role in [:owner, :admin, :editor],
-    do: true
-
-  defp can_manage_content?(_), do: false
 end

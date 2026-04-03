@@ -1,6 +1,7 @@
 defmodule BobineWeb.Admin.CollectionsLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Accounts
   alias Bobine.Content
   alias Bobine.Events
 
@@ -13,7 +14,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
       Events.subscribe(org.id)
     end
 
-    can_manage = can_manage_content?(scope)
+    can_manage = Accounts.can_manage_content?(scope)
 
     {:ok,
      socket
@@ -611,13 +612,6 @@ defmodule BobineWeb.Admin.CollectionsLive do
     |> List.replace_at(i, Enum.at(list, j))
     |> List.replace_at(j, Enum.at(list, i))
   end
-
-  defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
-
-  defp can_manage_content?(%{membership: %{role: role}}) when role in [:owner, :admin, :editor],
-    do: true
-
-  defp can_manage_content?(_), do: false
 
   defp error_messages(field) do
     Enum.map(field.errors, fn {msg, _opts} -> msg end)

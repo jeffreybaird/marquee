@@ -151,4 +151,119 @@ defmodule Bobine.CatalogTest do
       assert %Ecto.Changeset{} = Catalog.change_row(row)
     end
   end
+
+  describe "load_catalog_rows_with_content/2" do
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
+      %{org: org, scope: scope}
+    end
+
+    test "returns rows with their resolved video content", %{org: org, scope: scope} do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Curated Row",
+          source_type: :curated,
+          position: 1,
+          visible: true,
+          max_items: 20
+        })
+
+      video = insert(:video, organization: org, published: true)
+      insert(:row_item, organization: org, row: row, video: video, position: 1)
+
+      results = Catalog.load_catalog_rows_with_content(org)
+      assert results != []
+      matching = Enum.find(results, fn %{row: r} -> r.id == row.id end)
+      assert matching != nil
+      assert matching.videos != []
+    end
+
+    test "excludes hero rows from results", %{org: org, scope: scope} do
+      {:ok, _hero_row} =
+        Catalog.create_row(scope, %{
+          title: "Hero",
+          source_type: :hero,
+          position: 0,
+          visible: true,
+          max_items: 5
+        })
+
+      results = Catalog.load_catalog_rows_with_content(org)
+      hero_results = Enum.filter(results, fn %{row: r} -> r.source_type == :hero end)
+      assert hero_results == []
+    end
+
+    test "excludes rows with no content", %{org: org, scope: scope} do
+      {:ok, empty_row} =
+        Catalog.create_row(scope, %{
+          title: "Empty Row",
+          source_type: :curated,
+          position: 2,
+          visible: true,
+          max_items: 20
+        })
+
+      results = Catalog.load_catalog_rows_with_content(org)
+      matching = Enum.find(results, fn %{row: r} -> r.id == empty_row.id end)
+      assert matching == nil
+    end
+  end
+
+  describe "list_enriched_hero_slides/2" do
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
+      %{org: org, scope: scope}
+    end
+
+    test "returns slides enriched with video title and description", %{org: org, scope: scope} do
+      {:ok, hero_row} =
+        Catalog.create_row(scope, %{
+          title: "Hero",
+          source_type: :hero,
+          position: 0,
+          visible: true,
+          max_items: 5
+        })
+
+      video = insert(:video, organization: org, title: "My Video", description: "A great video")
+
+      {:ok, slide} =
+        Catalog.create_hero_slide(scope, hero_row, %{
+          video_id: video.id,
+          position: 0,
+          headline: "Watch Now",
+          subheadline: "New release"
+        })
+
+      enriched = Catalog.list_enriched_hero_slides(org, hero_row)
+      assert length(enriched) == 1
+
+      enriched_slide = hd(enriched)
+      assert enriched_slide.id == slide.id
+      assert enriched_slide.video_id == video.id
+      assert enriched_slide.video_title == "My Video"
+      assert enriched_slide.video_description == "A great video"
+      assert enriched_slide.headline == "Watch Now"
+      assert enriched_slide.subheadline == "New release"
+    end
+
+    test "returns empty list when hero row has no slides", %{org: org, scope: scope} do
+      {:ok, hero_row} =
+        Catalog.create_row(scope, %{
+          title: "Hero",
+          source_type: :hero,
+          position: 0,
+          visible: true,
+          max_items: 5
+        })
+
+      assert Catalog.list_enriched_hero_slides(org, hero_row) == []
+    end
+  end
 end

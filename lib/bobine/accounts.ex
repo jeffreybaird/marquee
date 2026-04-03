@@ -228,6 +228,63 @@ defmodule Bobine.Accounts do
     |> String.trim("-")
   end
 
+  @registration_types %{email: :string, organization_name: :string}
+
+  @doc """
+  Returns a schemaless changeset for the registration form.
+
+  Validates that email and organization name are present, email has a valid
+  format, and organization name is between 1 and 100 characters.
+
+  ## Examples
+
+      iex> changeset = Bobine.Accounts.registration_changeset(%{})
+      iex> changeset.valid?
+      false
+      iex> Keyword.keys(Enum.sort(changeset.errors))
+      [:email, :organization_name]
+
+      iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "user@example.com", "organization_name" => "Acme"})
+      iex> changeset.valid?
+      true
+
+      iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "bad", "organization_name" => "Acme"})
+      iex> changeset.valid?
+      false
+      iex> {"must have the @ sign and no spaces", _} = changeset.errors[:email]
+
+  """
+  def registration_changeset(params) do
+    {%{}, @registration_types}
+    |> Ecto.Changeset.cast(params, Map.keys(@registration_types))
+    |> Ecto.Changeset.validate_required([:email, :organization_name])
+    |> Ecto.Changeset.validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
+    |> Ecto.Changeset.validate_length(:organization_name, min: 1, max: 100)
+  end
+
+  @doc """
+  Merges errors from a user changeset into the registration changeset.
+
+  This is used after `register_user_with_organization/2` fails with a
+  validation error, so that user-schema errors (e.g. "has already been taken")
+  appear on the registration form.
+
+  ## Examples
+
+      iex> reg = Bobine.Accounts.registration_changeset(%{"email" => "a@b.com", "organization_name" => "Acme"})
+      iex> user_cs = %Ecto.Changeset{errors: [email: {"has already been taken", []}], valid?: false}
+      iex> merged = Bobine.Accounts.merge_registration_errors(reg, user_cs)
+      iex> {"has already been taken", _} = merged.errors[:email]
+
+  """
+  def merge_registration_errors(changeset, user_changeset) do
+    Enum.reduce(user_changeset.errors, changeset, fn {field, error}, cs ->
+      Ecto.Changeset.add_error(cs, field, elem(error, 0), elem(error, 1))
+    end)
+  end
+
   ## Settings
 
   @doc """
@@ -457,6 +514,97 @@ defmodule Bobine.Accounts do
   defp role_index(role) do
     Enum.find_index(@role_hierarchy, &(&1 == role)) || -1
   end
+
+  @doc """
+  Returns true if the scope has permission to manage content (videos,
+  collections, tags, catalog rows).
+
+  Super admins always have access. Otherwise requires a membership with
+  role >= :editor.
+
+      iex> Bobine.Accounts.can_manage_content?(%{user: %{is_super_admin: true}, membership: nil})
+      true
+
+      iex> Bobine.Accounts.can_manage_content?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :owner}})
+      true
+
+      iex> Bobine.Accounts.can_manage_content?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :editor}})
+      true
+
+      iex> Bobine.Accounts.can_manage_content?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :viewer_support}})
+      false
+
+      iex> Bobine.Accounts.can_manage_content?(%{user: %{is_super_admin: false}, membership: nil})
+      false
+
+  """
+  def can_manage_content?(%{user: %{is_super_admin: true}}), do: true
+
+  def can_manage_content?(%{membership: %Membership{} = membership}),
+    do: role_at_least?(membership, :editor)
+
+  def can_manage_content?(_), do: false
+
+  @doc """
+  Returns true if the scope has permission to manage viewers (invite,
+  remove, update viewer accounts).
+
+  Super admins always have access. Otherwise requires a membership with
+  role in [:viewer_support, :admin, :owner]. Note that :editor does NOT
+  have viewer management permission.
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: true}, membership: nil})
+      true
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :owner}})
+      true
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :admin}})
+      true
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :viewer_support}})
+      true
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :editor}})
+      false
+
+      iex> Bobine.Accounts.can_manage_viewers?(%{user: %{is_super_admin: false}, membership: nil})
+      false
+
+  """
+  def can_manage_viewers?(%{user: %{is_super_admin: true}}), do: true
+
+  def can_manage_viewers?(%{membership: %Membership{role: role}})
+      when role in [:viewer_support, :admin, :owner],
+      do: true
+
+  def can_manage_viewers?(_), do: false
+
+  @doc """
+  Returns true if the scope has permission to view the viewers list.
+
+  Super admins always have access. Otherwise requires a membership with
+  role >= :viewer_support.
+
+      iex> Bobine.Accounts.can_view_viewers?(%{user: %{is_super_admin: true}, membership: nil})
+      true
+
+      iex> Bobine.Accounts.can_view_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :viewer_support}})
+      true
+
+      iex> Bobine.Accounts.can_view_viewers?(%{user: %{is_super_admin: false}, membership: %Bobine.Accounts.Membership{role: :editor}})
+      true
+
+      iex> Bobine.Accounts.can_view_viewers?(%{user: %{is_super_admin: false}, membership: nil})
+      false
+
+  """
+  def can_view_viewers?(%{user: %{is_super_admin: true}}), do: true
+
+  def can_view_viewers?(%{membership: %Membership{} = membership}),
+    do: role_at_least?(membership, :viewer_support)
+
+  def can_view_viewers?(_), do: false
 
   ## Token helper
 

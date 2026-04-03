@@ -136,6 +136,24 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
+  Returns a flat list of videos from a viewer's watchlist.
+
+  Delegates to `list_viewer_watchlist/3` and extracts the preloaded video
+  from each item, rejecting any items whose video is nil (e.g. hard-deleted
+  videos that still have a watchlist reference).
+
+  Exempt from doctest — hits the database.
+  """
+  def list_viewer_watchlist_videos(%Bobine.Accounts.Organization{} = org, viewer_id, opts \\ [])
+      when is_binary(viewer_id) do
+    org
+    |> list_viewer_watchlist(viewer_id, opts)
+    |> Map.fetch!(:results)
+    |> Enum.map(& &1.video)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  @doc """
   Adds a video to a viewer's watchlist.
 
   Exempt from doctest — hits the database.

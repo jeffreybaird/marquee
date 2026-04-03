@@ -1,6 +1,7 @@
 defmodule BobineWeb.Admin.CatalogLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Accounts
   alias Bobine.Catalog
   alias Bobine.Content
   alias Bobine.Events
@@ -23,7 +24,7 @@ defmodule BobineWeb.Admin.CatalogLive do
       Events.subscribe(org.id)
     end
 
-    can_manage = can_manage_content?(scope)
+    can_manage = Accounts.can_manage_content?(scope)
 
     {:ok,
      socket
@@ -1112,28 +1113,7 @@ defmodule BobineWeb.Admin.CatalogLive do
     hero_row = socket.assigns.hero_row
 
     if hero_row do
-      slides = Catalog.list_hero_slides(org, hero_row)
-
-      enriched =
-        Enum.map(slides, fn slide ->
-          video = Content.get_video!(slide.video_id)
-
-          %{
-            id: slide.id,
-            position: slide.position,
-            video_id: slide.video_id,
-            video_title: video.title,
-            video_description: video.description,
-            headline: slide.headline,
-            subheadline: slide.subheadline,
-            brand_tag: slide.brand_tag,
-            description: slide.description,
-            primary_cta_label: slide.primary_cta_label,
-            secondary_cta_label: slide.secondary_cta_label,
-            background_image_url: slide.background_image_url
-          }
-        end)
-
+      enriched = Catalog.list_enriched_hero_slides(org, hero_row)
       assign(socket, :hero_slides, enriched)
     else
       assign(socket, :hero_slides, [])
@@ -1213,11 +1193,4 @@ defmodule BobineWeb.Admin.CatalogLive do
   end
 
   defp hero_auto_advance_ms(_), do: 8000
-
-  defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
-
-  defp can_manage_content?(%{membership: %{role: role}}) when role in [:owner, :admin, :editor],
-    do: true
-
-  defp can_manage_content?(_), do: false
 end

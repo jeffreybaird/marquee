@@ -2,6 +2,7 @@
 defmodule BobineWeb.Admin.TagsLive do
   use BobineWeb, :live_view
 
+  alias Bobine.Accounts
   alias Bobine.Content
   alias Bobine.Events
 
@@ -14,7 +15,7 @@ defmodule BobineWeb.Admin.TagsLive do
       Events.subscribe(org.id)
     end
 
-    can_manage = can_manage_content?(scope)
+    can_manage = Accounts.can_manage_content?(scope)
 
     {:ok,
      socket
@@ -223,11 +224,4 @@ defmodule BobineWeb.Admin.TagsLive do
     %{results: tags} = Content.list_tags(org)
     assign(socket, :tags, tags)
   end
-
-  defp can_manage_content?(%{user: %{is_super_admin: true}}), do: true
-
-  defp can_manage_content?(%{membership: %{role: role}}) when role in [:owner, :admin, :editor],
-    do: true
-
-  defp can_manage_content?(_), do: false
 end

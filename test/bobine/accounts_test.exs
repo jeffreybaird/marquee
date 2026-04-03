@@ -3,6 +3,16 @@ defmodule Bobine.AccountsTest do
 
   alias Bobine.Accounts
 
+  doctest Bobine.Accounts,
+    only: [
+      registration_changeset: 1,
+      merge_registration_errors: 2,
+      role_at_least?: 2,
+      can_manage_content?: 1,
+      can_manage_viewers?: 1,
+      can_view_viewers?: 1
+    ]
+
   import Bobine.AccountsFixtures
   alias Bobine.Accounts.{User, UserToken}
 
@@ -466,6 +476,154 @@ defmodule Bobine.AccountsTest do
   # ---------------------------------------------------------------------------
   # RBAC helpers
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Permission helpers (pure functions — no DB needed)
+  # ---------------------------------------------------------------------------
+
+  describe "can_manage_content?/1" do
+    test "super admins can always manage content" do
+      scope = %{user: %{is_super_admin: true}, membership: nil}
+      assert Accounts.can_manage_content?(scope)
+    end
+
+    test "owner role can manage content" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :owner}
+      }
+
+      assert Accounts.can_manage_content?(scope)
+    end
+
+    test "admin role can manage content" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :admin}
+      }
+
+      assert Accounts.can_manage_content?(scope)
+    end
+
+    test "editor role can manage content" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :editor}
+      }
+
+      assert Accounts.can_manage_content?(scope)
+    end
+
+    test "viewer_support role cannot manage content" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :viewer_support}
+      }
+
+      refute Accounts.can_manage_content?(scope)
+    end
+
+    test "nil membership cannot manage content" do
+      scope = %{user: %{is_super_admin: false}, membership: nil}
+      refute Accounts.can_manage_content?(scope)
+    end
+  end
+
+  describe "can_manage_viewers?/1" do
+    test "super admins can always manage viewers" do
+      scope = %{user: %{is_super_admin: true}, membership: nil}
+      assert Accounts.can_manage_viewers?(scope)
+    end
+
+    test "owner role can manage viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :owner}
+      }
+
+      assert Accounts.can_manage_viewers?(scope)
+    end
+
+    test "admin role can manage viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :admin}
+      }
+
+      assert Accounts.can_manage_viewers?(scope)
+    end
+
+    test "viewer_support role can manage viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :viewer_support}
+      }
+
+      assert Accounts.can_manage_viewers?(scope)
+    end
+
+    test "editor role cannot manage viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :editor}
+      }
+
+      refute Accounts.can_manage_viewers?(scope)
+    end
+
+    test "nil membership cannot manage viewers" do
+      scope = %{user: %{is_super_admin: false}, membership: nil}
+      refute Accounts.can_manage_viewers?(scope)
+    end
+  end
+
+  describe "can_view_viewers?/1" do
+    test "super admins can always view viewers" do
+      scope = %{user: %{is_super_admin: true}, membership: nil}
+      assert Accounts.can_view_viewers?(scope)
+    end
+
+    test "owner role can view viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :owner}
+      }
+
+      assert Accounts.can_view_viewers?(scope)
+    end
+
+    test "admin role can view viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :admin}
+      }
+
+      assert Accounts.can_view_viewers?(scope)
+    end
+
+    test "editor role can view viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :editor}
+      }
+
+      assert Accounts.can_view_viewers?(scope)
+    end
+
+    test "viewer_support role can view viewers" do
+      scope = %{
+        user: %{is_super_admin: false},
+        membership: %Bobine.Accounts.Membership{role: :viewer_support}
+      }
+
+      assert Accounts.can_view_viewers?(scope)
+    end
+
+    test "nil membership cannot view viewers" do
+      scope = %{user: %{is_super_admin: false}, membership: nil}
+      refute Accounts.can_view_viewers?(scope)
+    end
+  end
 
   describe "role_at_least?/2" do
     test "owner meets owner minimum" do

@@ -13,8 +13,8 @@ defmodule BobineWeb.Viewer.SubscribeLive do
 
     plans =
       if org do
-        %{results: plans} = Billing.list_plans(org, per_page: 10)
-        Enum.filter(plans, & &1.active)
+        %{results: plans} = Billing.list_active_plans(org, per_page: 10)
+        plans
       else
         []
       end

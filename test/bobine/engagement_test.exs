@@ -98,4 +98,65 @@ defmodule Bobine.EngagementTest do
       assert %Ecto.Changeset{} = Engagement.change_watchlist_item(watchlist_item)
     end
   end
+
+  describe "list_viewer_watchlist_videos/3" do
+    setup do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      user = insert(:user)
+      %{org: org, viewer: viewer, user: user}
+    end
+
+    test "returns a flat list of videos from the viewer's watchlist", %{
+      org: org,
+      viewer: viewer,
+      user: user
+    } do
+      video1 = insert(:video, organization: org)
+      video2 = insert(:video, organization: org)
+
+      insert(:watchlist_item,
+        organization: org,
+        viewer: viewer,
+        user: user,
+        video: video1
+      )
+
+      insert(:watchlist_item,
+        organization: org,
+        viewer: viewer,
+        user: user,
+        video: video2
+      )
+
+      videos = Engagement.list_viewer_watchlist_videos(org, viewer.id)
+      video_ids = Enum.map(videos, & &1.id) |> MapSet.new()
+
+      assert MapSet.member?(video_ids, video1.id)
+      assert MapSet.member?(video_ids, video2.id)
+      assert length(videos) == 2
+    end
+
+    test "returns empty list when viewer has no watchlist items", %{org: org, viewer: viewer} do
+      assert Engagement.list_viewer_watchlist_videos(org, viewer.id) == []
+    end
+
+    test "does not return videos from another viewer's watchlist", %{
+      org: org,
+      viewer: viewer,
+      user: user
+    } do
+      other_viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+
+      insert(:watchlist_item,
+        organization: org,
+        viewer: other_viewer,
+        user: user,
+        video: video
+      )
+
+      assert Engagement.list_viewer_watchlist_videos(org, viewer.id) == []
+    end
+  end
 end

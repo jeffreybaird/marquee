@@ -87,30 +87,28 @@ defmodule BobineWeb.Admin.MembersLive do
     end)
   end
 
-  # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   defp with_viewer_action(socket, id, action_fn) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
 
-    if can_manage_viewers?(scope) do
-      case Viewers.get_viewer(org, id) do
-        {:ok, viewer} ->
-          case action_fn.(scope, viewer) do
-            {:ok, _} ->
-              {:noreply,
-               socket
-               |> put_flash(:info, "Viewer updated.")
-               |> load_viewers(org)}
+    case Viewers.get_viewer(org, id) do
+      {:ok, viewer} ->
+        case action_fn.(scope, viewer) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "Viewer updated.")
+             |> load_viewers(org)}
 
-            {:error, _, _} ->
-              {:noreply, put_flash(socket, :error, "Could not update viewer.")}
-          end
+          {:error, :forbidden} ->
+            {:noreply, put_flash(socket, :error, "You don't have permission to manage viewers.")}
 
-        {:error, :not_found} ->
-          {:noreply, put_flash(socket, :error, "Viewer not found.")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "You don't have permission to manage viewers.")}
+          {:error, _, _} ->
+            {:noreply, put_flash(socket, :error, "Could not update viewer.")}
+        end
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Viewer not found.")}
     end
   end
 
@@ -128,29 +126,10 @@ defmodule BobineWeb.Admin.MembersLive do
     assign(socket, :viewers_page, result)
   end
 
-  defp can_manage_viewers?(scope) do
-    cond do
-      scope.user.is_super_admin -> true
-      # viewer_support's primary purpose is supporting viewers, so they can act.
-      # editors can view but NOT act — they lack the viewer management capability.
-      scope.membership && scope.membership.role in [:viewer_support, :admin, :owner] -> true
-      true -> false
-    end
-  end
-
-  defp can_view_viewers?(scope) do
-    cond do
-      scope.user.is_super_admin -> true
-      # viewer_support, editor, admin, and owner can all view the viewer list
-      scope.membership -> Accounts.role_at_least?(scope.membership, :viewer_support)
-      true -> false
-    end
-  end
-
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, :can_manage, can_manage_viewers?(assigns.current_scope))
-    assigns = assign(assigns, :can_view, can_view_viewers?(assigns.current_scope))
+    assigns = assign(assigns, :can_manage, Accounts.can_manage_viewers?(assigns.current_scope))
+    assigns = assign(assigns, :can_view, Accounts.can_view_viewers?(assigns.current_scope))
 
     ~H"""
     <BobineWeb.Components.AdminLayout.admin_layout

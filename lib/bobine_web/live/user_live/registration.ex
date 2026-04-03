@@ -3,8 +3,6 @@ defmodule BobineWeb.UserLive.Registration do
 
   alias Bobine.Accounts
 
-  @types %{email: :string, organization_name: :string}
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -63,18 +61,18 @@ defmodule BobineWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = registration_changeset(%{})
+    changeset = Accounts.registration_changeset(%{})
     {:ok, assign(socket, form: to_form(changeset, as: "user")), temporary_assigns: [form: nil]}
   end
 
   @impl true
   def handle_event("save", %{"user" => params}, socket) do
     changeset =
-      registration_changeset(params)
+      Accounts.registration_changeset(params)
       |> Map.put(:action, :validate)
 
     if changeset.valid? do
-      org_name = Ecto.Changeset.get_change(changeset, :organization_name)
+      org_name = params["organization_name"]
 
       case Accounts.register_user_with_organization(params, org_name) do
         {:ok, user} ->
@@ -95,8 +93,8 @@ defmodule BobineWeb.UserLive.Registration do
         {:error, :validation, %Ecto.Changeset{} = user_changeset} ->
           # Merge user changeset errors back into our registration form
           merged =
-            registration_changeset(params)
-            |> merge_user_errors(user_changeset)
+            Accounts.registration_changeset(params)
+            |> Accounts.merge_registration_errors(user_changeset)
             |> Map.put(:action, :validate)
 
           {:noreply, assign(socket, form: to_form(merged, as: "user"))}
@@ -108,25 +106,9 @@ defmodule BobineWeb.UserLive.Registration do
 
   def handle_event("validate", %{"user" => params}, socket) do
     changeset =
-      registration_changeset(params)
+      Accounts.registration_changeset(params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign(socket, form: to_form(changeset, as: "user"))}
-  end
-
-  defp registration_changeset(params) do
-    {%{}, @types}
-    |> Ecto.Changeset.cast(params, Map.keys(@types))
-    |> Ecto.Changeset.validate_required([:email, :organization_name])
-    |> Ecto.Changeset.validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
-      message: "must have the @ sign and no spaces"
-    )
-    |> Ecto.Changeset.validate_length(:organization_name, min: 1, max: 100)
-  end
-
-  defp merge_user_errors(changeset, user_changeset) do
-    Enum.reduce(user_changeset.errors, changeset, fn {field, error}, cs ->
-      Ecto.Changeset.add_error(cs, field, elem(error, 0), elem(error, 1))
-    end)
   end
 end
