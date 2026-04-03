@@ -14,31 +14,31 @@ defmodule Bobine.Engagement.FavoritesTest do
   describe "toggle_favorite/3" do
     test "adds when not favorited, returns {:ok, :added}", %{org: org, viewer: viewer, video: video} do
       assert {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
-      assert Engagement.is_favorited?(org, viewer, video) == true
+      assert Engagement.favorited?(org, viewer, video) == true
     end
 
     test "removes when favorited, returns {:ok, :removed}", %{org: org, viewer: viewer, video: video} do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
       assert {:ok, :removed} = Engagement.toggle_favorite(org, viewer, video)
-      assert Engagement.is_favorited?(org, viewer, video) == false
+      assert Engagement.favorited?(org, viewer, video) == false
     end
 
     test "re-adds after removal (restores soft-deleted)", %{org: org, viewer: viewer, video: video} do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
       {:ok, :removed} = Engagement.toggle_favorite(org, viewer, video)
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
-      assert Engagement.is_favorited?(org, viewer, video) == true
+      assert Engagement.favorited?(org, viewer, video) == true
     end
   end
 
-  describe "is_favorited?/3" do
+  describe "favorited?/3" do
     test "returns true when favorited", %{org: org, viewer: viewer, video: video} do
       {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
-      assert Engagement.is_favorited?(org, viewer, video) == true
+      assert Engagement.favorited?(org, viewer, video) == true
     end
 
     test "returns false when not favorited", %{org: org, viewer: viewer, video: video} do
-      assert Engagement.is_favorited?(org, viewer, video) == false
+      assert Engagement.favorited?(org, viewer, video) == false
     end
   end
 

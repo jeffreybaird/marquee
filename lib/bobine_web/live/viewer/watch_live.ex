@@ -51,7 +51,7 @@ defmodule BobineWeb.Viewer.WatchLive do
       if viewer do
         {
           Engagement.list_queue(org, viewer),
-          Engagement.is_favorited?(org, viewer, video),
+          Engagement.favorited?(org, viewer, video),
           Engagement.in_watchlist?(org, viewer, video)
         }
       else

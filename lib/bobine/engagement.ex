@@ -769,7 +769,7 @@ defmodule Bobine.Engagement do
 
   Exempt from doctest — hits the database.
   """
-  def is_favorited?(%Organization{id: org_id}, %{id: viewer_id}, video) do
+  def favorited?(%Organization{id: org_id}, %{id: viewer_id}, video) do
     Favorite
     |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
     |> where([f], is_nil(f.deleted_at))
@@ -841,7 +841,7 @@ defmodule Bobine.Engagement do
     Progress
     |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
     |> where([p], p.completed == false)
-    |> where([p], p.position > 0)
+    |> where([p], p.position > 0.0)
     |> order_by(desc: :updated_at)
     |> preload(:video)
     |> Pagination.paginate(opts)
@@ -890,7 +890,7 @@ defmodule Bobine.Engagement do
         updated_at: now
       },
       on_conflict: [set: [position: position / 1, duration: duration, updated_at: now]],
-      conflict_target: [:viewer_id, :video_id, :organization_id]
+      conflict_target: {:unsafe_fragment, ~s|("viewer_id","video_id","organization_id") WHERE viewer_id IS NOT NULL|}
     )
 
     # Check for completion (99% threshold)

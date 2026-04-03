@@ -93,8 +93,9 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       view |> element(~s([data-test="queue-remove-#{other.id}"])) |> render_click()
 
-      html = render(view)
-      refute html =~ "To Remove"
+      # Assert the queue panel specifically — the video may still appear in related videos
+      queue_html = view |> element(~s([data-test="queue-panel"])) |> render()
+      refute queue_html =~ "To Remove"
     end
 
     test "clear queue empties the queue", %{org: org, viewer: viewer, video: video} do

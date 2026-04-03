@@ -14,5 +14,13 @@ defmodule Bobine.Repo.Migrations.MakeUserIdNullableForViewerEngagement do
     alter table(:watch_histories) do
       modify :user_id, :binary_id, null: true, from: {:binary_id, null: false}
     end
+
+    alter table(:favorites) do
+      modify :user_id, :binary_id, null: true, from: {:binary_id, null: false}
+    end
+
+    alter table(:watchlist_items) do
+      modify :user_id, :binary_id, null: true, from: {:binary_id, null: false}
+    end
   end
 end

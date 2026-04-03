@@ -337,7 +337,7 @@ defmodule Bobine.Engagement.QueueTest do
       assert Engagement.list_queue(org, viewer_b) == []
     end
 
-    test "viewer A's queue on org X is not visible from org Y", %{videos: [v1 | _]} do
+    test "viewer A's queue on org X is not visible from org Y", %{videos: [_v1 | _]} do
       org_x = insert(:organization)
       org_y = insert(:organization)
       viewer = insert(:subscribed_viewer, organization: org_x)

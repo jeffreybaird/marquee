@@ -77,7 +77,7 @@ defmodule Bobine.Engagement.WatchlistTest do
   end
 
   describe "multi-tenant isolation" do
-    test "viewer's watchlist is not visible from another org", %{viewer: viewer, video: video} do
+    test "viewer's watchlist is not visible from another org", %{viewer: _viewer, video: _video} do
       org_a = insert(:organization)
       org_b = insert(:organization)
       viewer_a = insert(:subscribed_viewer, organization: org_a)
