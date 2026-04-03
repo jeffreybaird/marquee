@@ -159,6 +159,17 @@ defmodule Bobine.Factory do
   # Engagement
   # -------------------------------------------------------------------------
 
+  def queue_item_factory do
+    %Bobine.Engagement.QueueItem{
+      organization: build(:organization),
+      viewer: build(:viewer),
+      video: build(:video),
+      position: sequence(:queue_position, & &1),
+      added_from: "browse",
+      added_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
   def watchlist_item_factory do
     %Bobine.Engagement.WatchlistItem{
       organization: build(:organization),

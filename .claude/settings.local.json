@@ -55,7 +55,9 @@
       "Bash(python3 -c \" import json, sys data = json.load\\(sys.stdin\\) issues = data.get\\('issues', []\\) for i in issues: print\\(f\\\\\"{i['check'].split\\('.'\\)[-1]}|{i['filename']}:{i['line_no']}|{i.get\\('message',''\\)}|{i.get\\('trigger', ''\\)}\\\\\"\\) \")",
       "Bash(kill -9 47187)",
       "Bash(mix eval:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(MIX_ENV=test mix ecto.rollback --step 3)",
+      "Bash(MIX_ENV=test mix run -e 'Bobine.Repo.query!\\(\"SELECT indexname FROM pg_indexes WHERE tablename = '\\\\''progresses'\\\\'' AND indexdef LIKE '\\\\''%viewer_id%video_id%organization_id%'\\\\''\"\\) |> IO.inspect\\(\\)')"
     ]
   }
 }

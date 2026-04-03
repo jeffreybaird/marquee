@@ -13,6 +13,9 @@ defmodule Bobine.Application do
     setup_oban_telemetry()
     Bobine.TelemetryHandler.setup()
 
+    # ETS table for ephemeral go-back state (queue advance undo within 60s)
+    :ets.new(:bobine_go_back, [:named_table, :public, :set])
+
     children =
       [
         BobineWeb.Telemetry,
