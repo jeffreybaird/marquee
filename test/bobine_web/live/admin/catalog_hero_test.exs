@@ -10,6 +10,45 @@ defmodule BobineWeb.Admin.CatalogHeroTest do
     %{org: org, membership: membership}
   end
 
+  describe "hero editor — collapsible" do
+    test "collapse toggle is visible and hero body is expanded by default", %{
+      membership: membership
+    } do
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/catalog")
+      assert html =~ ~s(data-test="hero-collapse-toggle")
+      assert html =~ ~s(id="hero-editor-body")
+      assert html =~ ~s(aria-expanded="true")
+    end
+
+    test "clicking collapse toggle hides the hero body", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      html =
+        view
+        |> element(~s([data-test="hero-collapse-toggle"]))
+        |> render_click()
+
+      refute html =~ ~s(id="hero-editor-body")
+      assert html =~ ~s(aria-expanded="false")
+    end
+
+    test "clicking collapse toggle twice re-expands the hero body", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      view
+      |> element(~s([data-test="hero-collapse-toggle"]))
+      |> render_click()
+
+      html =
+        view
+        |> element(~s([data-test="hero-collapse-toggle"]))
+        |> render_click()
+
+      assert html =~ ~s(id="hero-editor-body")
+      assert html =~ ~s(aria-expanded="true")
+    end
+  end
+
   describe "hero editor — no hero row" do
     test "create hero carousel button visible when no hero row exists", %{
       membership: membership

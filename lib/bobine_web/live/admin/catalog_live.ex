@@ -48,6 +48,7 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:show_hero_video_picker, false)
      |> assign(:hero_available_videos, [])
      |> assign(:hero_save_status, %{})
+     |> assign(:hero_collapsed, false)
      |> load_rows()
      |> load_hero_row()}
   end
@@ -289,6 +290,11 @@ defmodule BobineWeb.Admin.CatalogLive do
   # ── Hero events ────────────────────────────────────────────────────────
 
   @impl true
+  def handle_event("toggle_hero_collapsed", _params, socket) do
+    {:noreply, update(socket, :hero_collapsed, &(!&1))}
+  end
+
+  @impl true
   def handle_event("create_hero", _params, socket) do
     scope = socket.assigns.current_scope
 
@@ -493,6 +499,8 @@ defmodule BobineWeb.Admin.CatalogLive do
           can_manage={@can_manage}
           show_hero_video_picker={@show_hero_video_picker}
           hero_available_videos={@hero_available_videos}
+          hero_save_status={@hero_save_status}
+          hero_collapsed={@hero_collapsed}
         />
 
         <div class="divider my-8" />
@@ -521,7 +529,19 @@ defmodule BobineWeb.Admin.CatalogLive do
     ~H"""
     <div data-test="hero-editor">
       <div class="flex items-center justify-between pb-4">
-        <.header>Hero Carousel</.header>
+        <button
+          phx-click="toggle_hero_collapsed"
+          class="flex items-center gap-2 cursor-pointer bg-transparent border-none p-0"
+          aria-expanded={to_string(!@hero_collapsed)}
+          aria-controls="hero-editor-body"
+          data-test="hero-collapse-toggle"
+        >
+          <.icon
+            name={if @hero_collapsed, do: "hero-chevron-right", else: "hero-chevron-down"}
+            class="size-5"
+          />
+          <.header>Hero Carousel</.header>
+        </button>
         <%= if @hero_row do %>
           <div class="flex items-center gap-2">
             <button
@@ -536,6 +556,7 @@ defmodule BobineWeb.Admin.CatalogLive do
         <% end %>
       </div>
 
+      <div :if={!@hero_collapsed} id="hero-editor-body">
       <%= if is_nil(@hero_row) do %>
         <div class="py-8 text-center bg-base-200 rounded-lg">
           <p class="text-base-content/60 mb-4">
@@ -807,6 +828,7 @@ defmodule BobineWeb.Admin.CatalogLive do
           </div>
         </div>
       <% end %>
+      </div>
     </div>
     """
   end
