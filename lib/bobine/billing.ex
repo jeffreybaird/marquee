@@ -836,8 +836,19 @@ defmodule Bobine.Billing do
              }) do
         {:ok, link.url}
       else
-        {:error, :stripe_error, reason} -> {:error, :stripe_error, reason}
-        {:error, reason} -> {:error, :stripe_error, reason}
+        {:error, :stripe_error, reason} ->
+          Logger.error(
+            "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
+          )
+
+          {:error, :stripe_error, reason}
+
+        {:error, reason} ->
+          Logger.error(
+            "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
+          )
+
+          {:error, :stripe_error, reason}
       end
     end
   end
@@ -892,8 +903,8 @@ defmodule Bobine.Billing do
 
   defp ensure_connect_account(%Organization{} = org) do
     case stripe_client().create_connect_account(%{
-           type: "standard",
-           metadata: %{bobine_org_id: org.id}
+           type: :standard,
+           metadata: %{"bobine_org_id" => org.id}
          }) do
       {:ok, account} ->
         org
@@ -907,7 +918,8 @@ defmodule Bobine.Billing do
     end
   end
 
-  defp stripe_client, do: Application.get_env(:bobine, :stripe_client)
+  defp stripe_client,
+    do: Application.get_env(:bobine, :stripe_client, Bobine.Billing.StripeClient)
 
   defp stringify_keys(map) when is_map(map) do
     Map.new(map, fn
@@ -922,8 +934,16 @@ defmodule Bobine.Billing do
   end
 
   defp org_base_url(%Organization{slug: slug}) do
-    base = Application.get_env(:bobine, BobineWeb.Endpoint)[:url][:host] || "localhost:4000"
-    scheme = if base =~ "localhost", do: "http", else: "https"
-    "#{scheme}://#{slug}.#{base}"
+    endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint, [])
+    host = get_in(endpoint_config, [:url, :host]) || "localhost"
+
+    port =
+      get_in(endpoint_config, [:http, :port]) || get_in(endpoint_config, [:url, :port]) || 4000
+
+    if host =~ "localhost" do
+      "http://#{host}:#{port}"
+    else
+      "https://#{slug}.#{host}"
+    end
   end
 end

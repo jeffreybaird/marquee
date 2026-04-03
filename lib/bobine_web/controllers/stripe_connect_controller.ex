@@ -73,5 +73,6 @@ defmodule BobineWeb.StripeConnectController do
     end
   end
 
-  defp stripe_client, do: Application.get_env(:bobine, :stripe_client)
+  defp stripe_client,
+    do: Application.get_env(:bobine, :stripe_client, Bobine.Billing.StripeClient)
 end

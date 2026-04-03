@@ -3,6 +3,8 @@ defmodule BobineWeb.Admin.SettingsLive do
 
   alias Bobine.Billing
 
+  require Logger
+
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
@@ -23,7 +25,9 @@ defmodule BobineWeb.Admin.SettingsLive do
       {:ok, url} ->
         {:noreply, redirect(socket, external: url)}
 
-      {:error, :stripe_error, _reason} ->
+      {:error, :stripe_error, reason} ->
+        Logger.error("Stripe Connect onboarding failed reason=#{inspect(reason)}")
+
         {:noreply,
          put_flash(socket, :error, "Could not start Stripe onboarding. Please try again.")}
     end

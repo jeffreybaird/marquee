@@ -29,7 +29,7 @@ defmodule Bobine.Billing.ViewerBillingTest do
       org = disconnected_org()
 
       expect(Bobine.Billing.MockStripeClient, :create_connect_account, fn params ->
-        assert params.type == "standard"
+        assert params.type == :standard
         {:ok, %{id: "acct_new_123"}}
       end)
 
