@@ -466,7 +466,7 @@
   z-index: 2;
 }
 
-.sv-card-row { width: 240px; scroll-snap-align: start; }
+.sv-card-row { width: 384px; scroll-snap-align: start; }
 
 .sv-card-grid {
   width: 100%;
@@ -504,7 +504,7 @@
 
 .sv-card-title {
   font-family: var(--sv-font-body);
-  font-size: 0.875rem;
+  font-size: 1.4rem;
   font-weight: 500;
   color: var(--sv-text-primary);
   white-space: nowrap;
@@ -514,7 +514,7 @@
 }
 
 .sv-card-meta {
-  font-size: 0.75rem;
+  font-size: 1rem;
   color: var(--sv-text-secondary);
   margin-top: 4px;
   display: block;
@@ -534,10 +534,10 @@
 
 .sv-row-title {
   font-family: var(--sv-font-heading);
-  font-size: 1.25rem;
+  font-size: 2rem;
   font-weight: 500;
   color: var(--sv-text-primary);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .sv-row-scroll-wrapper {
@@ -598,7 +598,7 @@
 .content-row { margin-bottom: 48px; }
 .content-row-title {
   font-family: var(--sv-font-heading);
-  font-size: 1.25rem;
+  font-size: 2rem;
   font-weight: 500;
   color: var(--sv-text-primary);
   margin: 0 0 16px 0;
@@ -637,7 +637,7 @@
 .row-arrow-next { right: -18px; }
 .content-card {
   flex-shrink: 0;
-  width: 240px;
+  width: 384px;
   scroll-snap-align: start;
   text-decoration: none;
   transition: transform 200ms;
@@ -651,7 +651,7 @@
 }
 .content-card-title {
   display: block;
-  font-size: 0.875rem;
+  font-size: 1.4rem;
   color: var(--sv-text-primary);
   margin-top: 8px;
   white-space: nowrap;
@@ -847,7 +847,7 @@
 
 .sv-skeleton-card {
   flex-shrink: 0;
-  width: 240px;
+  width: 384px;
   border-radius: var(--sv-radius-md);
   overflow: hidden;
 }

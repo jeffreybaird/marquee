@@ -35,7 +35,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       <div class="sv-card-thumb">
         <img
           :if={@video.mux_playback_id}
-          src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=480&height=270&fit_mode=smartcrop"}
+          src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
           alt={@video.title}
           loading="lazy"
         />

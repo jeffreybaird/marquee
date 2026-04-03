@@ -462,7 +462,7 @@ defmodule BobineWeb.Viewer.HomeLive do
           >
             <img
               :if={video.mux_playback_id}
-              src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=400&height=225&fit_mode=smartcrop"}
+              src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
               alt={video.title}
               loading="lazy"
             />
