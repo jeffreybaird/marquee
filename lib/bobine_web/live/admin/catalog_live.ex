@@ -456,6 +456,7 @@ defmodule BobineWeb.Admin.CatalogLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
+      <.header>Catalog</.header>
       <%= if @selected_row && @row_videos != [] || (@selected_row && @selected_row.source_type == :curated && @preview_videos == []) do %>
         <.row_items_view
           row={@selected_row}
