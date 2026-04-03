@@ -22,6 +22,10 @@ defmodule BobineWeb.Router do
     plug BobineWeb.Plugs.SetOrganization
   end
 
+  pipeline :optional_organization do
+    plug BobineWeb.Plugs.SetOrganization, optional: true
+  end
+
   pipeline :require_admin do
     plug BobineWeb.Plugs.RequireRole, minimum_role: :viewer_support
   end
@@ -163,6 +167,22 @@ defmodule BobineWeb.Router do
   end
 
   ## ──────────────────────────────────────────────────────────────────────
+  ## Home / marketing page (org optional — shows marketing when no org)
+  ## ──────────────────────────────────────────────────────────────────────
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :optional_organization]
+
+    live_session :home,
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :assign_org},
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+      ] do
+      live "/", HomeLive
+    end
+  end
+
+  ## ──────────────────────────────────────────────────────────────────────
   ## Viewer public pages (org resolved, optional auth)
   ## ──────────────────────────────────────────────────────────────────────
 
@@ -174,7 +194,6 @@ defmodule BobineWeb.Router do
         {BobineWeb.Hooks.AssignScope, :assign_org},
         {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
       ] do
-      live "/", HomeLive
       live "/browse", BrowseLive
     end
   end

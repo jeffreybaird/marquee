@@ -27,7 +27,11 @@ defmodule BobineWeb.Admin.PlanSuccessLive do
     >
       <.header>Plan Updated</.header>
 
-      <div class="mt-6 rounded-lg border border-success bg-success/10 p-6" data-test="plan-success-card" role="status">
+      <div
+        class="mt-6 rounded-lg border border-success bg-success/10 p-6"
+        data-test="plan-success-card"
+        role="status"
+      >
         <div class="flex items-center gap-3">
           <svg
             xmlns="http://www.w3.org/2000/svg"

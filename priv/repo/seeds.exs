@@ -74,7 +74,7 @@ end
 demo_org = create_org.("Demo Studio", "demo")
 
 IO.puts("Creating users for #{demo_org.name}:")
-create_user_with_membership.("owner@demo.localhost", :owner, demo_org)
+create_user_with_membership.("Run mix format --check-formatted", :owner, demo_org)
 create_user_with_membership.("editor@demo.localhost", :editor, demo_org)
 create_user_with_membership.("support@demo.localhost", :viewer_support, demo_org)
 

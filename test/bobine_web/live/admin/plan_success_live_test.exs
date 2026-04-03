@@ -38,7 +38,9 @@ defmodule BobineWeb.Admin.PlanSuccessLiveTest do
     end
 
     test "back to billing link navigates correctly", %{membership: membership, org: org} do
-      plan = insert(:platform_plan, slug: "nav_plan", usage_tier: :basic, business_tier: :individual)
+      plan =
+        insert(:platform_plan, slug: "nav_plan", usage_tier: :basic, business_tier: :individual)
+
       insert(:platform_subscription, organization: org, platform_plan: plan)
 
       {:ok, view, _html} =

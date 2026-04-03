@@ -11,39 +11,279 @@ defmodule BobineWeb.Viewer.HomeLive do
   def mount(_params, _session, socket) do
     scope = socket.assigns.current_scope
     org = socket.assigns[:organization]
+    viewer = socket.assigns[:current_viewer]
 
     cond do
       # Super admin with no org resolved -> send to super admin dashboard
       scope && scope.user && scope.user.is_super_admin && is_nil(org) ->
         {:ok, push_navigate(socket, to: ~p"/super")}
 
-      # Authenticated user with org resolved -> show org home
+      # Authenticated operator with org but no viewer session -> show org home
+      org && is_nil(viewer) && scope && scope.user ->
+        {:ok, mount_org_home(socket, org)}
+
+      # Org resolved + viewer -> show catalog
+      org && viewer ->
+        {:ok, mount_org_home(socket, org)}
+
+      # Org resolved but no auth -> org landing page
       org ->
-        %{slides: hero_slides, auto_advance_ms: auto_advance_ms} =
-          Catalog.resolve_hero_slides_cached(org)
-
-        rows = load_catalog_rows(org)
-
         {:ok,
          socket
          |> assign(:page_title, org.name)
-         |> assign(:hero_slides, hero_slides)
-         |> assign(:hero_auto_advance_ms, auto_advance_ms)
-         |> assign(:rows, rows)}
+         |> assign(:page_mode, :org_landing)}
 
-      # No org, no super admin -> show generic landing
+      # No org, no super admin -> platform marketing page
       true ->
         {:ok,
          socket
-         |> assign(:page_title, "Welcome")
-         |> assign(:hero_slides, [])
-         |> assign(:hero_auto_advance_ms, 0)
-         |> assign(:rows, [])}
+         |> assign(:page_title, "Bobine — Your Video Platform")
+         |> assign(:page_mode, :platform_marketing)}
     end
   end
 
+  defp mount_org_home(socket, org) do
+    %{slides: hero_slides, auto_advance_ms: auto_advance_ms} =
+      Catalog.resolve_hero_slides_cached(org)
+
+    rows = load_catalog_rows(org)
+
+    socket
+    |> assign(:page_title, org.name)
+    |> assign(:page_mode, :org_home)
+    |> assign(:hero_slides, hero_slides)
+    |> assign(:hero_auto_advance_ms, auto_advance_ms)
+    |> assign(:rows, rows)
+  end
+
   @impl true
-  def render(assigns) do
+  def render(%{page_mode: :platform_marketing} = assigns) do
+    ~H"""
+    <div class="min-h-screen bg-base-100" data-test="platform-marketing">
+      <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
+        <div class="flex-1">
+          <a href="/" class="text-xl font-bold tracking-tight text-base-content">Bobine</a>
+        </div>
+        <nav class="flex-none flex items-center gap-3">
+          <.link
+            navigate={~p"/users/log-in"}
+            class="btn btn-ghost btn-sm"
+            data-test="marketing-login-link"
+          >
+            Log in
+          </.link>
+          <.link
+            navigate={~p"/users/register"}
+            class="btn btn-primary btn-sm"
+            data-test="marketing-register-link"
+          >
+            Get started
+          </.link>
+        </nav>
+      </header>
+
+      <main>
+        <%!-- Hero --%>
+        <section class="relative overflow-hidden bg-gradient-to-br from-primary/10 via-base-100 to-accent/10 py-24 sm:py-32">
+          <div class="mx-auto max-w-4xl px-6 text-center">
+            <h1
+              class="text-4xl font-extrabold tracking-tight text-base-content sm:text-6xl"
+              data-test="marketing-headline"
+            >
+              Launch your own streaming platform
+            </h1>
+            <p class="mt-6 text-lg leading-8 text-base-content/70 sm:text-xl">
+              Bobine gives creators and businesses everything they need to publish, monetize,
+              and grow a branded video streaming service — no engineering team required.
+            </p>
+            <div class="mt-10 flex items-center justify-center gap-4">
+              <.link
+                navigate={~p"/users/register"}
+                class="btn btn-primary btn-lg"
+                data-test="marketing-hero-cta"
+              >
+                Start for free
+              </.link>
+              <.link
+                navigate={~p"/users/log-in"}
+                class="btn btn-ghost btn-lg"
+                data-test="marketing-hero-login"
+              >
+                Log in
+              </.link>
+            </div>
+          </div>
+        </section>
+
+        <%!-- Features --%>
+        <section class="py-20 sm:py-24" data-test="marketing-features">
+          <div class="mx-auto max-w-6xl px-6">
+            <h2 class="text-center text-2xl font-bold text-base-content sm:text-3xl">
+              Everything you need to run a streaming service
+            </h2>
+            <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <.feature_card
+                icon="hero-play-circle"
+                title="Professional Video"
+                description="Upload once and deliver adaptive bitrate streams worldwide, powered by Mux."
+              />
+              <.feature_card
+                icon="hero-credit-card"
+                title="Built-in Monetization"
+                description="Offer subscriptions and manage payments with Stripe — no custom integration needed."
+              />
+              <.feature_card
+                icon="hero-paint-brush"
+                title="Your Brand, Your Rules"
+                description="Custom domains, logos, colors, and templates so viewers see your brand, not ours."
+              />
+              <.feature_card
+                icon="hero-chart-bar"
+                title="Audience Analytics"
+                description="Understand what your viewers watch, how long they stay, and what drives growth."
+              />
+              <.feature_card
+                icon="hero-users"
+                title="Team Management"
+                description="Invite editors, support staff, and admins with granular role-based permissions."
+              />
+              <.feature_card
+                icon="hero-bolt"
+                title="Launch Fast"
+                description="Go from zero to a live streaming site in minutes, not months."
+              />
+            </div>
+          </div>
+        </section>
+
+        <%!-- CTA --%>
+        <section class="border-t border-base-300 bg-base-200 py-16 sm:py-20">
+          <div class="mx-auto max-w-3xl px-6 text-center">
+            <h2 class="text-2xl font-bold text-base-content sm:text-3xl">
+              Ready to build your streaming platform?
+            </h2>
+            <p class="mt-4 text-base-content/70">
+              Join creators and businesses already using Bobine to reach their audience.
+            </p>
+            <.link
+              navigate={~p"/users/register"}
+              class="btn btn-primary btn-lg mt-8"
+              data-test="marketing-bottom-cta"
+            >
+              Get started for free
+            </.link>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-base-300 py-8 text-center text-sm text-base-content/50">
+        &copy; {Date.utc_today().year} Bobine. All rights reserved.
+      </footer>
+    </div>
+    """
+  end
+
+  def render(%{page_mode: :org_landing} = assigns) do
+    ~H"""
+    <div class="min-h-screen bg-base-100" data-test="org-landing">
+      <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
+        <div class="flex-1">
+          <a href="/" class="text-xl font-bold tracking-tight text-base-content">
+            {@organization.name}
+          </a>
+        </div>
+        <nav class="flex-none flex items-center gap-3">
+          <.link
+            navigate={~p"/login"}
+            class="btn btn-ghost btn-sm"
+            data-test="org-landing-login-link"
+          >
+            Sign in
+          </.link>
+          <.link
+            navigate={~p"/register"}
+            class="btn btn-primary btn-sm"
+            data-test="org-landing-register-link"
+          >
+            Join
+          </.link>
+        </nav>
+      </header>
+
+      <main>
+        <section class="relative overflow-hidden bg-gradient-to-br from-primary/10 via-base-100 to-accent/10 py-24 sm:py-32">
+          <div class="mx-auto max-w-4xl px-6 text-center">
+            <h1
+              class="text-4xl font-extrabold tracking-tight text-base-content sm:text-6xl"
+              data-test="org-landing-headline"
+            >
+              Welcome to {@organization.name}
+            </h1>
+            <p class="mt-6 text-lg leading-8 text-base-content/70 sm:text-xl">
+              Discover exclusive video content. Sign in or create an account to start watching.
+            </p>
+            <div class="mt-10 flex items-center justify-center gap-4">
+              <.link
+                navigate={~p"/register"}
+                class="btn btn-primary btn-lg"
+                data-test="org-landing-hero-cta"
+              >
+                Create an account
+              </.link>
+              <.link
+                navigate={~p"/login"}
+                class="btn btn-ghost btn-lg"
+                data-test="org-landing-hero-login"
+              >
+                Sign in
+              </.link>
+            </div>
+          </div>
+        </section>
+
+        <section class="py-16 sm:py-20" data-test="org-landing-features">
+          <div class="mx-auto max-w-4xl px-6">
+            <div class="grid gap-8 sm:grid-cols-3">
+              <div class="text-center">
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <.icon name="hero-play-circle" class="size-6 text-primary" />
+                </div>
+                <h3 class="mt-4 font-semibold text-base-content">Stream anytime</h3>
+                <p class="mt-2 text-sm text-base-content/70">
+                  Watch on any device, anywhere.
+                </p>
+              </div>
+              <div class="text-center">
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <.icon name="hero-sparkles" class="size-6 text-primary" />
+                </div>
+                <h3 class="mt-4 font-semibold text-base-content">Exclusive content</h3>
+                <p class="mt-2 text-sm text-base-content/70">
+                  Access videos you won't find anywhere else.
+                </p>
+              </div>
+              <div class="text-center">
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <.icon name="hero-heart" class="size-6 text-primary" />
+                </div>
+                <h3 class="mt-4 font-semibold text-base-content">Support creators</h3>
+                <p class="mt-2 text-sm text-base-content/70">
+                  Your subscription directly supports the people who make the content you love.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="border-t border-base-300 py-8 text-center text-sm text-base-content/50">
+        &copy; {Date.utc_today().year} {@organization.name}. Powered by Bobine.
+      </footer>
+    </div>
+    """
+  end
+
+  def render(%{page_mode: :org_home} = assigns) do
     ~H"""
     <ViewerLayout.viewer_layout
       organization={@organization}
@@ -71,6 +311,22 @@ defmodule BobineWeb.Viewer.HomeLive do
         <.content_row :for={%{row: row, videos: videos} <- @rows} row={row} videos={videos} />
       </section>
     </ViewerLayout.viewer_layout>
+    """
+  end
+
+  attr :icon, :string, required: true
+  attr :title, :string, required: true
+  attr :description, :string, required: true
+
+  defp feature_card(assigns) do
+    ~H"""
+    <div class="rounded-xl border border-base-300 bg-base-200 p-6">
+      <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+        <.icon name={@icon} class="size-5 text-primary" />
+      </div>
+      <h3 class="mt-4 text-lg font-semibold text-base-content">{@title}</h3>
+      <p class="mt-2 text-sm leading-6 text-base-content/70">{@description}</p>
+    </div>
     """
   end
 

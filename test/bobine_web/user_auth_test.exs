@@ -74,13 +74,13 @@ defmodule BobineWeb.UserAuthTest do
       assert max_age == @remember_me_cookie_max_age
     end
 
-    test "redirects to settings when user is already logged in", %{conn: conn, user: user} do
+    test "redirects to / when user has no membership", %{conn: conn, user: user} do
       conn =
         conn
         |> assign(:current_scope, Scope.for_user(user))
         |> UserAuth.log_in_user(user)
 
-      assert redirected_to(conn) == ~p"/users/settings"
+      assert redirected_to(conn) == ~p"/"
     end
 
     test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
@@ -385,6 +385,44 @@ defmodule BobineWeb.UserAuthTest do
         event: "disconnect",
         topic: "users_sessions:dG9rZW4y"
       }
+    end
+  end
+
+  describe "signed_in_path/2" do
+    test "super admin is redirected to /super", %{conn: conn} do
+      super_admin = insert(:super_admin)
+      scope = Scope.for_user(super_admin)
+      conn = assign(conn, :current_scope, scope)
+
+      assert UserAuth.signed_in_path(conn, super_admin) == ~p"/super"
+    end
+
+    test "super admin redirected to /super on fresh login" do
+      super_admin = insert(:super_admin)
+      assert UserAuth.signed_in_path(%{}, super_admin) == ~p"/super"
+    end
+
+    test "user with membership is redirected to /admin", %{conn: conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user)
+      scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
+      conn = assign(conn, :current_scope, scope)
+
+      assert UserAuth.signed_in_path(conn, user) == ~p"/admin"
+    end
+
+    test "user with membership redirected to /admin on fresh login" do
+      org = insert(:organization)
+      user = insert(:user)
+      _membership = insert(:membership, organization: org, user: user)
+
+      assert UserAuth.signed_in_path(%{}, user) == ~p"/admin"
+    end
+
+    test "user without membership is redirected to /", %{conn: _conn} do
+      user = insert(:user)
+      assert UserAuth.signed_in_path(%{}, user) == ~p"/"
     end
   end
 end

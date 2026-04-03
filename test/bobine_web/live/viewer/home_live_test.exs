@@ -512,8 +512,8 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
     end
   end
 
-  describe "unauthenticated visitor" do
-    test "homepage renders for unauthenticated visitor", %{conn: _conn} do
+  describe "unauthenticated visitor with org" do
+    test "homepage renders for operator with org (no viewer session)", %{conn: _conn} do
       org = insert(:organization, name: "Public Platform")
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user)
@@ -521,6 +521,82 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       {:ok, _view, html} = live(conn_for(membership), ~p"/")
       assert html =~ "Public Platform"
       assert html =~ ~s(data-test="viewer-layout")
+    end
+
+    test "shows org landing page for unauthenticated visitor with org", %{conn: conn} do
+      org = insert(:organization, name: "Cool Studio")
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, html} = live(conn, ~p"/")
+      assert html =~ ~s(data-test="org-landing")
+      assert html =~ "Cool Studio"
+      assert has_element?(view, "[data-test=org-landing-headline]")
+      assert has_element?(view, "[data-test=org-landing-login-link]")
+      assert has_element?(view, "[data-test=org-landing-register-link]")
+      assert has_element?(view, "[data-test=org-landing-hero-cta]")
+    end
+
+    test "org landing page links to viewer login and registration", %{conn: conn} do
+      org = insert(:organization)
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ ~s(href="/login")
+      assert html =~ ~s(href="/register")
+    end
+  end
+
+  describe "platform marketing page (no org)" do
+    test "shows platform marketing when no org resolved", %{conn: conn} do
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, html} = live(conn, ~p"/")
+      assert html =~ ~s(data-test="platform-marketing")
+      assert has_element?(view, "[data-test=marketing-headline]")
+      assert html =~ "Launch your own streaming platform"
+    end
+
+    test "marketing page has login and register links", %{conn: conn} do
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "[data-test=marketing-login-link]")
+      assert has_element?(view, "[data-test=marketing-register-link]")
+      assert has_element?(view, "[data-test=marketing-hero-cta]")
+    end
+
+    test "marketing page has features section", %{conn: conn} do
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "[data-test=marketing-features]")
+    end
+
+    test "marketing page has bottom CTA", %{conn: conn} do
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "[data-test=marketing-bottom-cta]")
     end
   end
 end

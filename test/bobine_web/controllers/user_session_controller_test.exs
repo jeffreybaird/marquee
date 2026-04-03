@@ -78,6 +78,45 @@ defmodule BobineWeb.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
     end
 
+    test "redirects admin user to /admin after login", %{conn: conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      _membership = insert(:membership, organization: org, user: user, role: :owner)
+
+      {token, _hashed_token} = generate_user_magic_link_token(user)
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"token" => token}
+        })
+
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/admin"
+    end
+
+    test "redirects admin to /admin even with stale no_org_resolved session", %{conn: conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      _membership = insert(:membership, organization: org, user: user, role: :owner)
+
+      {token, _hashed_token} = generate_user_magic_link_token(user)
+
+      # Simulate: user was already logged in and visited marketing page
+      # which set no_org_resolved in session
+      conn =
+        conn
+        |> log_in_user(user)
+        |> init_test_session(%{
+          no_org_resolved: true,
+          user_token: get_session(conn |> log_in_user(user), :user_token)
+        })
+        |> post(~p"/users/log-in", %{
+          "user" => %{"token" => token}
+        })
+
+      assert redirected_to(conn) == ~p"/admin"
+    end
+
     test "confirms unconfirmed user", %{conn: conn, unconfirmed_user: user} do
       {token, _hashed_token} = generate_user_magic_link_token(user)
       refute user.confirmed_at

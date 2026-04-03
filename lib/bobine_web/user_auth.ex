@@ -261,19 +261,20 @@ defmodule BobineWeb.UserAuth do
 
   # Already logged in with a scope — check membership
   def signed_in_path(%{assigns: %{current_scope: %Scope{user: %Accounts.User{}} = scope}}, _user) do
-    if scope.membership do
-      ~p"/admin"
-    else
-      ~p"/users/settings"
+    cond do
+      scope.user.is_super_admin -> ~p"/super"
+      scope.membership -> ~p"/admin"
+      Accounts.has_any_membership?(scope.user) -> ~p"/admin"
+      true -> ~p"/"
     end
   end
 
   # Fresh login — check if user has any membership
   def signed_in_path(_conn, %Accounts.User{} = user) do
-    if Accounts.has_any_membership?(user) do
-      ~p"/admin"
-    else
-      ~p"/"
+    cond do
+      user.is_super_admin -> ~p"/super"
+      Accounts.has_any_membership?(user) -> ~p"/admin"
+      true -> ~p"/"
     end
   end
 

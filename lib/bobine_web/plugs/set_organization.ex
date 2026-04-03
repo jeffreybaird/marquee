@@ -21,8 +21,8 @@ defmodule BobineWeb.Plugs.SetOrganization do
 
   def init(opts), do: opts
 
-  def call(conn, _opts) do
-    case resolve_organization(conn) do
+  def call(conn, opts) do
+    case resolve_organization(conn, opts) do
       {:ok, organization} ->
         conn = put_org_in_session(conn, organization)
         scope = conn.assigns[:current_scope]
@@ -54,34 +54,60 @@ defmodule BobineWeb.Plugs.SetOrganization do
       {:error, :not_found} ->
         scope = conn.assigns[:current_scope]
 
-        if scope && scope.user && scope.user.is_super_admin do
-          # Let super admins through without an org — the LiveView
-          # will redirect them to /super
-          conn
-          |> assign(:organization, nil)
-          |> put_session(:no_org_resolved, true)
-        else
-          conn
-          |> put_resp_content_type("text/html")
-          |> send_resp(404, "Organization not found")
-          |> halt()
+        cond do
+          scope && scope.user && scope.user.is_super_admin ->
+            # Let super admins through without an org — the LiveView
+            # will redirect them to /super
+            conn
+            |> assign(:organization, nil)
+            |> put_session(:no_org_resolved, true)
+
+          Keyword.get(opts, :optional, false) ->
+            # Optional mode: let the request through with nil org.
+            # Used for routes that serve both org-scoped and platform content.
+            conn
+            |> assign(:organization, nil)
+            |> put_session(:no_org_resolved, true)
+
+          true ->
+            conn
+            |> put_resp_content_type("text/html")
+            |> send_resp(404, "Organization not found")
+            |> halt()
         end
     end
   end
 
   # Stash the resolved org_id in the session so the LiveView AssignScope hook
   # can look it up during the WebSocket upgrade (where plug assigns are gone).
+  # Also clear no_org_resolved so a stale marketing-page flag doesn't interfere.
   defp put_org_in_session(conn, org) do
-    put_session(conn, :organization_id, org.id)
+    conn
+    |> put_session(:organization_id, org.id)
+    |> delete_session(:no_org_resolved)
   end
 
-  defp resolve_organization(conn) do
+  defp resolve_organization(conn, opts) do
+    optional? = Keyword.get(opts, :optional, false)
+
     with {:error, _} <- resolve_impersonated_org(conn),
          {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
          {:error, _} <- resolve_by_subdomain(conn.host),
-         {:error, _} <- resolve_from_session(conn),
+         {:error, _} <- resolve_from_query_or_header(conn),
+         {:error, _} <- maybe_resolve_implicit(conn, optional?) do
+      resolve_env_fallback(optional?)
+    end
+  end
+
+  # Implicit sources (session, membership, dev fallback) are skipped in
+  # optional mode so that `/` without an explicit org signal shows the
+  # platform marketing page instead of a sticky/fallback org.
+  defp maybe_resolve_implicit(_conn, true = _optional), do: {:error, :not_found}
+
+  defp maybe_resolve_implicit(conn, false) do
+    with {:error, _} <- resolve_from_session(conn),
          {:error, _} <- resolve_from_user_membership(conn) do
-      resolve_fallback(conn)
+      {:error, :not_found}
     end
   end
 
@@ -147,7 +173,7 @@ defmodule BobineWeb.Plugs.SetOrganization do
   # All environments: resolve from ?org=slug query param or x-bobine-org header.
   # This enables staging on shared hosts (e.g. app.fly.dev/?org=demo) where
   # wildcard subdomains are not available.
-  defp resolve_fallback(conn) do
+  defp resolve_from_query_or_header(conn) do
     slug_from_header = get_req_header(conn, "x-bobine-org") |> List.first()
 
     slug_from_param =
@@ -156,23 +182,24 @@ defmodule BobineWeb.Plugs.SetOrganization do
         params -> Map.get(params, "org")
       end
 
-    slug = slug_from_header || slug_from_param
-
-    case slug do
-      nil -> resolve_env_fallback()
+    case slug_from_header || slug_from_param do
+      nil -> {:error, :not_found}
       slug -> Accounts.get_organization_by_slug(slug)
     end
   end
 
   if Mix.env() == :dev do
-    # In dev, fall back to the first org when no slug is provided
-    defp resolve_env_fallback do
+    # In dev, fall back to the first org when no slug is provided.
+    # Skipped in optional mode so the marketing page can render.
+    defp resolve_env_fallback(true = _optional), do: {:error, :not_found}
+
+    defp resolve_env_fallback(false) do
       case Bobine.Repo.all(Bobine.Accounts.Organization) do
         [org | _] -> {:ok, org}
         [] -> {:error, :not_found}
       end
     end
   else
-    defp resolve_env_fallback, do: {:error, :not_found}
+    defp resolve_env_fallback(_optional), do: {:error, :not_found}
   end
 end
