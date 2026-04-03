@@ -5,6 +5,11 @@ defmodule Bobine.Release do
   """
   @app :bobine
 
+  alias Bobine.Accounts
+  alias Bobine.Accounts.UserToken
+  alias Bobine.Admin
+  alias Bobine.Repo
+
   def migrate do
     load_app()
 
@@ -21,18 +26,18 @@ defmodule Bobine.Release do
   def create_admin(email) do
     start_services()
 
-    case Bobine.Accounts.register_user(%{email: email}) do
+    case Accounts.register_user(%{email: email}) do
       {:ok, user} ->
-        {:ok, user} = Bobine.Admin.grant_super_admin(user)
+        {:ok, user} = Admin.grant_super_admin(user)
         IO.puts("Created super admin: #{user.email} (id: #{user.id})")
 
       {:error, :validation, changeset} ->
-        case Bobine.Accounts.get_user_by_email(email) do
+        case Accounts.get_user_by_email(email) do
           nil ->
             IO.puts("Failed to create user: #{inspect(changeset.errors)}")
 
           user ->
-            {:ok, user} = Bobine.Admin.grant_super_admin(user)
+            {:ok, user} = Admin.grant_super_admin(user)
             IO.puts("Promoted existing user to super admin: #{user.email}")
         end
     end
@@ -48,21 +53,21 @@ defmodule Bobine.Release do
     start_services()
 
     user =
-      case Bobine.Accounts.get_user_by_email(email) do
+      case Accounts.get_user_by_email(email) do
         nil ->
-          {:ok, user} = Bobine.Accounts.register_user(%{email: email})
+          {:ok, user} = Accounts.register_user(%{email: email})
           user
 
         user ->
           user
       end
 
-    {:ok, _} = Bobine.Admin.grant_super_admin(user)
+    {:ok, _} = Admin.grant_super_admin(user)
 
     {encoded_token, user_token} =
-      Bobine.Accounts.UserToken.build_email_token(user, "login")
+      UserToken.build_email_token(user, "login")
 
-    Bobine.Repo.insert!(user_token)
+    Repo.insert!(user_token)
 
     url = "#{normalize_base_url(host)}/users/log-in/#{encoded_token}"
     IO.puts("\nSuper admin created: #{email}")

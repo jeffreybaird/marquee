@@ -1,7 +1,9 @@
 defmodule Bobine.ContentTest do
   use Bobine.DataCase
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Content
+  alias Bobine.Content.MockMuxClient
 
   describe "videos" do
     alias Bobine.Content.Video
@@ -210,10 +212,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         # Must use the configured :cors_origin, not the production domain
         assert params.cors_origin == "http://localhost:4000"
         assert params.new_asset_settings.playback_policy == ["public"]
@@ -247,10 +249,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         # Should use the configured :cors_origin, NOT "https://my-studio.bobine.dev"
         assert params.cors_origin == "http://localhost:4000"
         refute params.cors_origin =~ "bobine.dev"
@@ -268,10 +270,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         assert params.cors_origin == "https://my-studio.bobine.dev"
         {:ok, %{"id" => "upload_prod", "url" => "https://storage.mux.com/prod"}}
       end)
@@ -287,10 +289,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         assert params.cors_origin == "http://demo.localhost:4000"
         {:ok, %{"id" => "upload_demo", "url" => "https://storage.mux.com/demo"}}
       end)
@@ -309,10 +311,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         assert params.cors_origin == "http://localhost:4000"
         {:ok, %{"id" => "upload_local", "url" => "https://storage.mux.com/local"}}
       end)
@@ -326,10 +328,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, fn _params ->
         {:error, :mux_error, "service unavailable"}
       end)
 
@@ -351,10 +353,10 @@ defmodule Bobine.ContentTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Accounts.Scope.for_user(user)
-        |> Bobine.Accounts.Scope.with_organization(org, membership)
+        Scope.for_user(user)
+        |> Scope.with_organization(org, membership)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn params ->
+      expect(MockMuxClient, :create_direct_upload, fn params ->
         assert params.new_asset_settings.video_quality == "basic"
         {:ok, %{"id" => "upload_basic", "url" => "https://storage.mux.com/basic"}}
       end)
@@ -365,8 +367,8 @@ defmodule Bobine.ContentTest do
   end
 
   describe "collections" do
-    alias Bobine.Accounts.Scope
     alias Bobine.Content.Collection
+    alias Scope
 
     setup do
       org = insert(:organization)

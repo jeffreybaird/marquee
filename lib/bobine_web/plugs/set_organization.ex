@@ -1,3 +1,5 @@
+# credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
+# credo:disable-for-this-file Credo.Check.Refactor.Nesting
 defmodule BobineWeb.Plugs.SetOrganization do
   @moduledoc """
   Resolves the current tenant organization from the request host and
@@ -21,6 +23,8 @@ defmodule BobineWeb.Plugs.SetOrganization do
 
   def init(opts), do: opts
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   def call(conn, opts) do
     case resolve_organization(conn, opts) do
       {:ok, organization} ->

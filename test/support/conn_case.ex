@@ -17,6 +17,13 @@ defmodule BobineWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
+  alias Bobine.Accounts
+  alias Bobine.Accounts.{Membership, Scope, User}
+  alias Bobine.AccountsFixtures
+  alias Bobine.Repo
+  alias Bobine.Viewers
+  alias Bobine.Viewers.Viewer
+
   using do
     quote do
       # The default endpoint for testing
@@ -46,8 +53,8 @@ defmodule BobineWeb.ConnCase do
   test context.
   """
   def register_and_log_in_user(%{conn: conn} = context) do
-    user = Bobine.AccountsFixtures.user_fixture()
-    scope = Bobine.Accounts.Scope.for_user(user)
+    user = AccountsFixtures.user_fixture()
+    scope = Scope.for_user(user)
 
     opts =
       context
@@ -64,8 +71,8 @@ defmodule BobineWeb.ConnCase do
   plug resolves the organization via subdomain, and logs in as the
   membership's user. Used in RBAC and multi-tenant tests.
   """
-  def conn_for(%Bobine.Accounts.Membership{} = membership) do
-    membership = Bobine.Repo.preload(membership, [:user, :organization])
+  def conn_for(%Membership{} = membership) do
+    membership = Repo.preload(membership, [:user, :organization])
 
     Phoenix.ConnTest.build_conn()
     |> Map.put(:host, "#{membership.organization.slug}.localhost")
@@ -78,7 +85,7 @@ defmodule BobineWeb.ConnCase do
   The host is left as `localhost` (no subdomain) since super admin routes do
   not resolve an organization.
   """
-  def conn_for_super_admin(%Bobine.Accounts.User{is_super_admin: true} = user) do
+  def conn_for_super_admin(%User{is_super_admin: true} = user) do
     Phoenix.ConnTest.build_conn()
     |> log_in_user(user)
   end
@@ -89,7 +96,7 @@ defmodule BobineWeb.ConnCase do
   It returns an updated `conn`.
   """
   def log_in_user(conn, user, opts \\ []) do
-    token = Bobine.Accounts.generate_user_session_token(user)
+    token = Accounts.generate_user_session_token(user)
 
     maybe_set_token_authenticated_at(token, opts[:token_authenticated_at])
 
@@ -101,7 +108,7 @@ defmodule BobineWeb.ConnCase do
   defp maybe_set_token_authenticated_at(_token, nil), do: nil
 
   defp maybe_set_token_authenticated_at(token, authenticated_at) do
-    Bobine.AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
+    AccountsFixtures.override_token_authenticated_at(token, authenticated_at)
   end
 
   @doc """
@@ -109,9 +116,9 @@ defmodule BobineWeb.ConnCase do
 
   Sets the conn host to `<org.slug>.localhost` and puts the viewer session token.
   """
-  def conn_for_viewer(%Bobine.Viewers.Viewer{} = viewer) do
-    viewer = Bobine.Repo.preload(viewer, [:organization])
-    token = Bobine.Viewers.generate_viewer_session_token(viewer)
+  def conn_for_viewer(%Viewer{} = viewer) do
+    viewer = Repo.preload(viewer, [:organization])
+    token = Viewers.generate_viewer_session_token(viewer)
 
     Phoenix.ConnTest.build_conn()
     |> Map.put(:host, "#{viewer.organization.slug}.localhost")
@@ -123,10 +130,10 @@ defmodule BobineWeb.ConnCase do
   Builds a conn authenticated as both an operator and viewing as a viewer (impersonation).
   """
   def conn_for_impersonating_viewer(
-        %Bobine.Accounts.Membership{} = membership,
-        %Bobine.Viewers.Viewer{} = viewer
+        %Membership{} = membership,
+        %Viewer{} = viewer
       ) do
-    membership = Bobine.Repo.preload(membership, [:user, :organization])
+    membership = Repo.preload(membership, [:user, :organization])
 
     conn_for(membership)
     |> Plug.Conn.put_session(:impersonating_viewer_id, viewer.id)

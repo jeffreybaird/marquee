@@ -11,6 +11,9 @@ defmodule Bobine.Content.MuxClient do
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
+  alias Mux.Video.Assets
+  alias Mux.Video.Uploads
+
   @impl true
   def create_direct_upload(params) do
     Logger.info(
@@ -18,14 +21,14 @@ defmodule Bobine.Content.MuxClient do
     )
 
     traced_call("create_direct_upload", fn ->
-      Mux.Video.Uploads.create(client(), params)
+      Uploads.create(client(), params)
     end)
   end
 
   @impl true
   def get_asset(asset_id) do
     traced_call("get_asset", fn ->
-      Mux.Video.Assets.get(client(), asset_id)
+      Assets.get(client(), asset_id)
     end)
   end
 
@@ -35,7 +38,7 @@ defmodule Bobine.Content.MuxClient do
       Tracer.set_attributes([{"mux.operation", "delete_asset"}, {"bobine.service", "mux"}])
       start = System.monotonic_time(:millisecond)
 
-      result = Mux.Video.Assets.delete(client(), asset_id)
+      result = Assets.delete(client(), asset_id)
 
       duration = System.monotonic_time(:millisecond) - start
       Tracer.set_attribute("duration_ms", duration)
@@ -60,7 +63,7 @@ defmodule Bobine.Content.MuxClient do
   @impl true
   def list_assets(opts \\ []) do
     traced_call("list_assets", fn ->
-      Mux.Video.Assets.list(client(), opts)
+      Assets.list(client(), opts)
     end)
   end
 

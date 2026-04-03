@@ -4,6 +4,7 @@ defmodule Bobine.ViewersTest do
   alias Bobine.Accounts.Scope
   alias Bobine.Viewers
   alias Bobine.Viewers.Viewer
+  alias Bobine.Viewers.ViewerToken
 
   defp build_scope(org) do
     %Scope{user: nil, organization: org, membership: nil}
@@ -129,7 +130,7 @@ defmodule Bobine.ViewersTest do
   describe "verify_viewer_magic_link/1" do
     test "returns {:ok, viewer} for a valid magic link token", %{org: org} do
       viewer = insert(:viewer, organization: org)
-      {token, viewer_token} = Bobine.Viewers.ViewerToken.build_magic_link_token(viewer)
+      {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
       Repo.insert!(viewer_token)
 
       assert {:ok, verified} = Viewers.verify_viewer_magic_link(token)
@@ -138,7 +139,7 @@ defmodule Bobine.ViewersTest do
 
     test "sets confirmed_at on first verification", %{org: org} do
       viewer = insert(:viewer, organization: org, confirmed_at: nil)
-      {token, viewer_token} = Bobine.Viewers.ViewerToken.build_magic_link_token(viewer)
+      {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
       Repo.insert!(viewer_token)
 
       assert {:ok, verified} = Viewers.verify_viewer_magic_link(token)
@@ -148,7 +149,7 @@ defmodule Bobine.ViewersTest do
     test "does not overwrite confirmed_at on subsequent verifications", %{org: org} do
       original_confirmed = ~U[2025-01-01 00:00:00Z]
       viewer = insert(:viewer, organization: org, confirmed_at: original_confirmed)
-      {token, viewer_token} = Bobine.Viewers.ViewerToken.build_magic_link_token(viewer)
+      {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
       Repo.insert!(viewer_token)
 
       assert {:ok, verified} = Viewers.verify_viewer_magic_link(token)
@@ -161,7 +162,7 @@ defmodule Bobine.ViewersTest do
 
     test "returns error for expired token", %{org: org} do
       viewer = insert(:viewer, organization: org)
-      {token, viewer_token} = Bobine.Viewers.ViewerToken.build_magic_link_token(viewer)
+      {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
 
       # Insert with a timestamp far in the past to simulate expiry
       expired_token =

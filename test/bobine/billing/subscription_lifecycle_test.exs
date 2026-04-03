@@ -3,6 +3,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
   use Oban.Testing, repo: Bobine.Repo
 
   alias Bobine.Billing.ViewerSubscription
+  alias Bobine.Viewers
   alias Bobine.Workers.StripeWebhookProcessor
 
   defp connected_org do
@@ -44,7 +45,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: checkout_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "active"
 
       # 2. invoice.payment_succeeded → still active
@@ -63,7 +64,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: success_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "active"
 
       # 3. invoice.payment_failed → past_due, access removed
@@ -82,7 +83,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: fail_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "past_due"
       # past_due viewers are redirected to payment-issue page by RequireSubscription hook
       # even though SubscriptionAccess.has_access? returns true for grace period
@@ -103,7 +104,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: recover_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "active"
 
       # 5. customer.subscription.updated cancel_at_period_end → still active
@@ -129,7 +130,7 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: update_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "active"
 
       sub =
@@ -155,9 +156,9 @@ defmodule Bobine.Billing.SubscriptionLifecycleTest do
                  event_id: delete_event["id"]
                })
 
-      viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
+      viewer = Repo.get!(Viewers.Viewer, viewer.id)
       assert viewer.subscription_status == "canceled"
-      refute Bobine.Viewers.SubscriptionAccess.has_access?(viewer)
+      refute Viewers.SubscriptionAccess.has_access?(viewer)
     end
   end
 end

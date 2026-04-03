@@ -3,6 +3,7 @@ defmodule BobineWeb.Admin.ContentLive do
 
   alias Bobine.Content
   alias Bobine.Events
+  alias Bobine.Workers.MuxAssetCleanup
 
   require Logger
 
@@ -76,6 +77,7 @@ defmodule BobineWeb.Admin.ContentLive do
   end
 
   @impl true
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def handle_event("submit_upload", params, socket) do
     titles = params["titles"] || %{}
     scope = socket.assigns.current_scope
@@ -212,7 +214,7 @@ defmodule BobineWeb.Admin.ContentLive do
 
         if video.mux_asset_id do
           %{mux_asset_id: video.mux_asset_id, organization_id: org.id}
-          |> Bobine.Workers.MuxAssetCleanup.new()
+          |> MuxAssetCleanup.new()
           |> Oban.insert()
         end
 

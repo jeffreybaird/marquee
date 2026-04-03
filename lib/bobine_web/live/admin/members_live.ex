@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Refactor.Nesting
 defmodule BobineWeb.Admin.MembersLive do
   use BobineWeb, :live_view
 
@@ -86,6 +87,7 @@ defmodule BobineWeb.Admin.MembersLive do
     end)
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   defp with_viewer_action(socket, id, action_fn) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope

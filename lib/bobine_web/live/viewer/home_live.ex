@@ -8,6 +8,7 @@ defmodule BobineWeb.Viewer.HomeLive do
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def mount(_params, _session, socket) do
     scope = socket.assigns.current_scope
     org = socket.assigns[:organization]

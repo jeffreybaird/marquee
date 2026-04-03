@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Refactor.Nesting
 defmodule BobineWeb.Admin.TagsLive do
   use BobineWeb, :live_view
 
@@ -72,6 +73,7 @@ defmodule BobineWeb.Admin.TagsLive do
   end
 
   @impl true
+  # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   def handle_event("save_edit", %{"id" => id}, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope

@@ -3,7 +3,10 @@ defmodule Bobine.PlatformBilling.EnforcementTest do
 
   import Mox
 
+  alias Bobine.Accounts.Scope
+  alias Bobine.Billing.PlatformSubscription
   alias Bobine.Content
+  alias Bobine.Content.MockMuxClient
 
   setup :verify_on_exit!
 
@@ -15,7 +18,7 @@ defmodule Bobine.PlatformBilling.EnforcementTest do
       insert(:video, organization: org)
 
       user = insert(:user)
-      scope = %Bobine.Accounts.Scope{user: user, organization: org}
+      scope = %Scope{user: user, organization: org}
 
       result = Content.create_upload_url(scope, %{title: "Over limit"})
       assert {:error, :plan_limit_reached, status} = result
@@ -30,10 +33,10 @@ defmodule Bobine.PlatformBilling.EnforcementTest do
       insert(:platform_subscription, organization: org, platform_plan: plan)
 
       user = insert(:user)
-      scope = %Bobine.Accounts.Scope{user: user, organization: org}
+      scope = %Scope{user: user, organization: org}
 
       # Mock Mux client for successful upload
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, fn _params ->
         {:ok, %{"id" => "upload_123", "url" => "https://mux.com/upload"}}
       end)
 
@@ -48,7 +51,7 @@ defmodule Bobine.PlatformBilling.EnforcementTest do
       insert(:video, organization: org)
 
       user = insert(:user)
-      scope = %Bobine.Accounts.Scope{user: user, organization: org}
+      scope = %Scope{user: user, organization: org}
 
       # Blocked at limit
       assert {:error, :plan_limit_reached, _} =
@@ -64,11 +67,11 @@ defmodule Bobine.PlatformBilling.EnforcementTest do
         )
 
       sub
-      |> Bobine.Billing.PlatformSubscription.changeset(%{platform_plan_id: big_plan.id})
+      |> PlatformSubscription.changeset(%{platform_plan_id: big_plan.id})
       |> Repo.update!()
 
       # Now the upload should succeed
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, fn _params ->
         {:ok, %{"id" => "upload_456", "url" => "https://mux.com/upload"}}
       end)
 

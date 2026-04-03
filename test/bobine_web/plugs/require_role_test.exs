@@ -1,6 +1,9 @@
 defmodule BobineWeb.Plugs.RequireRoleTest do
   use BobineWeb.ConnCase, async: true
 
+  import Plug.Test
+  import Phoenix.LiveView.Router, only: [fetch_live_flash: 2]
+
   alias Bobine.Accounts.Scope
   alias BobineWeb.Plugs.RequireRole
 
@@ -9,8 +12,8 @@ defmodule BobineWeb.Plugs.RequireRoleTest do
   setup %{conn: conn} do
     conn =
       conn
-      |> Plug.Test.init_test_session(%{})
-      |> Phoenix.LiveView.Router.fetch_live_flash([])
+      |> init_test_session(%{})
+      |> fetch_live_flash([])
 
     {:ok, conn: conn}
   end

@@ -4,6 +4,11 @@ defmodule BobineWeb.Admin.ContentLiveTest do
   import Mox
   import Phoenix.LiveViewTest
 
+  alias Bobine.Accounts.Scope
+  alias Bobine.Content
+  alias Bobine.Content.MockMuxClient
+  alias Bobine.Repo
+
   describe "responsive layout" do
     test "mobile sidebar toggle elements are present", %{conn: _conn} do
       membership = insert(:membership, role: :editor)
@@ -100,7 +105,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       video = insert(:video, organization: org, title: "To Delete")
 
       # The MuxAssetCleanup job runs inline and calls delete_asset
-      Mox.stub(Bobine.Content.MockMuxClient, :delete_asset, fn _asset_id -> :ok end)
+      Mox.stub(MockMuxClient, :delete_asset, fn _asset_id -> :ok end)
 
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
 
@@ -140,7 +145,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, fn _params ->
         {:error, :mux_error,
          %{type: "invalid_parameters", messages: ["asset limit reached on free tier"]}}
       end)
@@ -302,15 +307,15 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       scope =
-        Bobine.Repo.preload(membership, [:user, :organization])
+        Repo.preload(membership, [:user, :organization])
         |> then(fn m ->
-          Bobine.Accounts.Scope.for_user(m.user)
-          |> Bobine.Accounts.Scope.with_organization(m.organization, m)
+          Scope.for_user(m.user)
+          |> Scope.with_organization(m.organization, m)
         end)
 
       video = insert(:video, organization: org, title: "Taggable")
-      {:ok, tag} = Bobine.Content.create_tag(scope, %{name: "yoga"})
-      {:ok, tag2} = Bobine.Content.create_tag(scope, %{name: "beginner"})
+      {:ok, tag} = Content.create_tag(scope, %{name: "yoga"})
+      {:ok, tag2} = Content.create_tag(scope, %{name: "beginner"})
 
       %{org: org, membership: membership, scope: scope, video: video, tag: tag, tag2: tag2}
     end
@@ -323,7 +328,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
     end
 
     test "shows existing tags as pills", ctx do
-      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+      {:ok, _} = Content.tag_video(ctx.scope, ctx.video, ctx.tag)
 
       {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
       html = render_click(view, "view_video", %{id: ctx.video.id})
@@ -347,7 +352,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
     end
 
     test "remove tag via pill button", ctx do
-      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+      {:ok, _} = Content.tag_video(ctx.scope, ctx.video, ctx.tag)
 
       {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
       render_click(view, "view_video", %{id: ctx.video.id})
@@ -364,7 +369,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
     end
 
     test "tag picker excludes already-assigned tags", ctx do
-      {:ok, _} = Bobine.Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+      {:ok, _} = Content.tag_video(ctx.scope, ctx.video, ctx.tag)
 
       {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
       render_click(view, "view_video", %{id: ctx.video.id})
@@ -433,7 +438,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
       # Expect two Mux upload URL creations
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, 2, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, 2, fn _params ->
         upload_id = "upload_#{System.unique_integer([:positive])}"
         {:ok, %{"id" => upload_id, "url" => "https://storage.mux.com/#{upload_id}"}}
       end)
@@ -466,7 +471,7 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user, role: :editor)
 
-      expect(Bobine.Content.MockMuxClient, :create_direct_upload, 2, fn _params ->
+      expect(MockMuxClient, :create_direct_upload, 2, fn _params ->
         upload_id = "upload_#{System.unique_integer([:positive])}"
         {:ok, %{"id" => upload_id, "url" => "https://storage.mux.com/#{upload_id}"}}
       end)

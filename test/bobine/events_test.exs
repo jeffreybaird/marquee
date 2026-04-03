@@ -4,7 +4,11 @@ defmodule Bobine.EventsTest do
   import Ecto.Query
 
   alias Bobine.Accounts.Scope
+  alias Bobine.Audit.Log
   alias Bobine.Events
+  alias Bobine.Events.AuditSubscriber
+  alias Bobine.Repo
+  alias Ecto.Adapters.SQL.Sandbox
 
   describe "broadcast/2" do
     test "sends to org-specific and global PubSub topics" do
@@ -37,12 +41,12 @@ defmodule Bobine.EventsTest do
   describe "AuditSubscriber" do
     test "creates audit log entries when events are broadcast" do
       # Start a local AuditSubscriber for this test
-      start_supervised!({Bobine.Events.AuditSubscriber, []})
+      start_supervised!({AuditSubscriber, []})
       # Allow it sandbox access
-      Ecto.Adapters.SQL.Sandbox.allow(
-        Bobine.Repo,
+      Sandbox.allow(
+        Repo,
         self(),
-        Process.whereis(Bobine.Events.AuditSubscriber)
+        Process.whereis(AuditSubscriber)
       )
 
       video = insert(:video)
@@ -53,10 +57,8 @@ defmodule Bobine.EventsTest do
       Process.sleep(100)
 
       logs =
-        Bobine.Repo.all(
-          from(l in Bobine.Audit.Log,
-            where: l.action == "video.created" and l.resource_id == ^video.id
-          )
+        Repo.all(
+          from(l in Log, where: l.action == "video.created" and l.resource_id == ^video.id)
         )
 
       assert logs != []

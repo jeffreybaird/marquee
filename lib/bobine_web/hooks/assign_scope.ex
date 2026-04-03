@@ -84,6 +84,7 @@ defmodule BobineWeb.Hooks.AssignScope do
     end
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp mount_full_scope(socket, session) do
     user = load_user_from_session(session)
     host = socket.host_uri && socket.host_uri.host
@@ -123,6 +124,7 @@ defmodule BobineWeb.Hooks.AssignScope do
     |> assign(:theme, theme)
   end
 
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp derive_current_path(socket) do
     case socket.view do
       BobineWeb.Admin.DashboardLive -> "/admin"

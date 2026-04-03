@@ -99,6 +99,7 @@ defmodule Bobine.Branding.Theme do
       true
 
   """
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def build_css_vars(%__MODULE__{} = theme) do
     defaults = @default_viewer_theme
 

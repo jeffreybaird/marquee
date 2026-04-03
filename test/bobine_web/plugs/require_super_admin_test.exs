@@ -1,20 +1,24 @@
 defmodule BobineWeb.Plugs.RequireSuperAdminTest do
   use BobineWeb.ConnCase, async: true
 
+  import Plug.Test
+  import Phoenix.LiveView.Router, only: [fetch_live_flash: 2]
+
+  alias Bobine.Accounts.Scope
   alias BobineWeb.Plugs.RequireSuperAdmin
 
   setup do
     conn =
       build_conn()
-      |> Plug.Test.init_test_session(%{})
-      |> Phoenix.LiveView.Router.fetch_live_flash([])
+      |> init_test_session(%{})
+      |> fetch_live_flash([])
 
     {:ok, conn: conn}
   end
 
   test "allows super admin user through", %{conn: conn} do
     super_admin = insert(:super_admin)
-    scope = Bobine.Accounts.Scope.for_user(super_admin)
+    scope = Scope.for_user(super_admin)
 
     conn =
       conn
@@ -26,7 +30,7 @@ defmodule BobineWeb.Plugs.RequireSuperAdminTest do
 
   test "redirects regular user to /", %{conn: conn} do
     user = insert(:user, is_super_admin: false)
-    scope = Bobine.Accounts.Scope.for_user(user)
+    scope = Scope.for_user(user)
 
     conn =
       conn
