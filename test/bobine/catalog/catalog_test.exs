@@ -282,7 +282,10 @@ defmodule Bobine.Catalog.CatalogTest do
       assert List.last(ids) == v1.id
     end
 
-    test "for continue_watching returns empty (placeholder)", %{org: org, scope: scope} do
+    test "for continue_watching returns in-progress videos for the viewer", %{
+      org: org,
+      scope: scope
+    } do
       {:ok, row} =
         Catalog.create_row(scope, %{
           title: "Continue",
@@ -290,8 +293,38 @@ defmodule Bobine.Catalog.CatalogTest do
           max_items: 20
         })
 
-      result = Catalog.resolve_row_content(org, row)
-      assert result == %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+      _other_video = insert(:video, organization: org)
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 45.0,
+        completed: false
+      )
+
+      result = Catalog.resolve_row_content(org, row, viewer: viewer)
+      assert result.total == 1
+      assert hd(result.results).id == video.id
+    end
+
+    test "for continue_watching without viewer returns empty", %{org: org, scope: scope} do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Continue",
+          source_type: :continue_watching,
+          max_items: 20
+        })
+
+      assert Catalog.resolve_row_content(org, row) == %{
+               results: [],
+               page: 1,
+               per_page: 25,
+               total: 0,
+               total_pages: 1
+             }
     end
   end
 
@@ -441,8 +474,33 @@ defmodule Bobine.Catalog.CatalogTest do
           max_items: 20
         })
 
-      result = Catalog.resolve_row_content_cached(org, row)
-      assert result == %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+      viewer = insert(:viewer, organization: org)
+
+      video1 = insert(:video, organization: org)
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video1,
+        position: 30.0,
+        completed: false
+      )
+
+      first = Catalog.resolve_row_content_cached(org, row, viewer: viewer)
+      assert first.total == 1
+
+      video2 = insert(:video, organization: org)
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video2,
+        position: 35.0,
+        completed: false
+      )
+
+      second = Catalog.resolve_row_content_cached(org, row, viewer: viewer)
+      assert second.total == 2
     end
   end
 

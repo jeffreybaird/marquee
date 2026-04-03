@@ -884,12 +884,14 @@ defmodule Bobine.Engagement do
   Exempt from doctest — hits the database.
   """
   def list_continue_watching(%Organization{id: org_id}, %{id: viewer_id}, opts \\ []) do
-    Progress
-    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
-    |> where([p], p.completed == false)
-    |> where([p], p.position > 0.0)
-    |> order_by(desc: :updated_at)
-    |> preload(:video)
+    Bobine.Content.Video
+    |> join(:inner, [v], p in Progress, on: p.video_id == v.id)
+    |> where([v, p], v.organization_id == ^org_id and p.organization_id == ^org_id)
+    |> where([_v, p], p.viewer_id == ^viewer_id)
+    |> where([_v, p], p.completed == false)
+    |> where([_v, p], p.position > 0.0)
+    |> where([v], is_nil(v.deleted_at))
+    |> order_by([_v, p], desc: p.updated_at)
     |> Pagination.paginate(opts)
   end
 

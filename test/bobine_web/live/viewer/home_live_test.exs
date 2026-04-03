@@ -193,6 +193,32 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ "My Movie"
     end
 
+    test "renders continue watching row for viewer progress", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org, title: "Resume Me", mux_status: "ready")
+
+      insert(:row,
+        organization: org,
+        title: "Continue Watching",
+        source_type: :continue_watching,
+        visible: true,
+        position: 0
+      )
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 33.0,
+        completed: false
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Continue Watching"
+      assert html =~ "Resume Me"
+    end
+
     test "does not render hidden rows", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)

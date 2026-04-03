@@ -80,7 +80,7 @@ defmodule Bobine.Engagement.HistoryTest do
       result = Engagement.list_continue_watching(org, viewer)
       # Only v1 has position > 0
       assert result.total == 1
-      assert hd(result.results).video_id == v1.id
+      assert hd(result.results).id == v1.id
     end
 
     test "excludes completed videos", %{org: org, viewer: viewer} do
@@ -105,7 +105,7 @@ defmodule Bobine.Engagement.HistoryTest do
 
       result = Engagement.list_continue_watching(org, viewer)
       assert result.total == 1
-      assert hd(result.results).video_id == v1.id
+      assert hd(result.results).id == v1.id
     end
   end
 

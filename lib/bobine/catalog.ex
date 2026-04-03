@@ -391,20 +391,21 @@ defmodule Bobine.Catalog do
   Fetches visible rows, excludes hero rows (which render separately), resolves
   each row's video content via cache, and filters out rows with no results.
 
-  Accepts an `%Organization{}` and optional keyword opts (currently unused but
-  reserved for future filtering).
+  Accepts an `%Organization{}` and optional keyword opts. Supported opts include
+  `:viewer` for personalized rows like `:continue_watching`.
 
   Returns a list of `%{row: row, videos: videos}` maps.
 
   Exempt from doctest — hits the database.
   """
-  def load_catalog_rows_with_content(%Organization{} = organization, _opts \\ []) do
+  def load_catalog_rows_with_content(%Organization{} = organization, opts \\ []) do
     %{results: rows} = list_visible_rows(organization, per_page: 100)
 
     rows
     |> Enum.reject(&(&1.source_type == :hero))
     |> Enum.map(fn row ->
-      %{results: videos} = resolve_row_content_cached(organization, row, per_page: row.max_items)
+      row_opts = opts |> Keyword.put(:per_page, row.max_items)
+      %{results: videos} = resolve_row_content_cached(organization, row, row_opts)
       %{row: row, videos: videos}
     end)
     |> Enum.reject(fn %{videos: videos} -> Enum.empty?(videos) end)

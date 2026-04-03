@@ -21,11 +21,11 @@ defmodule BobineWeb.Viewer.HomeLive do
 
       # Authenticated operator with org but no viewer session -> show org home
       org && is_nil(viewer) && scope && scope.user ->
-        {:ok, mount_org_home(socket, org)}
+        {:ok, mount_org_home(socket, org, nil)}
 
       # Org resolved + viewer -> show catalog
       org && viewer ->
-        {:ok, mount_org_home(socket, org)}
+        {:ok, mount_org_home(socket, org, viewer)}
 
       # Org resolved but no auth -> org landing page
       org ->
@@ -43,11 +43,11 @@ defmodule BobineWeb.Viewer.HomeLive do
     end
   end
 
-  defp mount_org_home(socket, org) do
+  defp mount_org_home(socket, org, viewer) do
     %{slides: hero_slides, auto_advance_ms: auto_advance_ms} =
       Catalog.resolve_hero_slides_cached(org)
 
-    rows = load_catalog_rows(org)
+    rows = load_catalog_rows(org, viewer)
 
     socket
     |> assign(:page_title, org.name)
@@ -482,7 +482,7 @@ defmodule BobineWeb.Viewer.HomeLive do
     """
   end
 
-  defp load_catalog_rows(org) do
-    Catalog.load_catalog_rows_with_content(org)
+  defp load_catalog_rows(org, viewer) do
+    Catalog.load_catalog_rows_with_content(org, viewer: viewer)
   end
 end

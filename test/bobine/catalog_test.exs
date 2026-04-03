@@ -210,6 +210,40 @@ defmodule Bobine.CatalogTest do
       matching = Enum.find(results, fn %{row: r} -> r.id == empty_row.id end)
       assert matching == nil
     end
+
+    test "includes continue watching rows when viewer is provided", %{org: org, scope: scope} do
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org, published: true)
+
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Continue Watching",
+          source_type: :continue_watching,
+          position: 0,
+          visible: true,
+          max_items: 20
+        })
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 12.0,
+        completed: false
+      )
+
+      results_with_viewer = Catalog.load_catalog_rows_with_content(org, viewer: viewer)
+      matching_with_viewer = Enum.find(results_with_viewer, fn %{row: r} -> r.id == row.id end)
+      assert matching_with_viewer != nil
+      assert Enum.any?(matching_with_viewer.videos, &(&1.id == video.id))
+
+      results_without_viewer = Catalog.load_catalog_rows_with_content(org)
+
+      matching_without_viewer =
+        Enum.find(results_without_viewer, fn %{row: r} -> r.id == row.id end)
+
+      assert matching_without_viewer == nil
+    end
   end
 
   describe "list_enriched_hero_slides/2" do
