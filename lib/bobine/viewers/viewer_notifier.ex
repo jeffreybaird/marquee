@@ -76,27 +76,39 @@ defmodule Bobine.Viewers.ViewerNotifier do
     """)
   end
 
-  defp viewer_magic_link_url(token, organization) do
-    endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
-    base_host = Keyword.get(endpoint_config, :host, "localhost")
-    port = Keyword.get(endpoint_config, :port)
-    scheme = Keyword.get(endpoint_config, :scheme, "http")
+  if Mix.env() == :dev do
+    # In dev, always use ?org= so links work without subdomain configuration.
+    defp viewer_magic_link_url(token, organization) do
+      endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
+      base_host = Keyword.get(endpoint_config, :host, "localhost")
+      port = Keyword.get(endpoint_config, :port)
+      scheme = Keyword.get(endpoint_config, :scheme, "http")
+      port_suffix = port_suffix(scheme, port)
 
-    cond do
-      # Tenant has a custom domain — use it directly
-      organization.custom_domain && organization.custom_domain != "" ->
-        port_suffix = port_suffix(scheme, port)
+      if organization.custom_domain && organization.custom_domain != "" do
         "#{scheme}://#{organization.custom_domain}#{port_suffix}/magic-link/#{token}"
-
-      # Base host supports subdomains (localhost, or a domain we own)
-      supports_subdomains?(base_host) ->
-        port_suffix = port_suffix(scheme, port)
-        "#{scheme}://#{organization.slug}.#{base_host}#{port_suffix}/magic-link/#{token}"
-
-      # Shared host (e.g. app.fly.dev) — use ?org= query param
-      true ->
-        port_suffix = port_suffix(scheme, port)
+      else
         "#{scheme}://#{base_host}#{port_suffix}/magic-link/#{token}?org=#{organization.slug}"
+      end
+    end
+  else
+    defp viewer_magic_link_url(token, organization) do
+      endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
+      base_host = Keyword.get(endpoint_config, :host, "localhost")
+      port = Keyword.get(endpoint_config, :port)
+      scheme = Keyword.get(endpoint_config, :scheme, "http")
+      port_suffix = port_suffix(scheme, port)
+
+      cond do
+        organization.custom_domain && organization.custom_domain != "" ->
+          "#{scheme}://#{organization.custom_domain}#{port_suffix}/magic-link/#{token}"
+
+        !String.contains?(base_host, ".fly.dev") ->
+          "#{scheme}://#{organization.slug}.#{base_host}#{port_suffix}/magic-link/#{token}"
+
+        true ->
+          "#{scheme}://#{base_host}#{port_suffix}/magic-link/#{token}?org=#{organization.slug}"
+      end
     end
   end
 
@@ -104,11 +116,4 @@ defmodule Bobine.Viewers.ViewerNotifier do
   defp port_suffix("http", 80), do: ""
   defp port_suffix("https", 443), do: ""
   defp port_suffix(_scheme, port), do: ":#{port}"
-
-  # localhost always supports subdomains (demo.localhost works in browsers).
-  # A domain we own (configured via PHX_HOST) supports wildcard subdomains.
-  # Third-party hosts like fly.dev do not.
-  defp supports_subdomains?(host) do
-    host == "localhost" || !String.contains?(host, ".fly.dev")
-  end
 end

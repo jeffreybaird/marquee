@@ -24,6 +24,7 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
 
       session =
         session
+        |> Wallaby.Browser.resize_window(1280, 800)
         |> log_in_session(user, org)
         |> Wallaby.Browser.visit("/admin/content?org=#{org.slug}")
 
@@ -51,6 +52,8 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
         {"admin-nav-settings", "Settings"}
       ]
 
+      # Ensure viewport is wide enough for the sidebar to be visible (lg breakpoint)
+      session = Wallaby.Browser.resize_window(session, 1280, 800)
       session = log_in_session(session, user, org)
 
       for {data_test, title} <- pages do
