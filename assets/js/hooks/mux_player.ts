@@ -17,9 +17,10 @@
  *
  * Events received from server:
  *   - "seek_to" { position }
+ *   - "play_next_in_queue" { playback_id, video_id, resume_position }
  */
 const MuxPlayer = {
-  mounted() {
+  mounted(this: any) {
     const player = this.el.querySelector("mux-player") as any
     if (!player) return
 
@@ -61,7 +62,7 @@ const MuxPlayer = {
       })
     })
 
-    // Report ended
+    // Report ended — triggers queue auto-advance on server
     player.addEventListener("ended", () => {
       this.pushEvent("playback_ended", { video_id: this.videoId })
     })
@@ -70,9 +71,38 @@ const MuxPlayer = {
     this.handleEvent("seek_to", ({ position }: { position: number }) => {
       player.currentTime = position
     })
+
+    // Handle queue auto-advance — server pushes next video
+    this.handleEvent(
+      "play_next_in_queue",
+      ({
+        playback_id,
+        video_id,
+        resume_position,
+      }: {
+        playback_id: string
+        video_id: string
+        resume_position: number
+      }) => {
+        this.videoId = video_id
+        player.setAttribute("playback-id", playback_id)
+
+        if (resume_position > 0) {
+          player.addEventListener(
+            "loadedmetadata",
+            () => {
+              player.currentTime = resume_position
+            },
+            { once: true },
+          )
+        }
+
+        player.play()
+      },
+    )
   },
 
-  destroyed() {
+  destroyed(this: any) {
     if (this.progressInterval) {
       clearInterval(this.progressInterval)
     }

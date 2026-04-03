@@ -1,4 +1,9 @@
 defmodule Bobine.Engagement.Favorite do
+  @moduledoc """
+  A viewer's favorited video. Uses soft deletes so toggle behavior can
+  restore previously removed favorites without creating duplicates.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -21,5 +26,13 @@ defmodule Bobine.Engagement.Favorite do
     |> cast(attrs, [:organization_id, :user_id, :video_id])
     |> validate_required([:organization_id, :user_id, :video_id])
     |> unique_constraint([:user_id, :video_id, :organization_id])
+  end
+
+  @doc false
+  def viewer_changeset(favorite, attrs) do
+    favorite
+    |> cast(attrs, [:organization_id, :viewer_id, :video_id])
+    |> validate_required([:organization_id, :viewer_id, :video_id])
+    |> unique_constraint([:viewer_id, :video_id, :organization_id])
   end
 end

@@ -157,4 +157,32 @@ defmodule Bobine.Metrics do
       %{org_id: org_id}
     )
   end
+
+  @doc """
+  Records a video completed event.
+
+      iex> Bobine.Metrics.video_completed("org_123", "video_456")
+      :ok
+  """
+  def video_completed(org_id, video_id) do
+    :telemetry.execute(
+      [:bobine, :video, :completed],
+      %{count: 1},
+      %{org_id: org_id, video_id: video_id}
+    )
+  end
+
+  @doc """
+  Records a queue item added event.
+
+      iex> Bobine.Metrics.queue_item_added("org_123")
+      :ok
+  """
+  def queue_item_added(org_id) do
+    :telemetry.execute(
+      [:bobine, :queue, :item_added],
+      %{count: 1},
+      %{org_id: org_id}
+    )
+  end
 end

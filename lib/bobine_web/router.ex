@@ -243,6 +243,7 @@ defmodule BobineWeb.Router do
       ] do
       live "/watch/:id", WatchLive
       live "/watchlist", WatchlistLive
+      live "/history", HistoryLive
     end
   end
 
