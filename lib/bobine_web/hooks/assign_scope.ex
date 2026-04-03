@@ -185,7 +185,6 @@ defmodule BobineWeb.Hooks.AssignScope do
       nil
     else
       {:ok, org} -> org
-      nil -> nil
     end
   end
 

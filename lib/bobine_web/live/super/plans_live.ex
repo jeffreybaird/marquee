@@ -300,9 +300,7 @@ defmodule BobineWeb.Super.PlansLive do
   end
 
   defp load_plans do
-    case PlatformBilling.list_platform_plans(include_inactive: true) do
-      %{results: results} -> results
-      results when is_list(results) -> results
-    end
+    %{results: results} = PlatformBilling.list_platform_plans(include_inactive: true)
+    results
   end
 end

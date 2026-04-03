@@ -1173,7 +1173,7 @@ defmodule BobineWeb.Admin.CatalogLive do
         :down -> min(length(slides) - 1, index + 1)
       end
 
-    if index != nil && index != new_index do
+    if index != new_index do
       scope = socket.assigns.current_scope
       hero_row = socket.assigns.hero_row
       reordered = swap(slides, index, new_index)

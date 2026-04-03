@@ -45,20 +45,7 @@ defmodule Bobine.Content.MuxClient do
           Tracer.set_attribute("http.status_code", 200)
           :ok
 
-        {:ok, _} ->
-          Tracer.set_attribute("http.status_code", 200)
-          :ok
-
         {:error, reason, _} ->
-          Tracer.set_status(:error, inspect(reason))
-
-          Logger.error(
-            "Mux delete_asset failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
-          )
-
-          {:error, :mux_error, reason}
-
-        {:error, reason} ->
           Tracer.set_status(:error, inspect(reason))
 
           Logger.error(
@@ -93,24 +80,10 @@ defmodule Bobine.Content.MuxClient do
           Logger.info("Mux #{operation} succeeded")
           {:ok, data}
 
-        {:ok, data} ->
-          Tracer.set_attribute("http.status_code", 200)
-          Logger.info("Mux #{operation} succeeded")
-          {:ok, data}
-
         {:error, type, messages} ->
           Tracer.set_status(:error, inspect(%{type: type, messages: messages}))
           log_mux_validation_failure(operation, type, messages)
           {:error, :mux_error, %{type: type, messages: messages}}
-
-        {:error, reason} ->
-          Tracer.set_status(:error, inspect(reason))
-
-          Logger.error(
-            "Mux #{operation} failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
-          )
-
-          {:error, :mux_error, reason}
       end
     end
   end

@@ -65,7 +65,7 @@ defmodule BobineWeb.WebhookController do
           {:error, reason} ->
             Logger.warning("Mux signature verification failed",
               reason: inspect(reason),
-              header: String.slice(header || "", 0, 50)
+              header: String.slice(header, 0, 50)
             )
 
             {:error, :invalid_signature}

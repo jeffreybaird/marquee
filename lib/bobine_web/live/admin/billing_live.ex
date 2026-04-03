@@ -290,10 +290,8 @@ defmodule BobineWeb.Admin.BillingLive do
   end
 
   defp load_plans do
-    case PlatformBilling.list_platform_plans() do
-      %{results: results} -> results
-      results when is_list(results) -> results
-    end
+    %{results: results} = PlatformBilling.list_platform_plans()
+    results
   end
 
   defp load_usage(org) do
