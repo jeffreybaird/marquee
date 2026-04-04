@@ -1085,9 +1085,9 @@
   gap: 16px;
 }
 
-/* Related videos on the watch page: 3 columns, max 2 rows */
-.sv-watch-main .sv-browse-grid {
-  grid-template-columns: repeat(3, 1fr);
+/* Related videos on the watch page: always 4 columns, max 2 rows */
+.sv-watch-below .sv-browse-grid {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 /* =========================================================================

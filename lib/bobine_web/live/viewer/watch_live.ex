@@ -99,7 +99,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     {watch_state_db_duration_ms, watch_state} =
       timed(fn -> build_watch_state(org, viewer, scope, video) end)
 
-    related_result = Content.list_related_videos_for_watch(org, video, 6)
+    related_result = Content.list_related_videos_for_watch(org, video, 8)
 
     query_count =
       base_query_count + watch_state_query_count(viewer, scope) + related_result.query_count
