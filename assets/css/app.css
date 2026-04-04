@@ -524,6 +524,11 @@
 
 .sv-card-info {
   padding: 10px 12px 12px;
+  /* Fixed height so all cards are identical regardless of content */
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .sv-card-title {
@@ -1074,8 +1079,6 @@
 .sv-browse-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows: auto;
-  align-items: start;
   gap: 16px;
 }
 
