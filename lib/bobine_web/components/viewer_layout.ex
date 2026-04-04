@@ -12,8 +12,7 @@ defmodule BobineWeb.Components.ViewerLayout do
 
   @default_nav_items [
     %{label: "Home", path: "/", id: "home", icon: "hero-home"},
-    %{label: "Browse", path: "/browse", id: "browse", icon: "hero-magnifying-glass"},
-    %{label: "Collections", path: "/collections", id: "collections", icon: "hero-rectangle-stack"}
+    %{label: "Browse", path: "/browse", id: "browse", icon: "hero-magnifying-glass"}
   ]
 
   @my_stuff_nav %{label: "My Stuff", path: "/watchlist", id: "my-stuff", icon: "hero-bookmark"}
@@ -50,10 +49,6 @@ defmodule BobineWeb.Components.ViewerLayout do
           _ -> %Theme{}
         end
       end)
-      |> assign_new(:mobile_nav_items, fn ->
-        base = assigns[:nav_items] || @default_nav_items
-        if assigns[:current_viewer], do: base ++ [@my_stuff_nav], else: base
-      end)
 
     ~H"""
     <div
@@ -77,8 +72,6 @@ defmodule BobineWeb.Components.ViewerLayout do
       <main class="sv-main">
         {render_slot(@inner_block)}
       </main>
-
-      <.mobile_nav items={@mobile_nav_items} current_path={@current_path} />
 
       <Layouts.flash_group flash={@flash} />
     </div>
@@ -194,26 +187,6 @@ defmodule BobineWeb.Components.ViewerLayout do
         </div>
       </div>
     </header>
-    """
-  end
-
-  attr :items, :list, required: true
-  attr :current_path, :string, required: true
-
-  defp mobile_nav(assigns) do
-    ~H"""
-    <nav class="sv-mobile-nav" aria-label="Mobile navigation" data-test="sv-mobile-nav">
-      <.link
-        :for={item <- @items}
-        navigate={item.path}
-        class={["sv-mobile-nav-item", @current_path == item.path && "active"]}
-        aria-current={if @current_path == item.path, do: "page"}
-        data-test={"mobile-nav-#{item.id}"}
-      >
-        <.icon name={item.icon} class="size-5" aria-hidden="true" />
-        <span>{item.label}</span>
-      </.link>
-    </nav>
     """
   end
 end

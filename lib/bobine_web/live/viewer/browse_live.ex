@@ -21,7 +21,6 @@ defmodule BobineWeb.Viewer.BrowseLive do
 
     if org do
       %{results: videos} = Content.list_videos(org, per_page: 100)
-      %{results: collections} = Content.list_collections(org, per_page: 100)
       %{results: tags} = Content.list_tags(org, per_page: 100)
 
       {:ok,
@@ -29,10 +28,8 @@ defmodule BobineWeb.Viewer.BrowseLive do
        |> assign(:page_title, "Browse")
        |> assign(:videos, videos)
        |> assign(:all_videos, videos)
-       |> assign(:collections, collections)
        |> assign(:tags, tags)
        |> assign(:search, "")
-       |> assign(:filter_collection, "")
        |> assign(:filter_tag, "")
        |> assign(:sort, "newest")}
     else
@@ -41,41 +38,56 @@ defmodule BobineWeb.Viewer.BrowseLive do
        |> assign(:page_title, "Browse")
        |> assign(:videos, [])
        |> assign(:all_videos, [])
-       |> assign(:collections, [])
        |> assign(:tags, [])
        |> assign(:search, "")
-       |> assign(:filter_collection, "")
        |> assign(:filter_tag, "")
        |> assign(:sort, "newest")}
     end
   end
 
   @impl true
-  def handle_event("filter", params, socket) do
-    org = socket.assigns[:organization]
-    search = Map.get(params, "search", "")
-    sort = Map.get(params, "sort", "newest")
-    filter_collection = Map.get(params, "collection", "")
-    filter_tag = Map.get(params, "tag", "")
+  def handle_params(params, _uri, socket) do
+    tag_id = Map.get(params, "tag", "")
 
+    if tag_id != "" and tag_id != socket.assigns.filter_tag do
+      {:noreply, apply_filters(socket, %{"tag" => tag_id})}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("filter", params, socket) do
+    {:noreply, apply_filters(socket, params)}
+  end
+
+  defp apply_filters(socket, params) do
+    org = socket.assigns[:organization]
+    search = Map.get(params, "search", socket.assigns.search)
+    sort = Map.get(params, "sort", socket.assigns.sort)
+    filter_tag = Map.get(params, "tag", socket.assigns.filter_tag)
+
+    videos = fetch_filtered_videos(org, search, sort, filter_tag)
+
+    socket
+    |> assign(:videos, videos)
+    |> assign(:search, search)
+    |> assign(:sort, sort)
+    |> assign(:filter_tag, filter_tag)
+  end
+
+  defp fetch_filtered_videos(nil, _search, _sort, _tag), do: []
+
+  defp fetch_filtered_videos(org, search, sort, tag_id) do
     opts = build_filter_opts(search, sort)
 
-    %{results: videos} =
-      if org do
-        Content.list_videos(org, opts)
-      else
-        %{results: []}
-      end
-
-    videos = apply_client_filters(videos, filter_collection, filter_tag)
-
-    {:noreply,
-     socket
-     |> assign(:videos, videos)
-     |> assign(:search, search)
-     |> assign(:sort, sort)
-     |> assign(:filter_collection, filter_collection)
-     |> assign(:filter_tag, filter_tag)}
+    if tag_id != "" do
+      %{results: videos} = Content.list_videos_by_tag(org, %{id: tag_id}, opts)
+      videos
+    else
+      %{results: videos} = Content.list_videos(org, opts)
+      videos
+    end
   end
 
   defp build_filter_opts(search, sort) do
@@ -97,8 +109,6 @@ defmodule BobineWeb.Viewer.BrowseLive do
 
     Keyword.put(opts, :order, order)
   end
-
-  defp apply_client_filters(videos, _collection_id, _tag_id), do: videos
 
   @impl true
   def render(assigns) do
@@ -127,22 +137,6 @@ defmodule BobineWeb.Viewer.BrowseLive do
             phx-debounce="300"
             data-test="sv-search-input"
           />
-
-          <select
-            :if={@collections != []}
-            name="collection"
-            class="sv-filter-select"
-            data-test="sv-filter-collection"
-          >
-            <option value="">All collections</option>
-            <option
-              :for={c <- @collections}
-              value={c.id}
-              selected={@filter_collection == c.id}
-            >
-              {c.title}
-            </option>
-          </select>
 
           <select
             :if={@tags != []}

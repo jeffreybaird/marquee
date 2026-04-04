@@ -205,6 +205,7 @@ defmodule BobineWeb.Router do
         {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
       ] do
       live "/browse", BrowseLive
+      live "/browse/:source", ViewAllLive
       live "/collections/:slug", CollectionLive
     end
   end

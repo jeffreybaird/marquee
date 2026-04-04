@@ -19,6 +19,7 @@ defmodule BobineWeb.Viewer.HomeLive do
   import BobineWeb.Viewer.HomeLive.Components
 
   alias Bobine.Catalog
+  alias Bobine.Content
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
@@ -72,6 +73,28 @@ defmodule BobineWeb.Viewer.HomeLive do
   end
 
   defp load_catalog_rows(org, viewer) do
-    Catalog.load_catalog_rows_with_content(org, viewer: viewer)
+    org
+    |> Catalog.load_catalog_rows_with_content(viewer: viewer)
+    |> Enum.map(fn %{row: row} = entry ->
+      Map.put(entry, :view_all_path, resolve_view_all_path(org, row))
+    end)
   end
+
+  defp resolve_view_all_path(org, %{source_type: :collection, source_id: source_id})
+       when not is_nil(source_id) do
+    case Content.get_collection(org, source_id) do
+      {:ok, collection} -> ~p"/collections/#{collection.slug}"
+      _ -> nil
+    end
+  end
+
+  defp resolve_view_all_path(_org, %{source_type: :popular}), do: ~p"/browse/popular"
+  defp resolve_view_all_path(_org, %{source_type: :recent}), do: ~p"/browse/recent"
+
+  defp resolve_view_all_path(_org, %{source_type: :tag, source_id: source_id})
+       when not is_nil(source_id) do
+    ~p"/browse?#{[tag: source_id]}"
+  end
+
+  defp resolve_view_all_path(_org, _row), do: nil
 end

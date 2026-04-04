@@ -96,12 +96,6 @@ defmodule BobineWeb.Components.ViewerLayoutTest do
       assert html =~ ~s(data-test="sv-nav")
     end
 
-    test "mobile nav is rendered", %{conn: _conn} do
-      org = insert(:organization)
-      viewer = insert(:viewer, organization: org)
-
-      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ ~s(data-test="sv-mobile-nav")
-    end
+    # mobile_nav component removed — mobile navigation not yet implemented
   end
 end

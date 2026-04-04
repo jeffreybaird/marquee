@@ -361,6 +361,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
 
   attr :row, :map, required: true
   attr :videos, :list, required: true
+  attr :view_all_path, :string, default: nil
   attr :current_viewer, :map, default: nil
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
@@ -374,7 +375,19 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
       phx-hook="RowScroller"
       data-test={"content-row-#{@row.id}"}
     >
-      <h2 class="content-row-title">{@row.title}</h2>
+      <div class="content-row-header">
+        <h2 class="content-row-title">{@row.title}</h2>
+        <.link
+          :if={@view_all_path}
+          navigate={@view_all_path}
+          class="content-row-view-all"
+          data-test={"view-all-#{@row.id}"}
+          aria-label={"View all #{@row.title}"}
+        >
+          <span class="view-all-text">View All</span>
+          <.icon name="hero-chevron-right" class="view-all-chevron size-4" aria-hidden="true" />
+        </.link>
+      </div>
       <div class="content-row-scroll">
         <button
           class="row-arrow row-arrow-prev row-arrow-hidden"

@@ -284,7 +284,8 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ ~s(data-test="viewer-nav")
       assert html =~ ~s(data-test="nav-home")
       assert html =~ ~s(data-test="nav-browse")
-      assert html =~ ~s(data-test="nav-collections")
+      # Collections nav item deliberately removed — each row has its own "View All" link
+      refute html =~ ~s(data-test="nav-collections")
     end
 
     test "profile avatar visible when logged in", %{conn: _conn} do
@@ -523,6 +524,117 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ ~s(data-test="content-row-#{row.id}")
+    end
+  end
+
+  describe "view all links on rows" do
+    test "popular row has view all link to /browse/popular", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      insert(:video, organization: org, mux_status: "ready")
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Popular",
+          source_type: :popular,
+          visible: true,
+          position: 0
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="view-all-#{row.id}")
+      assert html =~ "/browse/popular"
+    end
+
+    test "recent row has view all link to /browse/recent", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      insert(:video, organization: org, mux_status: "ready")
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "New Releases",
+          source_type: :recent,
+          visible: true,
+          position: 0
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="view-all-#{row.id}")
+      assert html =~ "/browse/recent"
+    end
+
+    test "collection row has view all link to /collections/:slug", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      collection = insert(:collection, organization: org, slug: "sci-fi")
+      video = insert(:video, organization: org, mux_status: "ready")
+
+      insert(:collection_item,
+        organization: org,
+        collection: collection,
+        video: video,
+        position: 0
+      )
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Sci-Fi",
+          source_type: :collection,
+          source_id: collection.id,
+          visible: true,
+          position: 0
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="view-all-#{row.id}")
+      assert html =~ "/collections/sci-fi"
+    end
+
+    test "tag row has view all link to /browse?tag=TAG_ID", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      tag = insert(:tag, organization: org, name: "horror")
+      video = insert(:video, organization: org, mux_status: "ready")
+      insert(:video_tag, organization: org, video: video, tag: tag)
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Horror",
+          source_type: :tag,
+          source_id: tag.id,
+          visible: true,
+          position: 0
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="view-all-#{row.id}")
+      assert html =~ "/browse?tag=#{tag.id}"
+    end
+
+    test "curated row does not have a view all link", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready")
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Hand Picked",
+          source_type: :curated,
+          visible: true,
+          position: 0
+        )
+
+      insert(:row_item, organization: org, row: row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Hand Picked"
+      refute html =~ ~s(data-test="view-all-#{row.id}")
     end
   end
 
