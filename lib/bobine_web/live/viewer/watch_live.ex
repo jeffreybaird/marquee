@@ -559,18 +559,24 @@ defmodule BobineWeb.Viewer.WatchLive do
                 <div class="sv-queue-drag-handle" data-test="queue-drag-handle" aria-hidden="true">
                   <.icon name="hero-bars-3" class="size-4" />
                 </div>
-                <img
-                  :if={item.video && item.video.mux_playback_id}
-                  src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=90&fit_mode=smartcrop"}
-                  alt={item.video.title}
-                  class="sv-queue-thumb"
-                />
-                <div class="sv-queue-item-info">
-                  <span class="sv-queue-item-title">{item.video.title}</span>
-                  <span :if={item.video.duration} class="sv-queue-item-duration">
-                    {format_duration(item.video.duration)}
-                  </span>
-                </div>
+                <.link
+                  navigate={~p"/watch/#{item.video_id}"}
+                  class="sv-queue-item-link"
+                  data-test={"queue-link-#{item.video_id}"}
+                >
+                  <img
+                    :if={item.video && item.video.mux_playback_id}
+                    src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=90&fit_mode=smartcrop"}
+                    alt={item.video.title}
+                    class="sv-queue-thumb"
+                  />
+                  <div class="sv-queue-item-info">
+                    <span class="sv-queue-item-title">{item.video.title}</span>
+                    <span :if={item.video.duration} class="sv-queue-item-duration">
+                      {format_duration(item.video.duration)}
+                    </span>
+                  </div>
+                </.link>
                 <button
                   phx-click="remove_from_queue"
                   phx-value-video-id={item.video_id}

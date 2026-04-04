@@ -1236,6 +1236,21 @@
   flex-shrink: 0;
 }
 
+.sv-queue-item-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sv-queue-item-link:hover .sv-queue-item-title {
+  color: var(--sv-text-primary);
+}
+
 .sv-queue-item-info {
   flex: 1;
   min-width: 0;
