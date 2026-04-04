@@ -1,5 +1,6 @@
 defmodule BobineWeb.Viewer.WatchlistLive do
   use BobineWeb, :live_view
+  use BobineWeb.Viewer.CardActions
 
   alias Bobine.Engagement
   alias BobineWeb.Components.ViewerComponents
@@ -111,7 +112,14 @@ defmodule BobineWeb.Viewer.WatchlistLive do
 
           <div :if={@videos != []} class="sv-browse-grid" data-test="sv-watchlist-grid">
             <div :for={video <- @videos} class="sv-watchlist-card-wrapper">
-              <ViewerComponents.content_card video={video} size="grid" />
+              <ViewerComponents.content_card
+                video={video}
+                size="grid"
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
+              />
               <button
                 phx-click="remove"
                 phx-value-video-id={video.id}
@@ -136,7 +144,15 @@ defmodule BobineWeb.Viewer.WatchlistLive do
 
           <div :if={@favorites != []} class="sv-browse-grid" data-test="sv-favorites-grid">
             <div :for={fav <- @favorites} class="sv-watchlist-card-wrapper">
-              <ViewerComponents.content_card :if={fav.video} video={fav.video} size="grid" />
+              <ViewerComponents.content_card
+                :if={fav.video}
+                video={fav.video}
+                size="grid"
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
+              />
               <button
                 phx-click="unfavorite"
                 phx-value-video-id={fav.video_id}

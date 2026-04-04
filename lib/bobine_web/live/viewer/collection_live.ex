@@ -1,5 +1,6 @@
 defmodule BobineWeb.Viewer.CollectionLive do
   use BobineWeb, :live_view
+  use BobineWeb.Viewer.CardActions
 
   alias Bobine.Content
   alias BobineWeb.Components.ViewerComponents
@@ -71,6 +72,10 @@ defmodule BobineWeb.Viewer.CollectionLive do
             :for={video <- @videos}
             video={video}
             size="grid"
+            current_viewer={@current_viewer}
+            favorited_ids={@favorited_ids}
+            watchlisted_ids={@watchlisted_ids}
+            queued_ids={@queued_ids}
           />
         </div>
       </div>

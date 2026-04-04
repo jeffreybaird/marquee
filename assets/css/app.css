@@ -454,16 +454,23 @@
   border-radius: var(--sv-radius-md);
   overflow: hidden;
   background: var(--sv-card-bg);
-  transition: transform 200ms ease, box-shadow 200ms ease;
-  cursor: pointer;
-  text-decoration: none;
   display: block;
 }
 
+/* When card is NOT inside a popup container, keep original hover */
 .sv-card:hover {
-  transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 2;
+}
+
+.sv-card-thumb-link {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sv-card-title-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 .sv-card-row { width: 384px; scroll-snap-align: start; }
@@ -499,25 +506,193 @@
 }
 
 .sv-card-info {
-  padding: 12px;
+  padding: 10px 12px 12px;
 }
 
 .sv-card-title {
   font-family: var(--sv-font-body);
-  font-size: 1.4rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--sv-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+
+.sv-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .sv-card-meta {
-  font-size: 1rem;
+  font-size: 0.8125rem;
   color: var(--sv-text-secondary);
-  margin-top: 4px;
-  display: block;
+  flex-shrink: 0;
+}
+
+/* --- Card Action Buttons --- */
+
+.sv-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sv-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--sv-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sv-text-primary);
+  cursor: pointer;
+  transition: background 150ms, border-color 150ms;
+  text-decoration: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sv-card-action-btn:hover,
+.sv-card-action-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.sv-card-action-btn:focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 2px;
+}
+
+/* Active state — item is favorited / in watchlist / in queue */
+.sv-card-action-btn.active {
+  background: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+  border-color: var(--sv-accent);
+}
+
+.sv-card-action-btn.active:hover,
+.sv-card-action-btn.active:focus-visible {
+  background: var(--sv-accent-hover);
+  border-color: var(--sv-accent-hover);
+}
+
+/* =========================================================================
+   Card Focus Popup
+   ========================================================================= */
+
+.sv-card-container {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+/* Lift focused card above neighboring rows and cards */
+.sv-card-container.sv-card-focused {
+  z-index: 100;
+}
+
+.sv-card-container.sv-card-focused .sv-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  transform: scale(1.03);
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+
+.sv-card {
+  transition: transform 250ms ease, box-shadow 250ms ease;
+}
+
+.sv-card-container-row { width: 384px; scroll-snap-align: start; }
+.sv-card-container-grid { width: 100%; }
+.sv-card-container-large { width: 100%; min-width: 320px; }
+
+/* Override card width when inside container (container owns the sizing) */
+.sv-card-container .sv-card-row,
+.sv-card-container .sv-card-grid,
+.sv-card-container .sv-card-large {
+  width: 100%;
+}
+
+/*
+ * The popup overlays only the thumbnail area of the card.
+ * The card info (title, duration, action buttons) sits below
+ * and remains visible at all times.
+ */
+.sv-card-popup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-radius: var(--sv-radius-md);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 250ms ease, visibility 250ms ease;
+}
+
+.sv-card-focused .sv-card-popup {
+  opacity: 1;
+  visibility: visible;
+  /* Keep pointer-events: none so clicks pass through to the card link below */
+}
+
+.sv-card-popup-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--sv-bg-secondary);
+}
+
+.sv-card-popup-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Mux player injected by CardFocus hook for video preview */
+.sv-card-popup-thumb mux-player {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  --media-accent-color: var(--sv-accent);
+}
+
+/* Description overlays the bottom of the thumbnail with a gradient */
+.sv-card-popup-body {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 12px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+}
+
+.sv-card-popup-desc {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .sv-card-popup {
+    transition: none;
+  }
 }
 
 /* =========================================================================
@@ -530,6 +705,8 @@
 
 .sv-row {
   margin-bottom: 40px;
+  overflow: visible;
+  position: relative;
 }
 
 .sv-row-title {
@@ -542,6 +719,7 @@
 
 .sv-row-scroll-wrapper {
   position: relative;
+  overflow: visible;
 }
 
 /* The RowScroller hook targets .content-row-items */
@@ -549,9 +727,11 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: visible;
   scroll-snap-type: x mandatory;
   scroll-padding-left: 0;
-  padding: 8px 0;
+  padding: 8px 0 180px;
+  margin-bottom: -180px;
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
@@ -595,7 +775,7 @@
 
 /* Legacy row classes still used in home_live hero/row markup */
 .catalog-rows { padding: 32px 48px; }
-.content-row { margin-bottom: 48px; }
+.content-row { margin-bottom: 48px; overflow: visible; position: relative; }
 .content-row-title {
   font-family: var(--sv-font-heading);
   font-size: 2rem;
@@ -603,7 +783,7 @@
   color: var(--sv-text-primary);
   margin: 0 0 16px 0;
 }
-.content-row-scroll { position: relative; }
+.content-row-scroll { position: relative; overflow: visible; }
 .content-row-items {
   display: flex;
   gap: 16px;
@@ -611,7 +791,8 @@
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding-bottom: 8px;
+  padding-bottom: 180px;
+  margin-bottom: -180px;
   scroll-behavior: smooth;
 }
 .content-row-items::-webkit-scrollbar { display: none; }
@@ -1086,36 +1267,6 @@
 @keyframes sv-fade-in {
   from { opacity: 0; transform: translateX(8px); }
   to { opacity: 0.8; transform: translateX(0); }
-}
-
-/* Card hover actions overlay */
-
-.sv-card-actions-wrapper {
-  position: relative;
-}
-
-.sv-card-actions {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: none;
-  gap: 4px;
-  padding: 8px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
-  z-index: 1;
-}
-
-.sv-card-actions-wrapper:hover .sv-card-actions,
-.sv-card-actions-wrapper:focus-within .sv-card-actions {
-  display: flex;
-}
-
-.sv-card-actions button {
-  flex: 1;
-  font-size: 0.6875rem;
-  padding: 6px 8px;
-  min-height: 44px;
 }
 
 /* Watch history progress bar */

@@ -3,8 +3,10 @@
 # be server-rendered HTML for performance at scale.
 defmodule BobineWeb.Viewer.HomeLive do
   use BobineWeb, :live_view
+  use BobineWeb.Viewer.CardActions
 
   alias Bobine.Catalog
+  alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
@@ -310,7 +312,15 @@ defmodule BobineWeb.Viewer.HomeLive do
 
       <%!-- Catalog rows --%>
       <section :if={@rows != []} class="catalog-rows" data-test="catalog-rows">
-        <.content_row :for={%{row: row, videos: videos} <- @rows} row={row} videos={videos} />
+        <.content_row
+          :for={%{row: row, videos: videos} <- @rows}
+          row={row}
+          videos={videos}
+          current_viewer={@current_viewer}
+          favorited_ids={@favorited_ids}
+          watchlisted_ids={@watchlisted_ids}
+          queued_ids={@queued_ids}
+        />
       </section>
     </ViewerLayout.viewer_layout>
     """
@@ -436,6 +446,10 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   attr :row, :map, required: true
   attr :videos, :list, required: true
+  attr :current_viewer, :map, default: nil
+  attr :favorited_ids, :any, default: MapSet.new()
+  attr :watchlisted_ids, :any, default: MapSet.new()
+  attr :queued_ids, :any, default: MapSet.new()
 
   defp content_row(assigns) do
     ~H"""
@@ -455,20 +469,16 @@ defmodule BobineWeb.Viewer.HomeLive do
           <.icon name="hero-chevron-left" class="size-5" aria-hidden="true" />
         </button>
         <div class="content-row-items">
-          <.link
+          <ViewerComponents.content_card
             :for={video <- @videos}
-            navigate={~p"/watch/#{video.id}"}
-            class="content-card"
-            data-test={"content-card-#{video.id}"}
-          >
-            <img
-              :if={video.mux_playback_id}
-              src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
-              alt={video.title}
-              loading="lazy"
-            />
-            <span class="content-card-title">{video.title}</span>
-          </.link>
+            video={video}
+            size="row"
+            current_viewer={@current_viewer}
+            card_id={"home-row-#{@row.id}-card-#{video.id}"}
+            favorited_ids={@favorited_ids}
+            watchlisted_ids={@watchlisted_ids}
+            queued_ids={@queued_ids}
+          />
         </div>
         <button
           class="row-arrow row-arrow-next"

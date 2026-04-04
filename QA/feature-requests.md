@@ -13,6 +13,6 @@
 - when adding videos to a collection, you can select more than one at a time, using check boxes.
 - the add video pop-up on "admin/collections" has a search box to search by title, and a way to filter by tag
 - rows have a "see all" button for each row that takes you to the collection's page.
-- when clicking the "Save" button on the catalog page for the hero row there should be visible feedback of success or failur.
-- The hero builder should be collapsable
-- on hover, a video should have a focus popup that displays more information and allows you to add to watchlist, favorite, or add to queue. 
+- on hover, a video should have a focus popup that displays more information and allows you to add to watchlist, favorite, or add to queue.
+- branding page can accept rgb values with opacity
+- assets can be uploaded, use "Spaces" from digital ocean

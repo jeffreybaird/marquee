@@ -1,3 +1,4 @@
+import CardFocus from "./card_focus"
 import HeroCarousel from "./hero_carousel"
 import MuxPlayer from "./mux_player"
 import MuxUploader from "./mux_uploader"
@@ -9,6 +10,7 @@ import Sortable from "./sortable"
 import ViewerNav from "./viewer_nav"
 
 export const hooks = {
+  CardFocus,
   HeroCarousel,
   MuxPlayer,
   MuxUploader,

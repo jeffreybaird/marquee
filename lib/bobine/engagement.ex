@@ -896,6 +896,51 @@ defmodule Bobine.Engagement do
   end
 
   ## -----------------------------------------------------------------------
+  ## Batch engagement state (for card UI)
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a MapSet of video IDs the viewer has favorited (non-deleted).
+
+  Exempt from doctest — hits the database.
+  """
+  def favorited_video_ids(%Organization{id: org_id}, %{id: viewer_id}) do
+    Favorite
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([f], is_nil(f.deleted_at))
+    |> select([f], f.video_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
+  Returns a MapSet of video IDs in the viewer's watchlist (non-deleted).
+
+  Exempt from doctest — hits the database.
+  """
+  def watchlisted_video_ids(%Organization{id: org_id}, %{id: viewer_id}) do
+    WatchlistItem
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([w], is_nil(w.deleted_at))
+    |> select([w], w.video_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
+  Returns a MapSet of video IDs in the viewer's queue.
+
+  Exempt from doctest — hits the database.
+  """
+  def queued_video_ids(%Organization{id: org_id}, %{id: viewer_id}) do
+    QueueItem
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> select([q], q.video_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  ## -----------------------------------------------------------------------
   ## Playback progress
   ## -----------------------------------------------------------------------
 

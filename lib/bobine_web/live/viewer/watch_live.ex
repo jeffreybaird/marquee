@@ -1,6 +1,7 @@
 # NOTE: Convert to static page with LiveView island for the player
 defmodule BobineWeb.Viewer.WatchLive do
   use BobineWeb, :live_view
+  use BobineWeb.Viewer.CardActions
 
   alias Bobine.Content
   alias Bobine.Content.AccessControl
@@ -621,6 +622,10 @@ defmodule BobineWeb.Viewer.WatchLive do
                 :for={video <- @related_videos}
                 video={video}
                 size="grid"
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
               />
             </div>
           </div>

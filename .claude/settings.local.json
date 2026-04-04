@@ -58,7 +58,18 @@
       "Bash(git checkout:*)",
       "Bash(MIX_ENV=test mix ecto.rollback --step 3)",
       "Bash(MIX_ENV=test mix run -e 'Bobine.Repo.query!\\(\"SELECT indexname FROM pg_indexes WHERE tablename = '\\\\''progresses'\\\\'' AND indexdef LIKE '\\\\''%viewer_id%video_id%organization_id%'\\\\''\"\\) |> IO.inspect\\(\\)')",
-      "Bash(python3 -c:*)"
+      "Bash(python3 -c:*)",
+      "Bash(grep -E \"\\\\.\\(ex\\)$\")",
+      "Bash(npx tailwindcss:*)",
+      "Bash(grep -c \"hero-bookmark\" priv/static/assets/css/app*.css)",
+      "Bash(psql bobine_dev -c \"\\\\d favorites\")",
+      "Bash(psql bobine_dev -c \"\\\\d watchlist_items\")",
+      "Bash(mix ecto.gen.migration make_user_id_nullable_for_viewer_engagement)",
+      "Bash(psql bobine_dev -c \"SELECT * FROM schema_migrations WHERE version = 20260403130002\")",
+      "Bash(mix ecto.gen.migration fix_user_id_not_null_on_engagement_tables)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
