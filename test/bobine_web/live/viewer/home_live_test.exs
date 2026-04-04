@@ -582,6 +582,35 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
     end
   end
 
+  describe "logged-in viewer without subdomain" do
+    test "shows org home page when viewer is logged in without subdomain", %{conn: conn} do
+      org = insert(:organization, name: "Viewer Org")
+      viewer = insert(:viewer, organization: org)
+
+      insert(:video, organization: org, mux_status: "ready")
+
+      insert(:row,
+        organization: org,
+        title: "Viewer Row",
+        source_type: :recent,
+        visible: true,
+        position: 0
+      )
+
+      token = Bobine.Viewers.generate_viewer_session_token(viewer)
+
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{viewer_token: token})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ "Viewer Org"
+      assert html =~ "Viewer Row"
+      refute html =~ ~s(data-test="platform-marketing")
+    end
+  end
+
   describe "platform marketing page (no org)" do
     test "shows platform marketing when no org resolved", %{conn: conn} do
       conn =
