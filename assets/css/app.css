@@ -249,6 +249,20 @@
   background: var(--sv-bg-elevated);
 }
 
+.viewer-sign-out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sv-text-secondary);
+  transition: color 200ms;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.viewer-sign-out:hover {
+  color: var(--sv-text-primary);
+}
+
 /* --- Desktop nav hide on mobile --- */
 .sv-nav .viewer-nav { display: flex; }
 .sv-mobile-nav { display: none; }

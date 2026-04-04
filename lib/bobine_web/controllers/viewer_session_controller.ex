@@ -52,11 +52,12 @@ defmodule BobineWeb.Viewer.SessionController do
   def delete(conn, _params) do
     viewer_token = get_session(conn, :viewer_token)
     viewer_token && Viewers.delete_viewer_session_token(viewer_token)
+    redirect_path = home_path(conn)
 
     conn
     |> clear_viewer_session()
     |> put_flash(:info, "Signed out successfully.")
-    |> redirect(to: ~p"/")
+    |> redirect(to: redirect_path)
   end
 
   @doc """
