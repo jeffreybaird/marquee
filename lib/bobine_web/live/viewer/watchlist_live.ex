@@ -13,12 +13,14 @@ defmodule BobineWeb.Viewer.WatchlistLive do
 
     videos = Engagement.list_viewer_watchlist_videos(org, viewer.id, per_page: 100)
     %{results: favorites} = Engagement.list_favorites(org, viewer)
+    queue_items = Engagement.list_queue(org, viewer)
 
     {:ok,
      socket
-     |> assign(:page_title, "Watchlist")
+     |> assign(:page_title, "My Library")
      |> assign(:videos, videos)
      |> assign(:favorites, favorites)
+     |> assign(:queue_items, queue_items)
      |> assign(:active_tab, "watchlist")}
   end
 
@@ -51,6 +53,17 @@ defmodule BobineWeb.Viewer.WatchlistLive do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_event("remove_from_queue", %{"video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+    video = %{id: video_id}
+
+    Engagement.remove_from_queue(org, viewer, video)
+    queue_items = Enum.reject(socket.assigns.queue_items, &(&1.video_id == video_id))
+    {:noreply, assign(socket, :queue_items, queue_items)}
   end
 
   @impl true
@@ -94,6 +107,16 @@ defmodule BobineWeb.Viewer.WatchlistLive do
             data-test="favorites-tab"
           >
             Favorites
+          </button>
+          <button
+            phx-click="switch_tab"
+            phx-value-tab="queue"
+            class={["sv-tab", @active_tab == "queue" && "active"]}
+            role="tab"
+            aria-selected={to_string(@active_tab == "queue")}
+            data-test="queue-tab"
+          >
+            Queue
           </button>
         </div>
 
@@ -161,6 +184,42 @@ defmodule BobineWeb.Viewer.WatchlistLive do
                 data-test={"sv-favorite-remove-#{fav.video_id}"}
               >
                 <.icon name="hero-heart" class="size-4 mr-1" aria-hidden="true" /> Unfavorite
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Queue tab --%>
+        <div :if={@active_tab == "queue"} role="tabpanel" data-test="queue-panel">
+          <ViewerComponents.empty_state
+            :if={@queue_items == []}
+            title="Your queue is empty"
+            description="Add videos to your queue from any video card."
+            icon="hero-queue-list"
+          >
+            <.link navigate="/browse" class="sv-btn sv-btn-accent" style="margin-top: 16px">
+              Browse content
+            </.link>
+          </ViewerComponents.empty_state>
+
+          <div :if={@queue_items != []} class="sv-browse-grid" data-test="sv-queue-grid">
+            <div :for={item <- @queue_items} :if={item.video} class="sv-watchlist-card-wrapper">
+              <ViewerComponents.content_card
+                video={item.video}
+                size="grid"
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
+              />
+              <button
+                phx-click="remove_from_queue"
+                phx-value-video-id={item.video_id}
+                class="sv-btn sv-btn-ghost"
+                style="width: 100%; margin-top: 8px; font-size: 0.8125rem"
+                data-test={"sv-queue-remove-#{item.video_id}"}
+              >
+                <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
               </button>
             </div>
           </div>
