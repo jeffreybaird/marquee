@@ -170,7 +170,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
           </ViewerComponents.empty_state>
 
           <div :if={@videos != []} class="sv-browse-grid" data-test="sv-watchlist-grid">
-            <div :for={video <- @videos} class="sv-watchlist-card-wrapper">
+            <div :for={video <- @videos} class="sv-library-card-wrapper">
               <ViewerComponents.content_card
                 video={video}
                 size="grid"
@@ -182,8 +182,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
               <button
                 phx-click="remove"
                 phx-value-video-id={video.id}
-                class="sv-btn sv-btn-ghost"
-                style="width: 100%; margin-top: 8px; font-size: 0.8125rem"
+                class="sv-btn sv-btn-ghost sv-library-action-btn"
                 data-test={"sv-watchlist-remove-#{video.id}"}
               >
                 <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
@@ -202,9 +201,8 @@ defmodule BobineWeb.Viewer.WatchlistLive do
           />
 
           <div :if={@favorites != []} class="sv-browse-grid" data-test="sv-favorites-grid">
-            <div :for={fav <- @favorites} class="sv-watchlist-card-wrapper">
+            <div :for={fav <- @favorites} :if={fav.video} class="sv-library-card-wrapper">
               <ViewerComponents.content_card
-                :if={fav.video}
                 video={fav.video}
                 size="grid"
                 current_viewer={@current_viewer}
@@ -215,8 +213,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
               <button
                 phx-click="unfavorite"
                 phx-value-video-id={fav.video_id}
-                class="sv-btn sv-btn-ghost"
-                style="width: 100%; margin-top: 8px; font-size: 0.8125rem"
+                class="sv-btn sv-btn-ghost sv-library-action-btn"
                 data-test={"sv-favorite-remove-#{fav.video_id}"}
               >
                 <.icon name="hero-heart" class="size-4 mr-1" aria-hidden="true" /> Unfavorite
@@ -252,11 +249,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
               data-id={item.video_id}
               data-test={"sv-queue-item-#{item.video_id}"}
             >
-              <div
-                class="sv-queue-drag-handle"
-                data-test="queue-drag-handle"
-                aria-hidden="true"
-              >
+              <div class="sv-queue-drag-handle" data-test="queue-drag-handle" aria-hidden="true">
                 <.icon name="hero-bars-3" class="size-5" />
               </div>
               <.link

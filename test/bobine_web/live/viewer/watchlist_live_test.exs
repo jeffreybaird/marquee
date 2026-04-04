@@ -63,7 +63,7 @@ defmodule BobineWeb.Viewer.WatchlistLiveTest do
   end
 
   describe "GET /queue" do
-    test "shows vertical sortable queue list", %{conn: _conn} do
+    test "shows vertical sortable queue list with drag handles", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:subscribed_viewer, organization: org)
 

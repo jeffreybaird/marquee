@@ -841,29 +841,6 @@
 .row-arrow:hover { background: rgba(0, 0, 0, 0.8); color: #fff; }
 .row-arrow-prev { left: -18px; }
 .row-arrow-next { right: -18px; }
-.content-card {
-  flex-shrink: 0;
-  width: 384px;
-  scroll-snap-align: start;
-  text-decoration: none;
-  transition: transform 200ms;
-}
-.content-card:hover { transform: scale(1.03); }
-.content-card img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--sv-radius-sm);
-}
-.content-card-title {
-  display: block;
-  font-size: 1.4rem;
-  color: var(--sv-text-primary);
-  margin-top: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* =========================================================================
    Badge / Tag Pills
@@ -1334,6 +1311,43 @@
   text-align: center;
   color: var(--sv-text-secondary);
   font-size: 0.875rem;
+}
+
+/* ---- Library Card Wrapper (watchlist, favorites, queue tabs) ---- */
+
+.sv-library-card-wrapper {
+  position: relative;
+  min-width: 0;
+}
+
+.sv-library-card-wrapper.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sv-library-action-btn {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+}
+
+.sv-library-drag-handle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--sv-radius-sm, 4px);
+  color: #fff;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+
+.sv-library-card-wrapper:hover .sv-library-drag-handle {
+  opacity: 1;
 }
 
 /* ---- Queue Page List (vertical sortable on /queue tab) ---- */
@@ -1864,7 +1878,6 @@
   .sv-row-arrow,
   .row-arrow,
   .sv-card,
-  .content-card,
   .viewer-nav-item,
   .viewer-sign-in,
   .viewer-search-btn,
@@ -1875,8 +1888,7 @@
     animation: none;
   }
 
-  .sv-card:hover,
-  .content-card:hover {
+  .sv-card:hover {
     transform: none;
   }
 

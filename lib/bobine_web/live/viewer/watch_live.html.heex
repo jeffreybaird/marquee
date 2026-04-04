@@ -23,7 +23,9 @@
             aria-label={if @queue_open, do: "Close queue", else: "Open queue"}
           >
             <.icon
-              name={if @queue_open, do: "hero-chevron-double-left", else: "hero-chevron-double-right"}
+              name={
+                if @queue_open, do: "hero-chevron-double-left", else: "hero-chevron-double-right"
+              }
               class="size-5"
               aria-hidden="true"
             />
