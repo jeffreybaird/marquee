@@ -34,7 +34,13 @@ config :bobine, BobineWeb.Endpoint,
     layout: false
   ],
   pubsub_server: Bobine.PubSub,
-  live_view: [signing_salt: "EgHZc0pV"]
+  live_view: [
+    signing_salt: "EgHZc0pV",
+    # Start with a shorter idle hibernation window so passive viewer sessions
+    # release memory more aggressively. Validate this value in load tests
+    # against resume latency for interactive actions.
+    hibernate_after: 10_000
+  ]
 
 # Configure the mailer
 #

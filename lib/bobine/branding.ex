@@ -4,6 +4,7 @@ defmodule Bobine.Branding do
   """
 
   import Ecto.Query, warn: false
+  alias Bobine.Cache
   alias Bobine.Events
   alias Bobine.Repo
 
@@ -59,8 +60,12 @@ defmodule Bobine.Branding do
   """
   def create_theme(attrs) do
     case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
-      {:ok, theme} -> {:ok, theme}
-      {:error, changeset} -> {:error, :validation, changeset}
+      {:ok, theme} ->
+        invalidate_theme_cache(theme.organization_id)
+        {:ok, theme}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
@@ -79,6 +84,7 @@ defmodule Bobine.Branding do
   def update_theme(%Theme{} = theme, attrs) do
     case theme |> Theme.changeset(attrs) |> Repo.update() do
       {:ok, theme} ->
+        invalidate_theme_cache(theme.organization_id)
         Events.broadcast(nil, {:theme_updated, theme})
         {:ok, theme}
 
@@ -100,7 +106,14 @@ defmodule Bobine.Branding do
 
   """
   def delete_theme(%Theme{} = theme) do
-    Repo.delete(theme)
+    case Repo.delete(theme) do
+      {:ok, deleted_theme} ->
+        invalidate_theme_cache(deleted_theme.organization_id)
+        {:ok, deleted_theme}
+
+      other ->
+        other
+    end
   end
 
   @doc """
@@ -113,6 +126,15 @@ defmodule Bobine.Branding do
       nil -> %Theme{}
       theme -> theme
     end
+  end
+
+  @doc """
+  Cached variant of `get_theme_or_default/1` for hot LiveView mount paths.
+  """
+  def get_theme_or_default_cached(%Bobine.Accounts.Organization{} = org) do
+    Cache.fetch("theme:#{org.id}", [ttl: 300_000], fn ->
+      get_theme_or_default(org)
+    end)
   end
 
   @doc """
@@ -137,5 +159,9 @@ defmodule Bobine.Branding do
   """
   def change_theme(%Theme{} = theme, attrs \\ %{}) do
     Theme.changeset(theme, attrs)
+  end
+
+  defp invalidate_theme_cache(org_id) do
+    Cache.delete("theme:#{org_id}")
   end
 end

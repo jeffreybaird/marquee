@@ -3,12 +3,17 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
 
   import Phoenix.LiveViewTest
 
+  alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Engagement
+  alias Bobine.Engagement.Progress
+  alias Bobine.Repo
 
   setup do
     if :ets.whereis(:bobine_go_back) == :undefined do
       :ets.new(:bobine_go_back, [:named_table, :public, :set])
     end
+
+    ProgressBuffer.clear()
 
     org = insert(:organization)
     viewer = insert(:subscribed_viewer, organization: org)
@@ -27,13 +32,20 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
   end
 
   describe "toggle_queue" do
-    test "toggles queue panel open and closed", %{org: org, viewer: viewer, video: video} do
+    test "loads queue on demand and toggles queue panel open and closed", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       other = insert(:video, organization: org, mux_status: "ready", mux_playback_id: "pb_tq")
       {:ok, _} = Engagement.add_to_queue(org, viewer, other)
 
       {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
-      # Queue should be open by default when it has items
-      assert html =~ "open"
+      refute html =~ ~r/sv-queue-panel[^"]*open/
+
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
+      html = render(view)
+      assert html =~ ~r/sv-queue-panel[^"]*open/
 
       view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
       html = render(view)
@@ -175,7 +187,7 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
   end
 
   describe "playback_progress" do
-    test "records progress for viewer", %{viewer: viewer, video: video} do
+    test "buffers progress for viewer and flushes it later", %{viewer: viewer, video: video} do
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
 
       render_hook(view, "playback_progress", %{
@@ -183,7 +195,13 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
         "position" => 45.5
       })
 
-      # Should not crash — progress is buffered
+      refute Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+      assert progress.position == 45.5
+
       html = render(view)
       assert html =~ "Main Video"
     end

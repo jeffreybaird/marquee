@@ -900,6 +900,95 @@ defmodule Bobine.Engagement do
   ## -----------------------------------------------------------------------
 
   @doc """
+  Returns the lightweight watch-session state needed to bootstrap the watch page.
+
+  Uses a single query for viewer-specific booleans and counters, then overlays
+  any fresher buffered progress in memory so reconnects do not miss recent
+  playback state.
+  """
+  def get_watch_session_state(%Organization{id: org_id}, %{id: viewer_id}, %{id: video_id}) do
+    state =
+      Organization
+      |> where([o], o.id == ^org_id)
+      |> select([_o], %{
+        resume_position:
+          fragment(
+            """
+            COALESCE(
+              (
+                SELECT p.position
+                FROM progresses AS p
+                WHERE p.organization_id = ? AND p.viewer_id = ? AND p.video_id = ?
+                LIMIT 1
+              ),
+              0.0
+            )
+            """,
+            type(^org_id, :binary_id),
+            type(^viewer_id, :binary_id),
+            type(^video_id, :binary_id)
+          ),
+        queue_count:
+          fragment(
+            """
+            COALESCE(
+              (
+                SELECT COUNT(*)
+                FROM queue_items AS q
+                WHERE q.organization_id = ? AND q.viewer_id = ?
+              ),
+              0
+            )
+            """,
+            type(^org_id, :binary_id),
+            type(^viewer_id, :binary_id)
+          ),
+        is_favorited:
+          fragment(
+            """
+            EXISTS (
+              SELECT 1
+              FROM favorites AS f
+              WHERE f.organization_id = ?
+                AND f.viewer_id = ?
+                AND f.video_id = ?
+                AND f.deleted_at IS NULL
+            )
+            """,
+            type(^org_id, :binary_id),
+            type(^viewer_id, :binary_id),
+            type(^video_id, :binary_id)
+          ),
+        in_watchlist:
+          fragment(
+            """
+            EXISTS (
+              SELECT 1
+              FROM watchlist_items AS w
+              WHERE w.organization_id = ?
+                AND w.viewer_id = ?
+                AND w.video_id = ?
+                AND w.deleted_at IS NULL
+            )
+            """,
+            type(^org_id, :binary_id),
+            type(^viewer_id, :binary_id),
+            type(^video_id, :binary_id)
+          )
+      })
+      |> Repo.one() ||
+        %{resume_position: 0.0, queue_count: 0, is_favorited: false, in_watchlist: false}
+
+    buffered_resume_position =
+      case ProgressBuffer.get_viewer(org_id, viewer_id, video_id) do
+        %{position: position} -> position
+        _ -> state.resume_position
+      end
+
+    %{state | resume_position: buffered_resume_position}
+  end
+
+  @doc """
   Updates playback progress via the buffer (not direct DB write).
 
   Exempt from doctest — writes to buffer.
@@ -924,37 +1013,13 @@ defmodule Bobine.Engagement do
   """
   def update_progress(
         %Organization{id: org_id},
-        %{id: viewer_id} = viewer,
+        %{id: viewer_id},
         video_id,
         position,
         duration
       )
       when is_number(position) and is_number(duration) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-    Repo.insert(
-      %Progress{
-        organization_id: org_id,
-        viewer_id: viewer_id,
-        video_id: video_id,
-        position: position / 1,
-        duration: duration,
-        completed: false,
-        inserted_at: now,
-        updated_at: now
-      },
-      on_conflict: [set: [position: position / 1, duration: duration, updated_at: now]],
-      conflict_target:
-        {:unsafe_fragment,
-         ~s|("viewer_id","video_id","organization_id") WHERE viewer_id IS NOT NULL|}
-    )
-
-    # Check for completion (99% threshold)
-    if duration > 0 and position / duration >= 0.99 do
-      org = %Organization{id: org_id}
-      mark_completed(org, viewer, %{id: video_id})
-    end
-
+    ProgressBuffer.update_viewer(org_id, viewer_id, video_id, position / 1, duration)
     :ok
   end
 
@@ -985,24 +1050,32 @@ defmodule Bobine.Engagement do
   @doc """
   Gets the saved progress for a viewer+video pair.
 
-  Exempt from doctest — hits the database.
+  Exempt from doctest — reads buffer and database.
   """
   def get_progress(%Organization{id: org_id}, %{id: viewer_id}, video) do
-    Repo.get_by(Progress,
-      organization_id: org_id,
-      viewer_id: viewer_id,
-      video_id: video.id
-    )
+    case ProgressBuffer.get_viewer(org_id, viewer_id, video.id) do
+      %{position: position, duration: duration} ->
+        %Progress{position: position, duration: duration, completed: false}
+
+      nil ->
+        Repo.get_by(Progress,
+          organization_id: org_id,
+          viewer_id: viewer_id,
+          video_id: video.id
+        )
+    end
   end
 
   @doc """
-  Marks a video as completed. Triggers queue advance.
+  Marks a video as completed.
 
   Exempt from doctest — hits the database.
   """
   def mark_completed(%Organization{} = org, %{id: viewer_id} = viewer, video) do
     Bobine.Otel.with_span "bobine.engagement.mark_completed",
                           %{"bobine.org.id" => org.id} do
+      ProgressBuffer.delete_viewer(org.id, viewer_id, video.id)
+
       # Update or create progress record
       case Repo.get_by(Progress,
              organization_id: org.id,
@@ -1027,9 +1100,6 @@ defmodule Bobine.Engagement do
 
       # Record completion in watch history
       record_watch_activity(org, viewer, video)
-
-      # Advance the queue
-      advance_queue(org, viewer, video)
 
       # Broadcast for UI
       Events.broadcast(

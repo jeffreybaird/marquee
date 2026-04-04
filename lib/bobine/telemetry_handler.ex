@@ -17,6 +17,9 @@ defmodule Bobine.TelemetryHandler do
       [:bobine, :subscription, :canceled],
       [:bobine, :external_api, :call],
       [:bobine, :webhook, :delivered],
+      [:bobine, :watch, :mount],
+      [:bobine, :watch, :event],
+      [:bobine, :pubsub, :broadcast],
       [:phoenix, :endpoint, :stop],
       [:phoenix, :live_view, :mount, :stop],
       [:phoenix, :live_view, :handle_event, :stop]

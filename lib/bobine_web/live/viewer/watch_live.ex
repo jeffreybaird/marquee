@@ -5,77 +5,117 @@ defmodule BobineWeb.Viewer.WatchLive do
   alias Bobine.Content
   alias Bobine.Content.AccessControl
   alias Bobine.Engagement
+  alias Bobine.Metrics
   alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
+    mount_started_at = System.monotonic_time()
     org = socket.assigns.organization
     viewer = socket.assigns[:current_viewer]
     scope = socket.assigns[:current_scope]
 
-    case Content.get_video(org, id) do
+    {video_db_duration_ms, video_result} = timed(fn -> Content.get_video(org, id) end)
+
+    case video_result do
       {:ok, %{mux_status: "ready"} = video} ->
         if AccessControl.can_watch?(video, viewer) do
-          mount_video(socket, video, viewer, scope, org)
+          mount_video(
+            socket,
+            video,
+            viewer,
+            scope,
+            org,
+            mount_started_at,
+            1,
+            video_db_duration_ms
+          )
         else
+          emit_watch_mount_metric(
+            org.id,
+            socket,
+            :denied,
+            mount_started_at,
+            1,
+            video_db_duration_ms
+          )
+
           handle_access_denied(socket, video, viewer)
         end
 
       {:ok, _video} ->
+        emit_watch_mount_metric(
+          org.id,
+          socket,
+          :redirect,
+          mount_started_at,
+          1,
+          video_db_duration_ms
+        )
+
         {:ok, push_navigate(socket, to: ~p"/")}
 
       {:error, :not_found} ->
+        emit_watch_mount_metric(
+          org.id,
+          socket,
+          :not_found,
+          mount_started_at,
+          1,
+          video_db_duration_ms
+        )
+
         {:ok, push_navigate(socket, to: ~p"/")}
     end
   end
 
-  defp mount_video(socket, video, viewer, scope, org) do
-    # Try viewer progress first, fall back to operator progress
-    progress =
-      cond do
-        viewer && !Map.get(viewer, :__impersonating__, false) ->
-          Engagement.get_progress(org, viewer, video)
+  defp mount_video(
+         socket,
+         video,
+         viewer,
+         scope,
+         org,
+         mount_started_at,
+         base_query_count,
+         base_db_duration_ms
+       ) do
+    {watch_state_db_duration_ms, watch_state} =
+      timed(fn -> build_watch_state(org, viewer, scope, video) end)
 
-        scope && scope.user ->
-          Engagement.get_progress(scope, video.id)
+    related_result = Content.list_related_videos_for_watch(org, video, 8)
 
-        true ->
-          nil
-      end
+    query_count =
+      base_query_count + watch_state_query_count(viewer, scope) + related_result.query_count
 
-    resume_position = if progress, do: progress.position, else: 0.0
-
-    # Load queue and engagement state for authenticated viewers
-    {queue_items, is_favorited, in_watchlist} =
-      if viewer do
-        {
-          Engagement.list_queue(org, viewer),
-          Engagement.favorited?(org, viewer, video),
-          Engagement.in_watchlist?(org, viewer, video)
-        }
-      else
-        {[], false, false}
-      end
-
-    # Load related content
-    %{results: related} = Content.list_videos(org, per_page: 12)
-    related = Enum.reject(related, &(&1.id == video.id)) |> Enum.take(8)
+    db_duration_ms =
+      base_db_duration_ms + watch_state_db_duration_ms + related_result.db_duration_ms
 
     if connected?(socket) do
-      Bobine.Metrics.video_viewed(org.id, video.id)
+      Metrics.video_viewed(org.id, video.id)
     end
+
+    emit_watch_mount_metric(
+      org.id,
+      socket,
+      :ok,
+      mount_started_at,
+      query_count,
+      db_duration_ms
+    )
 
     {:ok,
      assign(socket,
        video: video,
        page_title: video.title,
-       resume_position: resume_position,
-       related_videos: related,
-       queue_items: queue_items,
-       queue_open: queue_items != [],
-       is_favorited: is_favorited,
-       in_watchlist: in_watchlist,
+       resume_position: watch_state.resume_position,
+       related_videos: related_result.videos,
+       queue_items: [],
+       queue_count: watch_state.queue_count,
+       queue_loaded?: false,
+       queue_open: false,
+       is_favorited: watch_state.is_favorited,
+       in_watchlist: watch_state.in_watchlist,
        go_back_available: false,
        go_back_timer: nil
      )}
@@ -95,11 +135,13 @@ defmodule BobineWeb.Viewer.WatchLive do
 
   @impl true
   def handle_event("playback_started", %{"video_id" => _id}, socket) do
+    Metrics.watch_event(socket.assigns.organization.id, "playback_started")
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("playback_progress", %{"video_id" => video_id, "position" => pos}, socket) do
+    Metrics.watch_event(socket.assigns.organization.id, "playback_progress")
     viewer = socket.assigns[:current_viewer]
     org = socket.assigns.organization
 
@@ -120,6 +162,7 @@ defmodule BobineWeb.Viewer.WatchLive do
 
   @impl true
   def handle_event("playback_paused", %{"video_id" => video_id, "position" => pos}, socket) do
+    Metrics.watch_event(socket.assigns.organization.id, "playback_paused")
     viewer = socket.assigns[:current_viewer]
     org = socket.assigns.organization
 
@@ -140,9 +183,12 @@ defmodule BobineWeb.Viewer.WatchLive do
 
   @impl true
   def handle_event("playback_ended", %{"video_id" => video_id}, socket) do
+    Metrics.watch_event(socket.assigns.organization.id, "playback_ended")
     viewer = socket.assigns[:current_viewer]
+    org = socket.assigns.organization
 
     if viewer do
+      Engagement.mark_completed(org, viewer, socket.assigns.video)
       advance_to_next(socket, video_id)
     else
       {:noreply, socket}
@@ -157,12 +203,11 @@ defmodule BobineWeb.Viewer.WatchLive do
   def handle_event("add_to_queue", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
-    video = Content.get_video!(video_id)
+    video = current_or_load_video(socket, video_id)
 
     case Engagement.add_to_queue(org, viewer, video) do
       {:ok, _} ->
-        queue_items = Engagement.list_queue(org, viewer)
-        {:noreply, assign(socket, queue_items: queue_items, queue_open: true)}
+        {:noreply, refresh_queue(socket, open?: true)}
 
       {:error, :already_in_queue} ->
         {:noreply, put_flash(socket, :info, "Already in your queue.")}
@@ -173,22 +218,20 @@ defmodule BobineWeb.Viewer.WatchLive do
   def handle_event("play_next", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
-    video = Content.get_video!(video_id)
+    video = current_or_load_video(socket, video_id)
 
     Engagement.play_next(org, viewer, video)
-    queue_items = Engagement.list_queue(org, viewer)
-    {:noreply, assign(socket, queue_items: queue_items, queue_open: true)}
+    {:noreply, refresh_queue(socket, open?: true)}
   end
 
   @impl true
   def handle_event("remove_from_queue", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
-    video = Content.get_video!(video_id)
+    video = current_or_load_video(socket, video_id)
 
     Engagement.remove_from_queue(org, viewer, video)
-    queue_items = Engagement.list_queue(org, viewer)
-    {:noreply, assign(socket, queue_items: queue_items)}
+    {:noreply, refresh_queue(socket)}
   end
 
   @impl true
@@ -197,8 +240,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     viewer = socket.assigns.current_viewer
 
     Engagement.reorder_queue(org, viewer, ids)
-    queue_items = Engagement.list_queue(org, viewer)
-    {:noreply, assign(socket, queue_items: queue_items)}
+    {:noreply, refresh_queue(socket)}
   end
 
   @impl true
@@ -207,12 +249,23 @@ defmodule BobineWeb.Viewer.WatchLive do
     viewer = socket.assigns.current_viewer
 
     Engagement.clear_queue(org, viewer)
-    {:noreply, assign(socket, queue_items: [], queue_open: false)}
+
+    {:noreply,
+     assign(socket, queue_items: [], queue_count: 0, queue_loaded?: true, queue_open: false)}
   end
 
   @impl true
   def handle_event("toggle_queue", _params, socket) do
-    {:noreply, assign(socket, queue_open: !socket.assigns.queue_open)}
+    socket =
+      if socket.assigns.queue_open do
+        assign(socket, queue_open: false)
+      else
+        socket
+        |> ensure_queue_loaded()
+        |> assign(queue_open: true)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -227,6 +280,7 @@ defmodule BobineWeb.Viewer.WatchLive do
 
     case Engagement.go_back_in_queue(org, viewer) do
       {:ok, %{video: prev_video, resume_position: position}} ->
+        watch_state = build_watch_state(org, viewer, socket.assigns.current_scope, prev_video)
         queue_items = Engagement.list_queue(org, viewer)
 
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
@@ -235,8 +289,15 @@ defmodule BobineWeb.Viewer.WatchLive do
           socket
           |> assign(
             video: prev_video,
+            resume_position: position,
+            related_videos: Content.list_related_videos_for_watch(org, prev_video, 8).videos,
             queue_items: queue_items,
+            queue_count: length(queue_items),
+            queue_loaded?: true,
+            queue_open: true,
             page_title: prev_video.title,
+            is_favorited: watch_state.is_favorited,
+            in_watchlist: watch_state.in_watchlist,
             go_back_available: false,
             go_back_timer: nil
           )
@@ -263,8 +324,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     viewer = socket.assigns.current_viewer
 
     Engagement.add_collection_to_queue(org, viewer, %{id: collection_id})
-    queue_items = Engagement.list_queue(org, viewer)
-    {:noreply, assign(socket, queue_items: queue_items, queue_open: true)}
+    {:noreply, refresh_queue(socket, open?: true)}
   end
 
   ## -----------------------------------------------------------------------
@@ -314,11 +374,11 @@ defmodule BobineWeb.Viewer.WatchLive do
   defp advance_to_next(socket, video_id) do
     viewer = socket.assigns.current_viewer
     org = socket.assigns.organization
-    video = Content.get_video!(video_id)
+    video = current_or_load_video(socket, video_id)
 
     case Engagement.advance_queue(org, viewer, video) do
       {:ok, %{next_video: next_video}} when not is_nil(next_video) ->
-        progress = Engagement.get_progress(org, viewer, next_video)
+        watch_state = build_watch_state(org, viewer, socket.assigns.current_scope, next_video)
         queue_items = Engagement.list_queue(org, viewer)
 
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
@@ -328,15 +388,22 @@ defmodule BobineWeb.Viewer.WatchLive do
           socket
           |> assign(
             video: next_video,
+            resume_position: watch_state.resume_position,
+            related_videos: Content.list_related_videos_for_watch(org, next_video, 8).videos,
             queue_items: queue_items,
+            queue_count: length(queue_items),
+            queue_loaded?: true,
+            queue_open: true,
             page_title: next_video.title,
+            is_favorited: watch_state.is_favorited,
+            in_watchlist: watch_state.in_watchlist,
             go_back_available: true,
             go_back_timer: timer
           )
           |> push_event("play_next_in_queue", %{
             playback_id: next_video.mux_playback_id,
             video_id: next_video.id,
-            resume_position: (progress && progress.position) || 0.0
+            resume_position: watch_state.resume_position
           })
 
         {:noreply, socket}
@@ -345,11 +412,91 @@ defmodule BobineWeb.Viewer.WatchLive do
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
         timer = Process.send_after(self(), :go_back_expired, 60_000)
 
-        {:noreply, assign(socket, queue_items: [], go_back_available: true, go_back_timer: timer)}
+        {:noreply,
+         assign(socket,
+           queue_items: [],
+           queue_count: 0,
+           queue_loaded?: true,
+           queue_open: false,
+           go_back_available: true,
+           go_back_timer: timer
+         )}
 
       _ ->
         {:noreply, socket}
     end
+  end
+
+  defp build_watch_state(org, viewer, scope, video) do
+    cond do
+      viewer && !Map.get(viewer, :__impersonating__, false) ->
+        Engagement.get_watch_session_state(org, viewer, video)
+
+      scope && scope.user ->
+        progress = Engagement.get_progress(scope, video.id)
+
+        %{
+          resume_position: if(progress, do: progress.position, else: 0.0),
+          queue_count: 0,
+          is_favorited: false,
+          in_watchlist: false
+        }
+
+      true ->
+        %{resume_position: 0.0, queue_count: 0, is_favorited: false, in_watchlist: false}
+    end
+  end
+
+  defp watch_state_query_count(%{__impersonating__: true}, scope) when not is_nil(scope), do: 1
+  defp watch_state_query_count(viewer, _scope) when not is_nil(viewer), do: 1
+  defp watch_state_query_count(_viewer, %{user: user}) when not is_nil(user), do: 1
+  defp watch_state_query_count(_viewer, _scope), do: 0
+
+  defp current_or_load_video(socket, video_id) do
+    if socket.assigns.video.id == video_id do
+      socket.assigns.video
+    else
+      Content.get_video!(video_id)
+    end
+  end
+
+  defp ensure_queue_loaded(socket) do
+    if socket.assigns.queue_loaded? do
+      socket
+    else
+      refresh_queue(socket)
+    end
+  end
+
+  defp refresh_queue(socket, opts \\ []) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+    queue_items = Engagement.list_queue(org, viewer)
+
+    assign(socket,
+      queue_items: queue_items,
+      queue_count: length(queue_items),
+      queue_loaded?: true,
+      queue_open: Keyword.get(opts, :open?, socket.assigns.queue_open)
+    )
+  end
+
+  defp emit_watch_mount_metric(org_id, socket, status, started_at, query_count, db_duration_ms) do
+    duration_ms =
+      System.convert_time_unit(System.monotonic_time() - started_at, :native, :millisecond)
+
+    phase = if connected?(socket), do: :connected, else: :disconnected
+    Metrics.watch_mount(org_id, phase, status, duration_ms, query_count, db_duration_ms)
+  end
+
+  defp timed(fun) do
+    started_at = System.monotonic_time()
+    result = fun.()
+
+    duration_ms =
+      System.convert_time_unit(System.monotonic_time() - started_at, :native, :millisecond)
+
+    {duration_ms, result}
   end
 
   ## -----------------------------------------------------------------------
@@ -394,7 +541,7 @@ defmodule BobineWeb.Viewer.WatchLive do
             <div class="sv-video-actions" data-test="video-actions">
               <%!-- Queue navigation --%>
               <button
-                :if={@current_viewer && @queue_items != []}
+                :if={@current_viewer && @queue_count > 0}
                 phx-click="skip_to_next"
                 class="sv-btn sv-btn-secondary"
                 data-test="skip-next-btn"
@@ -486,7 +633,7 @@ defmodule BobineWeb.Viewer.WatchLive do
           data-test="queue-panel"
         >
           <div class="sv-queue-header">
-            <h3>Queue ({length(@queue_items)})</h3>
+            <h3>Queue ({@queue_count})</h3>
             <button
               phx-click="toggle_queue"
               class="sv-btn sv-btn-ghost"

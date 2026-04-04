@@ -35,6 +35,7 @@ defmodule Bobine.EventsTest do
       Events.broadcast(nil, {:system_action, %{id: "test"}})
 
       assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
+      refute_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
     end
   end
 

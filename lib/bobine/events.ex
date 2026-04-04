@@ -5,6 +5,8 @@ defmodule Bobine.Events do
   notifications.
   """
 
+  alias Bobine.Metrics
+
   @doc """
   Broadcasts an event to org-specific and global PubSub topics.
 
@@ -18,17 +20,20 @@ defmodule Bobine.Events do
         _ -> "global"
       end
 
-    Phoenix.PubSub.broadcast(
-      Bobine.PubSub,
-      "events:#{org_id}",
-      {:bobine_event, event, scope}
-    )
+    message = {:bobine_event, event, scope}
+    org_topic = "events:#{org_id}"
 
-    Phoenix.PubSub.broadcast(
-      Bobine.PubSub,
-      "events:global",
-      {:bobine_event, event, scope}
-    )
+    Phoenix.PubSub.broadcast(Bobine.PubSub, org_topic, message)
+
+    broadcast_count =
+      if org_topic == "events:global" do
+        1
+      else
+        Phoenix.PubSub.broadcast(Bobine.PubSub, "events:global", message)
+        2
+      end
+
+    Metrics.pubsub_broadcast(org_topic, event_name(event), broadcast_count, org_id)
   end
 
   @doc """
@@ -44,4 +49,7 @@ defmodule Bobine.Events do
   def subscribe_global do
     Phoenix.PubSub.subscribe(Bobine.PubSub, "events:global")
   end
+
+  defp event_name({name, _resource}) when is_atom(name), do: Atom.to_string(name)
+  defp event_name(other), do: inspect(other)
 end

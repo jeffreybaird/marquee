@@ -26,6 +26,32 @@ const MuxPlayer = {
 
     this.player = player
     this.videoId = this.el.dataset.videoId
+    this.progressIntervalMs = 30000
+    this.progressJitterMs = Math.floor(Math.random() * 5000)
+    this.lastReportedPosition = 0
+    this.lastReportAt = 0
+
+    this.reportProgress = (eventName = "playback_progress") => {
+      const position = Number(player.currentTime || 0)
+      const now = Date.now()
+
+      if (position <= 0) return
+
+      if (
+        eventName === "playback_progress" &&
+        now - this.lastReportAt < this.progressIntervalMs - 1000 &&
+        Math.abs(position - this.lastReportedPosition) < 15
+      ) {
+        return
+      }
+
+      this.lastReportAt = now
+      this.lastReportedPosition = position
+      this.pushEvent(eventName, {
+        video_id: this.videoId,
+        position,
+      })
+    }
 
     // Resume playback if position is set
     const resumePos = parseFloat(this.el.dataset.resumePosition || "0")
@@ -44,26 +70,33 @@ const MuxPlayer = {
       this.pushEvent("playback_started", { video_id: this.videoId })
     })
 
-    // Report progress every 10 seconds
-    this.progressInterval = setInterval(() => {
-      if (!player.paused && player.currentTime > 0) {
-        this.pushEvent("playback_progress", {
-          video_id: this.videoId,
-          position: player.currentTime,
-        })
-      }
-    }, 10000)
+    // Spread out progress updates so reconnect storms do not align all viewers.
+    this.startProgressInterval = window.setTimeout(() => {
+      this.progressInterval = window.setInterval(() => {
+        if (!player.paused && player.currentTime > 0) {
+          this.reportProgress()
+        }
+      }, this.progressIntervalMs)
+    }, this.progressJitterMs)
 
     // Report pause
     player.addEventListener("pause", () => {
-      this.pushEvent("playback_paused", {
-        video_id: this.videoId,
-        position: player.currentTime,
-      })
+      this.reportProgress("playback_paused")
     })
+
+    // Flush a final progress sample when the tab is backgrounded or unloaded.
+    this.flushProgress = () => {
+      if (!player.paused && player.currentTime > 0) {
+        this.reportProgress()
+      }
+    }
+
+    window.addEventListener("pagehide", this.flushProgress)
+    document.addEventListener("visibilitychange", this.flushProgress)
 
     // Report ended — triggers queue auto-advance on server
     player.addEventListener("ended", () => {
+      this.lastReportedPosition = Number(player.duration || player.currentTime || 0)
       this.pushEvent("playback_ended", { video_id: this.videoId })
     })
 
@@ -103,8 +136,17 @@ const MuxPlayer = {
   },
 
   destroyed(this: any) {
+    if (this.startProgressInterval) {
+      clearTimeout(this.startProgressInterval)
+    }
+
     if (this.progressInterval) {
       clearInterval(this.progressInterval)
+    }
+
+    if (this.flushProgress) {
+      window.removeEventListener("pagehide", this.flushProgress)
+      document.removeEventListener("visibilitychange", this.flushProgress)
     }
   },
 }

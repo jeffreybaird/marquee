@@ -54,4 +54,32 @@ defmodule Bobine.MetricsTest do
     assert_received {[:bobine, :webhook, :delivered], ^ref, %{count: 1},
                      %{org_id: "org_123", event_type: "video.created", status: :success}}
   end
+
+  test "watch_mount/6 emits telemetry event" do
+    ref = :telemetry_test.attach_event_handlers(self(), [[:bobine, :watch, :mount]])
+
+    Bobine.Metrics.watch_mount("org_123", :connected, :ok, 42, 3, 18)
+
+    assert_received {[:bobine, :watch, :mount], ^ref,
+                     %{count: 1, duration: 42, query_count: 3, db_duration: 18},
+                     %{org_id: "org_123", phase: :connected, status: :ok}}
+  end
+
+  test "watch_event/2 emits telemetry event" do
+    ref = :telemetry_test.attach_event_handlers(self(), [[:bobine, :watch, :event]])
+
+    Bobine.Metrics.watch_event("org_123", "playback_progress")
+
+    assert_received {[:bobine, :watch, :event], ^ref, %{count: 1},
+                     %{org_id: "org_123", event: "playback_progress"}}
+  end
+
+  test "pubsub_broadcast/4 emits telemetry event" do
+    ref = :telemetry_test.attach_event_handlers(self(), [[:bobine, :pubsub, :broadcast]])
+
+    Bobine.Metrics.pubsub_broadcast("events:org_123", "video_ready", 2, "org_123")
+
+    assert_received {[:bobine, :pubsub, :broadcast], ^ref, %{count: 2},
+                     %{org_id: "org_123", topic: "events:org_123", event: "video_ready"}}
+  end
 end
