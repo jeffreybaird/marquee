@@ -1081,8 +1081,13 @@
 
 .sv-browse-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+}
+
+/* Related videos on the watch page: 3 columns, max 2 rows */
+.sv-watch-main .sv-browse-grid {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 /* =========================================================================
@@ -1680,7 +1685,7 @@
 }
 
 @media (min-width: 1024px) {
-  .sv-browse-grid { grid-template-columns: repeat(5, 1fr); }
+  .sv-browse-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 /* =========================================================================

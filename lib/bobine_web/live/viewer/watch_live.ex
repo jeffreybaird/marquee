@@ -84,7 +84,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     {watch_state_db_duration_ms, watch_state} =
       timed(fn -> build_watch_state(org, viewer, scope, video) end)
 
-    related_result = Content.list_related_videos_for_watch(org, video, 8)
+    related_result = Content.list_related_videos_for_watch(org, video, 6)
 
     query_count =
       base_query_count + watch_state_query_count(viewer, scope) + related_result.query_count
@@ -291,7 +291,7 @@ defmodule BobineWeb.Viewer.WatchLive do
           |> assign(
             video: prev_video,
             resume_position: position,
-            related_videos: Content.list_related_videos_for_watch(org, prev_video, 8).videos,
+            related_videos: Content.list_related_videos_for_watch(org, prev_video, 6).videos,
             queue_items: queue_items,
             queue_count: length(queue_items),
             queue_loaded?: true,
@@ -390,7 +390,7 @@ defmodule BobineWeb.Viewer.WatchLive do
           |> assign(
             video: next_video,
             resume_position: watch_state.resume_position,
-            related_videos: Content.list_related_videos_for_watch(org, next_video, 8).videos,
+            related_videos: Content.list_related_videos_for_watch(org, next_video, 6).videos,
             queue_items: queue_items,
             queue_count: length(queue_items),
             queue_loaded?: true,
@@ -619,7 +619,7 @@ defmodule BobineWeb.Viewer.WatchLive do
             <h2 class="sv-row-title">More from {@organization.name}</h2>
             <div class="sv-browse-grid">
               <ViewerComponents.content_card
-                :for={video <- @related_videos}
+                :for={video <- fill_rows(@related_videos, 3)}
                 video={video}
                 size="grid"
                 current_viewer={@current_viewer}
@@ -726,4 +726,10 @@ defmodule BobineWeb.Viewer.WatchLive do
   end
 
   defp format_duration(_), do: ""
+
+  defp fill_rows(items, cols) do
+    count = length(items)
+    full_row_count = div(count, cols) * cols
+    Enum.take(items, full_row_count)
+  end
 end
