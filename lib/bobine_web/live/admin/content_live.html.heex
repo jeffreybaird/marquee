@@ -15,11 +15,13 @@
       all_tags={@all_tags}
       editing={@editing_video}
       show_tag_picker={@show_tag_picker}
+      tag_search={@tag_search}
       can_manage={@can_manage}
     />
   <% else %>
     <.video_list
       videos={@videos}
+      videos_tags_map={@videos_tags_map}
       search={@search}
       can_manage={@can_manage}
       show_upload_modal={@show_upload_modal}
@@ -28,6 +30,9 @@
       upload_total={@upload_total}
       upload_completed={@upload_completed}
       upload_percent={@upload_percent}
+      row_tag_picker_video_id={@row_tag_picker_video_id}
+      all_tags={@all_tags}
+      tag_search={@tag_search}
     />
   <% end %>
 </BobineWeb.Components.AdminLayout.admin_layout>

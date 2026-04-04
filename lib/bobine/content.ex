@@ -928,6 +928,25 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Returns a map of `%{video_id => [tag, ...]}` for a list of videos.
+
+  Loads all tags in a single query to avoid N+1.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_tags_for_videos(%Organization{id: org_id}, video_ids) when is_list(video_ids) do
+    Tag
+    |> join(:inner, [t], vt in VideoTag, on: vt.tag_id == t.id)
+    |> where([t, vt], vt.video_id in ^video_ids)
+    |> where([t], t.organization_id == ^org_id)
+    |> where([t], is_nil(t.deleted_at))
+    |> order_by(asc: :name)
+    |> select([t, vt], {vt.video_id, t})
+    |> Repo.all()
+    |> Enum.group_by(fn {vid, _tag} -> vid end, fn {_vid, tag} -> tag end)
+  end
+
+  @doc """
   Returns a paginated list of videos with a given tag.
 
   Exempt from doctest — hits the database.

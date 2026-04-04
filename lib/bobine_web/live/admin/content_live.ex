@@ -49,6 +49,8 @@ defmodule BobineWeb.Admin.ContentLive do
      |> assign(:all_tags, [])
      |> assign(:editing_video, false)
      |> assign(:show_tag_picker, false)
+     |> assign(:tag_search, "")
+     |> assign(:row_tag_picker_video_id, nil)
      |> load_videos()}
   end
 
@@ -303,18 +305,53 @@ defmodule BobineWeb.Admin.ContentLive do
     {:noreply, assign(socket, :editing_video, false)}
   end
 
-  # --- Tag management ---
+  # --- Tag management (detail view) ---
 
   @impl true
   def handle_event("open_tag_picker", _params, socket) do
     org = socket.assigns.organization
     %{results: all_tags} = Content.list_tags(org)
-    {:noreply, assign(socket, show_tag_picker: true, all_tags: all_tags)}
+    {:noreply, assign(socket, show_tag_picker: true, all_tags: all_tags, tag_search: "")}
   end
 
   @impl true
   def handle_event("close_tag_picker", _params, socket) do
-    {:noreply, assign(socket, :show_tag_picker, false)}
+    {:noreply, assign(socket, show_tag_picker: false, tag_search: "")}
+  end
+
+  @impl true
+  def handle_event("search_tags", %{"tag_search" => term}, socket) do
+    {:noreply, assign(socket, :tag_search, term)}
+  end
+
+  @impl true
+  def handle_event("create_and_add_tag", %{"name" => name}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+    video = socket.assigns.viewing_video
+
+    case Content.create_tag(scope, %{name: name}) do
+      {:ok, tag} ->
+        case Content.tag_video(scope, video, tag) do
+          {:ok, _} ->
+            tags = Content.list_video_tags(org, video)
+
+            {:noreply,
+             socket
+             |> assign(:video_tags, tags)
+             |> assign(:show_tag_picker, false)
+             |> assign(:tag_search, "")}
+
+          {:error, _, _} ->
+            {:noreply, put_flash(socket, :error, "Tag created but could not be added to video.")}
+        end
+
+      {:error, :already_exists} ->
+        {:noreply, put_flash(socket, :error, "A tag with that name already exists.")}
+
+      {:error, :validation, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Invalid tag name.")}
+    end
   end
 
   @impl true
@@ -360,6 +397,95 @@ defmodule BobineWeb.Admin.ContentLive do
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Tag not found.")}
+    end
+  end
+
+  # --- Tag management (list row) ---
+
+  @impl true
+  def handle_event("open_row_tag_picker", %{"video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    %{results: all_tags} = Content.list_tags(org)
+
+    {:noreply,
+     assign(socket,
+       row_tag_picker_video_id: video_id,
+       all_tags: all_tags,
+       tag_search: ""
+     )}
+  end
+
+  @impl true
+  def handle_event("close_row_tag_picker", _params, socket) do
+    {:noreply, assign(socket, row_tag_picker_video_id: nil, tag_search: "")}
+  end
+
+  @impl true
+  def handle_event("row_add_tag", %{"tag-id" => tag_id, "video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    with {:ok, video} <- Content.get_video(org, video_id),
+         {:ok, tag} <- Content.get_tag(org, tag_id),
+         {:ok, _} <- Content.tag_video(scope, video, tag) do
+      {:noreply,
+       socket
+       |> assign(:row_tag_picker_video_id, nil)
+       |> assign(:tag_search, "")
+       |> load_videos()}
+    else
+      {:error, :already_exists} ->
+        {:noreply, put_flash(socket, :error, "Tag already applied.")}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Not found.")}
+
+      {:error, _, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to add tag.")}
+    end
+  end
+
+  @impl true
+  def handle_event("row_remove_tag", %{"tag-id" => tag_id, "video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    with {:ok, video} <- Content.get_video(org, video_id),
+         {:ok, tag} <- Content.get_tag(org, tag_id) do
+      :ok = Content.untag_video(scope, video, tag)
+
+      {:noreply, load_videos(socket)}
+    else
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Not found.")}
+    end
+  end
+
+  @impl true
+  def handle_event("row_create_and_add_tag", %{"name" => name, "video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    with {:ok, video} <- Content.get_video(org, video_id),
+         {:ok, tag} <- Content.create_tag(scope, %{name: name}),
+         {:ok, _} <- Content.tag_video(scope, video, tag) do
+      {:noreply,
+       socket
+       |> assign(:row_tag_picker_video_id, nil)
+       |> assign(:tag_search, "")
+       |> load_videos()}
+    else
+      {:error, :already_exists} ->
+        {:noreply, put_flash(socket, :error, "A tag with that name already exists.")}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Not found.")}
+
+      {:error, :validation, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Invalid tag name.")}
+
+      {:error, _, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to add tag.")}
     end
   end
 
@@ -438,7 +564,12 @@ defmodule BobineWeb.Admin.ContentLive do
     org = socket.assigns.organization
     search = socket.assigns.search
     %{results: videos} = Content.list_videos(org, search: search)
-    assign(socket, :videos, videos)
+    video_ids = Enum.map(videos, & &1.id)
+    videos_tags_map = Content.list_tags_for_videos(org, video_ids)
+
+    socket
+    |> assign(:videos, videos)
+    |> assign(:videos_tags_map, videos_tags_map)
   end
 
   defp update_video_in_list(socket, updated_video) do

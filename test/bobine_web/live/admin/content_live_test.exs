@@ -380,6 +380,58 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       assert html =~ "data-test=\"pick-tag-#{ctx.tag2.id}\""
     end
 
+    test "tag picker search filters available tags", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+      render_click(view, "open_tag_picker")
+
+      # Both tags visible initially
+      html = render(view)
+      assert html =~ "data-test=\"pick-tag-#{ctx.tag.id}\""
+      assert html =~ "data-test=\"pick-tag-#{ctx.tag2.id}\""
+
+      # Search for "yoga" — only yoga tag visible
+      html = render_change(view, "search_tags", %{"tag_search" => "yoga"})
+      assert html =~ "data-test=\"pick-tag-#{ctx.tag.id}\""
+      refute html =~ "data-test=\"pick-tag-#{ctx.tag2.id}\""
+    end
+
+    test "tag picker shows create button for non-existing tag name", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+      render_click(view, "open_tag_picker")
+
+      html = render_change(view, "search_tags", %{"tag_search" => "pilates"})
+      assert html =~ "data-test=\"create-tag-btn\""
+      assert html =~ "Create &quot;pilates&quot;"
+    end
+
+    test "tag picker does not show create button when name matches existing tag", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+      render_click(view, "open_tag_picker")
+
+      html = render_change(view, "search_tags", %{"tag_search" => "yoga"})
+      refute html =~ "data-test=\"create-tag-btn\""
+    end
+
+    test "create_and_add_tag creates tag and assigns it to the video", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "view_video", %{id: ctx.video.id})
+      render_click(view, "open_tag_picker")
+      render_change(view, "search_tags", %{"tag_search" => "pilates"})
+
+      html = render_click(view, "create_and_add_tag", %{"name" => "pilates"})
+
+      # Tag picker should close and new tag should appear on the video
+      refute html =~ "data-test=\"tag-picker\""
+      assert html =~ "pilates"
+
+      # Verify the tag was actually created in the database
+      %{results: tags} = Content.list_tags(ctx.org)
+      assert Enum.any?(tags, fn t -> t.name == "pilates" end)
+    end
+
     test "viewer_support cannot see add tag button", ctx do
       vs_membership =
         insert(:membership, organization: ctx.org, user: insert(:user), role: :viewer_support)
@@ -387,6 +439,116 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       {:ok, view, _html} = live(conn_for(vs_membership), ~p"/admin/content")
       html = render_click(view, "view_video", %{id: ctx.video.id})
       refute html =~ "data-test=\"add-tag-btn\""
+    end
+  end
+
+  describe "row-level tag management" do
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      scope =
+        Repo.preload(membership, [:user, :organization])
+        |> then(fn m ->
+          Scope.for_user(m.user)
+          |> Scope.with_organization(m.organization, m)
+        end)
+
+      video = insert(:video, organization: org, title: "Row Taggable")
+      {:ok, tag} = Content.create_tag(scope, %{name: "action"})
+      {:ok, tag2} = Content.create_tag(scope, %{name: "comedy"})
+
+      %{org: org, membership: membership, scope: scope, video: video, tag: tag, tag2: tag2}
+    end
+
+    test "video list rows show existing tags", ctx do
+      {:ok, _} = Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+
+      {:ok, _view, html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      assert html =~ "data-test=\"row-tag-#{ctx.video.id}-#{ctx.tag.id}\""
+      assert html =~ "action"
+    end
+
+    test "add tag button opens row picker", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+
+      html = render_click(view, "open_row_tag_picker", %{"video-id" => ctx.video.id})
+      assert html =~ "data-test=\"row-tag-picker-#{ctx.video.id}\""
+      assert html =~ "data-test=\"row-tag-search-#{ctx.video.id}\""
+    end
+
+    test "row tag picker search filters tags", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "open_row_tag_picker", %{"video-id" => ctx.video.id})
+
+      html = render_change(view, "search_tags", %{"tag_search" => "action"})
+      assert html =~ "data-test=\"row-pick-tag-#{ctx.video.id}-#{ctx.tag.id}\""
+      refute html =~ "data-test=\"row-pick-tag-#{ctx.video.id}-#{ctx.tag2.id}\""
+    end
+
+    test "row_add_tag adds tag to video and closes picker", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "open_row_tag_picker", %{"video-id" => ctx.video.id})
+
+      html =
+        render_click(view, "row_add_tag", %{
+          "tag-id" => ctx.tag.id,
+          "video-id" => ctx.video.id
+        })
+
+      assert html =~ "data-test=\"row-tag-#{ctx.video.id}-#{ctx.tag.id}\""
+      refute html =~ "data-test=\"row-tag-picker-#{ctx.video.id}\""
+    end
+
+    test "row_remove_tag removes tag from video", ctx do
+      {:ok, _} = Content.tag_video(ctx.scope, ctx.video, ctx.tag)
+
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      assert render(view) =~ "data-test=\"row-tag-#{ctx.video.id}-#{ctx.tag.id}\""
+
+      html =
+        render_click(view, "row_remove_tag", %{
+          "tag-id" => ctx.tag.id,
+          "video-id" => ctx.video.id
+        })
+
+      refute html =~ "data-test=\"row-tag-#{ctx.video.id}-#{ctx.tag.id}\""
+    end
+
+    test "row_create_and_add_tag creates and assigns a new tag", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "open_row_tag_picker", %{"video-id" => ctx.video.id})
+      render_change(view, "search_tags", %{"tag_search" => "thriller"})
+
+      html =
+        render_click(view, "row_create_and_add_tag", %{
+          "name" => "thriller",
+          "video-id" => ctx.video.id
+        })
+
+      refute html =~ "data-test=\"row-tag-picker-#{ctx.video.id}\""
+      assert html =~ "thriller"
+
+      %{results: tags} = Content.list_tags(ctx.org)
+      assert Enum.any?(tags, fn t -> t.name == "thriller" end)
+    end
+
+    test "row tag picker shows create button for new tag name", ctx do
+      {:ok, view, _html} = live(conn_for(ctx.membership), ~p"/admin/content")
+      render_click(view, "open_row_tag_picker", %{"video-id" => ctx.video.id})
+
+      html = render_change(view, "search_tags", %{"tag_search" => "drama"})
+      assert html =~ "data-test=\"row-create-tag-#{ctx.video.id}\""
+      assert html =~ "Create &quot;drama&quot;"
+    end
+
+    test "viewer_support cannot see row add tag button", ctx do
+      vs_membership =
+        insert(:membership, organization: ctx.org, user: insert(:user), role: :viewer_support)
+
+      {:ok, _view, html} = live(conn_for(vs_membership), ~p"/admin/content")
+      refute html =~ "data-test=\"row-add-tag-#{ctx.video.id}\""
     end
   end
 

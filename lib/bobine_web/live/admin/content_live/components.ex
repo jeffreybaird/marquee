@@ -51,6 +51,7 @@ defmodule BobineWeb.Admin.ContentLive.Components do
         <thead>
           <tr>
             <th>Video</th>
+            <th>Tags</th>
             <th>Status</th>
             <th>Duration</th>
             <th>Uploaded</th>
@@ -79,6 +80,16 @@ defmodule BobineWeb.Admin.ContentLive.Components do
                 </button>
                 <div class="text-xs text-base-content/60 font-mono">{video.slug}</div>
               </div>
+            </td>
+            <td data-test={"row-tags-#{video.id}"}>
+              <.row_tags
+                video={video}
+                tags={Map.get(@videos_tags_map, video.id, [])}
+                can_manage={@can_manage}
+                picker_open={@row_tag_picker_video_id == video.id}
+                all_tags={@all_tags}
+                tag_search={@tag_search}
+              />
             </td>
             <td data-test={"video-status-#{video.id}"}>
               <.status_badge status={video.mux_status} />
@@ -338,7 +349,20 @@ defmodule BobineWeb.Admin.ContentLive.Components do
             data-test="tag-picker"
           >
             <p class="text-sm font-medium">Select a tag:</p>
-            <%= for tag <- available_tags(@all_tags, @video_tags) do %>
+            <form phx-change="search_tags" phx-submit="search_tags">
+              <input
+                type="text"
+                name="tag_search"
+                value={@tag_search}
+                placeholder="Search or create tag…"
+                phx-debounce="200"
+                class="input input-bordered input-sm w-full"
+                autocomplete="off"
+                data-test="tag-search-input"
+              />
+            </form>
+            <% filtered = filtered_available_tags(@all_tags, @video_tags, @tag_search) %>
+            <%= for tag <- filtered do %>
               <button
                 phx-click="add_tag"
                 phx-value-tag-id={tag.id}
@@ -348,11 +372,20 @@ defmodule BobineWeb.Admin.ContentLive.Components do
                 {tag.name}
               </button>
             <% end %>
+            <button
+              :if={show_create_tag_button?(@all_tags, @tag_search)}
+              phx-click="create_and_add_tag"
+              phx-value-name={@tag_search}
+              class="btn btn-sm btn-primary w-full justify-start"
+              data-test="create-tag-btn"
+            >
+              Create "{@tag_search}"
+            </button>
             <div
-              :if={available_tags(@all_tags, @video_tags) == []}
+              :if={filtered == [] && !show_create_tag_button?(@all_tags, @tag_search)}
               class="text-sm text-base-content/50"
             >
-              All tags assigned. Create more in Tags.
+              All tags assigned.
             </div>
             <button
               phx-click="close_tag_picker"
@@ -362,6 +395,92 @@ defmodule BobineWeb.Admin.ContentLive.Components do
             </button>
           </div>
         </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders inline tags for a video row with add/remove and search/create picker.
+  """
+  def row_tags(assigns) do
+    ~H"""
+    <div class="flex flex-wrap items-center gap-1">
+      <span
+        :for={tag <- @tags}
+        class="badge badge-sm gap-1"
+        data-test={"row-tag-#{@video.id}-#{tag.id}"}
+      >
+        {tag.name}
+        <button
+          :if={@can_manage}
+          phx-click="row_remove_tag"
+          phx-value-tag-id={tag.id}
+          phx-value-video-id={@video.id}
+          class="btn btn-ghost btn-xs p-0"
+          aria-label={"Remove tag #{tag.name}"}
+          data-test={"row-remove-tag-#{@video.id}-#{tag.id}"}
+        >
+          <.icon name="hero-x-mark" class="size-3" />
+        </button>
+      </span>
+      <button
+        :if={@can_manage && !@picker_open}
+        phx-click="open_row_tag_picker"
+        phx-value-video-id={@video.id}
+        class="btn btn-ghost btn-xs"
+        aria-label="Add tag"
+        data-test={"row-add-tag-#{@video.id}"}
+      >
+        <.icon name="hero-plus" class="size-3" />
+      </button>
+
+      <%!-- Inline tag picker --%>
+      <div
+        :if={@picker_open}
+        class="absolute z-10 mt-1 border border-base-300 rounded-lg p-3 space-y-2 bg-base-200 shadow-lg w-64"
+        data-test={"row-tag-picker-#{@video.id}"}
+      >
+        <form phx-change="search_tags" phx-submit="search_tags">
+          <input
+            type="text"
+            name="tag_search"
+            value={@tag_search}
+            placeholder="Search or create tag…"
+            phx-debounce="200"
+            class="input input-bordered input-sm w-full"
+            autocomplete="off"
+            data-test={"row-tag-search-#{@video.id}"}
+          />
+        </form>
+        <% filtered = filtered_available_tags(@all_tags, @tags, @tag_search) %>
+        <%= for tag <- filtered do %>
+          <button
+            phx-click="row_add_tag"
+            phx-value-tag-id={tag.id}
+            phx-value-video-id={@video.id}
+            class="btn btn-sm btn-outline w-full justify-start"
+            data-test={"row-pick-tag-#{@video.id}-#{tag.id}"}
+          >
+            {tag.name}
+          </button>
+        <% end %>
+        <button
+          :if={show_create_tag_button?(@all_tags, @tag_search)}
+          phx-click="row_create_and_add_tag"
+          phx-value-name={@tag_search}
+          phx-value-video-id={@video.id}
+          class="btn btn-sm btn-primary w-full justify-start"
+          data-test={"row-create-tag-#{@video.id}"}
+        >
+          Create "{@tag_search}"
+        </button>
+        <button
+          phx-click="close_row_tag_picker"
+          class="btn btn-ghost btn-xs mt-2"
+        >
+          Cancel
+        </button>
       </div>
     </div>
     """
@@ -434,5 +553,55 @@ defmodule BobineWeb.Admin.ContentLive.Components do
   def available_tags(all_tags, video_tags) do
     assigned_ids = MapSet.new(video_tags, & &1.id)
     Enum.reject(all_tags, fn tag -> MapSet.member?(assigned_ids, tag.id) end)
+  end
+
+  @doc """
+  Returns available tags filtered by a search term.
+
+      iex> all = [%{id: 1, name: "yoga"}, %{id: 2, name: "beginner"}]
+      iex> assigned = []
+      iex> BobineWeb.Admin.ContentLive.Components.filtered_available_tags(all, assigned, "yog")
+      [%{id: 1, name: "yoga"}]
+
+      iex> all = [%{id: 1, name: "yoga"}]
+      iex> BobineWeb.Admin.ContentLive.Components.filtered_available_tags(all, [], "")
+      [%{id: 1, name: "yoga"}]
+  """
+  def filtered_available_tags(all_tags, video_tags, search) do
+    all_tags
+    |> available_tags(video_tags)
+    |> filter_tags_by_search(search)
+  end
+
+  @doc """
+  Returns true when the search term is non-empty and no existing tag
+  matches it exactly (case-insensitive).
+
+      iex> tags = [%{id: 1, name: "yoga"}]
+      iex> BobineWeb.Admin.ContentLive.Components.show_create_tag_button?(tags, "pilates")
+      true
+
+      iex> tags = [%{id: 1, name: "yoga"}]
+      iex> BobineWeb.Admin.ContentLive.Components.show_create_tag_button?(tags, "Yoga")
+      false
+
+      iex> tags = [%{id: 1, name: "yoga"}]
+      iex> BobineWeb.Admin.ContentLive.Components.show_create_tag_button?(tags, "")
+      false
+  """
+  def show_create_tag_button?(_all_tags, ""), do: false
+
+  def show_create_tag_button?(all_tags, search) do
+    normalized = String.downcase(String.trim(search))
+
+    normalized != "" &&
+      not Enum.any?(all_tags, fn tag -> String.downcase(tag.name) == normalized end)
+  end
+
+  defp filter_tags_by_search(tags, ""), do: tags
+
+  defp filter_tags_by_search(tags, search) do
+    normalized = String.downcase(String.trim(search))
+    Enum.filter(tags, fn tag -> String.contains?(String.downcase(tag.name), normalized) end)
   end
 end
