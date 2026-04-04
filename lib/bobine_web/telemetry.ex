@@ -51,6 +51,36 @@ defmodule BobineWeb.Telemetry do
         tags: [:event],
         unit: {:native, :millisecond}
       ),
+      summary("phoenix.live_view.mount.stop.duration",
+        tags: [:view],
+        tag_values: &live_view_tag_values/1,
+        unit: {:native, :millisecond}
+      ),
+      summary("phoenix.live_view.handle_event.stop.duration",
+        tags: [:view, :event],
+        tag_values: &live_view_event_tag_values/1,
+        unit: {:native, :millisecond}
+      ),
+
+      # Watch-path metrics
+      counter("bobine.watch.mount.count",
+        tags: [:phase, :status]
+      ),
+      summary("bobine.watch.mount.duration",
+        tags: [:phase, :status]
+      ),
+      summary("bobine.watch.mount.query_count",
+        tags: [:phase, :status]
+      ),
+      summary("bobine.watch.mount.db_duration",
+        tags: [:phase, :status]
+      ),
+      counter("bobine.watch.event.count",
+        tags: [:event]
+      ),
+      counter("bobine.pubsub.broadcast.count",
+        tags: [:topic, :event]
+      ),
 
       # Database Metrics
       summary("bobine.repo.query.total_time",
@@ -89,5 +119,15 @@ defmodule BobineWeb.Telemetry do
       # This function must call :telemetry.execute/3 and a metric must be added above.
       # {BobineWeb, :count_users, []}
     ]
+  end
+
+  defp live_view_tag_values(metadata) do
+    %{view: inspect(metadata.socket.view)}
+  end
+
+  defp live_view_event_tag_values(metadata) do
+    metadata
+    |> live_view_tag_values()
+    |> Map.put(:event, metadata.event)
   end
 end

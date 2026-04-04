@@ -4,6 +4,11 @@ defmodule Bobine.Buffers.ProgressBufferTest do
   alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Engagement.Progress
 
+  setup do
+    ProgressBuffer.clear()
+    :ok
+  end
+
   describe "update/4 and get/3" do
     test "writes to the buffer and reads back" do
       org = insert(:organization)
@@ -25,6 +30,32 @@ defmodule Bobine.Buffers.ProgressBufferTest do
       :ok = ProgressBuffer.update(org.id, user.id, video.id, 30.0)
 
       assert ProgressBuffer.get(org.id, user.id, video.id) == 30.0
+    end
+  end
+
+  describe "update_viewer/5 and get_viewer/3" do
+    test "writes viewer progress to the buffer and reads it back" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+
+      :ok = ProgressBuffer.update_viewer(org.id, viewer.id, video.id, 45.5, 120.0)
+
+      assert ProgressBuffer.get_viewer(org.id, viewer.id, video.id) == %{
+               position: 45.5,
+               duration: 120.0
+             }
+    end
+
+    test "delete_viewer/3 removes a buffered viewer entry" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+
+      :ok = ProgressBuffer.update_viewer(org.id, viewer.id, video.id, 10.0, 50.0)
+      :ok = ProgressBuffer.delete_viewer(org.id, viewer.id, video.id)
+
+      assert ProgressBuffer.get_viewer(org.id, viewer.id, video.id) == nil
     end
   end
 
@@ -52,6 +83,20 @@ defmodule Bobine.Buffers.ProgressBufferTest do
       :ok = ProgressBuffer.flush()
 
       assert ProgressBuffer.get(org.id, user.id, video.id) == nil
+    end
+
+    test "flushes buffered viewer records to Postgres" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+
+      :ok = ProgressBuffer.update_viewer(org.id, viewer.id, video.id, 33.0, 80.0)
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+      assert progress != nil
+      assert progress.position == 33.0
+      assert progress.duration == 80.0
     end
   end
 end

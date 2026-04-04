@@ -1,5 +1,6 @@
 defmodule BobineWeb.Viewer.HistoryLive do
   use BobineWeb, :live_view
+  use BobineWeb.Viewer.CardActions
 
   alias Bobine.Engagement
   alias BobineWeb.Components.ViewerComponents
@@ -62,7 +63,15 @@ defmodule BobineWeb.Viewer.HistoryLive do
 
         <div :if={@history != []} class="sv-browse-grid" data-test="sv-history-grid">
           <div :for={entry <- @history} class="sv-history-card-wrapper">
-            <ViewerComponents.content_card :if={entry.video} video={entry.video} size="grid" />
+            <ViewerComponents.content_card
+              :if={entry.video}
+              video={entry.video}
+              size="grid"
+              current_viewer={@current_viewer}
+              favorited_ids={@favorited_ids}
+              watchlisted_ids={@watchlisted_ids}
+              queued_ids={@queued_ids}
+            />
             <div
               class="sv-history-meta"
               style="margin-top: 4px; font-size: 0.75rem; color: var(--sv-text-secondary);"

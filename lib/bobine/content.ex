@@ -12,6 +12,7 @@ defmodule Bobine.Content do
 
   alias Bobine.Accounts.Organization
   alias Bobine.Audit
+  alias Bobine.Cache
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
@@ -86,6 +87,44 @@ defmodule Bobine.Content do
   Exempt from doctest — hits the database.
   """
   def get_video!(id), do: Repo.get!(Video, id)
+
+  @doc """
+  Returns a small related-video set for the watch page without running the
+  paginator's extra count query. Results are cached briefly because the watch
+  page reads this on both the initial HTTP render and the LiveView connect.
+
+  Exempt from doctest — hits cache/database.
+  """
+  def list_related_videos_for_watch(%Organization{id: org_id}, %Video{id: video_id}, limit \\ 8) do
+    cache_key = "watch_related:#{org_id}:#{video_id}:#{limit}"
+
+    case Cache.get(cache_key) do
+      {:ok, videos} ->
+        %{videos: videos, cache_status: :hit, query_count: 0, db_duration_ms: 0}
+
+      :miss ->
+        {db_duration_ms, videos} =
+          timed(fn ->
+            Video
+            |> where(organization_id: ^org_id)
+            |> where([v], is_nil(v.deleted_at))
+            |> where([v], v.mux_status == "ready")
+            |> where([v], v.id != ^video_id)
+            |> order_by(desc: :inserted_at)
+            |> limit(^limit)
+            |> Repo.all()
+          end)
+
+        Cache.put(cache_key, videos, ttl: 60_000)
+
+        %{
+          videos: videos,
+          cache_status: :miss,
+          query_count: 1,
+          db_duration_ms: db_duration_ms
+        }
+    end
+  end
 
   ## -----------------------------------------------------------------------
   ## Video upload flow
@@ -198,6 +237,16 @@ defmodule Bobine.Content do
   defp prod_cors_origin(%{slug: slug}), do: "https://#{slug}.bobine.dev"
 
   defp default_dev_cors_origin, do: "http://localhost:4000"
+
+  defp timed(fun) do
+    started_at = System.monotonic_time()
+    result = fun.()
+
+    duration_ms =
+      System.convert_time_unit(System.monotonic_time() - started_at, :native, :millisecond)
+
+    {duration_ms, result}
+  end
 
   ## -----------------------------------------------------------------------
   ## Mux webhook handlers

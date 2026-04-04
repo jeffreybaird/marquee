@@ -185,4 +185,51 @@ defmodule Bobine.Metrics do
       %{org_id: org_id}
     )
   end
+
+  @doc """
+  Records a watch page mount/bootstrap event.
+
+      iex> Bobine.Metrics.watch_mount("org_123", :connected, :ok, 42, 3, 18)
+      :ok
+  """
+  def watch_mount(org_id, phase, status, duration_ms, query_count, db_duration_ms) do
+    :telemetry.execute(
+      [:bobine, :watch, :mount],
+      %{
+        count: 1,
+        duration: duration_ms,
+        query_count: query_count,
+        db_duration: db_duration_ms
+      },
+      %{org_id: org_id, phase: phase, status: status}
+    )
+  end
+
+  @doc """
+  Records a watch-page playback or interaction event handled by the server.
+
+      iex> Bobine.Metrics.watch_event("org_123", "playback_progress")
+      :ok
+  """
+  def watch_event(org_id, event_name) do
+    :telemetry.execute(
+      [:bobine, :watch, :event],
+      %{count: 1},
+      %{org_id: org_id, event: event_name}
+    )
+  end
+
+  @doc """
+  Records PubSub broadcast fanout volume.
+
+      iex> Bobine.Metrics.pubsub_broadcast("events:org_123", "video_ready", 2, "org_123")
+      :ok
+  """
+  def pubsub_broadcast(topic, event_name, broadcast_count, org_id \\ nil) do
+    :telemetry.execute(
+      [:bobine, :pubsub, :broadcast],
+      %{count: broadcast_count},
+      %{org_id: org_id, topic: topic, event: event_name}
+    )
+  end
 end

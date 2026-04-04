@@ -499,7 +499,9 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       insert(:row_item, organization: org, row: row, video: video, position: 0)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ ~s(data-test="content-card-#{video.id}")
+      # Home page now uses the shared ViewerComponents.content_card
+      # which uses the sv-card-* data-test prefix convention
+      assert html =~ ~s(data-test="sv-card-#{video.id}")
       assert html =~ "/watch/#{video.id}"
     end
 

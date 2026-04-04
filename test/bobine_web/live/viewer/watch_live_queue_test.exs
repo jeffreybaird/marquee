@@ -3,6 +3,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
 
   import Phoenix.LiveViewTest
 
+  alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Engagement
 
   setup do
@@ -10,6 +11,8 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
     if :ets.whereis(:bobine_go_back) == :undefined do
       :ets.new(:bobine_go_back, [:named_table, :public, :set])
     end
+
+    ProgressBuffer.clear()
 
     org = insert(:organization)
     viewer = insert(:subscribed_viewer, organization: org)
@@ -34,7 +37,11 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       assert html =~ "Your queue is empty"
     end
 
-    test "renders queue panel with items", %{org: org, viewer: viewer, video: video} do
+    test "renders queue items after the panel is opened", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
       other_video =
         insert(:video,
           organization: org,
@@ -45,7 +52,10 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
 
       {:ok, _} = Engagement.add_to_queue(org, viewer, other_video)
 
-      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
+
+      html = render(view)
       assert html =~ "Queued Video"
       assert html =~ ~s(data-test="queue-list")
     end
@@ -91,6 +101,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       {:ok, _} = Engagement.add_to_queue(org, viewer, other)
 
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
       view |> element(~s([data-test="queue-remove-#{other.id}"])) |> render_click()
 
       # Assert the queue panel specifically — the video may still appear in related videos
@@ -103,6 +114,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       {:ok, _} = Engagement.add_to_queue(org, viewer, other)
 
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
       view |> element(~s([data-test="clear-queue-btn"])) |> render_click()
 
       html = render(view)

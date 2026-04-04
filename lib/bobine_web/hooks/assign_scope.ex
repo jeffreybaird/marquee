@@ -111,7 +111,7 @@ defmodule BobineWeb.Hooks.AssignScope do
           s
       end
 
-    theme = if org, do: Branding.get_theme_or_default(org), else: nil
+    theme = if org, do: Branding.get_theme_or_default_cached(org), else: nil
 
     socket
     |> assign(:current_scope, scope)

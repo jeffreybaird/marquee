@@ -15,45 +15,151 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :video, :map, required: true
   attr :progress, :float, default: nil
   attr :size, :string, values: ["row", "grid", "large"], default: "row"
+  attr :current_viewer, :map, default: nil
+  attr :card_id, :string, default: nil
+  attr :favorited_ids, :any, default: MapSet.new()
+  attr :watchlisted_ids, :any, default: MapSet.new()
+  attr :queued_ids, :any, default: MapSet.new()
 
   @doc """
-  Renders a content card for a video.
+  Renders a content card for a video with a hover/focus popup.
+
+  When hovered or focused, a popup appears showing a video preview.
+  Action buttons (favorite, watchlist, queue) are always visible
+  inline with the video duration. Buttons reflect current engagement
+  state via the `*_ids` MapSet attrs.
 
   ## Examples
 
       <.content_card video={@video} />
-      <.content_card video={@video} progress={0.45} size="grid" />
+      <.content_card video={@video} progress={0.45} size="grid" current_viewer={@current_viewer} />
 
   """
   def content_card(assigns) do
+    assigns =
+      assign_new(assigns, :resolved_card_id, fn ->
+        assigns[:card_id] || "card-#{assigns.video.id}"
+      end)
+
     ~H"""
-    <.link
-      navigate={~p"/watch/#{@video.id}"}
-      class={["sv-card", "sv-card-#{@size}"]}
+    <div
+      id={@resolved_card_id}
+      class={["sv-card-container", "sv-card-container-#{@size}"]}
+      phx-hook="CardFocus"
       data-test={"sv-card-#{@video.id}"}
     >
-      <div class="sv-card-thumb">
-        <img
-          :if={@video.mux_playback_id}
-          src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
-          alt={@video.title}
-          loading="lazy"
-        />
-        <div
-          :if={@progress && @progress > 0}
-          class="sv-card-progress"
-          style={"width: #{min(@progress * 100, 100)}%"}
-          data-test={"sv-card-progress-#{@video.id}"}
-          aria-label={"#{round(@progress * 100)}% watched"}
-        />
+      <div class={["sv-card", "sv-card-#{@size}"]}>
+        <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-thumb-link">
+          <div class="sv-card-thumb">
+            <img
+              :if={@video.mux_playback_id}
+              src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+              alt={@video.title}
+              loading="lazy"
+            />
+            <div
+              :if={@progress && @progress > 0}
+              class="sv-card-progress"
+              style={"width: #{min(@progress * 100, 100)}%"}
+              data-test={"sv-card-progress-#{@video.id}"}
+              aria-label={"#{round(@progress * 100)}% watched"}
+            />
+          </div>
+        </.link>
+        <div class="sv-card-info">
+          <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-title-link">
+            <span class="sv-card-title">{@video.title}</span>
+          </.link>
+          <div class="sv-card-meta-row">
+            <span :if={@video.duration} class="sv-card-meta">
+              {format_duration(@video.duration)}
+            </span>
+            <div class="sv-card-actions">
+              <button
+                phx-click="card_toggle_favorite"
+                phx-value-video-id={@video.id}
+                class={["sv-card-action-btn", @video.id in @favorited_ids && "active"]}
+                aria-label={"Favorite #{@video.title}"}
+                aria-pressed={to_string(@video.id in @favorited_ids)}
+                data-test={"sv-card-favorite-#{@video.id}"}
+              >
+                <.icon
+                  name={if @video.id in @favorited_ids, do: "hero-heart-solid", else: "hero-heart"}
+                  class="size-4"
+                />
+              </button>
+
+              <button
+                phx-click="card_add_to_watchlist"
+                phx-value-video-id={@video.id}
+                class={["sv-card-action-btn", @video.id in @watchlisted_ids && "active"]}
+                aria-label={
+                  if @video.id in @watchlisted_ids,
+                    do: "#{@video.title} in watchlist",
+                    else: "Add #{@video.title} to watchlist"
+                }
+                aria-pressed={to_string(@video.id in @watchlisted_ids)}
+                data-test={"sv-card-watchlist-#{@video.id}"}
+              >
+                <.icon
+                  name={
+                    if @video.id in @watchlisted_ids, do: "hero-bookmark-solid", else: "hero-bookmark"
+                  }
+                  class="size-4"
+                />
+              </button>
+
+              <button
+                phx-click="card_add_to_queue"
+                phx-value-video-id={@video.id}
+                class={["sv-card-action-btn", @video.id in @queued_ids && "active"]}
+                aria-label={
+                  if @video.id in @queued_ids,
+                    do: "#{@video.title} in queue",
+                    else: "Add #{@video.title} to queue"
+                }
+                aria-pressed={to_string(@video.id in @queued_ids)}
+                data-test={"sv-card-queue-#{@video.id}"}
+              >
+                <.icon
+                  name={
+                    if @video.id in @queued_ids, do: "hero-queue-list-solid", else: "hero-queue-list"
+                  }
+                  class="size-4"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="sv-card-info">
-        <span class="sv-card-title">{@video.title}</span>
-        <span :if={@video.duration} class="sv-card-meta">
-          {format_duration(@video.duration)}
-        </span>
+
+      <div
+        class="sv-card-popup"
+        role="dialog"
+        aria-label={"More about #{@video.title}"}
+        data-test={"sv-card-popup-#{@video.id}"}
+      >
+        <div class="sv-card-popup-thumb" data-playback-id={@video.mux_playback_id}>
+          <img
+            :if={@video.mux_playback_id}
+            src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+            alt=""
+            aria-hidden="true"
+          />
+          <div
+            :if={@progress && @progress > 0}
+            class="sv-card-progress"
+            style={"width: #{min(@progress * 100, 100)}%"}
+            aria-hidden="true"
+          />
+          <div :if={Map.get(@video, :description)} class="sv-card-popup-body">
+            <p class="sv-card-popup-desc">
+              {truncate_description(Map.get(@video, :description), 120)}
+            </p>
+          </div>
+        </div>
       </div>
-    </.link>
+    </div>
     """
   end
 
@@ -258,6 +364,7 @@ defmodule BobineWeb.Components.ViewerComponents do
         stream-type="on-demand"
         playback-id={@video.mux_playback_id}
         metadata-video-title={@video.title}
+        autoplay
         data-test="mux-player"
       >
       </mux-player>
@@ -309,4 +416,16 @@ defmodule BobineWeb.Components.ViewerComponents do
   end
 
   defp format_duration(_), do: nil
+
+  defp truncate_description(nil, _max), do: nil
+  defp truncate_description("", _max), do: nil
+
+  defp truncate_description(text, max) when byte_size(text) <= max, do: text
+
+  defp truncate_description(text, max) do
+    text
+    |> String.slice(0, max)
+    |> String.trim_trailing()
+    |> Kernel.<>("...")
+  end
 end
