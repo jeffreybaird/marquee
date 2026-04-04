@@ -19,7 +19,7 @@ defmodule BobineWeb.Viewer.SessionController do
         conn
         |> put_flash(:info, "Welcome back!")
         |> put_viewer_session(viewer)
-        |> redirect(to: ~p"/")
+        |> redirect(to: home_path(conn))
 
       {:error, :invalid_token} ->
         conn
@@ -83,6 +83,21 @@ defmodule BobineWeb.Viewer.SessionController do
     |> delete_session(:impersonating_return_path)
     |> delete_session(:impersonation_started_at)
     |> redirect(to: return_path)
+  end
+
+  defp home_path(conn) do
+    org = conn.assigns[:organization]
+
+    if org && !resolved_from_subdomain?(conn) do
+      ~p"/?org=#{org.slug}"
+    else
+      ~p"/"
+    end
+  end
+
+  defp resolved_from_subdomain?(conn) do
+    parts = String.split(conn.host, ".")
+    length(parts) >= 2 && List.first(parts) not in ["www", "localhost"]
   end
 
   defp put_viewer_session(conn, viewer) do
