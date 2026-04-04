@@ -486,12 +486,15 @@
 
 .sv-card-thumb {
   position: relative;
+  width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: var(--sv-bg-secondary);
 }
 
 .sv-card-thumb img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1057,6 +1060,8 @@
 .sv-browse-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: auto;
+  align-items: start;
   gap: 16px;
 }
 
@@ -1131,9 +1136,13 @@
   display: none;
   flex-direction: column;
   flex-shrink: 0;
-  max-height: calc(100vh - 80px);
   position: sticky;
   top: 80px;
+  align-self: flex-start;
+  /* Cap height so the panel never extends past the video player.
+     Player is 16:9 within sv-watch-main. Width = viewport - padding - queue,
+     clamped by the layout max-width (1600px). */
+  max-height: calc(min(100vw - 436px, 1164px) * 9 / 16);
 }
 
 .sv-queue-panel.open {
