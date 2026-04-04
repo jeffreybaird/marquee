@@ -1142,13 +1142,21 @@
   max-width: 1600px;
   margin: 0 auto;
   padding: 24px 48px;
+}
+
+/* Player + Queue sit in their own flex row */
+.sv-watch-player-row {
   display: flex;
   gap: 0;
 }
 
-.sv-watch-main {
+.sv-watch-player-col {
   flex: 1;
   min-width: 0;
+}
+
+.sv-watch-below {
+  width: 100%;
 }
 
 /* ---- Queue Panel ---- */
@@ -1161,13 +1169,7 @@
   display: none;
   flex-direction: column;
   flex-shrink: 0;
-  position: sticky;
-  top: 80px;
-  align-self: flex-start;
-  /* Cap height so the panel never extends past the video player.
-     Player is 16:9 within sv-watch-main. Width = viewport - padding - queue,
-     clamped by the layout max-width (1600px). */
-  max-height: calc(min(100vw - 436px, 1164px) * 9 / 16);
+  /* No sticky — scrolls with the player as one unit */
 }
 
 .sv-queue-panel.open {
@@ -1643,7 +1645,8 @@
   .sv-browse-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
 
   /* Watch */
-  .sv-watch-layout { padding: 16px; flex-direction: column; }
+  .sv-watch-layout { padding: 16px; }
+  .sv-watch-player-row { flex-direction: column; }
   .sv-player-container { border-radius: 0; margin: 0 -16px; width: calc(100% + 32px); }
 
   /* Queue — mobile bottom sheet */

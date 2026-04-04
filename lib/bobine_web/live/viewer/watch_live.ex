@@ -516,13 +516,92 @@ defmodule BobineWeb.Viewer.WatchLive do
       flash={@flash}
     >
       <div class="sv-watch-layout">
-        <div class="sv-watch-main">
-          <%!-- Player --%>
-          <ViewerComponents.video_player
-            video={@video}
-            resume_position={@resume_position}
-          />
+        <%!-- Player + Queue row --%>
+        <div class="sv-watch-player-row">
+          <div class="sv-watch-player-col">
+            <ViewerComponents.video_player
+              video={@video}
+              resume_position={@resume_position}
+            />
+          </div>
 
+          <%!-- Queue panel --%>
+          <aside
+            :if={@current_viewer}
+            class={["sv-queue-panel", @queue_open && "open"]}
+            data-test="queue-panel"
+          >
+            <div class="sv-queue-header">
+              <h3>Queue ({@queue_count})</h3>
+              <button
+                phx-click="toggle_queue"
+                class="sv-btn sv-btn-ghost"
+                data-test="toggle-queue-btn"
+                aria-label={if @queue_open, do: "Close queue", else: "Open queue"}
+              >
+                <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div
+              :if={@queue_items != []}
+              id="queue-list"
+              phx-hook="QueueSortable"
+              class="sv-queue-list"
+              data-test="queue-list"
+            >
+              <div
+                :for={{item, index} <- Enum.with_index(@queue_items)}
+                class={["sv-queue-item", index == 0 && "next-up"]}
+                data-id={item.video_id}
+                data-test={"queue-item-#{item.video_id}"}
+              >
+                <div class="sv-queue-drag-handle" data-test="queue-drag-handle" aria-hidden="true">
+                  <.icon name="hero-bars-3" class="size-4" />
+                </div>
+                <img
+                  :if={item.video && item.video.mux_playback_id}
+                  src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=90&fit_mode=smartcrop"}
+                  alt={item.video.title}
+                  class="sv-queue-thumb"
+                />
+                <div class="sv-queue-item-info">
+                  <span class="sv-queue-item-title">{item.video.title}</span>
+                  <span :if={item.video.duration} class="sv-queue-item-duration">
+                    {format_duration(item.video.duration)}
+                  </span>
+                </div>
+                <button
+                  phx-click="remove_from_queue"
+                  phx-value-video-id={item.video_id}
+                  class="sv-queue-remove"
+                  data-test={"queue-remove-#{item.video_id}"}
+                  aria-label={"Remove #{item.video.title} from queue"}
+                >
+                  <.icon name="hero-x-mark" class="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+
+            <div :if={@queue_items != []} class="sv-queue-footer">
+              <button
+                phx-click="clear_queue"
+                class="sv-btn sv-btn-ghost"
+                style="width: 100%"
+                data-test="clear-queue-btn"
+              >
+                Clear queue
+              </button>
+            </div>
+
+            <div :if={@queue_items == []} class="sv-queue-empty" data-test="queue-empty">
+              <p>Your queue is empty</p>
+              <p>Browse content and add videos to build your watch queue.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="sv-watch-below">
           <%!-- Video metadata --%>
           <div class="sv-video-meta">
             <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
@@ -630,81 +709,6 @@ defmodule BobineWeb.Viewer.WatchLive do
             </div>
           </div>
         </div>
-
-        <%!-- Queue panel --%>
-        <aside
-          :if={@current_viewer}
-          class={["sv-queue-panel", @queue_open && "open"]}
-          data-test="queue-panel"
-        >
-          <div class="sv-queue-header">
-            <h3>Queue ({@queue_count})</h3>
-            <button
-              phx-click="toggle_queue"
-              class="sv-btn sv-btn-ghost"
-              data-test="toggle-queue-btn"
-              aria-label={if @queue_open, do: "Close queue", else: "Open queue"}
-            >
-              <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div
-            :if={@queue_items != []}
-            id="queue-list"
-            phx-hook="QueueSortable"
-            class="sv-queue-list"
-            data-test="queue-list"
-          >
-            <div
-              :for={{item, index} <- Enum.with_index(@queue_items)}
-              class={["sv-queue-item", index == 0 && "next-up"]}
-              data-id={item.video_id}
-              data-test={"queue-item-#{item.video_id}"}
-            >
-              <div class="sv-queue-drag-handle" data-test="queue-drag-handle" aria-hidden="true">
-                <.icon name="hero-bars-3" class="size-4" />
-              </div>
-              <img
-                :if={item.video && item.video.mux_playback_id}
-                src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=90&fit_mode=smartcrop"}
-                alt={item.video.title}
-                class="sv-queue-thumb"
-              />
-              <div class="sv-queue-item-info">
-                <span class="sv-queue-item-title">{item.video.title}</span>
-                <span :if={item.video.duration} class="sv-queue-item-duration">
-                  {format_duration(item.video.duration)}
-                </span>
-              </div>
-              <button
-                phx-click="remove_from_queue"
-                phx-value-video-id={item.video_id}
-                class="sv-queue-remove"
-                data-test={"queue-remove-#{item.video_id}"}
-                aria-label={"Remove #{item.video.title} from queue"}
-              >
-                <.icon name="hero-x-mark" class="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          <div :if={@queue_items != []} class="sv-queue-footer">
-            <button
-              phx-click="clear_queue"
-              class="sv-btn sv-btn-ghost"
-              style="width: 100%"
-              data-test="clear-queue-btn"
-            >
-              Clear queue
-            </button>
-          </div>
-
-          <div :if={@queue_items == []} class="sv-queue-empty" data-test="queue-empty">
-            <p>Your queue is empty</p>
-            <p>Browse content and add videos to build your watch queue.</p>
-          </div>
-        </aside>
       </div>
     </ViewerLayout.viewer_layout>
     """
