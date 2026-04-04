@@ -1,4 +1,13 @@
 defmodule BobineWeb.Viewer.SubscribeLive do
+  @moduledoc """
+  Plan selection page. Lists active subscription plans for the org and
+  redirects to Stripe Checkout on plan selection. Shows a message if
+  Stripe Connect is not yet configured.
+
+  Events: select_plan
+  Route: /subscribe (viewer_authenticated session)
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

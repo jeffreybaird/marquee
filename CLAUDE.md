@@ -20,6 +20,7 @@ file(s) when working in a specific area:
 - `.claude/brand-system.md` - Visual design and tone
 - `.claude/commands/a11y-audit.md` — WCAG 2.1 AA accessibility audit slash command
 - `.claude/seperation-of-concerns.md` - design guidelines for LiveView, controller, or context functions
+- `.claude/frontend-map.md` — routes, LiveViews, components, JS hooks, layout hierarchy
 
 ---
 

@@ -1,4 +1,10 @@
 defmodule BobineWeb.Admin.AnalyticsLive do
+  @moduledoc """
+  Analytics page. Placeholder — will show viewership metrics.
+
+  Route: /admin/analytics
+  """
+
   use BobineWeb, :live_view
 
   @impl true

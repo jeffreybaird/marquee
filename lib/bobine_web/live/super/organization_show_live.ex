@@ -1,4 +1,12 @@
 defmodule BobineWeb.Super.OrganizationShowLive do
+  @moduledoc """
+  Organization detail page. Shows memberships, video count, subscriber count,
+  and provides impersonation and soft-delete controls.
+
+  Events: soft_delete, restore
+  Route: /super/organizations/:id
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

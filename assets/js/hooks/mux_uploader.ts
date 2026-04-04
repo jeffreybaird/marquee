@@ -1,6 +1,8 @@
 /**
  * MuxUploader hook
  *
+ * Used by: Admin.ContentLive
+ *
  * Handles direct video upload from browser to Mux.
  * Video bytes never touch Bobine's servers.
  *

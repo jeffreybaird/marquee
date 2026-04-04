@@ -1,4 +1,14 @@
 defmodule BobineWeb.Admin.CollectionsLive do
+  @moduledoc """
+  Collection management. CRUD operations for content collections,
+  video picker for assigning videos to collections, real-time updates
+  via Events.
+
+  Events: new_collection, edit_collection, save_collection, delete_collection,
+          select_collection, add_video, remove_video
+  Route: /admin/collections
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Accounts

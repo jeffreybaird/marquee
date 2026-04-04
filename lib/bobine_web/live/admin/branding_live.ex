@@ -1,4 +1,12 @@
 defmodule BobineWeb.Admin.BrandingLive do
+  @moduledoc """
+  Theme editor for the viewer-facing site. Color pickers with live
+  preview. Saves to the org's Branding.Theme and invalidates cache.
+
+  Events: validate (live preview), save
+  Route: /admin/branding
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Branding

@@ -1,6 +1,8 @@
 /**
  * Sortable hook
  *
+ * Used by: Admin.CatalogLive (row reordering)
+ *
  * Enables drag-and-drop reordering in the admin row builder.
  * Uses the native HTML5 drag-and-drop API.
  *

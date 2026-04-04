@@ -1,4 +1,13 @@
 defmodule BobineWeb.Viewer.CollectionLive do
+  @moduledoc """
+  Single collection page showing the collection title/description and its
+  videos in a grid layout.
+
+  Hooks: CardFocus (via content_card)
+  Events: card actions (via CardActions)
+  Route: /collections/:slug (viewer_public session, optional auth)
+  """
+
   use BobineWeb, :live_view
   use BobineWeb.Viewer.CardActions
 

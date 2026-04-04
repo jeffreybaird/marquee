@@ -1,5 +1,14 @@
 # credo:disable-for-this-file Credo.Check.Refactor.Nesting
 defmodule BobineWeb.Admin.MembersLive do
+  @moduledoc """
+  Member management with two tabs: viewers and operators. Supports search,
+  status/subscription filtering for viewers, and viewer impersonation.
+
+  Events: switch_tab, search, filter_status, filter_subscription,
+          impersonate_viewer
+  Route: /admin/members
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Accounts

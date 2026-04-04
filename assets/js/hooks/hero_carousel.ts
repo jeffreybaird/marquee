@@ -1,6 +1,8 @@
 /**
  * HeroCarousel hook
  *
+ * Used by: HomeLive
+ *
  * Auto-advancing carousel for the homepage hero section.
  * Handles slide transitions, pagination dots, auto-advance timer,
  * pause-on-hover, prev/next arrow navigation, and keyboard support.

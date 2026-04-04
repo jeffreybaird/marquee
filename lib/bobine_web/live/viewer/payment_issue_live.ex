@@ -1,4 +1,13 @@
 defmodule BobineWeb.Viewer.PaymentIssueLive do
+  @moduledoc """
+  Payment issue page shown to viewers with past-due subscriptions.
+  Redirects to Stripe billing portal to update payment method.
+  Redirects to home if subscription is not actually past-due.
+
+  Events: update_payment
+  Route: /account/payment-issue (viewer_authenticated session)
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

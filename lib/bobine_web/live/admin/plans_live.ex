@@ -1,4 +1,12 @@
 defmodule BobineWeb.Admin.PlansLive do
+  @moduledoc """
+  Viewer subscription plan management. Operators create/edit/archive plans
+  that viewers can subscribe to. Requires Stripe Connect to be configured.
+
+  Events: new_plan, edit_plan, save, archive_plan, validate
+  Route: /admin/plans
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

@@ -1,6 +1,8 @@
 /**
  * ViewerNav hook
  *
+ * Used by: ViewerLayout.viewer_header (all viewer pages)
+ *
  * Makes the viewer navigation bar transition from transparent to solid
  * background as the user scrolls past the hero section.
  *

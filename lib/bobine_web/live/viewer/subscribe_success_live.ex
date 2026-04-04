@@ -1,4 +1,11 @@
 defmodule BobineWeb.Viewer.SubscribeSuccessLive do
+  @moduledoc """
+  Post-checkout success page. Shows a welcome message after Stripe
+  Checkout completes. Static — no events.
+
+  Route: /subscribe/success (viewer_authenticated session)
+  """
+
   use BobineWeb, :live_view
 
   alias BobineWeb.Components.ViewerLayout

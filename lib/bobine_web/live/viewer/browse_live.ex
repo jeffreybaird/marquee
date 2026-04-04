@@ -1,4 +1,13 @@
 defmodule BobineWeb.Viewer.BrowseLive do
+  @moduledoc """
+  Browse/search page for viewer-facing content. Supports text search,
+  collection and tag filtering, and sort (newest/oldest/a-z/z-a).
+
+  Hooks: CardFocus (via content_card)
+  Events: search, filter, sort, card actions (via CardActions)
+  Route: /browse (viewer_public session, optional auth)
+  """
+
   use BobineWeb, :live_view
   use BobineWeb.Viewer.CardActions
 

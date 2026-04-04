@@ -1,0 +1,42 @@
+<%= case @page_mode do %>
+  <% :platform_marketing -> %>
+    <.platform_marketing />
+  <% :org_landing -> %>
+    <.org_landing organization={@organization} />
+  <% :org_home -> %>
+    <ViewerLayout.viewer_layout
+      organization={@organization}
+      current_viewer={@current_viewer}
+      impersonating_viewer={@impersonating_viewer}
+      current_path="/"
+      theme={@theme}
+      flash={@flash}
+    >
+      <%!-- Hero carousel --%>
+      <.hero_carousel
+        :if={@hero_slides != []}
+        slides={@hero_slides}
+        auto_advance_ms={@hero_auto_advance_ms}
+      />
+
+      <div
+        :if={@hero_slides == [] && @rows == []}
+        class="py-12 text-center text-base-content/60"
+      >
+        <p class="text-lg">No videos available yet.</p>
+      </div>
+
+      <%!-- Catalog rows --%>
+      <section :if={@rows != []} class="catalog-rows" data-test="catalog-rows">
+        <.content_row
+          :for={%{row: row, videos: videos} <- @rows}
+          row={row}
+          videos={videos}
+          current_viewer={@current_viewer}
+          favorited_ids={@favorited_ids}
+          watchlisted_ids={@watchlisted_ids}
+          queued_ids={@queued_ids}
+        />
+      </section>
+    </ViewerLayout.viewer_layout>
+<% end %>

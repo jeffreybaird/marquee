@@ -1,4 +1,11 @@
 defmodule BobineWeb.Admin.WebhooksLive do
+  @moduledoc """
+  Webhook endpoint management. Placeholder — will allow operators to
+  configure outbound webhook URLs and view delivery logs.
+
+  Route: /admin/webhooks
+  """
+
   use BobineWeb, :live_view
 
   @impl true

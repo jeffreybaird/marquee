@@ -1,4 +1,12 @@
 defmodule BobineWeb.Viewer.RegisterLive do
+  @moduledoc """
+  Viewer registration page. Email + display name form with live validation.
+  On success, sends a magic link for email verification.
+
+  Events: validate, save
+  Route: /register (viewer_auth session)
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Viewers

@@ -1,4 +1,12 @@
 defmodule BobineWeb.Super.UsersLive do
+  @moduledoc """
+  Cross-tenant user management. Lists all operator users, supports
+  granting/revoking super admin status.
+
+  Events: grant_super_admin, confirm_revoke, revoke_super_admin, cancel_revoke
+  Route: /super/users
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

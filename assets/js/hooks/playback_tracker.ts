@@ -1,6 +1,8 @@
 /**
  * PlaybackTracker hook
  *
+ * Used by: WatchLive
+ *
  * Periodically reports the current playback position to the server
  * so watch progress can be persisted.
  *

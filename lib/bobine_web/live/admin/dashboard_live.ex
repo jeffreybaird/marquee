@@ -1,4 +1,10 @@
 defmodule BobineWeb.Admin.DashboardLive do
+  @moduledoc """
+  Admin dashboard landing page. Placeholder — will show org-level stats.
+
+  Route: /admin
+  """
+
   use BobineWeb, :live_view
 
   @impl true

@@ -1,4 +1,11 @@
 defmodule BobineWeb.Super.OrganizationEditLive do
+  @moduledoc """
+  Edit organization details (name, slug, custom domain).
+
+  Events: validate, save
+  Route: /super/organizations/:id/edit
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

@@ -1,4 +1,12 @@
 defmodule BobineWeb.Super.OrganizationsLive do
+  @moduledoc """
+  Lists all organizations with search. Entry point for org management
+  and impersonation.
+
+  Events: search
+  Route: /super/organizations
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

@@ -1,6 +1,8 @@
 /**
  * PushNotifications hook
  *
+ * Used by: Not yet wired to any LiveView
+ *
  * Handles Web Push API subscription registration and reports
  * the push subscription to the server.
  *

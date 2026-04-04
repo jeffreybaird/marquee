@@ -1,4 +1,13 @@
 defmodule BobineWeb.Viewer.HistoryLive do
+  @moduledoc """
+  Paginated watch history for subscribed viewers. Shows videos ordered
+  by most recently watched with progress indicators.
+
+  Hooks: CardFocus (via content_card)
+  Events: load_more, card actions (via CardActions)
+  Route: /history (viewer_subscribed session)
+  """
+
   use BobineWeb, :live_view
   use BobineWeb.Viewer.CardActions
 

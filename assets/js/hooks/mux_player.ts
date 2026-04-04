@@ -1,6 +1,8 @@
 /**
  * MuxPlayer hook
  *
+ * Used by: WatchLive (via ViewerComponents.video_player)
+ *
  * Mounts the Mux Player web component and bridges playback events
  * to the LiveView server.
  *

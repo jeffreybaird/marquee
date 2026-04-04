@@ -1,5 +1,13 @@
 # credo:disable-for-this-file Credo.Check.Refactor.Nesting
 defmodule BobineWeb.Admin.TagsLive do
+  @moduledoc """
+  Tag management. CRUD operations for content tags with real-time
+  updates via Events.
+
+  Events: new_tag, edit_tag, save_tag, delete_tag
+  Route: /admin/tags
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Accounts

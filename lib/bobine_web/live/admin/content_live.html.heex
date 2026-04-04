@@ -1,0 +1,33 @@
+<BobineWeb.Components.AdminLayout.admin_layout
+  current_path={@current_path}
+  organization={@organization}
+  current_user={@current_user}
+  impersonating={@impersonating}
+  flash={@flash}
+>
+  <%!-- Persistent MuxUploader hook — lives outside the modal so it survives modal close --%>
+  <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
+
+  <%= if @viewing_video do %>
+    <.video_detail
+      video={@viewing_video}
+      video_tags={@video_tags}
+      all_tags={@all_tags}
+      editing={@editing_video}
+      show_tag_picker={@show_tag_picker}
+      can_manage={@can_manage}
+    />
+  <% else %>
+    <.video_list
+      videos={@videos}
+      search={@search}
+      can_manage={@can_manage}
+      show_upload_modal={@show_upload_modal}
+      upload_files={@upload_files}
+      uploading={@uploading}
+      upload_total={@upload_total}
+      upload_completed={@upload_completed}
+      upload_percent={@upload_percent}
+    />
+  <% end %>
+</BobineWeb.Components.AdminLayout.admin_layout>

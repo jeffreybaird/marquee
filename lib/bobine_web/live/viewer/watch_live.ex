@@ -1,7 +1,22 @@
 # NOTE: Convert to static page with LiveView island for the player
 defmodule BobineWeb.Viewer.WatchLive do
+  @moduledoc """
+  Video player page for subscribed viewers.
+
+  Handles Mux playback, resume position, queue panel with drag-and-drop
+  reordering, related videos grid, and engagement actions (favorite,
+  watchlist, queue) via CardActions.
+
+  Hooks: MuxPlayer, PlaybackTracker, QueueSortable, CardFocus, RowScroller
+  Events: playback_started, playback_progress, playback_paused, progress_update,
+          reorder_queue, card_toggle_favorite, card_add_to_watchlist, card_add_to_queue
+  Route: /watch/:id (viewer_subscribed session)
+  """
+
   use BobineWeb, :live_view
   use BobineWeb.Viewer.CardActions
+
+  import BobineWeb.Viewer.WatchLive.Components
 
   alias Bobine.Content
   alias Bobine.Content.AccessControl
@@ -498,248 +513,5 @@ defmodule BobineWeb.Viewer.WatchLive do
       System.convert_time_unit(System.monotonic_time() - started_at, :native, :millisecond)
 
     {duration_ms, result}
-  end
-
-  ## -----------------------------------------------------------------------
-  ## Render
-  ## -----------------------------------------------------------------------
-
-  @impl true
-  def render(assigns) do
-    ~H"""
-    <ViewerLayout.viewer_layout
-      organization={@organization}
-      current_viewer={@current_viewer}
-      impersonating_viewer={@impersonating_viewer}
-      current_path={~p"/watch/#{@video.id}"}
-      theme={@theme}
-      flash={@flash}
-    >
-      <div class="sv-watch-layout">
-        <%!-- Player + Queue row --%>
-        <div class="sv-watch-player-row">
-          <div class="sv-watch-player-col">
-            <ViewerComponents.video_player
-              video={@video}
-              resume_position={@resume_position}
-            />
-          </div>
-
-          <%!-- Queue panel --%>
-          <aside
-            :if={@current_viewer}
-            class={["sv-queue-panel", @queue_open && "open"]}
-            data-test="queue-panel"
-          >
-            <div class="sv-queue-header">
-              <h3>Queue ({@queue_count})</h3>
-              <button
-                phx-click="toggle_queue"
-                class="sv-btn sv-btn-ghost"
-                data-test="toggle-queue-btn"
-                aria-label={if @queue_open, do: "Close queue", else: "Open queue"}
-              >
-                <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div
-              :if={@queue_items != []}
-              id="queue-list"
-              phx-hook="QueueSortable"
-              class="sv-queue-list"
-              data-test="queue-list"
-            >
-              <div
-                :for={{item, index} <- Enum.with_index(@queue_items)}
-                class={["sv-queue-item", index == 0 && "next-up"]}
-                data-id={item.video_id}
-                data-test={"queue-item-#{item.video_id}"}
-              >
-                <div class="sv-queue-drag-handle" data-test="queue-drag-handle" aria-hidden="true">
-                  <.icon name="hero-bars-3" class="size-4" />
-                </div>
-                <.link
-                  navigate={~p"/watch/#{item.video_id}"}
-                  class="sv-queue-item-link"
-                  data-test={"queue-link-#{item.video_id}"}
-                >
-                  <img
-                    :if={item.video && item.video.mux_playback_id}
-                    src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=90&fit_mode=smartcrop"}
-                    alt={item.video.title}
-                    class="sv-queue-thumb"
-                  />
-                  <div class="sv-queue-item-info">
-                    <span class="sv-queue-item-title">{item.video.title}</span>
-                    <span :if={item.video.duration} class="sv-queue-item-duration">
-                      {format_duration(item.video.duration)}
-                    </span>
-                  </div>
-                </.link>
-                <button
-                  phx-click="remove_from_queue"
-                  phx-value-video-id={item.video_id}
-                  class="sv-queue-remove"
-                  data-test={"queue-remove-#{item.video_id}"}
-                  aria-label={"Remove #{item.video.title} from queue"}
-                >
-                  <.icon name="hero-x-mark" class="size-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            <div :if={@queue_items != []} class="sv-queue-footer">
-              <button
-                phx-click="clear_queue"
-                class="sv-btn sv-btn-ghost"
-                style="width: 100%"
-                data-test="clear-queue-btn"
-              >
-                Clear queue
-              </button>
-            </div>
-
-            <div :if={@queue_items == []} class="sv-queue-empty" data-test="queue-empty">
-              <p>Your queue is empty</p>
-              <p>Browse content and add videos to build your watch queue.</p>
-            </div>
-          </aside>
-        </div>
-
-        <div class="sv-watch-below">
-          <%!-- Video metadata --%>
-          <div class="sv-video-meta">
-            <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
-
-            <div :if={@video.duration} class="sv-video-badges">
-              <ViewerComponents.badge label={format_duration(@video.duration)} />
-            </div>
-
-            <p
-              :if={@video.description}
-              class="sv-video-desc"
-              data-test="video-description"
-            >
-              {@video.description}
-            </p>
-
-            <div class="sv-video-actions" data-test="video-actions">
-              <%!-- Queue navigation --%>
-              <button
-                :if={@current_viewer && @queue_count > 0}
-                phx-click="skip_to_next"
-                class="sv-btn sv-btn-secondary"
-                data-test="skip-next-btn"
-                aria-label="Skip to next video in queue"
-              >
-                <.icon name="hero-forward" class="size-5 mr-1" aria-hidden="true" /> Next
-              </button>
-
-              <button
-                :if={@go_back_available}
-                phx-click="go_back"
-                class="sv-btn sv-btn-secondary sv-go-back-btn"
-                data-test="go-back-btn"
-                aria-label="Go back to previous video"
-              >
-                <.icon name="hero-backward" class="size-5 mr-1" aria-hidden="true" /> Go back
-              </button>
-
-              <%!-- Engagement actions --%>
-              <button
-                :if={@current_viewer}
-                phx-click="add_to_queue"
-                phx-value-video-id={@video.id}
-                class="sv-btn sv-btn-secondary"
-                data-test="add-to-queue-btn"
-                aria-label="Add to queue"
-              >
-                <.icon name="hero-queue-list" class="size-5 mr-1" aria-hidden="true" /> Queue
-              </button>
-
-              <button
-                :if={@current_viewer}
-                phx-click="play_next"
-                phx-value-video-id={@video.id}
-                class="sv-btn sv-btn-secondary"
-                data-test="play-next-btn"
-                aria-label="Play next in queue"
-              >
-                <.icon name="hero-play" class="size-5 mr-1" aria-hidden="true" /> Play next
-              </button>
-
-              <button
-                :if={@current_viewer}
-                phx-click="toggle_favorite"
-                class={["sv-btn sv-btn-secondary", @is_favorited && "active"]}
-                data-test="favorite-btn"
-                aria-label={if @is_favorited, do: "Remove from favorites", else: "Add to favorites"}
-              >
-                <.icon
-                  name={if @is_favorited, do: "hero-heart-solid", else: "hero-heart"}
-                  class="size-5 mr-1"
-                  aria-hidden="true"
-                /> Favorite
-              </button>
-
-              <button
-                :if={@current_viewer}
-                phx-click="toggle_watchlist"
-                class={["sv-btn sv-btn-secondary", @in_watchlist && "active"]}
-                data-test="watchlist-btn"
-                aria-label={if @in_watchlist, do: "Remove from watchlist", else: "Add to watchlist"}
-              >
-                <.icon
-                  name={if @in_watchlist, do: "hero-bookmark-solid", else: "hero-bookmark"}
-                  class="size-5 mr-1"
-                  aria-hidden="true"
-                /> Watchlist
-              </button>
-            </div>
-          </div>
-
-          <%!-- Related content --%>
-          <div :if={@related_videos != []} class="sv-row" style="margin-top: 48px;">
-            <h2 class="sv-row-title">More from {@organization.name}</h2>
-            <div class="sv-browse-grid">
-              <ViewerComponents.content_card
-                :for={video <- fill_rows(@related_videos, 3)}
-                video={video}
-                size="grid"
-                current_viewer={@current_viewer}
-                favorited_ids={@favorited_ids}
-                watchlisted_ids={@watchlisted_ids}
-                queued_ids={@queued_ids}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </ViewerLayout.viewer_layout>
-    """
-  end
-
-  defp format_duration(nil), do: ""
-
-  defp format_duration(seconds) when is_number(seconds) do
-    minutes = div(trunc(seconds), 60)
-    secs = rem(trunc(seconds), 60)
-
-    if minutes >= 60 do
-      hours = div(minutes, 60)
-      mins = rem(minutes, 60)
-      "#{hours}h #{mins}m"
-    else
-      "#{minutes}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
-    end
-  end
-
-  defp format_duration(_), do: ""
-
-  defp fill_rows(items, cols) do
-    count = length(items)
-    full_row_count = div(count, cols) * cols
-    Enum.take(items, full_row_count)
   end
 end

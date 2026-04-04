@@ -1,4 +1,14 @@
 defmodule BobineWeb.Viewer.WatchlistLive do
+  @moduledoc """
+  Tabbed library page serving three routes: /watchlist, /favorites, /queue.
+  Active tab is derived from the URL path. Queue tab supports drag-and-drop
+  reordering via QueueSortable hook.
+
+  Hooks: QueueSortable (queue tab), CardFocus (via content_card)
+  Events: reorder_queue, remove_from_queue, card actions (via CardActions)
+  Routes: /watchlist, /favorites, /queue (viewer_subscribed session)
+  """
+
   use BobineWeb, :live_view
   use BobineWeb.Viewer.CardActions
 

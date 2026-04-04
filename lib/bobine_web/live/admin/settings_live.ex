@@ -1,4 +1,12 @@
 defmodule BobineWeb.Admin.SettingsLive do
+  @moduledoc """
+  Org settings page. Currently handles Stripe Connect onboarding
+  (initiating OAuth flow). Links to billing sub-page.
+
+  Events: connect_stripe
+  Route: /admin/settings
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

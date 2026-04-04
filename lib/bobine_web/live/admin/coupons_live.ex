@@ -1,4 +1,12 @@
 defmodule BobineWeb.Admin.CouponsLive do
+  @moduledoc """
+  Coupon management. Create/list Stripe coupons for viewer subscriptions.
+  Requires Stripe Connect. Supports percent and fixed-amount discounts.
+
+  Events: new_coupon, save, delete_coupon
+  Route: /admin/coupons
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

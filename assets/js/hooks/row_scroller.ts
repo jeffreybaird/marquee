@@ -1,6 +1,8 @@
 /**
  * RowScroller hook
  *
+ * Used by: ViewerComponents.content_row (HomeLive, WatchLive)
+ *
  * Adds left/right arrow navigation to horizontally scrollable content rows.
  * Scrolls by the visible width of the container on each click.
  *

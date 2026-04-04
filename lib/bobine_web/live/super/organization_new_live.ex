@@ -1,4 +1,12 @@
 defmodule BobineWeb.Super.OrganizationNewLive do
+  @moduledoc """
+  Create new organization form. Auto-generates slug from name,
+  optionally assigns an owner user.
+
+  Events: validate, save
+  Route: /super/organizations/new
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Accounts

@@ -1,4 +1,12 @@
 defmodule BobineWeb.Super.PlansLive do
+  @moduledoc """
+  Platform plan management. Create/edit/archive platform-level subscription
+  plans that organizations subscribe to (not viewer plans).
+
+  Events: new_plan, edit_plan, save, archive_plan, validate
+  Route: /super/plans
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing.PlatformPlan

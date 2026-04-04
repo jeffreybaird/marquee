@@ -1,4 +1,12 @@
 defmodule BobineWeb.Viewer.AccountLive do
+  @moduledoc """
+  Viewer account page. Profile editing (display name), subscription status
+  display, and links to Stripe billing portal for subscription management.
+
+  Events: edit, cancel_edit, save, manage_subscription, cancel_subscription
+  Route: /account (viewer_authenticated session)
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Billing

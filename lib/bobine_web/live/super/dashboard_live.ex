@@ -1,4 +1,11 @@
 defmodule BobineWeb.Super.DashboardLive do
+  @moduledoc """
+  Platform-level dashboard for super admins. Shows aggregate stats
+  (org count, user count, etc.) across all tenants.
+
+  Route: /super
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

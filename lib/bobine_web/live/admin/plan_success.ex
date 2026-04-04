@@ -1,4 +1,11 @@
 defmodule BobineWeb.Admin.PlanSuccessLive do
+  @moduledoc """
+  Post-checkout confirmation for platform subscription. Shows the
+  active plan details after Stripe Checkout completes.
+
+  Route: /admin/settings/billing/success
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.PlatformBilling

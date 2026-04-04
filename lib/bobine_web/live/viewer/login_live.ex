@@ -1,4 +1,12 @@
 defmodule BobineWeb.Viewer.LoginLive do
+  @moduledoc """
+  Viewer magic-link login page. Collects email and sends a magic link.
+  Shows a confirmation message regardless of whether the email exists.
+
+  Events: send_magic_link
+  Route: /login (viewer_auth session)
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Viewers

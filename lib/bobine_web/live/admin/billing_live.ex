@@ -1,4 +1,13 @@
 defmodule BobineWeb.Admin.BillingLive do
+  @moduledoc """
+  Platform billing page for operators. Shows current platform subscription
+  status, usage against plan limits, and plan selection grid for
+  upgrading/subscribing.
+
+  Events: subscribe, manage_billing
+  Route: /admin/settings/billing
+  """
+
   use BobineWeb, :live_view
 
   alias Bobine.Admin

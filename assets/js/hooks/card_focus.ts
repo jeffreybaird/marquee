@@ -1,6 +1,9 @@
 /**
  * CardFocus hook
  *
+ * Used by: ViewerComponents.content_card (HomeLive, BrowseLive, WatchLive,
+ *          WatchlistLive, HistoryLive, CollectionLive)
+ *
  * Manages hover/focus state for video card popups. Shows the popup
  * after a delay on mouseenter, hides on mouseleave. When shown,
  * injects a muted auto-playing mux-player into the popup thumbnail

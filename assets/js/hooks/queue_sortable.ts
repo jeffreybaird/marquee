@@ -1,6 +1,8 @@
 /**
  * QueueSortable hook
  *
+ * Used by: WatchlistLive (queue tab), WatchLive (queue panel)
+ *
  * Enables drag-and-drop reordering of the playback queue using Sortable.js.
  *
  * Events sent to server:
