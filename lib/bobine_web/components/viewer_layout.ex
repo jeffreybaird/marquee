@@ -40,7 +40,10 @@ defmodule BobineWeb.Components.ViewerLayout do
   def viewer_layout(assigns) do
     assigns =
       assigns
-      |> assign_new(:resolved_nav_items, fn -> assigns[:nav_items] || @default_nav_items end)
+      |> assign_new(:resolved_nav_items, fn ->
+        base = assigns[:nav_items] || @default_nav_items
+        if assigns[:current_viewer], do: base ++ [@my_stuff_nav], else: base
+      end)
       |> assign_new(:resolved_theme, fn ->
         case assigns[:theme] do
           %Theme{} = t -> t
@@ -173,6 +176,15 @@ defmodule BobineWeb.Components.ViewerLayout do
               aria-label="Your account"
             >
               {String.first(@current_viewer.display_name || @current_viewer.email)}
+            </.link>
+            <.link
+              href={~p"/viewer-session"}
+              method="delete"
+              data-test="viewer-sign-out"
+              class="viewer-sign-out"
+              aria-label="Sign out"
+            >
+              <.icon name="hero-arrow-right-on-rectangle" class="size-5" />
             </.link>
           <% else %>
             <.link navigate="/login" data-test="sign-in-link" class="viewer-sign-in">
