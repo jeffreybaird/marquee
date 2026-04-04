@@ -25,7 +25,7 @@ defmodule Bobine.TelemetryHandler do
     :telemetry.attach_many(
       "bobine-metrics-handler",
       events,
-      &handle_event/4,
+      &__MODULE__.handle_event/4,
       nil
     )
   end
