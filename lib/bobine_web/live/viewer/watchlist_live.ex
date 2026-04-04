@@ -6,6 +6,12 @@ defmodule BobineWeb.Viewer.WatchlistLive do
   alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
 
+  @tab_for_path %{
+    "/watchlist" => "watchlist",
+    "/favorites" => "favorites",
+    "/queue" => "queue"
+  }
+
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
@@ -25,6 +31,13 @@ defmodule BobineWeb.Viewer.WatchlistLive do
   end
 
   @impl true
+  def handle_params(_params, uri, socket) do
+    path = URI.parse(uri).path
+    tab = Map.get(@tab_for_path, path, "watchlist")
+    {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
   def handle_event("remove", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
@@ -39,7 +52,6 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     end
   end
 
-  @impl true
   def handle_event("unfavorite", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
@@ -55,7 +67,6 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     end
   end
 
-  @impl true
   def handle_event("remove_from_queue", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
@@ -66,10 +77,14 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     {:noreply, assign(socket, :queue_items, queue_items)}
   end
 
-  @impl true
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
-    {:noreply, assign(socket, :active_tab, tab)}
+    path = tab_path(tab)
+    {:noreply, push_patch(socket, to: path)}
   end
+
+  defp tab_path("favorites"), do: "/favorites"
+  defp tab_path("queue"), do: "/queue"
+  defp tab_path(_), do: "/watchlist"
 
   @impl true
   def render(assigns) do
@@ -78,7 +93,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
       organization={@organization}
       current_viewer={@current_viewer}
       impersonating_viewer={@impersonating_viewer}
-      current_path="/watchlist"
+      current_path={tab_path(@active_tab)}
       theme={@theme}
       flash={@flash}
     >
