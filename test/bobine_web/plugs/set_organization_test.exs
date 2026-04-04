@@ -120,6 +120,47 @@ defmodule BobineWeb.Plugs.SetOrganizationTest do
     end
   end
 
+  describe "optional mode resolves org from viewer token" do
+    test "resolves org when viewer is logged in and mode is optional", %{conn: conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      token = Bobine.Viewers.generate_viewer_session_token(viewer)
+
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Plug.Conn.put_session(:viewer_token, token)
+        |> SetOrganization.call(optional: true)
+
+      assert conn.assigns.organization.id == org.id
+    end
+
+    test "shows marketing page when no viewer token in optional mode", %{conn: conn} do
+      _org = insert(:organization)
+
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> SetOrganization.call(optional: true)
+
+      assert conn.assigns.organization == nil
+      refute conn.halted
+    end
+
+    test "does not resolve org from invalid viewer token in optional mode", %{conn: conn} do
+      _org = insert(:organization)
+
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Plug.Conn.put_session(:viewer_token, "invalid-token")
+        |> SetOrganization.call(optional: true)
+
+      assert conn.assigns.organization == nil
+      refute conn.halted
+    end
+  end
+
   describe "multi-tenant isolation" do
     test "resolves correct org from subdomain when multiple orgs exist", %{conn: conn} do
       org_a = insert(:organization)

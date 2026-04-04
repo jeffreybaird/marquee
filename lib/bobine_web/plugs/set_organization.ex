@@ -103,14 +103,21 @@ defmodule BobineWeb.Plugs.SetOrganization do
     end
   end
 
-  # In optional mode, only resolve from session if an impersonation is active
-  # (the admin chose a specific org). Skip membership fallback and dev fallback
-  # so that `/` without an explicit org signal shows the marketing page.
+  # In optional mode, resolve from session if an impersonation is active
+  # (the admin chose a specific org) or if a viewer is logged in (viewer
+  # belongs to exactly one org). Skip membership fallback and dev fallback
+  # so that `/` without an explicit org signal shows the marketing page
+  # for unauthenticated visitors.
   defp maybe_resolve_implicit(conn, true = _optional) do
-    if get_session(conn, :impersonating_viewer_id) || get_session(conn, :impersonated_org_id) do
-      resolve_from_session(conn)
-    else
-      {:error, :not_found}
+    cond do
+      get_session(conn, :impersonating_viewer_id) || get_session(conn, :impersonated_org_id) ->
+        resolve_from_session(conn)
+
+      get_session(conn, :viewer_token) ->
+        resolve_from_viewer_token(conn)
+
+      true ->
+        {:error, :not_found}
     end
   end
 
@@ -118,6 +125,18 @@ defmodule BobineWeb.Plugs.SetOrganization do
     with {:error, _} <- resolve_from_session(conn),
          {:error, _} <- resolve_from_user_membership(conn) do
       {:error, :not_found}
+    end
+  end
+
+  defp resolve_from_viewer_token(conn) do
+    token = get_session(conn, :viewer_token)
+
+    case Bobine.Viewers.get_viewer_by_session_token(token) do
+      %{organization_id: org_id} ->
+        Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
+
+      nil ->
+        {:error, :not_found}
     end
   end
 
