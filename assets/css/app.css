@@ -472,9 +472,11 @@
   display: block;
 }
 
-/* When card is NOT inside a popup container, keep original hover */
+/* Instant raise on hover — popup/preview appears after JS delay */
 .sv-card:hover {
   z-index: 2;
+  transform: scale(1.03);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .sv-card-thumb-link {
@@ -625,9 +627,7 @@
 }
 
 .sv-card-container.sv-card-focused .sv-card {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  transform: scale(1.03);
-  transition: transform 250ms ease, box-shadow 250ms ease;
+  /* Raise is handled by .sv-card:hover — focused only controls popup */
 }
 
 .sv-card {
