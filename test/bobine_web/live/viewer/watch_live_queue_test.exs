@@ -82,7 +82,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       {:ok, _} = Engagement.add_to_queue(org, viewer, other)
 
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
-      view |> element(~s([data-test="play-next-btn"])) |> render_click()
+      render_click(view, "play_next", %{"video-id" => video.id})
 
       html = render(view)
       # The main video should be first (position 0)
@@ -119,6 +119,34 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
 
       html = render(view)
       assert html =~ ~s(data-test="queue-empty")
+    end
+
+    test "chevron toggle opens and closes queue panel", %{org: org, viewer: viewer, video: video} do
+      other =
+        insert(:video,
+          organization: org,
+          title: "Chevron Test",
+          mux_status: "ready",
+          mux_playback_id: "pb_chev"
+        )
+
+      {:ok, _} = Engagement.add_to_queue(org, viewer, other)
+
+      {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+
+      # Chevron toggle is present
+      assert html =~ ~s(data-test="queue-chevron-toggle")
+
+      # Open the queue via chevron
+      view |> element(~s([data-test="queue-chevron-toggle"])) |> render_click()
+      html = render(view)
+      assert html =~ "Chevron Test"
+      assert html =~ ~s(sv-queue-panel open)
+
+      # Close the queue via chevron
+      view |> element(~s([data-test="queue-chevron-toggle"])) |> render_click()
+      html = render(view)
+      refute html =~ ~s(sv-queue-panel open)
     end
 
     test "next button only visible when queue has items", %{viewer: viewer, video: video} do
@@ -166,11 +194,11 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
 
       assert html =~ ~s(data-test="video-actions")
       assert html =~ ~s(data-test="add-to-queue-btn")
-      assert html =~ ~s(data-test="play-next-btn")
       assert html =~ ~s(data-test="favorite-btn")
       assert html =~ ~s(data-test="watchlist-btn")
       assert html =~ ~s(data-test="queue-panel")
       assert html =~ ~s(data-test="toggle-queue-btn")
+      assert html =~ ~s(data-test="queue-chevron-toggle")
     end
   end
 end

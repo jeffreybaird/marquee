@@ -10,10 +10,25 @@
     <%!-- Player + Queue row --%>
     <div class="sv-watch-player-row">
       <div class="sv-watch-player-col">
-        <ViewerComponents.video_player
-          video={@video}
-          resume_position={@resume_position}
-        />
+        <div class="sv-player-wrapper">
+          <ViewerComponents.video_player
+            video={@video}
+            resume_position={@resume_position}
+          />
+          <button
+            :if={@current_viewer}
+            phx-click="toggle_queue"
+            class="sv-queue-toggle-chevron"
+            data-test="queue-chevron-toggle"
+            aria-label={if @queue_open, do: "Close queue", else: "Open queue"}
+          >
+            <.icon
+              name={if @queue_open, do: "hero-chevron-double-left", else: "hero-chevron-double-right"}
+              class="size-5"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
       </div>
 
       <%!-- Queue panel --%>
@@ -118,16 +133,6 @@
         <div class="sv-video-actions" data-test="video-actions">
           <%!-- Queue navigation --%>
           <button
-            :if={@current_viewer && @queue_count > 0}
-            phx-click="skip_to_next"
-            class="sv-btn sv-btn-secondary"
-            data-test="skip-next-btn"
-            aria-label="Skip to next video in queue"
-          >
-            <.icon name="hero-forward" class="size-5 mr-1" aria-hidden="true" /> Next
-          </button>
-
-          <button
             :if={@go_back_available}
             phx-click="go_back"
             class="sv-btn sv-btn-secondary sv-go-back-btn"
@@ -135,6 +140,16 @@
             aria-label="Go back to previous video"
           >
             <.icon name="hero-backward" class="size-5 mr-1" aria-hidden="true" /> Go back
+          </button>
+
+          <button
+            :if={@current_viewer && @queue_count > 0}
+            phx-click="skip_to_next"
+            class="sv-btn sv-btn-secondary"
+            data-test="skip-next-btn"
+            aria-label="Skip to next video in queue"
+          >
+            <.icon name="hero-forward" class="size-5 mr-1" aria-hidden="true" /> Next
           </button>
 
           <%!-- Engagement actions --%>
@@ -147,17 +162,6 @@
             aria-label="Add to queue"
           >
             <.icon name="hero-queue-list" class="size-5 mr-1" aria-hidden="true" /> Queue
-          </button>
-
-          <button
-            :if={@current_viewer}
-            phx-click="play_next"
-            phx-value-video-id={@video.id}
-            class="sv-btn sv-btn-secondary"
-            data-test="play-next-btn"
-            aria-label="Play next in queue"
-          >
-            <.icon name="hero-play" class="size-5 mr-1" aria-hidden="true" /> Play next
           </button>
 
           <button

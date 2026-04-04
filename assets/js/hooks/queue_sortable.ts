@@ -9,15 +9,10 @@
  *   - "reorder_queue" { ordered_ids: string[] }
  */
 
-declare const Sortable: any
+import Sortable from "../../vendor/sortable"
 
 const QueueSortable = {
   mounted(this: any) {
-    if (typeof Sortable === "undefined") {
-      console.warn("Sortable.js not loaded — queue drag-and-drop disabled")
-      return
-    }
-
     this.sortable = new Sortable(this.el, {
       animation: 150,
       handle: ".sv-queue-drag-handle",

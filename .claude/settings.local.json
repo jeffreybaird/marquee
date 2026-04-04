@@ -72,7 +72,10 @@
       "Bash(git commit -m ':*)",
       "Bash(wc -l /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/viewer/*.ex)",
       "Bash(wc -l /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/live/admin/*.ex)",
-      "Bash(wc -l /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/components/*.ex)"
+      "Bash(wc -l /Users/jeffreybaird/personal-repos/bobine/lib/bobine_web/components/*.ex)",
+      "Bash(find /Users/jeffreybaird/personal-repos/bobine/assets/vendor -type f -exec grep -l \"sortable\\\\|Sortable\" {} \\\\;)",
+      "Bash(curl -sL \"https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js\" -o /Users/jeffreybaird/personal-repos/bobine/assets/vendor/sortable.js)",
+      "Bash(mix assets.build)"
     ]
   }
 }
