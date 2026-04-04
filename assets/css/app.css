@@ -465,6 +465,7 @@
 
 .sv-card {
   flex-shrink: 0;
+  min-width: 0;
   border-radius: var(--sv-radius-md);
   overflow: hidden;
   background: var(--sv-card-bg);
@@ -542,6 +543,7 @@
   display: block;
   line-height: 1.3;
   margin-bottom: 6px;
+  min-width: 0;
 }
 
 .sv-card-meta-row {
@@ -613,6 +615,7 @@
 .sv-card-container {
   position: relative;
   flex-shrink: 0;
+  min-width: 0;
   z-index: 1;
 }
 
