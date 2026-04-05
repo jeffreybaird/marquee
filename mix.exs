@@ -11,7 +11,8 @@ defmodule Bobine.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      dialyzer: [plt_add_apps: [:mix, :ex_unit, :wallaby]]
     ]
   end
 
@@ -27,7 +28,7 @@ defmodule Bobine.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [{:precommit, :test}, {:"bobine.verify", :test}]
     ]
   end
 

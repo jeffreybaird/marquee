@@ -288,6 +288,47 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       assert html =~ "data-test=\"video-title\""
     end
 
+    test "shows mux player for ready video", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Playable",
+          mux_status: "ready",
+          mux_playback_id: "play_abc123"
+        )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: video.id})
+
+      assert html =~ "data-test=\"admin-video-player\""
+      assert html =~ "data-test=\"admin-mux-player\""
+      assert html =~ "play_abc123"
+    end
+
+    test "shows thumbnail fallback for non-ready video", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Processing",
+          mux_status: "preparing",
+          mux_playback_id: "play_pending"
+        )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+      html = render_click(view, "view_video", %{id: video.id})
+
+      refute html =~ "data-test=\"admin-video-player\""
+      assert html =~ "image.mux.com/play_pending/thumbnail.webp"
+    end
+
     test "viewer_support cannot see edit button on detail", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)

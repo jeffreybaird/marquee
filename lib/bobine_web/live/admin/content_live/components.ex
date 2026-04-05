@@ -232,9 +232,25 @@ defmodule BobineWeb.Admin.ContentLive.Components do
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <%!-- Video info panel --%>
         <div class="lg:col-span-2 space-y-4">
-          <%!-- Thumbnail --%>
+          <%!-- Video Player --%>
           <div
-            :if={@video.mux_playback_id}
+            :if={@video.mux_playback_id && @video.mux_status == "ready"}
+            class="w-full aspect-video rounded-lg bg-base-300 overflow-hidden"
+            data-test="admin-video-player"
+          >
+            <mux-player
+              stream-type="on-demand"
+              playback-id={@video.mux_playback_id}
+              metadata-video-title={@video.title}
+              thumbnail-time="0"
+              style="width:100%;height:100%;display:block;"
+              data-test="admin-mux-player"
+            >
+            </mux-player>
+          </div>
+          <%!-- Thumbnail fallback for non-ready videos --%>
+          <div
+            :if={@video.mux_playback_id && @video.mux_status != "ready"}
             class="w-full aspect-video rounded-lg bg-base-300 overflow-hidden"
           >
             <img
