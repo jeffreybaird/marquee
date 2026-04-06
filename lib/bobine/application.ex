@@ -5,11 +5,13 @@ defmodule Bobine.Application do
 
   use Application
 
+  alias Bobine.Telemetry.EctoHandler
+
   @impl true
   def start(_type, _args) do
     # OpenTelemetry auto-instrumentation — must be called before supervision tree
     OpentelemetryPhoenix.setup()
-    OpentelemetryEcto.setup([:bobine, :repo])
+    EctoHandler.setup([:bobine, :repo])
     setup_oban_telemetry()
     Bobine.TelemetryHandler.setup()
 
