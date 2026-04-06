@@ -6,10 +6,12 @@ defmodule Bobine.Workers.MuxAssetCleanup do
   use Oban.Worker, queue: :mux
 
   require Logger
+  require OpenTelemetry.Tracer, as: Tracer
 
   @impl true
   def perform(%Oban.Job{args: %{"mux_asset_id" => asset_id, "organization_id" => org_id}}) do
     Logger.metadata(org_id: org_id)
+    Tracer.set_attributes([{"bobine.org.id", org_id}])
     Logger.info("Cleaning up Mux asset", asset_id: asset_id)
 
     case mux_client().delete_asset(asset_id) do

@@ -35,7 +35,12 @@ defmodule Bobine.Content.MuxClient do
   @impl true
   def delete_asset(asset_id) do
     Tracer.with_span "bobine.mux.delete_asset" do
-      Tracer.set_attributes([{"mux.operation", "delete_asset"}, {"bobine.service", "mux"}])
+      Tracer.set_attributes([
+        {"bobine.mux.operation", "delete_asset"},
+        {"bobine.service", "mux"}
+        | org_attributes_from_logger()
+      ])
+
       start = System.monotonic_time(:millisecond)
 
       result = Assets.delete(client(), asset_id)
@@ -69,7 +74,12 @@ defmodule Bobine.Content.MuxClient do
 
   defp traced_call(operation, fun) do
     Tracer.with_span "bobine.mux.#{operation}" do
-      Tracer.set_attributes([{"mux.operation", operation}, {"bobine.service", "mux"}])
+      Tracer.set_attributes([
+        {"bobine.mux.operation", operation},
+        {"bobine.service", "mux"}
+        | org_attributes_from_logger()
+      ])
+
       start = System.monotonic_time(:millisecond)
 
       result = fun.()
@@ -96,6 +106,13 @@ defmodule Bobine.Content.MuxClient do
       "Mux #{operation} failed type=#{inspect(type, pretty: true, limit: :infinity)} " <>
         "messages=#{inspect(messages, pretty: true, limit: :infinity)}"
     )
+  end
+
+  defp org_attributes_from_logger do
+    case Logger.metadata()[:org_id] do
+      nil -> []
+      org_id -> [{"bobine.org.id", org_id}]
+    end
   end
 
   defp client do

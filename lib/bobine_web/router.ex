@@ -20,6 +20,7 @@ defmodule BobineWeb.Router do
 
   pipeline :set_organization do
     plug BobineWeb.Plugs.SetOrganization
+    plug BobineWeb.Plugs.TelemetryOrgPlug
   end
 
   pipeline :optional_organization do
@@ -54,7 +55,10 @@ defmodule BobineWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{BobineWeb.UserAuth, :require_authenticated}] do
+      on_mount: [
+        {BobineWeb.UserAuth, :require_authenticated},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
+      ] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
@@ -66,7 +70,10 @@ defmodule BobineWeb.Router do
     pipe_through [:browser]
 
     live_session :current_user,
-      on_mount: [{BobineWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        {BobineWeb.UserAuth, :mount_current_scope},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
+      ] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
@@ -84,7 +91,10 @@ defmodule BobineWeb.Router do
     pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
 
     live_session :admin,
-      on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
+      on_mount: [
+        {BobineWeb.Hooks.AssignScope, :require_authenticated},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
+      ] do
       live "/", DashboardLive
       live "/content", ContentLive
       live "/collections", CollectionsLive
@@ -127,7 +137,8 @@ defmodule BobineWeb.Router do
     live_session :super_admin,
       on_mount: [
         {BobineWeb.UserAuth, :require_authenticated},
-        {BobineWeb.Hooks.RequireSuperAdmin, :require_super_admin}
+        {BobineWeb.Hooks.RequireSuperAdmin, :require_super_admin},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", DashboardLive
       live "/organizations", OrganizationsLive
@@ -169,7 +180,8 @@ defmodule BobineWeb.Router do
     live_session :viewer_auth,
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
-        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/register", RegisterLive
       live "/login", LoginLive
@@ -186,7 +198,8 @@ defmodule BobineWeb.Router do
     live_session :home,
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
-        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", HomeLive
     end
@@ -202,7 +215,8 @@ defmodule BobineWeb.Router do
     live_session :viewer_public,
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
-        {BobineWeb.Hooks.AssignViewerScope, :optional_auth}
+        {BobineWeb.Hooks.AssignViewerScope, :optional_auth},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/browse", BrowseLive
       live "/browse/:source", ViewAllLive
@@ -220,7 +234,8 @@ defmodule BobineWeb.Router do
     live_session :viewer_authenticated,
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
-        {BobineWeb.Hooks.AssignViewerScope, :require_authenticated}
+        {BobineWeb.Hooks.AssignViewerScope, :require_authenticated},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/account", AccountLive
       live "/account/payment-issue", PaymentIssueLive
@@ -240,7 +255,8 @@ defmodule BobineWeb.Router do
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
         {BobineWeb.Hooks.AssignViewerScope, :require_authenticated},
-        {BobineWeb.Hooks.RequireSubscription, :require_subscription}
+        {BobineWeb.Hooks.RequireSubscription, :require_subscription},
+        {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/watch/:id", WatchLive
       live "/watchlist", WatchlistLive

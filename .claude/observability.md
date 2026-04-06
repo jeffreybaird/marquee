@@ -74,10 +74,13 @@ Oban workers:
 
 ```elixir
 %{
-  "bobine.user.id" => user.id,
-  "bobine.user.email" => user.email
+  "bobine.user.id" => user.id
 }
 ```
+
+**No PII in span attributes.** Never put email addresses, names, or other
+personally identifiable information in span attributes. User ID is sufficient
+for trace correlation. PII in the telemetry pipeline creates compliance risk.
 
 ### On external API calls
 
@@ -367,7 +370,88 @@ end
 
 ---
 
-## Checklist for New Features
+## LiveView Spans and HTTP Attributes
+
+LiveView spans do **not** carry HTTP semantic convention attributes
+(`http.route`, `http.method`, `http.status_code`, `http.target`,
+`http.scheme`). This is by design — LiveView operates over an existing
+WebSocket connection, so there is no HTTP request/response cycle per mount
+or event.
+
+HTTP-level observability comes from the **initial page load** span, which is
+a regular HTTP request instrumented by `OpentelemetryPhoenix`. Once the page
+loads and the LiveView WebSocket connects, subsequent mounts and events
+produce LiveView-specific spans instead.
+
+### SpanEnrichment on_mount hook
+
+`BobineWeb.Hooks.SpanEnrichment` runs as the **last** `on_mount` hook in
+every `live_session`. It enriches the current span with:
+
+- `bobine.liveview.module` — the LiveView module name (e.g. `BobineWeb.Admin.ContentLive`)
+- `bobine.liveview.connected` — `true` on connected mount, `false` on static render
+- `bobine.org.id` — the current tenant's ID (if resolved)
+- `bobine.org.slug` — the current tenant's slug (if resolved)
+- `bobine.user.id` — the current operator user's ID (if authenticated)
+
+This hook must always be listed **after** `AssignScope` (or equivalent)
+in the `on_mount` list so that `current_scope` is populated.
+
+### TelemetryOrgPlug for controller requests
+
+`BobineWeb.Plugs.TelemetryOrgPlug` runs in the `:set_organization` pipeline
+after `SetOrganization`. It sets `bobine.org.id`, `bobine.org.slug`, and
+`bobine.user.id` on the current span for all non-LiveView HTTP requests
+that resolve an organization.
+
+---
+
+## Mux Span Conventions
+
+All Mux API calls produce spans named `bobine.mux.<operation>`. The
+`MuxClient` module instruments every call with:
+
+| Attribute | Description |
+|---|---|
+| `bobine.service` | Always `"mux"` |
+| `bobine.mux.operation` | The operation name (e.g. `"create_direct_upload"`) |
+| `bobine.org.id` | Tenant ID, read from Logger metadata |
+| `http.status_code` | HTTP status on success |
+| `duration_ms` | Client-side latency in milliseconds |
+
+On error, the span status is set to `:error` with the reason.
+
+### Filtering Mux spans in Grafana
+
+```
+{resource.service.name="bobine" && span.bobine.service = "mux"}
+{resource.service.name="bobine" && span.bobine.service = "mux" && duration > 500ms}
+{resource.service.name="bobine" && span.bobine.mux.operation = "create_direct_upload"}
+```
+
+---
+
+## Oban Worker Org Attribution
+
+Every Oban worker that has `organization_id` in its args **must** call
+`Tracer.set_attributes([{"bobine.org.id", org_id}])` at the start of
+`perform/1`. This enables per-tenant filtering of background job traces.
+
+```elixir
+def perform(%Oban.Job{args: %{"organization_id" => org_id} = _args}) do
+  Logger.metadata(org_id: org_id)
+  Tracer.set_attributes([{"bobine.org.id", org_id}])
+  # ... rest of worker logic
+end
+```
+
+Workers that resolve org_id during processing (e.g. `StripeWebhookProcessor`
+which reads it from event metadata) should set the attribute as soon as the
+org_id is known.
+
+---
+
+
 
 When adding a new feature, verify:
 

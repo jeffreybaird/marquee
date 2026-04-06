@@ -39,3 +39,5 @@ npm-debug.log
 
 # Wallaby E2E test screenshots
 /screenshots/
+
+Trace-*

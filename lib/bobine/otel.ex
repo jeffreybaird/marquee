@@ -78,14 +78,14 @@ defmodule Bobine.Otel do
 
   @doc """
   Adds user context attributes to the current span.
+  Only sets the user ID — no PII (email, name) in span attributes.
 
       iex> Bobine.Otel.set_user_attributes(nil)
       :ok
   """
-  def set_user_attributes(%{id: user_id, email: email}) do
+  def set_user_attributes(%{id: user_id}) do
     Tracer.set_attributes([
-      {"bobine.user.id", user_id},
-      {"bobine.user.email", email}
+      {"bobine.user.id", user_id}
     ])
   rescue
     UndefinedFunctionError -> :ok
