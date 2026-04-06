@@ -91,6 +91,7 @@ defmodule Bobine.Factory do
       organization: build(:organization),
       collection: build(:collection),
       video: build(:video),
+      item_type: :video,
       position: sequence(:collection_item_position, & &1)
     }
   end

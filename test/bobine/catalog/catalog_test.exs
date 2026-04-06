@@ -229,7 +229,7 @@ defmodule Bobine.Catalog.CatalogTest do
       assert ids == [v2.id, v1.id]
     end
 
-    test "for collection row returns collection videos", %{org: org, scope: scope} do
+    test "for collection row returns collection items", %{org: org, scope: scope} do
       {:ok, collection} = Content.create_collection(scope, %{title: "Series"})
       video = insert(:video, organization: org)
       {:ok, _} = Content.add_video_to_collection(scope, collection, video)
@@ -242,9 +242,11 @@ defmodule Bobine.Catalog.CatalogTest do
           max_items: 20
         })
 
-      %{results: videos} = Catalog.resolve_row_content(org, row)
-      assert length(videos) == 1
-      assert hd(videos).id == video.id
+      %{results: items} = Catalog.resolve_row_content(org, row)
+      assert length(items) == 1
+      item = hd(items)
+      assert item.item_type == :video
+      assert item.video.id == video.id
     end
 
     test "for tag row returns tagged videos", %{org: org, scope: scope} do

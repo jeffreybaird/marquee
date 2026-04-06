@@ -646,6 +646,7 @@ defmodule Bobine.Content do
         organization_id: scope.organization.id,
         collection_id: collection.id,
         video_id: video.id,
+        item_type: :video,
         position: position
       }
 
@@ -657,6 +658,94 @@ defmodule Bobine.Content do
           )
 
           Audit.log(scope, "collection.video_added", item)
+          {:ok, item}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  @doc """
+  Adds a season to a collection at the given position. Sets item_type to :season.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_season_to_collection(
+        scope,
+        %Collection{} = collection,
+        %Season{} = season,
+        position \\ nil
+      ) do
+    Bobine.Otel.with_span "bobine.content.add_season_to_collection",
+                          %{"bobine.org.id" => scope.organization.id} do
+      position = position || next_collection_item_position(collection.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        collection_id: collection.id,
+        season_id: season.id,
+        item_type: :season,
+        position: position
+      }
+
+      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(scope, {:collection_item_added, item})
+
+          Audit.log(scope, "collection_item.added", item, %{
+            item_type: "season",
+            season_id: season.id
+          })
+
+          {:ok, item}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  @doc """
+  Adds a series to a collection at the given position. Sets item_type to :series.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_series_to_collection(
+        scope,
+        %Collection{} = collection,
+        %Series{} = series,
+        position \\ nil
+      ) do
+    Bobine.Otel.with_span "bobine.content.add_series_to_collection",
+                          %{"bobine.org.id" => scope.organization.id} do
+      position = position || next_collection_item_position(collection.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        collection_id: collection.id,
+        series_id: series.id,
+        item_type: :series,
+        position: position
+      }
+
+      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(scope, {:collection_item_added, item})
+
+          Audit.log(scope, "collection_item.added", item, %{
+            item_type: "series",
+            series_id: series.id
+          })
+
           {:ok, item}
 
         {:error, changeset} ->
@@ -707,6 +796,7 @@ defmodule Bobine.Content do
       organization_id: scope.organization.id,
       collection_id: collection.id,
       video_id: video.id,
+      item_type: :video,
       position: position
     }
 
@@ -798,6 +888,82 @@ defmodule Bobine.Content do
     Enum.any?(changeset.errors, fn {_field, {_msg, opts}} ->
       Keyword.get(opts, :constraint) == :unique
     end)
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Collection Items (polymorphic)
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Lists collection items with their referenced entities preloaded.
+  Returns items in position order with the correct association preloaded
+  based on item_type.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_collection_items(%Organization{id: org_id}, %{id: collection_id}, opts \\ []) do
+    Bobine.Otel.with_span "bobine.content.list_collection_items",
+                          %{"bobine.org.id" => org_id} do
+      CollectionItem
+      |> where(organization_id: ^org_id, collection_id: ^collection_id)
+      |> order_by(:position)
+      |> preload([:video, :series, season: :series])
+      |> Pagination.paginate(opts)
+    end
+  end
+
+  @doc """
+  Removes a collection item by soft-deleting it. Works for any item type.
+
+  Exempt from doctest — hits the database.
+  """
+  def remove_collection_item(scope, %CollectionItem{} = item) do
+    Bobine.Otel.with_span "bobine.content.remove_collection_item",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case Repo.delete(item) do
+        {:ok, _} ->
+          Events.broadcast(scope, {:collection_item_removed, item})
+
+          Audit.log(scope, "collection_item.removed", item, %{
+            item_type: to_string(item.item_type)
+          })
+
+          :ok
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Reorders collection items by updating positions.
+
+  Accepts a list of collection item IDs in the desired order.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_collection_items(scope, %Collection{} = collection, ordered_item_ids) do
+    Bobine.Otel.with_span "bobine.content.reorder_collection_items",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_item_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {id, position} ->
+          CollectionItem
+          |> where(id: ^id, collection_id: ^collection.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:collection_items_reordered, %{collection: collection}})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
   end
 
   ## -----------------------------------------------------------------------

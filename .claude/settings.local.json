@@ -85,7 +85,10 @@
       "Bash(ls -la /Users/jeffreybaird/personal-repos/bobine/.claude/*.md)",
       "Bash(mix ecto.gen.migration create_series)",
       "Bash(mix ecto.gen.migration create_seasons)",
-      "Bash(mix ecto.gen.migration create_episodes)"
+      "Bash(mix ecto.gen.migration create_episodes)",
+      "Bash(mix ecto.gen.migration add_polymorphic_refs_to_collection_items)",
+      "Bash(mix ecto.gen.migration backfill_collection_item_types)",
+      "Bash(pg_isready)"
     ]
   }
 }

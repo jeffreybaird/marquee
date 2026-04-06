@@ -14,6 +14,7 @@ defmodule Bobine.Catalog do
   alias Bobine.Cache
   alias Bobine.Catalog.{HeroSlide, Row, RowItem}
   alias Bobine.Content
+  alias Bobine.Content.{CollectionItem, Video}
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
@@ -334,7 +335,7 @@ defmodule Bobine.Catalog do
         list_row_items(organization, row, opts)
 
       :collection ->
-        Content.list_collection_videos(organization, %{id: row.source_id}, opts)
+        Content.list_collection_items(organization, %{id: row.source_id}, opts)
 
       :tag ->
         Content.list_videos_by_tag(organization, %{id: row.source_id}, opts)
@@ -386,6 +387,61 @@ defmodule Bobine.Catalog do
   end
 
   @doc """
+  Cached version of resolve_row_content_as_videos. Bypasses cache for
+  personalized rows (`:continue_watching`).
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_row_content_as_videos_cached(
+        %Organization{} = organization,
+        %Row{} = row,
+        opts \\ []
+      ) do
+    case row.source_type do
+      :continue_watching ->
+        resolve_row_content_as_videos(organization, row, opts)
+
+      _ ->
+        Cache.fetch(
+          "row_content_videos:#{organization.id}:#{row.id}",
+          [ttl: :timer.minutes(1)],
+          fn -> resolve_row_content_as_videos(organization, row, opts) end
+        )
+    end
+  end
+
+  @doc """
+  Resolves row content as a flat list of videos.
+
+  For collection rows, seasons are expanded to their episode videos and series
+  are expanded to all season episode videos. Non-collection rows pass through
+  unchanged. Use this for contexts that need a flat video list (e.g. the
+  existing content card renderer).
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_row_content_as_videos(%Organization{} = organization, %Row{} = row, opts \\ []) do
+    result = resolve_row_content(organization, row, opts)
+
+    videos = Enum.flat_map(result.results, &flatten_item_to_videos(organization, &1))
+    %{result | results: videos}
+  end
+
+  defp flatten_item_to_videos(_org, %CollectionItem{item_type: :video, video: video}), do: [video]
+
+  defp flatten_item_to_videos(org, %CollectionItem{item_type: :season, season: season}) do
+    Content.list_episodes(org, season) |> Enum.map(& &1.video)
+  end
+
+  defp flatten_item_to_videos(org, %CollectionItem{item_type: :series, series: series}) do
+    Content.list_seasons(org, series).results
+    |> Enum.flat_map(fn s -> Content.list_episodes(org, s) |> Enum.map(& &1.video) end)
+  end
+
+  defp flatten_item_to_videos(_org, %Video{} = video), do: [video]
+  defp flatten_item_to_videos(_org, _), do: []
+
+  @doc """
   Loads catalog rows with their resolved content for the viewer-facing homepage.
 
   Fetches visible rows, excludes hero rows (which render separately), resolves
@@ -405,7 +461,10 @@ defmodule Bobine.Catalog do
     |> Enum.reject(&(&1.source_type == :hero))
     |> Enum.map(fn row ->
       row_opts = opts |> Keyword.put(:per_page, row.max_items)
-      %{results: videos} = resolve_row_content_cached(organization, row, row_opts)
+
+      %{results: videos} =
+        resolve_row_content_as_videos_cached(organization, row, row_opts)
+
       %{row: row, videos: videos}
     end)
     |> Enum.reject(fn %{videos: videos} -> Enum.empty?(videos) end)

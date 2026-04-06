@@ -1,11 +1,11 @@
 defmodule BobineWeb.Admin.CollectionsLive do
   @moduledoc """
   Collection management. CRUD operations for content collections,
-  video picker for assigning videos to collections, real-time updates
-  via Events.
+  item picker for assigning videos, seasons, and series to collections,
+  real-time updates via Events.
 
   Events: new_collection, edit_collection, save_collection, delete_collection,
-          select_collection, add_video, remove_video
+          select_collection, add_item, remove_item
   Route: /admin/collections
   """
 
@@ -32,10 +32,13 @@ defmodule BobineWeb.Admin.CollectionsLive do
      |> assign(:can_manage, can_manage)
      |> assign(:show_form, false)
      |> assign(:editing_collection, nil)
-     |> assign(:show_video_picker, false)
+     |> assign(:show_item_picker, false)
      |> assign(:selected_collection, nil)
-     |> assign(:collection_videos, [])
-     |> assign(:available_videos, [])
+     |> assign(:collection_items, [])
+     |> assign(:picker_type, :video)
+     |> assign(:picker_videos, [])
+     |> assign(:picker_seasons, [])
+     |> assign(:picker_series, [])
      |> assign(:selected_video_ids, MapSet.new())
      |> assign(:form, nil)
      |> load_collections()}
@@ -148,12 +151,12 @@ defmodule BobineWeb.Admin.CollectionsLive do
 
     case Content.get_collection(org, id) do
       {:ok, collection} ->
-        %{results: videos} = Content.list_collection_videos(org, collection)
+        %{results: items} = Content.list_collection_items(org, collection)
 
         {:noreply,
          assign(socket,
            selected_collection: collection,
-           collection_videos: videos
+           collection_items: items
          )}
 
       {:error, :not_found} ->
@@ -166,39 +169,50 @@ defmodule BobineWeb.Admin.CollectionsLive do
     {:noreply,
      assign(socket,
        selected_collection: nil,
-       collection_videos: [],
-       show_video_picker: false,
-       available_videos: [],
+       collection_items: [],
+       show_item_picker: false,
+       picker_type: :video,
+       picker_videos: [],
+       picker_seasons: [],
+       picker_series: [],
        selected_video_ids: MapSet.new()
      )}
   end
 
+  # Keep legacy event name for backward compatibility
   @impl true
   def handle_event("open_video_picker", _params, socket) do
-    org = socket.assigns.organization
-    collection = socket.assigns.selected_collection
-    %{results: all_videos} = Content.list_videos(org, per_page: 100)
-    %{results: collection_videos} = Content.list_collection_videos(org, collection, per_page: 100)
+    handle_event("open_item_picker", %{}, socket)
+  end
 
-    collection_video_ids = MapSet.new(collection_videos, & &1.id)
-    available = Enum.reject(all_videos, &MapSet.member?(collection_video_ids, &1.id))
-
-    {:noreply,
-     assign(socket,
-       show_video_picker: true,
-       available_videos: available,
-       selected_video_ids: MapSet.new()
-     )}
+  @impl true
+  def handle_event("open_item_picker", _params, socket) do
+    socket = load_picker_content(socket, :video)
+    {:noreply, assign(socket, show_item_picker: true, picker_type: :video)}
   end
 
   @impl true
   def handle_event("close_video_picker", _params, socket) do
+    handle_event("close_item_picker", %{}, socket)
+  end
+
+  @impl true
+  def handle_event("close_item_picker", _params, socket) do
     {:noreply,
      assign(socket,
-       show_video_picker: false,
-       available_videos: [],
+       show_item_picker: false,
+       picker_videos: [],
+       picker_seasons: [],
+       picker_series: [],
        selected_video_ids: MapSet.new()
      )}
+  end
+
+  @impl true
+  def handle_event("set_picker_type", %{"type" => type}, socket) do
+    picker_type = String.to_existing_atom(type)
+    socket = load_picker_content(socket, picker_type)
+    {:noreply, assign(socket, picker_type: picker_type, selected_video_ids: MapSet.new())}
   end
 
   @impl true
@@ -229,15 +243,15 @@ defmodule BobineWeb.Admin.CollectionsLive do
 
       case Content.add_videos_to_collection(scope, collection, videos) do
         {:ok, items} ->
-          %{results: collection_videos} = Content.list_collection_videos(org, collection)
+          %{results: collection_items} = Content.list_collection_items(org, collection)
           count = length(items)
 
           {:noreply,
            socket
            |> assign(
-             collection_videos: collection_videos,
-             show_video_picker: false,
-             available_videos: [],
+             collection_items: collection_items,
+             show_item_picker: false,
+             picker_videos: [],
              selected_video_ids: MapSet.new()
            )
            |> put_flash(
@@ -252,6 +266,64 @@ defmodule BobineWeb.Admin.CollectionsLive do
   end
 
   @impl true
+  def handle_event("add_item_to_collection", %{"type" => type, "id" => id}, socket) do
+    scope = socket.assigns.current_scope
+    org = scope.organization
+    collection = socket.assigns.selected_collection
+
+    result =
+      case type do
+        "season" ->
+          season = Content.get_season!(org, id)
+          Content.add_season_to_collection(scope, collection, season)
+
+        "series" ->
+          series = Content.get_series!(org, id)
+          Content.add_series_to_collection(scope, collection, series)
+      end
+
+    case result do
+      {:ok, _item} ->
+        %{results: items} = Content.list_collection_items(org, collection)
+
+        {:noreply,
+         socket
+         |> assign(collection_items: items)
+         |> load_picker_content(socket.assigns.picker_type)
+         |> put_flash(:info, "#{String.capitalize(type)} added to collection.")}
+
+      {:error, :already_exists} ->
+        {:noreply, put_flash(socket, :error, "Already in this collection.")}
+
+      {:error, _, _} ->
+        {:noreply, put_flash(socket, :error, "Could not add item to collection.")}
+    end
+  end
+
+  @impl true
+  def handle_event("remove_item", %{"item-id" => item_id}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+    collection = socket.assigns.selected_collection
+
+    %{results: items} = Content.list_collection_items(org, collection)
+
+    case Enum.find(items, &(&1.id == item_id)) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Item not found.")}
+
+      item ->
+        :ok = Content.remove_collection_item(scope, item)
+        %{results: updated_items} = Content.list_collection_items(org, collection)
+
+        {:noreply,
+         socket
+         |> assign(collection_items: updated_items)
+         |> put_flash(:info, "Item removed from collection.")}
+    end
+  end
+
+  @impl true
   def handle_event("remove_video", %{"video-id" => video_id}, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
@@ -260,11 +332,11 @@ defmodule BobineWeb.Admin.CollectionsLive do
     case Content.get_video(org, video_id) do
       {:ok, video} ->
         :ok = Content.remove_video_from_collection(scope, collection, video)
-        %{results: videos} = Content.list_collection_videos(org, collection)
+        %{results: items} = Content.list_collection_items(org, collection)
 
         {:noreply,
          socket
-         |> assign(collection_videos: videos)
+         |> assign(collection_items: items)
          |> put_flash(:info, "Video removed from collection.")}
 
       _ ->
@@ -282,6 +354,17 @@ defmodule BobineWeb.Admin.CollectionsLive do
     reorder_collection(socket, id, :down)
   end
 
+  @impl true
+  def handle_event("move_item_up", %{"item-id" => item_id}, socket) do
+    reorder_item_in_collection(socket, item_id, :up)
+  end
+
+  @impl true
+  def handle_event("move_item_down", %{"item-id" => item_id}, socket) do
+    reorder_item_in_collection(socket, item_id, :down)
+  end
+
+  # Keep legacy video reorder events for backward compatibility
   @impl true
   def handle_event("move_video_up", %{"video-id" => video_id}, socket) do
     reorder_video_in_collection(socket, video_id, :up)
@@ -309,10 +392,13 @@ defmodule BobineWeb.Admin.CollectionsLive do
       <%= if @selected_collection do %>
         <.collection_detail_view
           collection={@selected_collection}
-          videos={@collection_videos}
+          items={@collection_items}
           can_manage={@can_manage}
-          show_video_picker={@show_video_picker}
-          available_videos={@available_videos}
+          show_item_picker={@show_item_picker}
+          picker_type={@picker_type}
+          picker_videos={@picker_videos}
+          picker_seasons={@picker_seasons}
+          picker_series={@picker_series}
           selected_video_ids={@selected_video_ids}
         />
       <% else %>
@@ -497,11 +583,11 @@ defmodule BobineWeb.Admin.CollectionsLive do
       </div>
       <button
         :if={@can_manage}
-        phx-click="open_video_picker"
+        phx-click="open_item_picker"
         class="btn btn-primary btn-sm"
         data-test="add-videos-btn"
       >
-        Add Videos
+        Add Items
       </button>
     </div>
 
@@ -509,48 +595,82 @@ defmodule BobineWeb.Admin.CollectionsLive do
       {@collection.description}
     </div>
 
-    <div :if={@videos == []} class="py-8 text-center text-base-content/60">
-      <p>No videos in this collection yet.</p>
+    <div :if={@items == []} class="py-8 text-center text-base-content/60">
+      <p>No items in this collection yet.</p>
     </div>
 
-    <div :if={@videos != []} class="space-y-2">
+    <div :if={@items != []} class="space-y-2">
       <div
-        :for={video <- @videos}
+        :for={item <- @items}
         class="flex items-center gap-3 p-3 bg-base-200 rounded-lg"
-        data-test={"collection-video-#{video.id}"}
+        data-test={item_test_id(item)}
       >
-        <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
-          <img
-            :if={video.mux_playback_id}
-            src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
-            alt={video.title}
-            class="w-full h-full object-cover"
-          />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-medium truncate">{video.title}</div>
-        </div>
+        <%= case item.item_type do %>
+          <% :video -> %>
+            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
+              <img
+                :if={item.video && item.video.mux_playback_id}
+                src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
+                alt={item.video && item.video.title}
+                class="w-full h-full object-cover"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">{item.video && item.video.title}</div>
+            </div>
+            <span class="badge badge-sm badge-ghost" data-test="type-badge">Video</span>
+          <% :season -> %>
+            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
+              <img
+                :if={item.season && item.season.cover_image_url}
+                src={item.season.cover_image_url}
+                alt={item.season && item.season.title}
+                class="w-full h-full object-cover"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">{item.season && item.season.title}</div>
+              <div class="text-xs text-base-content/60">
+                {item.season && item.season.episode_count} episodes
+              </div>
+            </div>
+            <span class="badge badge-sm badge-info" data-test="type-badge">Season</span>
+          <% :series -> %>
+            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
+              <img
+                :if={item.series && item.series.cover_image_url}
+                src={item.series.cover_image_url}
+                alt={item.series && item.series.title}
+                class="w-full h-full object-cover"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium truncate">{item.series && item.series.title}</div>
+            </div>
+            <span class="badge badge-sm badge-primary" data-test="type-badge">Series</span>
+        <% end %>
+
         <div :if={@can_manage} class="flex gap-1">
           <button
-            phx-click="move_video_up"
-            phx-value-video-id={video.id}
+            phx-click="move_item_up"
+            phx-value-item-id={item.id}
             class="btn btn-xs btn-ghost"
           >
             ↑
           </button>
           <button
-            phx-click="move_video_down"
-            phx-value-video-id={video.id}
+            phx-click="move_item_down"
+            phx-value-item-id={item.id}
             class="btn btn-xs btn-ghost"
           >
             ↓
           </button>
           <button
-            phx-click="remove_video"
-            phx-value-video-id={video.id}
-            data-confirm="Remove video from collection?"
+            phx-click="remove_item"
+            phx-value-item-id={item.id}
+            data-confirm="Remove item from collection?"
             class="btn btn-xs btn-outline btn-error"
-            data-test={"remove-video-#{video.id}"}
+            data-test={remove_test_id(item)}
           >
             Remove
           </button>
@@ -558,63 +678,144 @@ defmodule BobineWeb.Admin.CollectionsLive do
       </div>
     </div>
 
-    <.video_picker
-      :if={@show_video_picker}
-      videos={@available_videos}
+    <.item_picker
+      :if={@show_item_picker}
+      picker_type={@picker_type}
+      picker_videos={@picker_videos}
+      picker_seasons={@picker_seasons}
+      picker_series={@picker_series}
       selected_video_ids={@selected_video_ids}
     />
     """
   end
 
-  defp video_picker(assigns) do
+  defp item_picker(assigns) do
     assigns = assign(assigns, :selected_count, MapSet.size(assigns.selected_video_ids))
 
     ~H"""
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col">
+      <div
+        class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col"
+        data-test="collection-item-picker"
+      >
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">Add Videos</h3>
+          <h3 class="text-lg font-semibold">Add Items</h3>
           <button
-            phx-click="close_video_picker"
+            phx-click="close_item_picker"
             class="btn btn-ghost btn-sm"
-            aria-label="Close video picker"
+            aria-label="Close item picker"
           >
             ✕
           </button>
         </div>
 
-        <div :if={@videos == []} class="py-4 text-center text-base-content/60">
-          All videos are already in this collection.
+        <div class="flex gap-1 mb-4" data-test="picker-type-tabs">
+          <button
+            phx-click="set_picker_type"
+            phx-value-type="video"
+            class={"btn btn-sm #{if @picker_type == :video, do: "btn-primary", else: "btn-ghost"}"}
+            data-test="picker-type-video"
+          >
+            Videos
+          </button>
+          <button
+            phx-click="set_picker_type"
+            phx-value-type="season"
+            class={"btn btn-sm #{if @picker_type == :season, do: "btn-primary", else: "btn-ghost"}"}
+            data-test="picker-type-season"
+          >
+            Seasons
+          </button>
+          <button
+            phx-click="set_picker_type"
+            phx-value-type="series"
+            class={"btn btn-sm #{if @picker_type == :series, do: "btn-primary", else: "btn-ghost"}"}
+            data-test="picker-type-series"
+          >
+            Series
+          </button>
         </div>
 
-        <div :if={@videos != []} class="space-y-2 overflow-y-auto flex-1">
-          <div
-            :for={video <- @videos}
-            class="flex items-center gap-3 p-2 bg-base-200 rounded"
-          >
-            <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
-              <input
-                type="checkbox"
-                class="checkbox checkbox-primary"
-                checked={MapSet.member?(@selected_video_ids, video.id)}
-                phx-click="toggle_video_selection"
-                phx-value-video-id={video.id}
-                data-test={"select-video-#{video.id}"}
-              />
-              <span class="truncate">{video.title}</span>
-            </label>
-          </div>
+        <div class="space-y-2 overflow-y-auto flex-1" data-test="picker-results">
+          <%= case @picker_type do %>
+            <% :video -> %>
+              <div
+                :if={@picker_videos == []}
+                class="py-4 text-center text-base-content/60"
+              >
+                All videos are already in this collection.
+              </div>
+              <div
+                :for={video <- @picker_videos}
+                class="flex items-center gap-3 p-2 bg-base-200 rounded"
+              >
+                <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-primary"
+                    checked={MapSet.member?(@selected_video_ids, video.id)}
+                    phx-click="toggle_video_selection"
+                    phx-value-video-id={video.id}
+                    data-test={"select-video-#{video.id}"}
+                  />
+                  <span class="truncate">{video.title}</span>
+                </label>
+              </div>
+            <% :season -> %>
+              <div
+                :if={@picker_seasons == []}
+                class="py-4 text-center text-base-content/60"
+              >
+                No seasons available.
+              </div>
+              <div
+                :for={season <- @picker_seasons}
+                class="flex items-center gap-3 p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300"
+                phx-click="add_item_to_collection"
+                phx-value-type="season"
+                phx-value-id={season.id}
+                data-test={"picker-item-season-#{season.id}"}
+              >
+                <div class="flex-1 min-w-0">
+                  <span class="font-medium">{season.title}</span>
+                  <span class="text-xs text-base-content/60 ml-2">
+                    {season.episode_count} episodes
+                  </span>
+                </div>
+                <span class="badge badge-sm badge-info">Season</span>
+              </div>
+            <% :series -> %>
+              <div
+                :if={@picker_series == []}
+                class="py-4 text-center text-base-content/60"
+              >
+                No series available.
+              </div>
+              <div
+                :for={series <- @picker_series}
+                class="flex items-center gap-3 p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300"
+                phx-click="add_item_to_collection"
+                phx-value-type="series"
+                phx-value-id={series.id}
+                data-test={"picker-item-series-#{series.id}"}
+              >
+                <div class="flex-1 min-w-0">
+                  <span class="font-medium">{series.title}</span>
+                </div>
+                <span class="badge badge-sm badge-primary">Series</span>
+              </div>
+          <% end %>
         </div>
 
         <div
-          :if={@videos != []}
+          :if={@picker_type == :video && @picker_videos != []}
           class="flex items-center justify-between mt-4 pt-4 border-t border-base-300"
         >
           <span class="text-sm text-base-content/60">
             {@selected_count} selected
           </span>
           <div class="flex gap-2">
-            <button phx-click="close_video_picker" class="btn btn-ghost btn-sm">
+            <button phx-click="close_item_picker" class="btn btn-ghost btn-sm">
               Cancel
             </button>
             <button
@@ -627,6 +828,15 @@ defmodule BobineWeb.Admin.CollectionsLive do
             </button>
           </div>
         </div>
+
+        <div
+          :if={@picker_type != :video}
+          class="flex justify-end mt-4 pt-4 border-t border-base-300"
+        >
+          <button phx-click="close_item_picker" class="btn btn-ghost btn-sm">
+            Close
+          </button>
+        </div>
       </div>
     </div>
     """
@@ -636,6 +846,40 @@ defmodule BobineWeb.Admin.CollectionsLive do
     org = socket.assigns.organization
     %{results: collections} = Content.list_collections(org)
     assign(socket, :collections, collections)
+  end
+
+  defp load_picker_content(socket, :video) do
+    org = socket.assigns.organization
+    collection = socket.assigns.selected_collection
+    %{results: all_videos} = Content.list_videos(org, per_page: 100)
+    %{results: collection_items} = Content.list_collection_items(org, collection, per_page: 100)
+
+    collection_video_ids =
+      collection_items
+      |> Enum.filter(&(&1.item_type == :video))
+      |> MapSet.new(& &1.video_id)
+
+    available = Enum.reject(all_videos, &MapSet.member?(collection_video_ids, &1.id))
+    assign(socket, picker_videos: available)
+  end
+
+  defp load_picker_content(socket, :season) do
+    org = socket.assigns.organization
+    %{results: all_series} = Content.list_series(org, per_page: 100)
+
+    seasons =
+      Enum.flat_map(all_series, fn s ->
+        %{results: seasons} = Content.list_seasons(org, s, per_page: 100)
+        seasons
+      end)
+
+    assign(socket, picker_seasons: seasons)
+  end
+
+  defp load_picker_content(socket, :series) do
+    org = socket.assigns.organization
+    %{results: series_list} = Content.list_series(org, per_page: 100)
+    assign(socket, picker_series: series_list)
   end
 
   defp reorder_collection(socket, id, direction) do
@@ -659,26 +903,38 @@ defmodule BobineWeb.Admin.CollectionsLive do
     end
   end
 
-  defp reorder_video_in_collection(socket, video_id, direction) do
-    videos = socket.assigns.collection_videos
-    index = Enum.find_index(videos, &(&1.id == video_id))
+  defp reorder_item_in_collection(socket, item_id, direction) do
+    items = socket.assigns.collection_items
+    index = Enum.find_index(items, &(&1.id == item_id))
 
     new_index =
       case direction do
         :up -> max(0, index - 1)
-        :down -> min(length(videos) - 1, index + 1)
+        :down -> min(length(items) - 1, index + 1)
       end
 
     if index != new_index do
       scope = socket.assigns.current_scope
       collection = socket.assigns.selected_collection
-      reordered = swap(videos, index, new_index)
+      reordered = swap(items, index, new_index)
       ordered_ids = Enum.map(reordered, & &1.id)
-      :ok = Content.reorder_collection_videos(scope, collection, ordered_ids)
+      :ok = Content.reorder_collection_items(scope, collection, ordered_ids)
 
       org = socket.assigns.organization
-      %{results: videos} = Content.list_collection_videos(org, collection)
-      {:noreply, assign(socket, collection_videos: videos)}
+      %{results: items} = Content.list_collection_items(org, collection)
+      {:noreply, assign(socket, collection_items: items)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp reorder_video_in_collection(socket, video_id, direction) do
+    items = socket.assigns.collection_items
+    index = Enum.find_index(items, &(&1.video_id == video_id))
+
+    if index do
+      item_id = Enum.at(items, index).id
+      reorder_item_in_collection(socket, item_id, direction)
     else
       {:noreply, socket}
     end
@@ -698,6 +954,14 @@ defmodule BobineWeb.Admin.CollectionsLive do
       end
     end)
   end
+
+  # For video items, use the legacy data-test="collection-video-<video_id>" format
+  # so existing tests keep working. Non-video items use the new item-based format.
+  defp item_test_id(%{item_type: :video, video_id: vid}), do: "collection-video-#{vid}"
+  defp item_test_id(%{id: id}), do: "collection-item-#{id}"
+
+  defp remove_test_id(%{item_type: :video, video_id: vid}), do: "remove-video-#{vid}"
+  defp remove_test_id(%{id: id}), do: "remove-item-#{id}"
 
   defp error_messages(field) do
     Enum.map(field.errors, fn {msg, _opts} -> msg end)
