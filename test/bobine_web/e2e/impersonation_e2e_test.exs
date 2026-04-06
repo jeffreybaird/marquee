@@ -11,7 +11,7 @@ defmodule BobineWeb.E2E.ImpersonationE2ETest do
       session
       |> log_in_session(super_admin)
       |> Wallaby.Browser.visit("/super/organizations/#{org.id}")
-      |> assert_has(Query.css(".phx-connected"))
+      |> assert_has(Query.text("Target Org"))
       |> assert_has(Query.css("[data-test='impersonate-btn']"))
       |> Wallaby.Browser.click(Query.css("[data-test='impersonate-btn']"))
       |> assert_has(Query.css("[data-test='impersonation-banner']"))
