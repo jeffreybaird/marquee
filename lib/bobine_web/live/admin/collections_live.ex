@@ -36,6 +36,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
      |> assign(:selected_collection, nil)
      |> assign(:collection_videos, [])
      |> assign(:available_videos, [])
+     |> assign(:selected_video_ids, MapSet.new())
      |> assign(:form, nil)
      |> load_collections()}
   end
@@ -167,7 +168,8 @@ defmodule BobineWeb.Admin.CollectionsLive do
        selected_collection: nil,
        collection_videos: [],
        show_video_picker: false,
-       available_videos: []
+       available_videos: [],
+       selected_video_ids: MapSet.new()
      )}
   end
 
@@ -181,40 +183,71 @@ defmodule BobineWeb.Admin.CollectionsLive do
     collection_video_ids = MapSet.new(collection_videos, & &1.id)
     available = Enum.reject(all_videos, &MapSet.member?(collection_video_ids, &1.id))
 
-    {:noreply, assign(socket, show_video_picker: true, available_videos: available)}
+    {:noreply,
+     assign(socket,
+       show_video_picker: true,
+       available_videos: available,
+       selected_video_ids: MapSet.new()
+     )}
   end
 
   @impl true
   def handle_event("close_video_picker", _params, socket) do
-    {:noreply, assign(socket, show_video_picker: false, available_videos: [])}
+    {:noreply,
+     assign(socket,
+       show_video_picker: false,
+       available_videos: [],
+       selected_video_ids: MapSet.new()
+     )}
   end
 
   @impl true
-  def handle_event("add_video", %{"video-id" => video_id}, socket) do
+  def handle_event("toggle_video_selection", %{"video-id" => video_id}, socket) do
+    selected = socket.assigns.selected_video_ids
+
+    updated =
+      if MapSet.member?(selected, video_id) do
+        MapSet.delete(selected, video_id)
+      else
+        MapSet.put(selected, video_id)
+      end
+
+    {:noreply, assign(socket, selected_video_ids: updated)}
+  end
+
+  @impl true
+  def handle_event("add_selected_videos", _params, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
     collection = socket.assigns.selected_collection
+    selected_ids = socket.assigns.selected_video_ids
 
-    case Content.get_video(org, video_id) do
-      {:ok, video} ->
-        case Content.add_video_to_collection(scope, collection, video) do
-          {:ok, _} ->
-            %{results: videos} = Content.list_collection_videos(org, collection)
+    if MapSet.size(selected_ids) == 0 do
+      {:noreply, put_flash(socket, :error, "No videos selected.")}
+    else
+      videos = resolve_videos(org, selected_ids)
 
-            {:noreply,
-             socket
-             |> assign(collection_videos: videos, show_video_picker: false, available_videos: [])
-             |> put_flash(:info, "Video added to collection.")}
+      case Content.add_videos_to_collection(scope, collection, videos) do
+        {:ok, items} ->
+          %{results: collection_videos} = Content.list_collection_videos(org, collection)
+          count = length(items)
 
-          {:error, :already_exists} ->
-            {:noreply, put_flash(socket, :error, "Video already in collection.")}
+          {:noreply,
+           socket
+           |> assign(
+             collection_videos: collection_videos,
+             show_video_picker: false,
+             available_videos: [],
+             selected_video_ids: MapSet.new()
+           )
+           |> put_flash(
+             :info,
+             "#{count} video#{if count != 1, do: "s", else: ""} added to collection."
+           )}
 
-          _ ->
-            {:noreply, put_flash(socket, :error, "Failed to add video.")}
-        end
-
-      _ ->
-        {:noreply, put_flash(socket, :error, "Video not found.")}
+        {:error, {:validation, _changeset}} ->
+          {:noreply, put_flash(socket, :error, "Failed to add videos.")}
+      end
     end
   end
 
@@ -280,6 +313,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
           can_manage={@can_manage}
           show_video_picker={@show_video_picker}
           available_videos={@available_videos}
+          selected_video_ids={@selected_video_ids}
         />
       <% else %>
         <.collections_list_view
@@ -527,36 +561,69 @@ defmodule BobineWeb.Admin.CollectionsLive do
     <.video_picker
       :if={@show_video_picker}
       videos={@available_videos}
+      selected_video_ids={@selected_video_ids}
     />
     """
   end
 
   defp video_picker(assigns) do
+    assigns = assign(assigns, :selected_count, MapSet.size(assigns.selected_video_ids))
+
     ~H"""
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
+      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">Add Videos</h3>
-          <button phx-click="close_video_picker" class="btn btn-ghost btn-sm">✕</button>
+          <button
+            phx-click="close_video_picker"
+            class="btn btn-ghost btn-sm"
+            aria-label="Close video picker"
+          >
+            ✕
+          </button>
         </div>
 
         <div :if={@videos == []} class="py-4 text-center text-base-content/60">
           All videos are already in this collection.
         </div>
 
-        <div :if={@videos != []} class="space-y-2">
+        <div :if={@videos != []} class="space-y-2 overflow-y-auto flex-1">
           <div
             :for={video <- @videos}
-            class="flex items-center justify-between p-2 bg-base-200 rounded"
+            class="flex items-center gap-3 p-2 bg-base-200 rounded"
           >
-            <span class="truncate">{video.title}</span>
+            <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+              <input
+                type="checkbox"
+                class="checkbox checkbox-primary"
+                checked={MapSet.member?(@selected_video_ids, video.id)}
+                phx-click="toggle_video_selection"
+                phx-value-video-id={video.id}
+                data-test={"select-video-#{video.id}"}
+              />
+              <span class="truncate">{video.title}</span>
+            </label>
+          </div>
+        </div>
+
+        <div
+          :if={@videos != []}
+          class="flex items-center justify-between mt-4 pt-4 border-t border-base-300"
+        >
+          <span class="text-sm text-base-content/60">
+            {@selected_count} selected
+          </span>
+          <div class="flex gap-2">
+            <button phx-click="close_video_picker" class="btn btn-ghost btn-sm">
+              Cancel
+            </button>
             <button
-              phx-click="add_video"
-              phx-value-video-id={video.id}
-              class="btn btn-xs btn-primary"
-              data-test={"pick-video-#{video.id}"}
+              phx-click="add_selected_videos"
+              disabled={@selected_count == 0}
+              class="btn btn-primary btn-sm"
+              data-test="add-selected-videos-btn"
             >
-              Add
+              Add Selected
             </button>
           </div>
         </div>
@@ -621,6 +688,15 @@ defmodule BobineWeb.Admin.CollectionsLive do
     list
     |> List.replace_at(i, Enum.at(list, j))
     |> List.replace_at(j, Enum.at(list, i))
+  end
+
+  defp resolve_videos(org, selected_ids) do
+    Enum.reduce(selected_ids, [], fn id, acc ->
+      case Content.get_video(org, id) do
+        {:ok, video} -> [video | acc]
+        _ -> acc
+      end
+    end)
   end
 
   defp error_messages(field) do

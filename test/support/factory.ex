@@ -111,6 +111,37 @@ defmodule Bobine.Factory do
     }
   end
 
+  def series_factory do
+    %Bobine.Content.Series{
+      organization: build(:organization),
+      title: sequence(:series_title, &"Test Series #{&1}"),
+      slug: sequence(:series_slug, &"test-series-#{&1}"),
+      visible: true,
+      position: 0
+    }
+  end
+
+  def season_factory do
+    %Bobine.Content.Season{
+      organization: build(:organization),
+      series: build(:series),
+      title: sequence(:season_title, &"Season #{&1}"),
+      slug: sequence(:season_slug, &"season-#{&1}"),
+      season_number: sequence(:season_number, & &1),
+      episode_count: 0,
+      visible: true
+    }
+  end
+
+  def episode_factory do
+    %Bobine.Content.Episode{
+      organization: build(:organization),
+      season: build(:season),
+      video: build(:video),
+      episode_number: sequence(:episode_number, & &1)
+    }
+  end
+
   # -------------------------------------------------------------------------
   # Catalog
   # -------------------------------------------------------------------------

@@ -20,6 +20,8 @@ defmodule Bobine.Content.Video do
 
     belongs_to :organization, Bobine.Accounts.Organization
 
+    has_one :episode, Bobine.Content.Episode
+
     timestamps(type: :utc_datetime)
   end
 

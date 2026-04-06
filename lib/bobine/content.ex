@@ -19,7 +19,7 @@ defmodule Bobine.Content do
 
   require Bobine.Otel
 
-  alias Bobine.Content.{Collection, CollectionItem, Tag, Video, VideoTag}
+  alias Bobine.Content.{Collection, CollectionItem, Episode, Season, Series, Tag, Video, VideoTag}
   alias Bobine.PlatformBilling.UsageLimits
 
   ## -----------------------------------------------------------------------
@@ -670,6 +670,62 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Adds multiple videos to a collection in a single transaction.
+
+  Skips videos that are already in the collection. Returns the list of
+  successfully created items.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_videos_to_collection(scope, %Collection{} = collection, videos) when is_list(videos) do
+    Bobine.Otel.with_span "bobine.content.add_videos_to_collection",
+                          %{"bobine.org.id" => scope.organization.id} do
+      existing_video_ids =
+        CollectionItem
+        |> where(collection_id: ^collection.id)
+        |> select([ci], ci.video_id)
+        |> Repo.all()
+        |> MapSet.new()
+
+      new_videos = Enum.reject(videos, &MapSet.member?(existing_video_ids, &1.id))
+
+      Repo.transaction(fn ->
+        starting_position = next_collection_item_position(collection.id)
+
+        new_videos
+        |> Enum.with_index(starting_position)
+        |> Enum.reduce([], fn {video, position}, acc ->
+          [insert_collection_item(scope, collection, video, position) | acc]
+        end)
+        |> Enum.reverse()
+      end)
+    end
+  end
+
+  defp insert_collection_item(scope, collection, video, position) do
+    attrs = %{
+      organization_id: scope.organization.id,
+      collection_id: collection.id,
+      video_id: video.id,
+      position: position
+    }
+
+    case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+      {:ok, item} ->
+        Events.broadcast(
+          scope,
+          {:collection_video_added, %{collection: collection, video: video}}
+        )
+
+        Audit.log(scope, "collection.video_added", item)
+        item
+
+      {:error, changeset} ->
+        Repo.rollback({:validation, changeset})
+    end
+  end
+
+  @doc """
   Removes a video from a collection.
 
   Exempt from doctest — hits the database.
@@ -958,6 +1014,567 @@ defmodule Bobine.Content do
     |> where([v], is_nil(v.deleted_at))
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Series
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a paginated list of visible series for an organization, ordered by position.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_series(%Organization{id: org_id}, opts \\ []) do
+    Bobine.Otel.with_span "bobine.content.list_series",
+                          %{"bobine.org.id" => org_id} do
+      Series
+      |> where(organization_id: ^org_id)
+      |> where([s], is_nil(s.deleted_at))
+      |> order_by(:position)
+      |> Pagination.paginate(opts)
+    end
+  end
+
+  @doc """
+  Gets a series by ID, scoped to org.
+
+  Returns `{:ok, series}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_series(%Organization{id: org_id}, id) do
+    case Repo.get_by(Series, id: id, organization_id: org_id) do
+      nil -> {:error, :not_found}
+      series -> {:ok, series}
+    end
+  end
+
+  @doc """
+  Gets a series by ID, scoped to org. Raises if not found.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_series!(%Organization{id: org_id}, id) do
+    Series
+    |> where(organization_id: ^org_id)
+    |> Repo.get!(id)
+  end
+
+  @doc """
+  Gets a series by slug, scoped to org.
+
+  Returns `{:ok, series}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_series_by_slug(%Organization{id: org_id}, slug) do
+    query =
+      Series
+      |> where(organization_id: ^org_id, slug: ^slug)
+      |> where([s], is_nil(s.deleted_at))
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      series -> {:ok, series}
+    end
+  end
+
+  @doc """
+  Creates a series.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_series(scope, attrs) do
+    Bobine.Otel.with_span "bobine.content.create_series",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case %Series{organization_id: scope.organization.id}
+           |> Series.changeset(attrs)
+           |> Repo.insert() do
+        {:ok, series} ->
+          Events.broadcast(scope, {:series_created, series})
+          Audit.log(scope, "series.created", series, attrs)
+          {:ok, series}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Updates a series.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_series(scope, %Series{} = series, attrs) do
+    Bobine.Otel.with_span "bobine.content.update_series",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case series |> Series.changeset(attrs) |> Repo.update() do
+        {:ok, series} ->
+          Events.broadcast(scope, {:series_updated, series})
+          Audit.log(scope, "series.updated", series, attrs)
+          {:ok, series}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Soft-deletes a series and cascades to its seasons.
+
+  Exempt from doctest — hits the database.
+  """
+  def delete_series(scope, %Series{} = series) do
+    Bobine.Otel.with_span "bobine.content.delete_series",
+                          %{"bobine.org.id" => scope.organization.id} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      with {:ok, series} <-
+             series
+             |> Ecto.Changeset.change(deleted_at: now)
+             |> Repo.update() do
+        Season
+        |> where(series_id: ^series.id)
+        |> where([s], is_nil(s.deleted_at))
+        |> Repo.update_all(set: [deleted_at: now])
+
+        Events.broadcast(scope, {:series_deleted, series})
+        Audit.log(scope, "series.deleted", series)
+        {:ok, series}
+      end
+    end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking series changes.
+
+  ## Examples
+
+      iex> change_series(%Bobine.Content.Series{})
+      %Ecto.Changeset{data: %Bobine.Content.Series{}}
+
+  """
+  def change_series(%Series{} = series, attrs \\ %{}) do
+    Series.changeset(series, attrs)
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Seasons
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a paginated list of seasons for a series, ordered by season_number.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_seasons(%Organization{id: org_id}, %Series{id: series_id}, opts \\ []) do
+    Bobine.Otel.with_span "bobine.content.list_seasons",
+                          %{"bobine.org.id" => org_id, "bobine.series.id" => series_id} do
+      Season
+      |> where(organization_id: ^org_id, series_id: ^series_id)
+      |> where([s], is_nil(s.deleted_at))
+      |> order_by(:season_number)
+      |> Pagination.paginate(opts)
+    end
+  end
+
+  @doc """
+  Gets a season by ID, scoped to org.
+
+  Returns `{:ok, season}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_season(%Organization{id: org_id}, id) do
+    case Repo.get_by(Season, id: id, organization_id: org_id) do
+      nil -> {:error, :not_found}
+      season -> {:ok, season}
+    end
+  end
+
+  @doc """
+  Gets a season by ID, scoped to org. Raises if not found.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_season!(%Organization{id: org_id}, id) do
+    Season
+    |> where(organization_id: ^org_id)
+    |> Repo.get!(id)
+  end
+
+  @doc """
+  Gets a season by slug, scoped to org.
+
+  Returns `{:ok, season}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_season_by_slug(%Organization{id: org_id}, slug) do
+    query =
+      Season
+      |> where(organization_id: ^org_id, slug: ^slug)
+      |> where([s], is_nil(s.deleted_at))
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      season -> {:ok, season}
+    end
+  end
+
+  @doc """
+  Creates a season within a series. Auto-assigns season_number if not provided.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_season(scope, %Series{} = series, attrs) do
+    Bobine.Otel.with_span "bobine.content.create_season",
+                          %{
+                            "bobine.org.id" => scope.organization.id,
+                            "bobine.series.id" => series.id
+                          } do
+      attrs = maybe_assign_season_number(attrs, series)
+
+      case %Season{organization_id: scope.organization.id, series_id: series.id}
+           |> Season.changeset(attrs)
+           |> Repo.insert() do
+        {:ok, season} ->
+          Events.broadcast(scope, {:season_created, season})
+          Audit.log(scope, "season.created", season, attrs)
+          {:ok, season}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  defp maybe_assign_season_number(attrs, series) do
+    has_season_number =
+      Map.has_key?(attrs, :season_number) || Map.has_key?(attrs, "season_number")
+
+    if has_season_number do
+      attrs
+    else
+      Map.put(attrs, :season_number, next_season_number(series))
+    end
+  end
+
+  defp next_season_number(%Series{id: series_id}) do
+    Season
+    |> where(series_id: ^series_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> Repo.aggregate(:max, :season_number)
+    |> then(fn
+      nil -> 1
+      n -> n + 1
+    end)
+  end
+
+  @doc """
+  Updates a season.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_season(scope, %Season{} = season, attrs) do
+    Bobine.Otel.with_span "bobine.content.update_season",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case season |> Season.changeset(attrs) |> Repo.update() do
+        {:ok, season} ->
+          Events.broadcast(scope, {:season_updated, season})
+          Audit.log(scope, "season.updated", season, attrs)
+          {:ok, season}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
+  Soft-deletes a season.
+
+  Exempt from doctest — hits the database.
+  """
+  def delete_season(scope, %Season{} = season) do
+    Bobine.Otel.with_span "bobine.content.delete_season",
+                          %{"bobine.org.id" => scope.organization.id} do
+      with {:ok, season} <-
+             season
+             |> Ecto.Changeset.change(
+               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+             )
+             |> Repo.update() do
+        Events.broadcast(scope, {:season_deleted, season})
+        Audit.log(scope, "season.deleted", season)
+        {:ok, season}
+      end
+    end
+  end
+
+  @doc """
+  Reorders seasons within a series by updating season_numbers.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_seasons(scope, %Series{} = series, ordered_season_ids) do
+    Bobine.Otel.with_span "bobine.content.reorder_seasons",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        # Two-pass to avoid unique constraint violations during swap
+        ordered_season_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {id, position} ->
+          Season
+          |> where(id: ^id, series_id: ^series.id)
+          |> Repo.update_all(set: [season_number: -position])
+        end)
+
+        ordered_season_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {id, position} ->
+          Season
+          |> where(id: ^id, series_id: ^series.id)
+          |> Repo.update_all(set: [season_number: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:seasons_reordered, series})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Gets the next season in a series after the given season.
+  Returns nil if this is the last season.
+
+  Exempt from doctest — hits the database.
+  """
+  def next_season(%Organization{id: org_id}, %Season{} = season) do
+    Season
+    |> where(organization_id: ^org_id, series_id: ^season.series_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> where([s], s.season_number > ^season.season_number)
+    |> order_by(:season_number)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking season changes.
+
+  ## Examples
+
+      iex> change_season(%Bobine.Content.Season{})
+      %Ecto.Changeset{data: %Bobine.Content.Season{}}
+
+  """
+  def change_season(%Season{} = season, attrs \\ %{}) do
+    Season.changeset(season, attrs)
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Episodes
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Lists episodes in a season, ordered by episode_number. Preloads video.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_episodes(%Organization{id: org_id}, %Season{id: season_id}) do
+    Bobine.Otel.with_span "bobine.content.list_episodes",
+                          %{"bobine.org.id" => org_id, "bobine.season.id" => season_id} do
+      Episode
+      |> where(organization_id: ^org_id, season_id: ^season_id)
+      |> order_by(:episode_number)
+      |> preload(:video)
+      |> Repo.all()
+    end
+  end
+
+  @doc """
+  Adds a video as an episode in a season. Auto-assigns episode_number
+  if not provided. Updates the season's cached episode_count.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_episode(scope, %Season{} = season, %Video{} = video, attrs \\ %{}) do
+    Bobine.Otel.with_span "bobine.content.add_episode",
+                          %{"bobine.org.id" => scope.organization.id} do
+      episode_number =
+        attrs[:episode_number] || attrs["episode_number"] || next_episode_number(season)
+
+      result =
+        %Episode{
+          organization_id: scope.organization.id,
+          season_id: season.id
+        }
+        |> Episode.changeset(
+          Map.merge(attrs, %{episode_number: episode_number, video_id: video.id})
+        )
+        |> Repo.insert()
+
+      case result do
+        {:ok, episode} ->
+          update_episode_count(season)
+          Events.broadcast(scope, {:episode_added, episode})
+
+          Audit.log(scope, "episode.added", episode, %{
+            video_id: video.id,
+            season_id: season.id
+          })
+
+          {:ok, Repo.preload(episode, :video)}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp next_episode_number(%Season{id: season_id}) do
+    Episode
+    |> where(season_id: ^season_id)
+    |> Repo.aggregate(:max, :episode_number)
+    |> then(fn
+      nil -> 1
+      n -> n + 1
+    end)
+  end
+
+  defp update_episode_count(%Season{id: season_id}) do
+    count =
+      Episode
+      |> where(season_id: ^season_id)
+      |> Repo.aggregate(:count)
+
+    Season
+    |> where(id: ^season_id)
+    |> Repo.update_all(set: [episode_count: count])
+  end
+
+  @doc """
+  Removes an episode from a season. Does NOT delete the video.
+  Updates the season's cached episode_count.
+
+  Exempt from doctest — hits the database.
+  """
+  def remove_episode(scope, %Season{} = season, %Video{} = video) do
+    Bobine.Otel.with_span "bobine.content.remove_episode",
+                          %{"bobine.org.id" => scope.organization.id} do
+      case Repo.get_by(Episode, season_id: season.id, video_id: video.id) do
+        nil ->
+          {:error, :not_found}
+
+        episode ->
+          Repo.delete(episode)
+          update_episode_count(season)
+          Events.broadcast(scope, {:episode_removed, episode})
+          Audit.log(scope, "episode.removed", episode, %{video_id: video.id})
+          :ok
+      end
+    end
+  end
+
+  @doc """
+  Reorders episodes within a season by updating episode_numbers.
+
+  Exempt from doctest — hits the database.
+  """
+  def reorder_episodes(scope, %Season{} = season, ordered_video_ids) do
+    Bobine.Otel.with_span "bobine.content.reorder_episodes",
+                          %{"bobine.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        # Two-pass to avoid unique constraint violations during swap
+        ordered_video_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {video_id, position} ->
+          Episode
+          |> where(season_id: ^season.id, video_id: ^video_id)
+          |> Repo.update_all(set: [episode_number: -position])
+        end)
+
+        ordered_video_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {video_id, position} ->
+          Episode
+          |> where(season_id: ^season.id, video_id: ^video_id)
+          |> Repo.update_all(set: [episode_number: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:episodes_reordered, season})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc """
+  Gets the next episode in a season after the given video.
+  Returns nil if the video is the last episode or not in a season.
+
+  Exempt from doctest — hits the database.
+  """
+  def next_episode(%Organization{id: org_id}, %Video{} = video) do
+    case get_episode_context(%Organization{id: org_id}, video) do
+      nil ->
+        nil
+
+      ctx ->
+        Episode
+        |> where(organization_id: ^org_id, season_id: ^ctx.season.id)
+        |> where([e], e.episode_number > ^ctx.episode_number)
+        |> order_by(:episode_number)
+        |> limit(1)
+        |> preload(:video)
+        |> Repo.one()
+    end
+  end
+
+  @doc """
+  Returns full season/series context for a video, if it's an episode.
+  Returns nil for standalone videos.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_episode_context(%Organization{id: org_id}, %Video{id: video_id}) do
+    episode =
+      Episode
+      |> where(organization_id: ^org_id, video_id: ^video_id)
+      |> preload(season: :series)
+      |> Repo.one()
+
+    case episode do
+      nil ->
+        nil
+
+      ep ->
+        %{
+          episode: ep,
+          season: ep.season,
+          series: ep.season.series,
+          episode_number: ep.episode_number,
+          season_number: ep.season.season_number,
+          total_episodes: ep.season.episode_count
+        }
+    end
   end
 
   ## -----------------------------------------------------------------------

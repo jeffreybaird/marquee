@@ -80,7 +80,12 @@
       "Bash(grep -r \"visibility\" /Users/jeffreybaird/personal-repos/bobine/priv/repo/migrations/*.exs)",
       "Bash(grep -l \"Mux\\\\|mux\" /Users/jeffreybaird/personal-repos/bobine/assets/js/hooks/*)",
       "Bash(xargs ls:*)",
-      "Bash(MIX_ENV=test mix dialyzer)"
+      "Bash(MIX_ENV=test mix dialyzer)",
+      "Bash(grep -l \"with_span\\\\|Otel\\\\.\" /Users/jeffreybaird/personal-repos/bobine/lib/bobine/*.ex)",
+      "Bash(ls -la /Users/jeffreybaird/personal-repos/bobine/.claude/*.md)",
+      "Bash(mix ecto.gen.migration create_series)",
+      "Bash(mix ecto.gen.migration create_seasons)",
+      "Bash(mix ecto.gen.migration create_episodes)"
     ]
   }
 }

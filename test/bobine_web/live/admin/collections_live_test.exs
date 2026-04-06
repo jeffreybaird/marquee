@@ -94,14 +94,15 @@ defmodule BobineWeb.Admin.CollectionsLiveTest do
   end
 
   describe "collection videos" do
-    test "add video to collection", %{conn: _conn} do
+    test "select and add multiple videos to collection", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user, role: :editor)
       scope = build_scope(membership)
 
       {:ok, collection} = Content.create_collection(scope, %{title: "With Videos"})
-      video = insert(:video, organization: org, title: "My Video")
+      video1 = insert(:video, organization: org, title: "Video One")
+      video2 = insert(:video, organization: org, title: "Video Two")
 
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin/collections")
 
@@ -112,10 +113,62 @@ defmodule BobineWeb.Admin.CollectionsLiveTest do
       # Open video picker
       render_click(view, "open_video_picker")
 
-      # Add video
-      html = render_click(view, "add_video", %{"video-id" => video.id})
-      assert html =~ "My Video"
-      assert html =~ ~s(data-test="collection-video-#{video.id}")
+      # Checkboxes should be visible
+      html = render(view)
+      assert html =~ ~s(data-test="select-video-#{video1.id}")
+      assert html =~ ~s(data-test="select-video-#{video2.id}")
+
+      # Select both videos
+      render_click(view, "toggle_video_selection", %{"video-id" => video1.id})
+      render_click(view, "toggle_video_selection", %{"video-id" => video2.id})
+
+      # Confirm selection count
+      assert render(view) =~ "2 selected"
+
+      # Add selected videos
+      html = render_click(view, "add_selected_videos")
+      assert html =~ "Video One"
+      assert html =~ "Video Two"
+      assert html =~ ~s(data-test="collection-video-#{video1.id}")
+      assert html =~ ~s(data-test="collection-video-#{video2.id}")
+    end
+
+    test "toggle deselects a previously selected video", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = build_scope(membership)
+
+      {:ok, collection} = Content.create_collection(scope, %{title: "Toggle Test"})
+      video = insert(:video, organization: org, title: "Toggled Video")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/collections")
+      render_click(view, "view_collection", %{id: collection.id})
+      render_click(view, "open_video_picker")
+
+      # Select then deselect
+      render_click(view, "toggle_video_selection", %{"video-id" => video.id})
+      assert render(view) =~ "1 selected"
+
+      render_click(view, "toggle_video_selection", %{"video-id" => video.id})
+      assert render(view) =~ "0 selected"
+    end
+
+    test "add selected videos with none selected shows error flash", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = build_scope(membership)
+
+      {:ok, collection} = Content.create_collection(scope, %{title: "No Selection"})
+      _video = insert(:video, organization: org, title: "Available")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/collections")
+      render_click(view, "view_collection", %{id: collection.id})
+      render_click(view, "open_video_picker")
+
+      # The add button should be disabled when nothing is selected
+      assert has_element?(view, ~s(button[data-test="add-selected-videos-btn"][disabled]))
     end
 
     test "remove video from collection", %{conn: _conn} do

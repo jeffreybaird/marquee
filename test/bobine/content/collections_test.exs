@@ -149,6 +149,39 @@ defmodule Bobine.Content.CollectionsTest do
       assert ids == [ctx.video2.id, ctx.video1.id]
     end
 
+    test "add_videos_to_collection/3 adds multiple videos at once", ctx do
+      video3 = insert(:video, organization: ctx.org, title: "Video C")
+
+      assert {:ok, items} =
+               Content.add_videos_to_collection(ctx.scope, ctx.collection, [
+                 ctx.video1,
+                 ctx.video2,
+                 video3
+               ])
+
+      assert length(items) == 3
+
+      %{results: videos} = Content.list_collection_videos(ctx.org, ctx.collection)
+      assert length(videos) == 3
+    end
+
+    test "add_videos_to_collection/3 skips already-existing videos", ctx do
+      {:ok, _} = Content.add_video_to_collection(ctx.scope, ctx.collection, ctx.video1)
+
+      assert {:ok, items} =
+               Content.add_videos_to_collection(ctx.scope, ctx.collection, [
+                 ctx.video1,
+                 ctx.video2
+               ])
+
+      assert length(items) == 1
+      assert hd(items).video_id == ctx.video2.id
+    end
+
+    test "add_videos_to_collection/3 with empty list returns empty", ctx do
+      assert {:ok, []} = Content.add_videos_to_collection(ctx.scope, ctx.collection, [])
+    end
+
     test "list_collection_videos/3 returns videos in position order", ctx do
       {:ok, _} = Content.add_video_to_collection(ctx.scope, ctx.collection, ctx.video2, 0)
       {:ok, _} = Content.add_video_to_collection(ctx.scope, ctx.collection, ctx.video1, 1)

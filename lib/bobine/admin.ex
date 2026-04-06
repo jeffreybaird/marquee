@@ -22,7 +22,7 @@ defmodule Bobine.Admin do
   alias Bobine.Branding.Theme
   alias Bobine.Catalog.HeroSlide
   alias Bobine.Catalog.Row
-  alias Bobine.Content.{Collection, CollectionItem, Tag, Video}
+  alias Bobine.Content.{Collection, CollectionItem, Episode, Season, Series, Tag, Video}
   alias Bobine.Engagement.{Favorite, Progress, WatchHistory, WatchlistItem}
   alias Bobine.Notifications.Notification
   alias Bobine.Viewers.{Viewer, ViewerToken}
@@ -403,6 +403,9 @@ defmodule Bobine.Admin do
               where: v.organization_id == ^org_id
             )
           ),
+        series: Repo.all(from(s in Series, where: s.organization_id == ^org_id)),
+        seasons: Repo.all(from(s in Season, where: s.organization_id == ^org_id)),
+        episodes: Repo.all(from(e in Episode, where: e.organization_id == ^org_id)),
         platform_subscription:
           Repo.get_by(Bobine.Billing.PlatformSubscription, organization_id: org_id)
       }
