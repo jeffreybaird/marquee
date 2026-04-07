@@ -8,6 +8,7 @@ defmodule BobineWeb.E2E.SuperAdminTest do
       super_admin = insert(:super_admin)
 
       session
+      |> Wallaby.Browser.resize_window(1280, 800)
       |> log_in_session(super_admin)
       |> Wallaby.Browser.visit("/super")
       |> assert_has(Query.css("[data-test='super-admin-badge']"))
@@ -19,6 +20,7 @@ defmodule BobineWeb.E2E.SuperAdminTest do
       insert(:organization, name: "Test Org E2E")
 
       session
+      |> Wallaby.Browser.resize_window(1280, 800)
       |> log_in_session(super_admin)
       |> Wallaby.Browser.visit("/super/organizations")
       |> assert_has(Query.css("[data-test='org-table']"))
@@ -29,6 +31,7 @@ defmodule BobineWeb.E2E.SuperAdminTest do
       user = insert(:user, is_super_admin: false)
 
       session
+      |> Wallaby.Browser.resize_window(1280, 800)
       |> log_in_session(user)
       |> Wallaby.Browser.visit("/super")
       |> refute_has(Query.css("[data-test='super-admin-badge']"))
@@ -41,6 +44,7 @@ defmodule BobineWeb.E2E.SuperAdminTest do
       org = insert(:organization, name: "Impersonate Target")
 
       session
+      |> Wallaby.Browser.resize_window(1280, 800)
       |> log_in_session(super_admin)
       |> Wallaby.Browser.visit("/super/organizations/#{org.id}")
       |> assert_has(Query.css("[data-test='impersonate-btn']"))
