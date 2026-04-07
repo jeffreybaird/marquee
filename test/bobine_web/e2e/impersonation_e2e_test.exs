@@ -28,22 +28,15 @@ defmodule BobineWeb.E2E.ImpersonationE2ETest do
         |> log_in_session(super_admin)
         |> Wallaby.Browser.visit("/super/organizations/#{org.id}")
 
-      # Wait for LiveView + Phoenix JS to fully initialize.
+      # Wait for the page content to render before clicking impersonate.
       # The impersonate button uses method="post" which requires Phoenix JS
-      # to intercept the click and submit a hidden form. Waiting for the
-      # phx-connected class on the LiveView root ensures JS is ready.
-      session = assert_has(session, Query.css(".phx-connected"))
+      # to intercept the click and submit a hidden form.
+      session = assert_has(session, Query.text("Impersonated Org"))
       session = assert_has(session, Query.css("[data-test='impersonate-btn']"))
-
-      # DEBUG: screenshot before clicking impersonate
-      Wallaby.Browser.take_screenshot(session, name: "before-impersonate-click")
 
       session =
         session
         |> Wallaby.Browser.click(Query.css("[data-test='impersonate-btn']"))
-
-      # DEBUG: screenshot after clicking impersonate (should be admin dashboard)
-      Wallaby.Browser.take_screenshot(session, name: "after-impersonate-click")
 
       # Wait for admin dashboard to fully load after POST redirect
       session = assert_has(session, Query.css("[data-test='impersonation-banner']"))

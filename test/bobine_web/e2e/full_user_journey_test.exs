@@ -55,6 +55,8 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
       # Ensure viewport is wide enough for the sidebar to be visible (lg breakpoint)
       session = Wallaby.Browser.resize_window(session, 1280, 800)
       session = log_in_session(session, user, org)
+      # Wait for the admin dashboard to fully render before navigating
+      session = assert_has(session, Query.css("h1", text: "Dashboard"))
 
       for {data_test, title} <- pages do
         session
