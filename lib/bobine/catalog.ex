@@ -375,6 +375,7 @@ defmodule Bobine.Catalog do
     Bobine.Otel.with_span "bobine.catalog.resolve_new_seasons",
                           %{"bobine.org.id" => org_id} do
       limit = Keyword.get(opts, :per_page) || row.max_items || 20
+      now = DateTime.utc_now()
 
       seasons_query =
         from s in Bobine.Content.Season,
@@ -386,6 +387,7 @@ defmodule Bobine.Catalog do
         |> where(organization_id: ^org_id)
         |> where([s], is_nil(s.deleted_at))
         |> where([s], s.visible == true and s.new_season == true)
+        |> where([s], is_nil(s.new_season_expires_at) or s.new_season_expires_at > ^now)
         |> order_by(desc: :updated_at)
         |> limit(^limit)
         |> preload(seasons: ^seasons_query)

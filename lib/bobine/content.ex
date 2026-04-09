@@ -1779,6 +1779,58 @@ defmodule Bobine.Content do
   end
 
   ## -----------------------------------------------------------------------
+  ## New Season flag
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns true when a series should currently display the "New Season" badge.
+
+  A flag is "active" when:
+    1. `new_season` is true, AND
+    2. `new_season_expires_at` is nil (no expiry — permanent until cleared)
+       OR `new_season_expires_at` is in the future.
+
+      iex> Bobine.Content.new_season_active?(%Bobine.Content.Series{new_season: false})
+      false
+
+      iex> Bobine.Content.new_season_active?(%Bobine.Content.Series{new_season: true, new_season_expires_at: nil})
+      true
+  """
+  def new_season_active?(%Series{new_season: false}), do: false
+
+  def new_season_active?(%Series{new_season: true, new_season_expires_at: nil}), do: true
+
+  def new_season_active?(%Series{new_season: true, new_season_expires_at: %DateTime{} = expires}) do
+    DateTime.compare(expires, DateTime.utc_now()) == :gt
+  end
+
+  @doc """
+  Returns the number of whole days until the new-season badge expires.
+
+  Returns nil if the flag is not active or has no expiry. A series whose
+  expiry has already passed returns 0 (the badge is no longer shown but the
+  caller may still want to render "expiring today" copy).
+
+      iex> Bobine.Content.days_until_new_season_expires(%Bobine.Content.Series{new_season: false})
+      nil
+
+      iex> Bobine.Content.days_until_new_season_expires(%Bobine.Content.Series{new_season: true, new_season_expires_at: nil})
+      nil
+  """
+  def days_until_new_season_expires(%Series{new_season: false}), do: nil
+  def days_until_new_season_expires(%Series{new_season_expires_at: nil}), do: nil
+
+  def days_until_new_season_expires(%Series{new_season_expires_at: %DateTime{} = expires}) do
+    diff_seconds = DateTime.diff(expires, DateTime.utc_now(), :second)
+
+    if diff_seconds <= 0 do
+      0
+    else
+      div(diff_seconds, 86_400)
+    end
+  end
+
+  ## -----------------------------------------------------------------------
   ## Thumbnail resolution
   ## -----------------------------------------------------------------------
 

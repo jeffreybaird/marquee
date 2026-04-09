@@ -249,6 +249,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       end)
       |> assign(:thumbnail_url, Content.resolve_series_thumbnail_cached(assigns.series))
       |> assign(:season_count, series_season_count(assigns.series))
+      |> assign(:show_new_season_badge?, Content.new_season_active?(assigns.series))
 
     ~H"""
     <div
@@ -260,7 +261,7 @@ defmodule BobineWeb.Components.ViewerComponents do
         <div class="sv-card-thumb">
           <img src={@thumbnail_url} alt={@series.title} loading="lazy" />
           <span
-            :if={@series.new_season}
+            :if={@show_new_season_badge?}
             class="sv-card-badge sv-card-badge-new"
             data-test={"new-season-badge-#{@series.id}"}
           >

@@ -106,6 +106,38 @@ defmodule BobineWeb.Components.ContentCardTest do
       refute html =~ ~s(data-test="new-season-badge-#{series.id}")
     end
 
+    test "no badge when flag is set but expiry is in the past", %{scope: scope} do
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      {:ok, series} =
+        Content.create_series(scope, %{
+          title: "Stale",
+          cover_image_url: "x.jpg",
+          new_season: true,
+          new_season_expires_at: past
+        })
+
+      html = render_component(&ViewerComponents.series_card/1, %{series: series})
+
+      refute html =~ ~s(data-test="new-season-badge-#{series.id}")
+    end
+
+    test "badge shown when flag is set with future expiry", %{scope: scope} do
+      future = DateTime.utc_now() |> DateTime.add(7 * 86_400, :second)
+
+      {:ok, series} =
+        Content.create_series(scope, %{
+          title: "Fresh",
+          cover_image_url: "x.jpg",
+          new_season: true,
+          new_season_expires_at: future
+        })
+
+      html = render_component(&ViewerComponents.series_card/1, %{series: series})
+
+      assert html =~ ~s(data-test="new-season-badge-#{series.id}")
+    end
+
     test "uses sv-card classes for visual parity with video card", %{scope: scope} do
       {:ok, series} =
         Content.create_series(scope, %{title: "Same Shape", cover_image_url: "x.jpg"})

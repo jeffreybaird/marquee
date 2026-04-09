@@ -21,6 +21,7 @@ defmodule Bobine.Content.Series do
     field :position, :integer, default: 0
     field :visible, :boolean, default: true
     field :new_season, :boolean, default: false
+    field :new_season_expires_at, :utc_datetime
     field :deleted_at, :utc_datetime
 
     has_many :seasons, Bobine.Content.Season
@@ -41,11 +42,22 @@ defmodule Bobine.Content.Series do
       :cover_image_url,
       :position,
       :visible,
-      :new_season
+      :new_season,
+      :new_season_expires_at
     ])
+    |> maybe_clear_new_season_expiry()
     |> validate_required([:title])
     |> maybe_generate_slug()
     |> unique_constraint([:organization_id, :slug])
+  end
+
+  # If the operator clears the new_season flag, also clear any expiry so the
+  # next time they re-enable the badge they're not surprised by a stale date.
+  defp maybe_clear_new_season_expiry(changeset) do
+    case fetch_change(changeset, :new_season) do
+      {:ok, false} -> put_change(changeset, :new_season_expires_at, nil)
+      _ -> changeset
+    end
   end
 
   defp maybe_generate_slug(changeset) do

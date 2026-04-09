@@ -79,6 +79,7 @@ defmodule BobineWeb.Admin.SeriesLive do
   @impl true
   def handle_event("save_series", %{"series" => params}, socket) do
     scope = socket.assigns.current_scope
+    params = normalize_new_season_params(params)
 
     result =
       case socket.assigns.editing_series do
@@ -337,6 +338,7 @@ defmodule BobineWeb.Admin.SeriesLive do
           <tr>
             <th>Title</th>
             <th>Visible</th>
+            <th>New Season</th>
             <th></th>
           </tr>
         </thead>
@@ -367,6 +369,9 @@ defmodule BobineWeb.Admin.SeriesLive do
                 {if series.visible, do: "Visible", else: "Hidden"}
               </span>
             </td>
+            <td data-test={"series-new-season-status-#{series.id}"}>
+              <.new_season_status series={series} />
+            </td>
             <td :if={@can_manage}>
               <div class="flex gap-1">
                 <button
@@ -394,6 +399,38 @@ defmodule BobineWeb.Admin.SeriesLive do
     </div>
 
     <.series_form :if={@show_series_form} form={@series_form} editing={@editing_series} />
+    """
+  end
+
+  attr :series, :map, required: true
+
+  defp new_season_status(assigns) do
+    assigns =
+      assigns
+      |> assign(:active?, Content.new_season_active?(assigns.series))
+      |> assign(:days_remaining, Content.days_until_new_season_expires(assigns.series))
+
+    ~H"""
+    <%= cond do %>
+      <% not @active? -> %>
+        <span class="text-base-content/40 text-xs">—</span>
+      <% is_nil(@days_remaining) -> %>
+        <span class="badge badge-sm badge-info" data-test="new-season-permanent">
+          On (no expiry)
+        </span>
+      <% @days_remaining == 0 -> %>
+        <span class="badge badge-sm badge-warning" data-test="new-season-expiring-today">
+          Hides today
+        </span>
+      <% @days_remaining == 1 -> %>
+        <span class="badge badge-sm badge-info" data-test="new-season-days-remaining">
+          1 day left
+        </span>
+      <% true -> %>
+        <span class="badge badge-sm badge-info" data-test="new-season-days-remaining">
+          {@days_remaining} days left
+        </span>
+    <% end %>
     """
   end
 
@@ -471,6 +508,18 @@ defmodule BobineWeb.Admin.SeriesLive do
                 data-test="series-new-season-input"
               /> Show "New Season" badge
             </label>
+            <p class="text-xs text-base-content/60 mt-2">
+              Optionally pick a date to automatically hide the badge after that day.
+              Leave blank to keep it shown until you uncheck the box.
+            </p>
+            <input
+              type="date"
+              name="series[new_season_expires_at]"
+              value={format_date_value(@form[:new_season_expires_at].value)}
+              min={Date.utc_today() |> Date.to_iso8601()}
+              class="input input-bordered w-full mt-2"
+              data-test="series-new-season-expires-input"
+            />
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" phx-click="cancel_series_form" class="btn btn-ghost">
@@ -710,6 +759,48 @@ defmodule BobineWeb.Admin.SeriesLive do
     %{results: seasons} = Content.list_seasons(org, series, per_page: 100)
     assign(socket, :seasons, seasons)
   end
+
+  # Form-side normalisation for the New Season fields:
+  #
+  #   * If the new_season checkbox is unchecked, force expiry to nil so the
+  #     schema's `maybe_clear_new_season_expiry/1` doesn't have to guess.
+  #   * If the date input is blank, drop it so it stays nil (= "no expiry").
+  #   * If a date is provided, convert "YYYY-MM-DD" to a UTC end-of-day
+  #     DateTime so the badge stays visible all day on the chosen date.
+  defp normalize_new_season_params(params) do
+    params
+    |> normalize_expiry_date()
+    |> clear_expiry_when_flag_off()
+  end
+
+  defp normalize_expiry_date(%{"new_season_expires_at" => ""} = params),
+    do: Map.delete(params, "new_season_expires_at")
+
+  defp normalize_expiry_date(%{"new_season_expires_at" => date_string} = params)
+       when is_binary(date_string) do
+    case Date.from_iso8601(date_string) do
+      {:ok, date} ->
+        end_of_day = DateTime.new!(date, ~T[23:59:59], "Etc/UTC")
+        Map.put(params, "new_season_expires_at", end_of_day)
+
+      _ ->
+        Map.delete(params, "new_season_expires_at")
+    end
+  end
+
+  defp normalize_expiry_date(params), do: params
+
+  defp clear_expiry_when_flag_off(%{"new_season" => "false"} = params),
+    do: Map.put(params, "new_season_expires_at", nil)
+
+  defp clear_expiry_when_flag_off(params), do: params
+
+  # Renders a date input value from whatever the form holds. The form may
+  # carry a DateTime (after editing an existing record), an ISO date string
+  # (mid-edit before normalisation), or nil.
+  defp format_date_value(%DateTime{} = dt), do: dt |> DateTime.to_date() |> Date.to_iso8601()
+  defp format_date_value(value) when is_binary(value), do: value
+  defp format_date_value(_), do: ""
 
   defp error_messages(field) do
     Enum.map(field.errors, fn {msg, _opts} -> msg end)

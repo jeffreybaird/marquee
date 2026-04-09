@@ -160,6 +160,105 @@ defmodule BobineWeb.Admin.SeriesLiveTest do
       refute html =~ "To Delete"
     end
 
+    test "list shows '— ' when new_season flag is off", %{conn: _conn} do
+      %{membership: membership, scope: scope} = setup_editor()
+      {:ok, series} = Content.create_series(scope, %{title: "Plain"})
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/series")
+
+      assert html =~ ~s(data-test="series-new-season-status-#{series.id}")
+      refute html =~ ~s(data-test="new-season-permanent")
+      refute html =~ ~s(data-test="new-season-days-remaining")
+    end
+
+    test "list shows 'On (no expiry)' when flag is on with no expiry", %{conn: _conn} do
+      %{membership: membership, scope: scope} = setup_editor()
+
+      {:ok, _series} =
+        Content.create_series(scope, %{title: "Permanent", new_season: true})
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/series")
+
+      assert html =~ ~s(data-test="new-season-permanent")
+      assert html =~ "On (no expiry)"
+    end
+
+    test "list shows days-remaining when an expiry is set", %{conn: _conn} do
+      %{membership: membership, scope: scope} = setup_editor()
+      future = DateTime.utc_now() |> DateTime.add(5 * 86_400 + 60, :second)
+
+      {:ok, _series} =
+        Content.create_series(scope, %{
+          title: "Counting Down",
+          new_season: true,
+          new_season_expires_at: future
+        })
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/series")
+
+      assert html =~ ~s(data-test="new-season-days-remaining")
+      assert html =~ "5 days left"
+    end
+
+    test "list shows 'Hides today' when expiry is < 1 day away", %{conn: _conn} do
+      %{membership: membership, scope: scope} = setup_editor()
+      soon = DateTime.utc_now() |> DateTime.add(60, :second)
+
+      {:ok, _series} =
+        Content.create_series(scope, %{
+          title: "Goodbye",
+          new_season: true,
+          new_season_expires_at: soon
+        })
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/series")
+
+      assert html =~ ~s(data-test="new-season-expiring-today")
+    end
+
+    test "list shows '—' when expiry has passed (flag effectively off)", %{conn: _conn} do
+      %{membership: membership, scope: scope} = setup_editor()
+      past = DateTime.utc_now() |> DateTime.add(-3600, :second)
+
+      {:ok, series} =
+        Content.create_series(scope, %{
+          title: "Expired",
+          new_season: true,
+          new_season_expires_at: past
+        })
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/series")
+
+      assert html =~ ~s(data-test="series-new-season-status-#{series.id}")
+      refute html =~ ~s(data-test="new-season-days-remaining")
+      refute html =~ ~s(data-test="new-season-permanent")
+    end
+
+    test "form save persists the expiry date", %{conn: _conn} do
+      %{membership: membership, scope: scope, org: org} = setup_editor()
+      {:ok, series} = Content.create_series(scope, %{title: "Edit Me"})
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/series")
+      view |> element(~s([data-test="edit-series-#{series.id}"])) |> render_click()
+
+      future_date = Date.utc_today() |> Date.add(10) |> Date.to_iso8601()
+
+      view
+      |> form(~s([data-test="series-form"]),
+        series: %{
+          title: "Edit Me",
+          new_season: "true",
+          new_season_expires_at: future_date
+        }
+      )
+      |> render_submit()
+
+      {:ok, updated} = Content.get_series(org, series.id)
+      assert updated.new_season == true
+      assert updated.new_season_expires_at != nil
+      assert DateTime.to_date(updated.new_season_expires_at) == Date.utc_today() |> Date.add(10)
+    end
+
     test "toggles series visibility", %{conn: _conn} do
       %{membership: membership, scope: scope, org: org} = setup_editor()
 
