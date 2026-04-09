@@ -121,10 +121,15 @@ defmodule BobineWeb.UserLive.Login do
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
     if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_login_instructions(
-        user,
-        &url(~p"/users/log-in/#{&1}")
-      )
+      org = Accounts.get_user_primary_organization(user)
+
+      url_fun =
+        case org do
+          nil -> &url(~p"/users/log-in/#{&1}")
+          org -> &BobineWeb.OrgURL.org_url(url(~p"/users/log-in/#{&1}"), org)
+        end
+
+      Accounts.deliver_login_instructions(user, url_fun)
     end
 
     info =

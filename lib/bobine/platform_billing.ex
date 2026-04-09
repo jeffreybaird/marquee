@@ -17,6 +17,7 @@ defmodule Bobine.PlatformBilling do
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
+  alias BobineWeb.OrgURL
 
   require Bobine.Otel
 
@@ -347,8 +348,11 @@ defmodule Bobine.PlatformBilling do
         mode: "subscription",
         line_items: [%{price: plan.stripe_price_id, quantity: 1}],
         success_url:
-          "#{base_url()}/admin/settings/billing/success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "#{base_url()}/admin/settings/billing",
+          OrgURL.org_url(
+            "#{base_url()}/admin/settings/billing/success?session_id={CHECKOUT_SESSION_ID}",
+            organization
+          ),
+        cancel_url: OrgURL.org_url("#{base_url()}/admin/settings/billing", organization),
         customer_email: user.email,
         metadata: %{
           organization_id: organization.id,
@@ -370,7 +374,9 @@ defmodule Bobine.PlatformBilling do
                           %{"bobine.org.id" => organization.id} do
       case get_subscription(organization) do
         {:ok, sub} when not is_nil(sub.stripe_customer_id) ->
-          return_url = "#{base_url()}/admin/settings/billing"
+          return_url =
+            OrgURL.org_url("#{base_url()}/admin/settings/billing", organization)
+
           stripe_client().create_billing_portal_session(sub.stripe_customer_id, return_url)
 
         _ ->

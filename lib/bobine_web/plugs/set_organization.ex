@@ -5,11 +5,20 @@ defmodule BobineWeb.Plugs.SetOrganization do
   Resolves the current tenant organization from the request host and
   updates the current_scope with the organization and membership.
 
-  Resolution order:
-  1. Custom domain — match `organizations.custom_domain`
-  2. Subdomain — extract first subdomain segment, match `organizations.slug`
-  3. Dev fallback — only in dev: `x-bobine-org` header, `?org=` param, or first org
-  4. 404 — if no tenant is resolved
+  Resolution mode is selected via `Application.get_env(:bobine, :org_resolution)`:
+
+  * `:query_param` (dev/staging) — checks `?org=slug` and the
+    `x-bobine-org` header, falls back to a slug stashed in the session, then
+    to the user's membership / first org. The slug from a successful
+    query-param lookup is persisted to the session so subsequent requests
+    without the param still resolve to the same tenant.
+
+  * `:hostname` (production) — resolves only by custom domain or subdomain.
+    The `?org=` query param is ignored entirely so it cannot be used to
+    cross-tenant pivot in prod.
+
+  In both modes super admins with an active impersonation session resolve
+  to the impersonated org first.
 
   Sets `conn.assigns.current_scope` (when user + membership found) or
   `conn.assigns.organization` (for public/viewer routes without membership).
@@ -82,24 +91,85 @@ defmodule BobineWeb.Plugs.SetOrganization do
     end
   end
 
-  # Stash the resolved org_id in the session so the LiveView AssignScope hook
-  # can look it up during the WebSocket upgrade (where plug assigns are gone).
+  # Stash the resolved org_id and slug in the session so the LiveView
+  # AssignScope hook can look it up during the WebSocket upgrade (where plug
+  # assigns are gone), and so subsequent requests in `:query_param` mode keep
+  # resolving to the same tenant when the `?org=` param is dropped.
   # Also clear no_org_resolved so a stale marketing-page flag doesn't interfere.
   defp put_org_in_session(conn, org) do
     conn
     |> put_session(:organization_id, org.id)
+    |> put_session(:org_slug, org.slug)
     |> delete_session(:no_org_resolved)
   end
 
   defp resolve_organization(conn, opts) do
+    case resolution_mode() do
+      :query_param -> resolve_query_param_mode(conn, opts)
+      :hostname -> resolve_hostname_mode(conn, opts)
+    end
+  end
+
+  defp resolution_mode do
+    Application.get_env(:bobine, :org_resolution, :query_param)
+  end
+
+  # Dev/staging: an explicit `?org=`/header signal is authoritative — if it
+  # is provided but does not resolve to a real org, the request fails rather
+  # than silently pivoting to another tenant via session/membership/dev
+  # fallbacks. With no explicit signal, fall through the usual chain:
+  # impersonation → session slug → host → implicit → env fallback.
+  defp resolve_query_param_mode(conn, opts) do
+    optional? = Keyword.get(opts, :optional, false)
+
+    case explicit_org_signal(conn) do
+      {:ok, slug} ->
+        Accounts.get_organization_by_slug(slug)
+
+      :none ->
+        with {:error, _} <- resolve_impersonated_org(conn),
+             {:error, _} <- resolve_from_session_slug(conn),
+             {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
+             {:error, _} <- resolve_by_subdomain(conn.host),
+             {:error, _} <- maybe_resolve_implicit(conn, optional?) do
+          resolve_env_fallback(optional?)
+        end
+    end
+  end
+
+  # Returns `{:ok, slug}` when the request carries an explicit org signal
+  # (`?org=` query param or `x-bobine-org` header), `:none` otherwise.
+  defp explicit_org_signal(conn) do
+    slug =
+      get_req_header(conn, "x-bobine-org") |> List.first() ||
+        case conn.params do
+          %Plug.Conn.Unfetched{} -> nil
+          params -> Map.get(params, "org")
+        end
+
+    case slug do
+      slug when is_binary(slug) and slug != "" -> {:ok, slug}
+      _ -> :none
+    end
+  end
+
+  # Production: only host-based resolution. The `?org=` param is ignored so
+  # it cannot be used to pivot tenants on a shared host.
+  defp resolve_hostname_mode(conn, opts) do
     optional? = Keyword.get(opts, :optional, false)
 
     with {:error, _} <- resolve_impersonated_org(conn),
          {:error, _} <- Accounts.get_organization_by_custom_domain(conn.host),
          {:error, _} <- resolve_by_subdomain(conn.host),
-         {:error, _} <- resolve_from_query_or_header(conn),
          {:error, _} <- maybe_resolve_implicit(conn, optional?) do
-      resolve_env_fallback(optional?)
+      {:error, :not_found}
+    end
+  end
+
+  defp resolve_from_session_slug(conn) do
+    case get_session(conn, :org_slug) do
+      slug when is_binary(slug) -> Accounts.get_organization_by_slug(slug)
+      _ -> {:error, :not_found}
     end
   end
 
@@ -196,24 +266,6 @@ defmodule BobineWeb.Plugs.SetOrganization do
     if length(parts) >= 2 do
       first = List.first(parts)
       if first != "www" and not Regex.match?(~r/^\d+$/, first), do: first
-    end
-  end
-
-  # All environments: resolve from ?org=slug query param or x-bobine-org header.
-  # This enables staging on shared hosts (e.g. app.fly.dev/?org=demo) where
-  # wildcard subdomains are not available.
-  defp resolve_from_query_or_header(conn) do
-    slug_from_header = get_req_header(conn, "x-bobine-org") |> List.first()
-
-    slug_from_param =
-      case conn.params do
-        %Plug.Conn.Unfetched{} -> nil
-        params -> Map.get(params, "org")
-      end
-
-    case slug_from_header || slug_from_param do
-      nil -> {:error, :not_found}
-      slug -> Accounts.get_organization_by_slug(slug)
     end
   end
 

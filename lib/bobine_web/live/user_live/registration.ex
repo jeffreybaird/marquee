@@ -75,11 +75,11 @@ defmodule BobineWeb.UserLive.Registration do
       org_name = params["organization_name"]
 
       case Accounts.register_user_with_organization(params, org_name) do
-        {:ok, user} ->
+        {:ok, user, org} ->
           {:ok, _} =
             Accounts.deliver_login_instructions(
               user,
-              &url(~p"/users/log-in/#{&1}")
+              &BobineWeb.OrgURL.org_url(url(~p"/users/log-in/#{&1}"), org)
             )
 
           {:noreply,

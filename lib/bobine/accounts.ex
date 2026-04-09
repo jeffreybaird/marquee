@@ -86,6 +86,28 @@ defmodule Bobine.Accounts do
     Repo.exists?(from m in Membership, where: m.user_id == ^user_id)
   end
 
+  @doc """
+  Returns the user's primary (first non-deleted) organization, or `nil` if
+  the user has no memberships.
+
+  Used by flows that need an org context for a user before any tenant has
+  been resolved from the request — e.g. building a magic-link URL on the
+  platform-level operator login page.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_user_primary_organization(%User{id: user_id}) do
+    Repo.one(
+      from m in Membership,
+        where: m.user_id == ^user_id,
+        join: o in assoc(m, :organization),
+        where: is_nil(o.deleted_at),
+        order_by: [asc: m.inserted_at],
+        select: o,
+        limit: 1
+    )
+  end
+
   ## Database getters
 
   @doc """
@@ -162,7 +184,9 @@ defmodule Bobine.Accounts do
   @doc """
   Registers a new user and creates an organization with the user as owner.
 
-  The organization gets a default theme and the user is assigned the `:owner` role.
+  The organization gets a default theme and the user is assigned the `:owner`
+  role. Returns `{:ok, user, org}` so callers can build org-scoped URLs (for
+  example, magic-link emails) without a follow-up lookup.
 
   Exempt from doctest — hits the database.
   """
@@ -183,7 +207,7 @@ defmodule Bobine.Accounts do
       end
     end)
     |> case do
-      {:ok, {user, _org}} -> {:ok, user}
+      {:ok, {user, org}} -> {:ok, user, org}
       {:error, changeset} -> {:error, :validation, changeset}
     end
   end

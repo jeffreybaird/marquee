@@ -76,40 +76,32 @@ defmodule Bobine.Viewers.ViewerNotifier do
     """)
   end
 
-  if Mix.env() == :dev do
-    # In dev, always use ?org= so links work without subdomain configuration.
-    defp viewer_magic_link_url(token, organization) do
-      endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
-      base_host = Keyword.get(endpoint_config, :host, "localhost")
-      port = Keyword.get(endpoint_config, :port)
-      scheme = Keyword.get(endpoint_config, :scheme, "http")
-      port_suffix = port_suffix(scheme, port)
+  defp viewer_magic_link_url(token, organization) do
+    endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
+    base_host = Keyword.get(endpoint_config, :host, "localhost")
+    port = Keyword.get(endpoint_config, :port)
+    scheme = Keyword.get(endpoint_config, :scheme, "http")
+    port_suffix = port_suffix(scheme, port)
 
+    base =
       if organization.custom_domain && organization.custom_domain != "" do
         "#{scheme}://#{organization.custom_domain}#{port_suffix}/magic-link/#{token}"
       else
-        "#{scheme}://#{base_host}#{port_suffix}/magic-link/#{token}?org=#{organization.slug}"
+        host =
+          if hostname_resolution?() and not String.contains?(base_host, ".fly.dev") do
+            "#{organization.slug}.#{base_host}"
+          else
+            base_host
+          end
+
+        "#{scheme}://#{host}#{port_suffix}/magic-link/#{token}"
       end
-    end
-  else
-    defp viewer_magic_link_url(token, organization) do
-      endpoint_config = Application.get_env(:bobine, BobineWeb.Endpoint)[:url] || []
-      base_host = Keyword.get(endpoint_config, :host, "localhost")
-      port = Keyword.get(endpoint_config, :port)
-      scheme = Keyword.get(endpoint_config, :scheme, "http")
-      port_suffix = port_suffix(scheme, port)
 
-      cond do
-        organization.custom_domain && organization.custom_domain != "" ->
-          "#{scheme}://#{organization.custom_domain}#{port_suffix}/magic-link/#{token}"
+    BobineWeb.OrgURL.org_url(base, organization)
+  end
 
-        !String.contains?(base_host, ".fly.dev") ->
-          "#{scheme}://#{organization.slug}.#{base_host}#{port_suffix}/magic-link/#{token}"
-
-        true ->
-          "#{scheme}://#{base_host}#{port_suffix}/magic-link/#{token}?org=#{organization.slug}"
-      end
-    end
+  defp hostname_resolution? do
+    Application.get_env(:bobine, :org_resolution, :query_param) == :hostname
   end
 
   defp port_suffix(_scheme, nil), do: ""

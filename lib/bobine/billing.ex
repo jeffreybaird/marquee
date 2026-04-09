@@ -13,6 +13,7 @@ defmodule Bobine.Billing do
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
+  alias BobineWeb.OrgURL
 
   require Bobine.Otel
   require Logger
@@ -539,8 +540,12 @@ defmodule Bobine.Billing do
           viewer_email: viewer.email,
           stripe_connect_account_id: org.stripe_connect_account_id,
           line_items: [%{price: plan.stripe_price_id, quantity: 1}],
-          success_url: "#{org_base_url(org)}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
-          cancel_url: "#{org_base_url(org)}/subscribe",
+          success_url:
+            OrgURL.org_url(
+              "#{org_base_url(org)}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
+              org
+            ),
+          cancel_url: OrgURL.org_url("#{org_base_url(org)}/subscribe", org),
           trial_period_days: plan.trial_period_days
         }
 
@@ -572,7 +577,10 @@ defmodule Bobine.Billing do
                           %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
       with :ok <- ensure_stripe_connected(org) do
         stripe_client().create_connected_portal_session(
-          %{customer: viewer.stripe_customer_id, return_url: "#{org_base_url(org)}/account"},
+          %{
+            customer: viewer.stripe_customer_id,
+            return_url: OrgURL.org_url("#{org_base_url(org)}/account", org)
+          },
           connect_account: org.stripe_connect_account_id
         )
       end
@@ -846,8 +854,10 @@ defmodule Bobine.Billing do
       with {:ok, account_id} <- ensure_connect_account(org),
            {:ok, link} <-
              stripe_client().create_connect_account_link(account_id, %{
-               return_url: "#{org_base_url(org)}/admin/settings/stripe/return",
-               refresh_url: "#{org_base_url(org)}/admin/settings/stripe/refresh"
+               return_url:
+                 OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/return", org),
+               refresh_url:
+                 OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/refresh", org)
              }) do
         {:ok, link.url}
       else

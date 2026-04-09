@@ -25,6 +25,13 @@ config :bobine,
   ecto_repos: [Bobine.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+# Org resolution strategy. `:query_param` reads `?org=slug` and persists the
+# slug in the session so org-scoped URLs work without subdomains. `:hostname`
+# resolves the org from the request host only. Currently all environments use
+# `:query_param`; production may switch to `:hostname` once wildcard subdomains
+# are wired up.
+config :bobine, :org_resolution, :query_param
+
 # Configure the endpoint
 config :bobine, BobineWeb.Endpoint,
   url: [host: "localhost"],
