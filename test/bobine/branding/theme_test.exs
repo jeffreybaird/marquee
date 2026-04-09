@@ -17,6 +17,8 @@ defmodule Bobine.Branding.ThemeTest do
       assert defaults.brand_primary_hover == "#F6121D"
       assert defaults.font_heading == "Inter"
       assert defaults.font_body == "Inter"
+      assert defaults.form_text == "#FFFFFF"
+      assert defaults.form_placeholder == "#8A8A8A"
     end
   end
 
@@ -63,6 +65,8 @@ defmodule Bobine.Branding.ThemeTest do
         "--sv-nav-bg",
         "--sv-card-bg",
         "--sv-overlay",
+        "--sv-form-text",
+        "--sv-form-placeholder",
         "--sv-radius-sm",
         "--sv-radius-md",
         "--sv-radius-lg"
@@ -107,6 +111,36 @@ defmodule Bobine.Branding.ThemeTest do
 
       changeset = Theme.changeset(%Theme{}, attrs)
       assert changeset.valid?
+    end
+
+    test "allows form_text and form_placeholder" do
+      org = insert(:organization)
+
+      attrs = %{
+        organization_id: org.id,
+        form_text: "#EEEEEE",
+        form_placeholder: "#777777"
+      }
+
+      changeset = Theme.changeset(%Theme{}, attrs)
+      assert changeset.valid?
+      assert Ecto.Changeset.get_change(changeset, :form_text) == "#EEEEEE"
+      assert Ecto.Changeset.get_change(changeset, :form_placeholder) == "#777777"
+    end
+
+    test "build_css_vars uses form_text and form_placeholder from the theme" do
+      theme = %Theme{form_text: "#CCCCCC", form_placeholder: "#555555"}
+      css = Theme.build_css_vars(theme)
+
+      assert css =~ "--sv-form-text: #CCCCCC"
+      assert css =~ "--sv-form-placeholder: #555555"
+    end
+
+    test "build_css_vars falls back to defaults for form colors when not set" do
+      css = Theme.build_default_css_vars()
+
+      assert css =~ "--sv-form-text: #FFFFFF"
+      assert css =~ "--sv-form-placeholder: #8A8A8A"
     end
 
     test "allows login_background_image_url" do

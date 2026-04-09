@@ -25,6 +25,8 @@ defmodule Bobine.Branding.Theme do
     :logo_url,
     :favicon_url,
     :login_background_image_url,
+    :form_text,
+    :form_placeholder,
     :organization_id
   ]
 
@@ -43,7 +45,9 @@ defmodule Bobine.Branding.Theme do
     divider_color: "rgba(255, 255, 255, 0.05)",
     nav_background: "rgba(0, 0, 0, 0.85)",
     card_background: "#1A1A1A",
-    overlay_color: "rgba(0, 0, 0, 0.7)"
+    overlay_color: "rgba(0, 0, 0, 0.7)",
+    form_text: "#FFFFFF",
+    form_placeholder: "#8A8A8A"
   }
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -71,6 +75,8 @@ defmodule Bobine.Branding.Theme do
     field :logo_url, :string
     field :favicon_url, :string
     field :login_background_image_url, :string
+    field :form_text, :string
+    field :form_placeholder, :string
 
     belongs_to :organization, Bobine.Accounts.Organization
 
@@ -82,8 +88,13 @@ defmodule Bobine.Branding.Theme do
 
   ## Examples
 
-      iex> Bobine.Branding.Theme.default_viewer_theme()
-      %{background: "#0F0F0F", surface: "#1A1A1A", elevated: "#252525", text_primary: "#FFFFFF", text_secondary: "#A0A0A0", text_on_accent: "#FFFFFF", brand_primary: "#E50914", brand_primary_hover: "#F6121D", font_heading: "Inter", font_body: "Inter", border_color: "rgba(255, 255, 255, 0.08)", divider_color: "rgba(255, 255, 255, 0.05)", nav_background: "rgba(0, 0, 0, 0.85)", card_background: "#1A1A1A", overlay_color: "rgba(0, 0, 0, 0.7)"}
+      iex> defaults = Bobine.Branding.Theme.default_viewer_theme()
+      iex> defaults.background
+      "#0F0F0F"
+      iex> defaults.form_text
+      "#FFFFFF"
+      iex> defaults.form_placeholder
+      "#8A8A8A"
 
   """
   def default_viewer_theme, do: @default_viewer_theme
@@ -122,6 +133,8 @@ defmodule Bobine.Branding.Theme do
       {"--sv-nav-bg", theme.nav_background || defaults.nav_background},
       {"--sv-card-bg", theme.card_background || defaults.card_background},
       {"--sv-overlay", theme.overlay_color || defaults.overlay_color},
+      {"--sv-form-text", theme.form_text || defaults.form_text},
+      {"--sv-form-placeholder", theme.form_placeholder || defaults.form_placeholder},
       {"--sv-radius-sm", "4px"},
       {"--sv-radius-md", "8px"},
       {"--sv-radius-lg", "12px"}
