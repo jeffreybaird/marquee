@@ -8,6 +8,63 @@ defmodule BobineWeb.Components.ViewerComponents do
 
   use BobineWeb, :html
 
+  alias Bobine.Content
+  alias Bobine.Content.{Season, Series, Video}
+
+  # ---------------------------------------------------------------------------
+  # Polymorphic Item Card — dispatches based on item type
+  # ---------------------------------------------------------------------------
+
+  attr :item, :any, required: true
+  attr :progress, :float, default: nil
+  attr :size, :string, values: ["row", "grid", "large"], default: "row"
+  attr :current_viewer, :map, default: nil
+  attr :card_id, :string, default: nil
+  attr :favorited_ids, :any, default: MapSet.new()
+  attr :watchlisted_ids, :any, default: MapSet.new()
+  attr :queued_ids, :any, default: MapSet.new()
+
+  @doc """
+  Renders a card for a polymorphic catalog item — a video, series, or season.
+
+  Use this from row renderers that may receive mixed content types. For
+  callers that only ever pass videos, prefer `content_card/1` directly.
+  """
+  def content_item_card(%{item: %Series{}} = assigns) do
+    ~H"""
+    <.series_card
+      series={@item}
+      size={@size}
+      card_id={@card_id}
+    />
+    """
+  end
+
+  def content_item_card(%{item: %Season{}} = assigns) do
+    ~H"""
+    <.season_card
+      season={@item}
+      size={@size}
+      card_id={@card_id}
+    />
+    """
+  end
+
+  def content_item_card(%{item: %Video{}} = assigns) do
+    ~H"""
+    <.content_card
+      video={@item}
+      progress={@progress}
+      size={@size}
+      current_viewer={@current_viewer}
+      card_id={@card_id}
+      favorited_ids={@favorited_ids}
+      watchlisted_ids={@watchlisted_ids}
+      queued_ids={@queued_ids}
+    />
+    """
+  end
+
   # ---------------------------------------------------------------------------
   # Content Card
   # ---------------------------------------------------------------------------
@@ -161,6 +218,127 @@ defmodule BobineWeb.Components.ViewerComponents do
       </div>
     </div>
     """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Series Card
+  # ---------------------------------------------------------------------------
+
+  attr :series, :map, required: true
+  attr :size, :string, values: ["row", "grid", "large"], default: "row"
+  attr :card_id, :string, default: nil
+
+  @doc """
+  Renders a card for a series. Shape and size match `content_card/1` so
+  series and videos can sit next to each other in the same row.
+
+  Thumbnail is resolved via `Bobine.Content.resolve_series_thumbnail_cached/1`
+  (chain: series cover → latest season → first episode → placeholder). The
+  card shows season count instead of duration and renders an optional
+  "New Season" badge when `series.new_season` is true.
+
+  ## Examples
+
+      <.series_card series={@series} />
+  """
+  def series_card(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:resolved_card_id, fn ->
+        assigns[:card_id] || "series-card-#{assigns.series.id}"
+      end)
+      |> assign(:thumbnail_url, Content.resolve_series_thumbnail_cached(assigns.series))
+      |> assign(:season_count, series_season_count(assigns.series))
+
+    ~H"""
+    <div
+      id={@resolved_card_id}
+      class={["sv-card-container", "sv-card-container-#{@size}"]}
+      data-test={"series-card-#{@series.id}"}
+    >
+      <.link navigate={~p"/series/#{@series.slug}"} class={["sv-card", "sv-card-#{@size}"]}>
+        <div class="sv-card-thumb">
+          <img src={@thumbnail_url} alt={@series.title} loading="lazy" />
+          <span
+            :if={@series.new_season}
+            class="sv-card-badge sv-card-badge-new"
+            data-test={"new-season-badge-#{@series.id}"}
+          >
+            New Season
+          </span>
+        </div>
+        <div class="sv-card-info">
+          <span class="sv-card-title">{@series.title}</span>
+          <div class="sv-card-meta-row">
+            <span class="sv-card-meta">
+              {@season_count} {if @season_count == 1, do: "Season", else: "Seasons"}
+            </span>
+          </div>
+        </div>
+      </.link>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
+  # Season Card
+  # ---------------------------------------------------------------------------
+
+  attr :season, :map, required: true
+  attr :size, :string, values: ["row", "grid", "large"], default: "row"
+  attr :card_id, :string, default: nil
+
+  @doc """
+  Renders a card for a season. Same shape as `content_card/1` and
+  `series_card/1`. Thumbnail resolves through season cover → first episode
+  → placeholder. Metadata line shows the cached `episode_count`.
+
+  Navigates to the parent series page; the underlying watch page will pick
+  the right episode for the viewer.
+  """
+  def season_card(assigns) do
+    assigns =
+      assigns
+      |> assign_new(:resolved_card_id, fn ->
+        assigns[:card_id] || "season-card-#{assigns.season.id}"
+      end)
+      |> assign(:thumbnail_url, Content.resolve_season_thumbnail_cached(assigns.season))
+
+    ~H"""
+    <div
+      id={@resolved_card_id}
+      class={["sv-card-container", "sv-card-container-#{@size}"]}
+      data-test={"season-card-#{@season.id}"}
+    >
+      <.link
+        navigate={~p"/series/#{@season.series.slug}/season/#{@season.season_number}"}
+        class={["sv-card", "sv-card-#{@size}"]}
+      >
+        <div class="sv-card-thumb">
+          <img src={@thumbnail_url} alt={@season.title} loading="lazy" />
+        </div>
+        <div class="sv-card-info">
+          <span class="sv-card-title">{@season.title}</span>
+          <div class="sv-card-meta-row">
+            <span class="sv-card-meta">
+              {@season.episode_count} {if @season.episode_count == 1, do: "Episode", else: "Episodes"}
+            </span>
+          </div>
+        </div>
+      </.link>
+    </div>
+    """
+  end
+
+  defp series_season_count(%Series{seasons: seasons}) when is_list(seasons), do: length(seasons)
+
+  defp series_season_count(%Series{id: id}) do
+    import Ecto.Query, warn: false
+
+    Bobine.Content.Season
+    |> where(series_id: ^id)
+    |> where([s], is_nil(s.deleted_at))
+    |> Bobine.Repo.aggregate(:count)
   end
 
   # ---------------------------------------------------------------------------

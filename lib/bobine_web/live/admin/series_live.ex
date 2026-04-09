@@ -456,6 +456,22 @@ defmodule BobineWeb.Admin.SeriesLive do
               /> Visible to viewers
             </label>
           </div>
+          <div class="mb-4">
+            <label
+              class="label cursor-pointer justify-start gap-3"
+              data-test="new-season-toggle"
+            >
+              <input type="hidden" name="series[new_season]" value="false" />
+              <input
+                type="checkbox"
+                name="series[new_season]"
+                value="true"
+                checked={@form[:new_season].value == true}
+                class="checkbox"
+                data-test="series-new-season-input"
+              /> Show "New Season" badge
+            </label>
+          </div>
           <div class="flex justify-end gap-2">
             <button type="button" phx-click="cancel_series_form" class="btn btn-ghost">
               Cancel
@@ -593,7 +609,7 @@ defmodule BobineWeb.Admin.SeriesLive do
               id="season-title"
               name="season[title]"
               value={@form[:title].value}
-              placeholder="Leave blank to auto-name (e.g. ‘My Series 1’)"
+              placeholder="Leave blank to auto-name (e.g. ‘Season 1’)"
               class="input input-bordered w-full"
               data-test="season-title-input"
             />

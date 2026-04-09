@@ -36,9 +36,13 @@ defmodule Bobine.Content do
     |> where(organization_id: ^org_id)
     |> where([v], is_nil(v.deleted_at))
     |> apply_video_search(Keyword.get(opts, :search))
+    |> apply_video_episode_exclusion(Keyword.get(opts, :exclude_episodes, false))
     |> apply_video_order(opts)
     |> Pagination.paginate(opts)
   end
+
+  defp apply_video_episode_exclusion(query, true), do: exclude_episode_videos(query)
+  defp apply_video_episode_exclusion(query, _), do: query
 
   defp apply_video_search(query, nil), do: query
 
@@ -1278,6 +1282,7 @@ defmodule Bobine.Content do
                           %{"bobine.org.id" => scope.organization.id} do
       case series |> Series.changeset(attrs) |> Repo.update() do
         {:ok, series} ->
+          invalidate_series_thumbnail_cache(series)
           Events.broadcast(scope, {:series_updated, series})
           Audit.log(scope, "series.updated", series, attrs)
           {:ok, series}
@@ -1307,6 +1312,7 @@ defmodule Bobine.Content do
         |> where([s], is_nil(s.deleted_at))
         |> Repo.update_all(set: [deleted_at: now])
 
+        invalidate_series_thumbnail_cache(series)
         Events.broadcast(scope, {:series_deleted, series})
         Audit.log(scope, "series.deleted", series)
         {:ok, series}
@@ -1411,6 +1417,7 @@ defmodule Bobine.Content do
            |> Season.changeset(attrs)
            |> Repo.insert() do
         {:ok, season} ->
+          invalidate_season_thumbnail_cache(season)
           Events.broadcast(scope, {:season_created, season})
           Audit.log(scope, "season.created", season, attrs)
           {:ok, season}
@@ -1433,15 +1440,17 @@ defmodule Bobine.Content do
   end
 
   # If the caller did not provide a title (or provided a blank one), default to
-  # "<series title> <season number>". Honors the params' key style (string vs atom).
-  defp maybe_assign_default_title(attrs, %Series{title: series_title}) do
+  # "Season <season number>". Season titles are not unique across series, so the
+  # generic default is fine — the operator can override per-season when needed.
+  # Honors the params' key style (string vs atom).
+  defp maybe_assign_default_title(attrs, %Series{} = _series) do
     title = Map.get(attrs, :title) || Map.get(attrs, "title")
 
     if is_binary(title) and String.trim(title) != "" do
       attrs
     else
       season_number = Map.get(attrs, :season_number) || Map.get(attrs, "season_number")
-      default = "#{series_title} #{season_number}"
+      default = "Season #{season_number}"
 
       if has_string_keys?(attrs) do
         Map.put(attrs, "title", default)
@@ -1472,6 +1481,7 @@ defmodule Bobine.Content do
                           %{"bobine.org.id" => scope.organization.id} do
       case season |> Season.changeset(attrs) |> Repo.update() do
         {:ok, season} ->
+          invalidate_season_thumbnail_cache(season)
           Events.broadcast(scope, {:season_updated, season})
           Audit.log(scope, "season.updated", season, attrs)
           {:ok, season}
@@ -1496,6 +1506,7 @@ defmodule Bobine.Content do
                deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
              )
              |> Repo.update() do
+        invalidate_season_thumbnail_cache(season)
         Events.broadcast(scope, {:season_deleted, season})
         Audit.log(scope, "season.deleted", season)
         {:ok, season}
@@ -1614,6 +1625,7 @@ defmodule Bobine.Content do
       case result do
         {:ok, episode} ->
           update_episode_count(season)
+          invalidate_season_thumbnail_cache(season)
           Events.broadcast(scope, {:episode_added, episode})
 
           Audit.log(scope, "episode.added", episode, %{
@@ -1670,6 +1682,7 @@ defmodule Bobine.Content do
         episode ->
           Repo.delete(episode)
           update_episode_count(season)
+          invalidate_season_thumbnail_cache(season)
           Events.broadcast(scope, {:episode_removed, episode})
           Audit.log(scope, "episode.removed", episode, %{video_id: video.id})
           :ok
@@ -1763,6 +1776,151 @@ defmodule Bobine.Content do
           total_episodes: ep.season.episode_count
         }
     end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Thumbnail resolution
+  ## -----------------------------------------------------------------------
+
+  @placeholder_thumbnail "/images/placeholder-thumbnail.svg"
+
+  @doc """
+  Resolves the display thumbnail URL for a series.
+
+  Resolution chain:
+    1. `series.cover_image_url`
+    2. Latest season's resolved thumbnail
+    3. Placeholder image
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_series_thumbnail(%Series{cover_image_url: url}) when is_binary(url) and url != "" do
+    url
+  end
+
+  def resolve_series_thumbnail(%Series{} = series) do
+    case latest_season(series) do
+      nil -> @placeholder_thumbnail
+      season -> resolve_season_thumbnail(season)
+    end
+  end
+
+  @doc """
+  Resolves the display thumbnail URL for a season.
+
+  Resolution chain:
+    1. `season.cover_image_url`
+    2. First episode's video Mux thumbnail
+    3. Placeholder image
+
+  Exempt from doctest — hits the database.
+  """
+  def resolve_season_thumbnail(%Season{cover_image_url: url}) when is_binary(url) and url != "" do
+    url
+  end
+
+  def resolve_season_thumbnail(%Season{} = season) do
+    case first_episode_video(season) do
+      %Video{mux_playback_id: playback_id} when is_binary(playback_id) ->
+        mux_thumbnail_url(playback_id, width: 400, height: 225)
+
+      _ ->
+        @placeholder_thumbnail
+    end
+  end
+
+  @doc """
+  Cached version of `resolve_series_thumbnail/1`. Caches the resolved URL
+  for 10 minutes per series. Invalidated automatically on series, season,
+  and episode mutations.
+
+  Exempt from doctest — hits the database / cache.
+  """
+  def resolve_series_thumbnail_cached(%Series{} = series) do
+    Cache.fetch(
+      "series_thumb:#{series.id}",
+      [ttl: :timer.minutes(10)],
+      fn -> resolve_series_thumbnail(series) end
+    )
+  end
+
+  @doc """
+  Cached version of `resolve_season_thumbnail/1`. Caches for 10 minutes.
+
+  Exempt from doctest — hits the database / cache.
+  """
+  def resolve_season_thumbnail_cached(%Season{} = season) do
+    Cache.fetch(
+      "season_thumb:#{season.id}",
+      [ttl: :timer.minutes(10)],
+      fn -> resolve_season_thumbnail(season) end
+    )
+  end
+
+  @doc """
+  Returns the placeholder thumbnail URL used when no image source is available.
+  """
+  def placeholder_thumbnail, do: @placeholder_thumbnail
+
+  defp latest_season(%Series{id: series_id}) do
+    Season
+    |> where(series_id: ^series_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> order_by(desc: :season_number)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  defp first_episode_video(%Season{id: season_id}) do
+    Episode
+    |> where(season_id: ^season_id)
+    |> order_by(:episode_number)
+    |> limit(1)
+    |> preload(:video)
+    |> Repo.one()
+    |> case do
+      nil -> nil
+      ep -> ep.video
+    end
+  end
+
+  defp mux_thumbnail_url(playback_id, opts) do
+    width = Keyword.get(opts, :width, 400)
+    height = Keyword.get(opts, :height, 225)
+
+    "https://image.mux.com/#{playback_id}/thumbnail.webp?" <>
+      "width=#{width}&height=#{height}&fit_mode=smartcrop"
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Episode video filtering
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Returns a query scope that excludes videos which are episodes in any season.
+  Use this in auto-populated row queries (e.g. `:recent`, `:popular`) so the
+  homepage does not surface individual episodes alongside their parent series.
+
+      iex> q = Bobine.Content.exclude_episode_videos(Bobine.Content.Video)
+      iex> match?(%Ecto.Query{}, q)
+      true
+  """
+  def exclude_episode_videos(query) do
+    episode_video_ids = from(e in Episode, select: e.video_id)
+    from(v in query, where: v.id not in subquery(episode_video_ids))
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Cache invalidation
+  ## -----------------------------------------------------------------------
+
+  defp invalidate_series_thumbnail_cache(%Series{id: id}) do
+    Cache.delete("series_thumb:#{id}")
+  end
+
+  defp invalidate_season_thumbnail_cache(%Season{id: id, series_id: series_id}) do
+    Cache.delete("season_thumb:#{id}")
+    Cache.delete("series_thumb:#{series_id}")
   end
 
   ## -----------------------------------------------------------------------

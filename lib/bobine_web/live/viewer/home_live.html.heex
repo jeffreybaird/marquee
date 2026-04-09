@@ -29,9 +29,9 @@
       <%!-- Catalog rows --%>
       <section :if={@rows != []} class="catalog-rows" data-test="catalog-rows">
         <.content_row
-          :for={%{row: row, videos: videos, view_all_path: view_all_path} <- @rows}
+          :for={%{row: row, items: items, view_all_path: view_all_path} <- @rows}
           row={row}
-          videos={videos}
+          items={items}
           view_all_path={view_all_path}
           current_viewer={@current_viewer}
           favorited_ids={@favorited_ids}

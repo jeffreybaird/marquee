@@ -74,7 +74,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   defp load_catalog_rows(org, viewer) do
     org
-    |> Catalog.load_catalog_rows_with_content(viewer: viewer)
+    |> Catalog.load_catalog_rows_with_items(viewer: viewer)
     |> Enum.map(fn %{row: row} = entry ->
       Map.put(entry, :view_all_path, resolve_view_all_path(org, row))
     end)

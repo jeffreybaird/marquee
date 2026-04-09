@@ -329,6 +329,7 @@ defmodule Bobine.Catalog do
 
   Exempt from doctest — hits the database.
   """
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def resolve_row_content(%Organization{} = organization, %Row{} = row, opts \\ []) do
     case row.source_type do
       :curated ->
@@ -343,13 +344,13 @@ defmodule Bobine.Catalog do
       :recent ->
         Content.list_videos(
           organization,
-          Keyword.merge(opts, order_by: [{:desc, :inserted_at}])
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}], exclude_episodes: true)
         )
 
       :popular ->
         Content.list_videos(
           organization,
-          Keyword.merge(opts, order_by: [{:desc, :inserted_at}])
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}], exclude_episodes: true)
         )
 
       :continue_watching ->
@@ -361,9 +362,42 @@ defmodule Bobine.Catalog do
           %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
         end
 
+      :new_seasons ->
+        resolve_new_seasons(organization, row, opts)
+
       :hero ->
         # Hero rows resolve their content through resolve_hero_slides/1, not here
         %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+    end
+  end
+
+  defp resolve_new_seasons(%Organization{id: org_id}, %Row{} = row, opts) do
+    Bobine.Otel.with_span "bobine.catalog.resolve_new_seasons",
+                          %{"bobine.org.id" => org_id} do
+      limit = Keyword.get(opts, :per_page) || row.max_items || 20
+
+      seasons_query =
+        from s in Bobine.Content.Season,
+          where: is_nil(s.deleted_at),
+          order_by: [asc: s.season_number]
+
+      results =
+        Bobine.Content.Series
+        |> where(organization_id: ^org_id)
+        |> where([s], is_nil(s.deleted_at))
+        |> where([s], s.visible == true and s.new_season == true)
+        |> order_by(desc: :updated_at)
+        |> limit(^limit)
+        |> preload(seasons: ^seasons_query)
+        |> Repo.all()
+
+      %{
+        results: results,
+        page: 1,
+        per_page: limit,
+        total: length(results),
+        total_pages: 1
+      }
     end
   end
 
@@ -469,6 +503,42 @@ defmodule Bobine.Catalog do
     end)
     |> Enum.reject(fn %{videos: videos} -> Enum.empty?(videos) end)
   end
+
+  @doc """
+  Loads catalog rows with their resolved content as a polymorphic item list.
+
+  Unlike `load_catalog_rows_with_content/2` (which flattens everything to a
+  list of videos), this returns mixed items per row — videos, series, and
+  seasons — so the renderer can dispatch on item type and show series cards
+  alongside video cards.
+
+  CollectionItems are unwrapped to their underlying entity (Video / Season / Series).
+  Rows whose `source_type` is `:hero` are excluded; empty rows are filtered out.
+
+  Returns a list of `%{row: row, items: items}` maps.
+
+  Exempt from doctest — hits the database.
+  """
+  def load_catalog_rows_with_items(%Organization{} = organization, opts \\ []) do
+    %{results: rows} = list_visible_rows(organization, per_page: 100)
+
+    rows
+    |> Enum.reject(&(&1.source_type == :hero))
+    |> Enum.map(fn row ->
+      row_opts = opts |> Keyword.put(:per_page, row.max_items)
+
+      %{results: results} = resolve_row_content_cached(organization, row, row_opts)
+
+      items = Enum.map(results, &unwrap_row_item/1)
+      %{row: row, items: items}
+    end)
+    |> Enum.reject(fn %{items: items} -> Enum.empty?(items) end)
+  end
+
+  defp unwrap_row_item(%CollectionItem{item_type: :video, video: video}), do: video
+  defp unwrap_row_item(%CollectionItem{item_type: :season, season: season}), do: season
+  defp unwrap_row_item(%CollectionItem{item_type: :series, series: series}), do: series
+  defp unwrap_row_item(item), do: item
 
   @doc """
   Lists hero slides enriched with their associated video title and description.

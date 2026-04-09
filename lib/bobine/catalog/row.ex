@@ -9,7 +9,16 @@ defmodule Bobine.Catalog.Row do
     field :title, :string
 
     field :source_type, Ecto.Enum,
-      values: [:curated, :collection, :tag, :recent, :continue_watching, :popular, :hero]
+      values: [
+        :curated,
+        :collection,
+        :tag,
+        :recent,
+        :continue_watching,
+        :popular,
+        :hero,
+        :new_seasons
+      ]
 
     field :source_id, :binary_id
     field :filter_config, :map

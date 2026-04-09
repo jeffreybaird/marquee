@@ -25,7 +25,8 @@ defmodule BobineWeb.Admin.CatalogLive do
     {"Tag", "tag"},
     {"Recent", "recent"},
     {"Popular", "popular"},
-    {"Continue Watching", "continue_watching"}
+    {"Continue Watching", "continue_watching"},
+    {"Series with new seasons (auto-populated)", "new_seasons"}
   ]
 
   @impl true

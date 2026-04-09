@@ -185,15 +185,14 @@ defmodule Bobine.Content.SeriesContextTest do
       assert season.season_number == 5
     end
 
-    test "defaults title to '<series title> <season_number>' when no title given",
-         %{scope: scope} do
+    test "defaults title to 'Season <n>' when no title given", %{scope: scope} do
       {:ok, series} = Content.create_series(scope, %{title: "Breaking Code"})
 
       {:ok, s1} = Content.create_season(scope, series, %{})
       {:ok, s2} = Content.create_season(scope, series, %{})
 
-      assert s1.title == "Breaking Code 1"
-      assert s2.title == "Breaking Code 2"
+      assert s1.title == "Season 1"
+      assert s2.title == "Season 2"
     end
 
     test "defaults title when title is blank string", %{scope: scope} do
@@ -201,7 +200,7 @@ defmodule Bobine.Content.SeriesContextTest do
 
       {:ok, season} = Content.create_season(scope, series, %{"title" => "  "})
 
-      assert season.title == "Show Name 1"
+      assert season.title == "Season 1"
     end
 
     test "preserves an explicit title", %{scope: scope} do
@@ -210,6 +209,32 @@ defmodule Bobine.Content.SeriesContextTest do
       {:ok, season} = Content.create_season(scope, series, %{title: "Pilot Arc"})
 
       assert season.title == "Pilot Arc"
+    end
+
+    test "two different series can each have a 'Season 1' in the same org",
+         %{scope: scope} do
+      {:ok, series_a} = Content.create_series(scope, %{title: "Show A"})
+      {:ok, series_b} = Content.create_series(scope, %{title: "Show B"})
+
+      assert {:ok, season_a} = Content.create_season(scope, series_a, %{})
+      assert {:ok, season_b} = Content.create_season(scope, series_b, %{})
+
+      assert season_a.title == "Season 1"
+      assert season_b.title == "Season 1"
+      assert season_a.slug == season_b.slug
+      assert season_a.series_id != season_b.series_id
+    end
+
+    test "two seasons in the SAME series cannot share a slug", %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Show"})
+
+      {:ok, _} = Content.create_season(scope, series, %{title: "Pilot"})
+
+      assert {:error, :validation, changeset} =
+               Content.create_season(scope, series, %{title: "Pilot", season_number: 2})
+
+      # Ecto reports composite-constraint errors on the first field (:series_id).
+      assert "has already been taken" in errors_on(changeset).series_id
     end
   end
 

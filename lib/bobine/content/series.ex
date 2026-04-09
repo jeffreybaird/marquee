@@ -20,6 +20,7 @@ defmodule Bobine.Content.Series do
     field :cover_image_url, :string
     field :position, :integer, default: 0
     field :visible, :boolean, default: true
+    field :new_season, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     has_many :seasons, Bobine.Content.Season
@@ -34,7 +35,14 @@ defmodule Bobine.Content.Series do
   """
   def changeset(series, attrs) do
     series
-    |> cast(attrs, [:title, :description, :cover_image_url, :position, :visible])
+    |> cast(attrs, [
+      :title,
+      :description,
+      :cover_image_url,
+      :position,
+      :visible,
+      :new_season
+    ])
     |> validate_required([:title])
     |> maybe_generate_slug()
     |> unique_constraint([:organization_id, :slug])

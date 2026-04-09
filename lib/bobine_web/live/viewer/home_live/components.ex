@@ -360,7 +360,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   end
 
   attr :row, :map, required: true
-  attr :videos, :list, required: true
+  attr :items, :list, required: true
   attr :view_all_path, :string, default: nil
   attr :current_viewer, :map, default: nil
   attr :favorited_ids, :any, default: MapSet.new()
@@ -397,12 +397,12 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
           <.icon name="hero-chevron-left" class="size-5" aria-hidden="true" />
         </button>
         <div class="content-row-items">
-          <ViewerComponents.content_card
-            :for={video <- @videos}
-            video={video}
+          <ViewerComponents.content_item_card
+            :for={item <- @items}
+            item={item}
             size="row"
             current_viewer={@current_viewer}
-            card_id={"home-row-#{@row.id}-card-#{video.id}"}
+            card_id={item_card_id(@row, item)}
             favorited_ids={@favorited_ids}
             watchlisted_ids={@watchlisted_ids}
             queued_ids={@queued_ids}
@@ -418,5 +418,9 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
       </div>
     </section>
     """
+  end
+
+  defp item_card_id(row, item) do
+    "home-row-#{row.id}-card-#{item.id}"
   end
 end

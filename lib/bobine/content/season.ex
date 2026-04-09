@@ -42,7 +42,7 @@ defmodule Bobine.Content.Season do
     |> validate_number(:season_number, greater_than: 0)
     |> maybe_generate_slug()
     |> unique_constraint([:series_id, :season_number])
-    |> unique_constraint([:organization_id, :slug])
+    |> unique_constraint([:series_id, :slug])
   end
 
   defp maybe_generate_slug(changeset) do

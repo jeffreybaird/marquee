@@ -353,8 +353,7 @@ defmodule BobineWeb.Admin.SeriesLiveTest do
       assert path == "/admin/series/#{series.id}/seasons/#{season.id}"
     end
 
-    test "creates a season without a title — defaults to '<series> <n>'",
-         %{conn: _conn} do
+    test "creates a season without a title — defaults to 'Season <n>'", %{conn: _conn} do
       %{membership: membership, scope: scope, org: org} = setup_editor()
 
       {:ok, series} = Content.create_series(scope, %{title: "Auto Title"})
@@ -370,7 +369,7 @@ defmodule BobineWeb.Admin.SeriesLiveTest do
       |> render_submit()
 
       %{results: [season]} = Content.list_seasons(org, series)
-      assert season.title == "Auto Title 1"
+      assert season.title == "Season 1"
       assert season.season_number == 1
     end
   end
