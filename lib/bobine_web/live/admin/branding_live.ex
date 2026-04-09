@@ -115,6 +115,11 @@ defmodule BobineWeb.Admin.BrandingLive do
               <.color_input form={@form} field={:card_background} label="Card Background" />
               <.color_input form={@form} field={:nav_background} label="Nav Background" />
 
+              <h3 class="text-lg font-medium mt-6">Form Fields</h3>
+
+              <.color_input form={@form} field={:form_text} label="Input Text" />
+              <.color_input form={@form} field={:form_placeholder} label="Input Placeholder" />
+
               <h3 class="text-lg font-medium mt-6">Typography</h3>
 
               <.input field={@form[:font_heading]} type="text" label="Heading Font" />
