@@ -2246,6 +2246,282 @@
 }
 
 /* =========================================================================
+   Auth shell — viewer login / register pages
+   Full-bleed layout with optional org-supplied background image, falling
+   back to a branded gradient. Centered card with magic-link form.
+   ========================================================================= */
+
+.sv-auth-shell {
+  position: relative;
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.sv-auth-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-color: var(--sv-bg-primary);
+  background-image:
+    radial-gradient(
+      ellipse 80% 60% at 20% 0%,
+      color-mix(in srgb, var(--sv-accent) 28%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 70% 60% at 100% 100%,
+      color-mix(in srgb, var(--sv-accent) 18%, transparent) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      135deg,
+      var(--sv-bg-primary) 0%,
+      var(--sv-bg-secondary) 100%
+    );
+  background-size: cover;
+  background-position: center;
+}
+
+.sv-auth-shell.has-bg-image::before {
+  background-image: var(--sv-auth-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.sv-auth-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sv-bg-primary) 20%, transparent) 0%,
+    color-mix(in srgb, var(--sv-bg-primary) 70%, transparent) 100%
+  );
+  pointer-events: none;
+}
+
+.sv-auth-shell.has-bg-image::after {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sv-bg-primary) 55%, transparent) 0%,
+    color-mix(in srgb, var(--sv-bg-primary) 85%, transparent) 100%
+  );
+}
+
+.sv-auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: color-mix(in srgb, var(--sv-card-bg) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg, 12px);
+  padding: 40px 32px;
+  box-shadow:
+    0 24px 64px -16px rgba(0, 0, 0, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--sv-accent) 8%, transparent);
+}
+
+.sv-auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.sv-auth-logo {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+}
+
+.sv-auth-org-name {
+  font-family: var(--sv-font-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--sv-text-primary);
+  text-align: center;
+}
+
+.sv-auth-heading {
+  font-family: var(--sv-font-heading);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--sv-text-primary);
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.sv-auth-subtitle {
+  font-size: 0.9375rem;
+  color: var(--sv-text-secondary);
+  text-align: center;
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.sv-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sv-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sv-auth-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--sv-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.sv-auth-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 0.9375rem;
+  font-family: var(--sv-font-body);
+  color: var(--sv-text-primary);
+  background: var(--sv-bg-elevated);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-md, 8px);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  min-height: 44px;
+}
+
+.sv-auth-input::placeholder {
+  color: color-mix(in srgb, var(--sv-text-secondary) 70%, transparent);
+}
+
+.sv-auth-input:hover {
+  border-color: color-mix(in srgb, var(--sv-text-secondary) 40%, transparent);
+}
+
+.sv-auth-input:focus {
+  outline: none;
+  border-color: var(--sv-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-accent) 25%, transparent);
+}
+
+.sv-auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  min-height: 44px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--sv-font-body);
+  color: var(--sv-text-on-accent);
+  background: var(--sv-accent);
+  border: none;
+  border-radius: var(--sv-radius-md, 8px);
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+  margin-top: 4px;
+}
+
+.sv-auth-submit:hover {
+  background: var(--sv-accent-hover);
+}
+
+.sv-auth-submit:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--sv-bg-primary),
+    0 0 0 4px var(--sv-accent);
+}
+
+.sv-auth-submit:active {
+  transform: translateY(1px);
+}
+
+.sv-auth-submit[disabled],
+.sv-auth-submit.phx-submit-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.sv-auth-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--sv-divider);
+  font-size: 0.875rem;
+  color: var(--sv-text-secondary);
+  text-align: center;
+}
+
+.sv-auth-footer a {
+  color: var(--sv-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sv-auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.sv-auth-footer a:focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.sv-auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--sv-accent) 12%, var(--sv-bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--sv-accent) 30%, transparent);
+  border-radius: var(--sv-radius-md, 8px);
+  color: var(--sv-text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.sv-auth-notice-icon {
+  flex-shrink: 0;
+  color: var(--sv-accent);
+  margin-top: 1px;
+}
+
+@media (max-width: 480px) {
+  .sv-auth-shell {
+    padding: 24px 12px;
+  }
+  .sv-auth-card {
+    padding: 32px 24px;
+  }
+  .sv-auth-heading {
+    font-size: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-auth-input,
+  .sv-auth-submit {
+    transition: none;
+  }
+}
+
+/* =========================================================================
    Reduced Motion
    ========================================================================= */
 
