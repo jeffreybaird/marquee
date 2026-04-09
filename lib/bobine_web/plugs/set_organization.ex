@@ -193,20 +193,25 @@ defmodule BobineWeb.Plugs.SetOrganization do
 
   defp maybe_resolve_implicit(conn, false) do
     with {:error, _} <- resolve_from_session(conn),
+         {:error, _} <- resolve_from_viewer_token(conn),
          {:error, _} <- resolve_from_user_membership(conn) do
       {:error, :not_found}
     end
   end
 
   defp resolve_from_viewer_token(conn) do
-    token = get_session(conn, :viewer_token)
-
-    case Bobine.Viewers.get_viewer_by_session_token(token) do
-      %{organization_id: org_id} ->
-        Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
-
+    case get_session(conn, :viewer_token) do
       nil ->
         {:error, :not_found}
+
+      token ->
+        case Bobine.Viewers.get_viewer_by_session_token(token) do
+          %{organization_id: org_id} ->
+            Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
+
+          nil ->
+            {:error, :not_found}
+        end
     end
   end
 

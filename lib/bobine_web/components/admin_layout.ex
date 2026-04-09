@@ -132,6 +132,12 @@ defmodule BobineWeb.Components.AdminLayout do
               data_test="admin-nav-catalog"
             />
             <.nav_link
+              href={~p"/admin/landing"}
+              label="Landing Page"
+              current_path={@current_path}
+              data_test="admin-nav-landing"
+            />
+            <.nav_link
               href={~p"/admin/analytics"}
               label="Analytics"
               current_path={@current_path}

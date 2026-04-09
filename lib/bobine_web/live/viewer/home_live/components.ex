@@ -430,4 +430,297 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   defp item_card_id(row, item) do
     "home-row-#{row.id}-card-#{item.id}"
   end
+
+  ## ─────────────────────────────────────────────────────────────────────
+  ## Landing page section components
+  ## ─────────────────────────────────────────────────────────────────────
+
+  attr :section, :map, required: true
+  attr :organization, :map, required: true
+
+  def landing_section(assigns) do
+    ~H"""
+    <section
+      class={"sv-landing-section sv-landing-#{@section.section_type}"}
+      data-test={"landing-section-#{@section.id}"}
+    >
+      <%= case @section.section_type do %>
+        <% :hero_video -> %>
+          <.landing_hero_video config={@section.config} />
+        <% :hero_image -> %>
+          <.landing_hero_image config={@section.config} />
+        <% :hero_slider -> %>
+          <.landing_hero_slider config={@section.config} />
+        <% :marketing_copy -> %>
+          <.landing_marketing_copy config={@section.config} />
+        <% :content_row -> %>
+          <.landing_content_row config={@section.config} />
+        <% :plan_display -> %>
+          <.landing_plan_display config={@section.config} />
+        <% :header_text -> %>
+          <.landing_header_text config={@section.config} />
+        <% :faq -> %>
+          <.landing_faq config={@section.config} />
+      <% end %>
+    </section>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_hero_video(assigns) do
+    assigns = assign(assigns, :video_url, hero_video_url(assigns.config))
+
+    ~H"""
+    <div class="sv-hero-video" data-test="hero-video-section">
+      <video
+        autoplay
+        muted
+        loop
+        playsinline
+        poster={@config["fallback_image_url"]}
+        class="sv-hero-video-bg"
+        aria-hidden="true"
+      >
+        <source src={@video_url} type="video/mp4" />
+      </video>
+
+      <div
+        class="sv-hero-overlay"
+        style={"opacity: #{@config["overlay_opacity"] || 0.5}"}
+        aria-hidden="true"
+      >
+      </div>
+
+      <div class="sv-hero-content">
+        <h1 class="sv-hero-headline">{@config["headline"]}</h1>
+        <p :if={@config["subheadline"]} class="sv-hero-subheadline">
+          {@config["subheadline"]}
+        </p>
+        <.link
+          :if={@config["cta_text"]}
+          navigate={@config["cta_link"] || "/subscribe"}
+          class="sv-hero-cta"
+          data-test="hero-cta"
+        >
+          {@config["cta_text"]}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_hero_image(assigns) do
+    ~H"""
+    <div class="sv-hero-image" data-test="hero-image-section">
+      <img src={@config["image_url"]} alt="" class="sv-hero-image-bg" />
+      <div
+        class="sv-hero-overlay"
+        style={"opacity: #{@config["overlay_opacity"] || 0.5}"}
+        aria-hidden="true"
+      >
+      </div>
+      <div class="sv-hero-content">
+        <h1 class="sv-hero-headline">{@config["headline"]}</h1>
+        <p :if={@config["subheadline"]} class="sv-hero-subheadline">
+          {@config["subheadline"]}
+        </p>
+        <.link
+          :if={@config["cta_text"]}
+          navigate={@config["cta_link"] || "/subscribe"}
+          class="sv-hero-cta"
+          data-test="hero-cta"
+        >
+          {@config["cta_text"]}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_hero_slider(assigns) do
+    ~H"""
+    <div data-test="hero-slider-section">
+      <%= if (@config["slides"] || []) != [] do %>
+        <.hero_carousel slides={@config["slides"]} auto_advance_ms={8000} />
+      <% end %>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_marketing_copy(assigns) do
+    alignment = assigns.config["text_alignment"] || "center"
+    assigns = assign(assigns, :alignment, alignment)
+
+    ~H"""
+    <div
+      class="sv-marketing-copy"
+      style={build_marketing_bg_style(@config)}
+      data-test="marketing-copy-section"
+    >
+      <div class={"sv-marketing-inner sv-text-#{@alignment}"}>
+        <h2 :if={@config["headline"]} class="sv-marketing-headline">
+          {@config["headline"]}
+        </h2>
+        <p :if={@config["body"]} class="sv-marketing-body">
+          {@config["body"]}
+        </p>
+        <.link
+          :if={@config["cta_text"]}
+          navigate={@config["cta_link"] || "/subscribe"}
+          class="sv-marketing-cta"
+          data-test="marketing-cta"
+        >
+          {@config["cta_text"]}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_content_row(assigns) do
+    ~H"""
+    <div class="sv-landing-row" data-test="content-row-section">
+      <h2 :if={@config["title"]} class="sv-row-title">{@config["title"]}</h2>
+      <div class="sv-row-scroll">
+        <ViewerComponents.content_item_card
+          :for={item <- @config["items"] || []}
+          item={item}
+          size="row"
+        />
+      </div>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_plan_display(assigns) do
+    ~H"""
+    <div class="sv-plan-display" data-test="plan-display-section">
+      <h2 :if={@config["headline"]} class="sv-plan-headline">
+        {@config["headline"]}
+      </h2>
+      <p :if={@config["subheadline"]} class="sv-plan-subheadline">
+        {@config["subheadline"]}
+      </p>
+
+      <div class="sv-plan-grid">
+        <div
+          :for={plan <- @config["plans"] || []}
+          class="sv-plan-card"
+          data-test={"plan-card-#{plan.id}"}
+        >
+          <h3 class="sv-plan-name">{plan.name}</h3>
+          <div class="sv-plan-price">
+            <span class="sv-plan-amount">${format_cents(plan.amount)}</span>
+            <span class="sv-plan-interval">/ {plan.interval}</span>
+          </div>
+          <p :if={plan.trial_period_days} class="sv-plan-trial">
+            {plan.trial_period_days}-day free trial
+          </p>
+          <ul :if={plan.features != []} class="sv-plan-features">
+            <li :for={feature <- plan.features}>{feature}</li>
+          </ul>
+          <.link
+            navigate={~p"/subscribe"}
+            class="sv-plan-cta"
+            data-test={"plan-cta-#{plan.id}"}
+          >
+            {if plan.trial_period_days, do: "Start free trial", else: "Subscribe"}
+          </.link>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_header_text(assigns) do
+    size_class =
+      case assigns.config["size"] do
+        "small" -> "sv-header-sm"
+        "large" -> "sv-header-lg"
+        _ -> "sv-header-md"
+      end
+
+    alignment = assigns.config["text_alignment"] || "center"
+
+    assigns = assign(assigns, size_class: size_class, alignment: alignment)
+
+    ~H"""
+    <div
+      class={"sv-header-text #{@size_class} sv-text-#{@alignment}"}
+      data-test="header-text-section"
+    >
+      <h2>{@config["headline"]}</h2>
+      <p :if={@config["subheadline"]}>{@config["subheadline"]}</p>
+    </div>
+    """
+  end
+
+  attr :config, :map, required: true
+
+  def landing_faq(assigns) do
+    ~H"""
+    <div class="sv-faq" data-test="faq-section">
+      <h2 :if={@config["headline"]} class="sv-faq-headline">
+        {@config["headline"]}
+      </h2>
+
+      <div class="sv-faq-list">
+        <details
+          :for={{item, index} <- Enum.with_index(@config["items"] || [])}
+          class="sv-faq-item"
+          data-test={"faq-item-#{index}"}
+        >
+          <summary class="sv-faq-question">{item["question"]}</summary>
+          <p class="sv-faq-answer">{item["answer"]}</p>
+        </details>
+      </div>
+    </div>
+    """
+  end
+
+  defp hero_video_url(%{"video_url" => url}) when is_binary(url) and url != "", do: url
+
+  defp hero_video_url(%{"video_playback_id" => id}) when is_binary(id) and id != "",
+    do: "https://stream.mux.com/#{id}/high.mp4"
+
+  defp hero_video_url(_), do: nil
+
+  defp build_marketing_bg_style(config) do
+    cond do
+      config["background_image_url"] && config["background_image_url"] != "" ->
+        "background-image: url('#{config["background_image_url"]}'); background-size: cover; background-position: center;"
+
+      config["background_color"] && config["background_color"] != "" ->
+        "background-color: #{config["background_color"]};"
+
+      true ->
+        ""
+    end
+  end
+
+  defp format_cents(cents) when is_integer(cents) do
+    dollars = div(cents, 100)
+    remainder = rem(cents, 100)
+
+    if remainder == 0 do
+      Integer.to_string(dollars)
+    else
+      "#{dollars}.#{String.pad_leading(Integer.to_string(remainder), 2, "0")}"
+    end
+  end
+
+  defp format_cents(_), do: "0"
 end

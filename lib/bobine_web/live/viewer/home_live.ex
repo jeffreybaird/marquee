@@ -20,6 +20,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   alias Bobine.Catalog
   alias Bobine.Content
+  alias Bobine.LandingPage
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
@@ -44,10 +45,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
       # Org resolved but no auth -> org landing page
       org ->
-        {:ok,
-         socket
-         |> assign(:page_title, org.name)
-         |> assign(:page_mode, :org_landing)}
+        {:ok, mount_landing_page(socket, org)}
 
       # No org, no super admin -> platform marketing page
       true ->
@@ -56,6 +54,18 @@ defmodule BobineWeb.Viewer.HomeLive do
          |> assign(:page_title, "Bobine — Your Video Platform")
          |> assign(:page_mode, :platform_marketing)}
     end
+  end
+
+  defp mount_landing_page(socket, org) do
+    sections =
+      org
+      |> LandingPage.list_landing_sections()
+      |> Enum.map(&LandingPage.resolve_landing_section(org, &1))
+
+    socket
+    |> assign(:page_title, org.name)
+    |> assign(:page_mode, :org_landing)
+    |> assign(:landing_sections, sections)
   end
 
   defp mount_org_home(socket, org, viewer) do

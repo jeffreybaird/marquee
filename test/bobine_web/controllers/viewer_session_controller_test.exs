@@ -100,5 +100,70 @@ defmodule BobineWeb.Viewer.SessionControllerTest do
       assert redirected_to(conn) == ~p"/"
       refute get_session(conn, :viewer_token)
     end
+
+    test "redirects to the org home (subdomain) preserving host", %{conn: _conn} do
+      org = insert(:organization, slug: "logout-test-org")
+      viewer = insert(:viewer, organization: org)
+
+      conn =
+        conn_for_viewer(viewer)
+        |> delete(~p"/viewer-session")
+
+      # Subdomain host carries the org context — relative `/` redirect lands
+      # back on the same org's home.
+      assert redirected_to(conn) == ~p"/"
+      assert conn.host == "#{org.slug}.localhost"
+      refute get_session(conn, :viewer_token)
+    end
+
+    test "redirected target shows the org's landing page (not platform marketing)",
+         %{conn: _conn} do
+      org = insert(:organization, name: "Acme Studio")
+      viewer = insert(:viewer, organization: org)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :header_text,
+        position: 0,
+        config: %{"headline" => "Acme welcomes you back"}
+      )
+
+      logout_conn =
+        conn_for_viewer(viewer)
+        |> delete(~p"/viewer-session")
+
+      assert redirected_to(logout_conn) == ~p"/"
+      refute get_session(logout_conn, :viewer_token)
+
+      # Recycle the conn so cookies / session carry over to the next request,
+      # then follow the redirect to confirm the org home renders.
+      follow_conn =
+        logout_conn
+        |> Phoenix.ConnTest.recycle()
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.get(~p"/")
+
+      body = Phoenix.ConnTest.html_response(follow_conn, 200)
+      assert body =~ "Acme welcomes you back"
+      assert body =~ ~s(data-test="landing-page")
+      refute body =~ ~s(data-test="platform-marketing")
+    end
+
+    test "without a subdomain, redirect carries the org slug as a query param",
+         %{conn: _conn} do
+      org = insert(:organization, slug: "apex-logout-org")
+      viewer = insert(:viewer, organization: org)
+
+      token = Bobine.Viewers.generate_viewer_session_token(viewer)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{viewer_token: token})
+        |> delete(~p"/viewer-session")
+
+      assert redirected_to(conn) == "/?org=#{org.slug}"
+      refute get_session(conn, :viewer_token)
+    end
   end
 end

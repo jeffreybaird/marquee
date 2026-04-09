@@ -692,6 +692,138 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ ~s(href="/login")
       assert html =~ ~s(href="/register")
     end
+
+    test "renders configured landing sections when present", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :header_text,
+        position: 0,
+        config: %{"headline" => "Welcome stranger", "size" => "large"}
+      )
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :marketing_copy,
+        position: 1,
+        config: %{
+          "headline" => "Why subscribe",
+          "body" => "All the things",
+          "text_alignment" => "center"
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, html} = live(conn, ~p"/")
+      assert html =~ ~s(data-test="landing-page")
+      assert has_element?(view, "[data-test=header-text-section]")
+      assert has_element?(view, "[data-test=marketing-copy-section]")
+      assert html =~ "Welcome stranger"
+      assert html =~ "Why subscribe"
+      refute html =~ ~s(data-test="org-landing")
+    end
+
+    test "hidden landing sections are not rendered", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :header_text,
+        visible: false,
+        position: 0,
+        config: %{"headline" => "Hidden section"}
+      )
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :header_text,
+        visible: true,
+        position: 1,
+        config: %{"headline" => "Shown section"}
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ "Shown section"
+      refute html =~ "Hidden section"
+    end
+
+    test "plan_display section renders org's active plans", %{conn: conn} do
+      org = insert(:organization)
+      insert(:plan, organization: org, name: "Pro Plan", amount: 999, active: true)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :plan_display,
+        position: 0,
+        config: %{"headline" => "Pricing"}
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, html} = live(conn, ~p"/")
+      assert has_element?(view, "[data-test=plan-display-section]")
+      assert html =~ "Pro Plan"
+      assert html =~ "$9.99"
+    end
+
+    test "faq section renders questions and answers", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :faq,
+        position: 0,
+        config: %{
+          "headline" => "FAQ",
+          "items" => [
+            %{"question" => "Cancel anytime?", "answer" => "Yes you can."}
+          ]
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, view, html} = live(conn, ~p"/")
+      assert has_element?(view, "[data-test=faq-section]")
+      assert has_element?(view, "[data-test=faq-item-0]")
+      assert html =~ "Cancel anytime?"
+      assert html =~ "Yes you can."
+    end
+
+    test "landing page is org-scoped", %{conn: conn} do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+
+      insert(:landing_section,
+        organization: org_a,
+        section_type: :header_text,
+        config: %{"headline" => "Org A only"}
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org_b.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      refute html =~ "Org A only"
+    end
   end
 
   describe "logged-in viewer without subdomain" do

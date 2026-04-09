@@ -188,6 +188,20 @@ defmodule Bobine.Factory do
   end
 
   # -------------------------------------------------------------------------
+  # Landing page
+  # -------------------------------------------------------------------------
+
+  def landing_section_factory do
+    %Bobine.LandingPage.LandingSection{
+      organization: build(:organization),
+      section_type: :header_text,
+      position: sequence(:landing_section_position, & &1),
+      visible: true,
+      config: %{"headline" => "A Section"}
+    }
+  end
+
+  # -------------------------------------------------------------------------
   # Engagement
   # -------------------------------------------------------------------------
 

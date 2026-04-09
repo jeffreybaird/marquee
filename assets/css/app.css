@@ -2561,3 +2561,372 @@
     transition: none;
   }
 }
+
+/* ────────────────────────────────────────────────────────────
+   Landing page (configurable marketing sections)
+   ──────────────────────────────────────────────────────────── */
+
+.sv-landing {
+  width: 100%;
+}
+
+.sv-landing-section {
+  width: 100%;
+}
+
+/* ── Hero shared ──────────────────────────────────────────── */
+
+.sv-hero-video,
+.sv-hero-image {
+  position: relative;
+  width: 100%;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.sv-hero-video-bg,
+.sv-hero-image-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sv-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--sv-bg-primary);
+}
+
+.sv-hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 640px;
+  padding: 0 48px;
+}
+
+.sv-hero-headline {
+  font-family: var(--sv-font-heading);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 16px;
+  line-height: 1.1;
+}
+
+.sv-hero-subheadline {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 32px;
+  line-height: 1.5;
+}
+
+.sv-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 14px 32px;
+  background: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: var(--sv-radius-sm);
+  text-decoration: none;
+  transition: opacity 200ms;
+}
+
+.sv-hero-cta:hover {
+  opacity: 0.9;
+}
+
+.sv-hero-cta:focus-visible {
+  outline: 2px solid var(--sv-text-on-accent);
+  outline-offset: 2px;
+}
+
+/* ── Marketing copy ───────────────────────────────────────── */
+
+.sv-marketing-copy {
+  padding: 80px 48px;
+  background-color: var(--sv-bg-secondary);
+}
+
+.sv-marketing-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.sv-text-center {
+  text-align: center;
+}
+
+.sv-text-left {
+  text-align: left;
+}
+
+.sv-marketing-headline {
+  font-family: var(--sv-font-heading);
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 16px;
+}
+
+.sv-marketing-body {
+  font-size: 1.0625rem;
+  color: var(--sv-text-secondary);
+  line-height: 1.7;
+  margin: 0 0 32px;
+}
+
+.sv-marketing-cta {
+  display: inline-flex;
+  padding: 12px 28px;
+  background: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+  font-weight: 500;
+  border-radius: var(--sv-radius-sm);
+  text-decoration: none;
+}
+
+.sv-marketing-cta:focus-visible {
+  outline: 2px solid var(--sv-text-on-accent);
+  outline-offset: 2px;
+}
+
+/* ── Content row ──────────────────────────────────────────── */
+
+.sv-landing-row {
+  padding: 48px;
+}
+
+.sv-row-title {
+  font-family: var(--sv-font-heading);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 16px;
+}
+
+.sv-row-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
+/* ── Plan display ─────────────────────────────────────────── */
+
+.sv-plan-display {
+  padding: 64px 48px;
+  text-align: center;
+}
+
+.sv-plan-headline {
+  font-family: var(--sv-font-heading);
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 8px;
+}
+
+.sv-plan-subheadline {
+  font-size: 1rem;
+  color: var(--sv-text-secondary);
+  margin: 0 0 40px;
+}
+
+.sv-plan-grid {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.sv-plan-card {
+  background: var(--sv-card-bg);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg);
+  padding: 32px 24px;
+  min-width: 260px;
+  max-width: 320px;
+  flex: 1;
+  text-align: center;
+}
+
+.sv-plan-name {
+  font-family: var(--sv-font-heading);
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 12px;
+}
+
+.sv-plan-amount {
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+}
+
+.sv-plan-interval {
+  font-size: 0.875rem;
+  color: var(--sv-text-secondary);
+}
+
+.sv-plan-trial {
+  font-size: 0.8125rem;
+  color: var(--sv-accent);
+  margin: 8px 0 16px;
+}
+
+.sv-plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 24px;
+  text-align: left;
+}
+
+.sv-plan-features li {
+  font-size: 0.875rem;
+  color: var(--sv-text-secondary);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sv-divider);
+}
+
+.sv-plan-features li::before {
+  content: "✓ ";
+  color: var(--sv-accent);
+}
+
+.sv-plan-cta {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  padding: 12px;
+  background: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+  font-weight: 500;
+  border-radius: var(--sv-radius-sm);
+  text-decoration: none;
+}
+
+.sv-plan-cta:focus-visible {
+  outline: 2px solid var(--sv-text-on-accent);
+  outline-offset: 2px;
+}
+
+/* ── Header text ──────────────────────────────────────────── */
+
+.sv-header-text {
+  padding: 48px;
+}
+
+.sv-header-text h2 {
+  font-family: var(--sv-font-heading);
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 8px;
+}
+
+.sv-header-text p {
+  color: var(--sv-text-secondary);
+  margin: 0;
+}
+
+.sv-header-sm h2 {
+  font-size: 1.125rem;
+}
+
+.sv-header-md h2 {
+  font-size: 1.5rem;
+}
+
+.sv-header-lg h2 {
+  font-size: 2rem;
+}
+
+/* ── FAQ ──────────────────────────────────────────────────── */
+
+.sv-faq {
+  padding: 64px 48px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.sv-faq-headline {
+  font-family: var(--sv-font-heading);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  margin: 0 0 32px;
+  text-align: center;
+}
+
+.sv-faq-item {
+  border-bottom: 1px solid var(--sv-divider);
+}
+
+.sv-faq-question {
+  padding: 16px 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--sv-text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sv-faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.sv-faq-question::after {
+  content: "+";
+  float: right;
+  font-size: 1.25rem;
+  color: var(--sv-text-secondary);
+  transition: transform 200ms;
+}
+
+details[open] .sv-faq-question::after {
+  content: "−";
+}
+
+.sv-faq-answer {
+  font-size: 0.9375rem;
+  color: var(--sv-text-secondary);
+  line-height: 1.6;
+  padding: 0 0 16px;
+  margin: 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .sv-hero-content {
+    padding: 0 24px;
+  }
+  .sv-marketing-copy {
+    padding: 48px 24px;
+  }
+  .sv-landing-row {
+    padding: 32px 16px;
+  }
+  .sv-plan-display {
+    padding: 48px 16px;
+  }
+  .sv-header-text {
+    padding: 32px 16px;
+  }
+  .sv-faq {
+    padding: 48px 16px;
+  }
+  .sv-plan-grid {
+    flex-direction: column;
+    align-items: center;
+  }
+  .sv-plan-card {
+    max-width: 100%;
+  }
+}

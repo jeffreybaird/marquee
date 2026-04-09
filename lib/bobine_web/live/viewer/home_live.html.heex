@@ -2,7 +2,24 @@
   <% :platform_marketing -> %>
     <.platform_marketing />
   <% :org_landing -> %>
-    <.org_landing organization={@organization} />
+    <%= if @landing_sections == [] do %>
+      <.org_landing organization={@organization} />
+    <% else %>
+      <ViewerLayout.viewer_layout
+        organization={@organization}
+        current_path="/"
+        theme={@theme}
+        flash={@flash}
+      >
+        <div class="sv-landing" data-test="landing-page">
+          <.landing_section
+            :for={section <- @landing_sections}
+            section={section}
+            organization={@organization}
+          />
+        </div>
+      </ViewerLayout.viewer_layout>
+    <% end %>
   <% :org_home -> %>
     <ViewerLayout.viewer_layout
       organization={@organization}
