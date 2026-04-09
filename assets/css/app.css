@@ -2395,7 +2395,7 @@
   padding: 12px 14px;
   font-size: 0.9375rem;
   font-family: var(--sv-font-body);
-  color: var(--sv-text-primary);
+  color: var(--sv-form-text);
   background: var(--sv-bg-elevated);
   border: 1px solid var(--sv-border);
   border-radius: var(--sv-radius-md, 8px);
@@ -2404,7 +2404,7 @@
 }
 
 .sv-auth-input::placeholder {
-  color: color-mix(in srgb, var(--sv-text-secondary) 70%, transparent);
+  color: var(--sv-form-placeholder);
 }
 
 .sv-auth-input:hover {
