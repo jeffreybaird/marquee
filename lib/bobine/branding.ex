@@ -4,6 +4,7 @@ defmodule Bobine.Branding do
   """
 
   import Ecto.Query, warn: false
+  alias Bobine.Accounts.Organization
   alias Bobine.Cache
   alias Bobine.Events
   alias Bobine.Repo
@@ -159,6 +160,97 @@ defmodule Bobine.Branding do
   """
   def change_theme(%Theme{} = theme, attrs \\ %{}) do
     Theme.changeset(theme, attrs)
+  end
+
+  @doc """
+  Returns the list of non-deleted organizations that do not yet have a theme.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_orgs_without_theme do
+    from(o in Organization,
+      left_join: t in Theme,
+      on: t.organization_id == o.id,
+      where: is_nil(t.id) and is_nil(o.deleted_at),
+      order_by: o.inserted_at,
+      select: o
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Creates a starter theme from the given preset for every non-deleted
+  organization that does not yet have one.
+
+  ## Options
+
+    * `:preset` - the preset key to apply (defaults to
+      `Bobine.Branding.Theme.default_preset_key/0`). Must be one of
+      `Bobine.Branding.Theme.preset_keys/0`.
+    * `:dry_run` - when `true`, lists matching orgs without writing.
+      Defaults to `false`.
+
+  Returns `{:ok, summary}` where `summary` has `:created`, `:dry_run?`,
+  `:preset`, `:orgs` (the orgs that were processed) and `:failed`
+  (a list of `{org, reason}` tuples). Returns `{:error, :unknown_preset}`
+  when an invalid preset key is supplied.
+
+  Exempt from doctest — hits the database.
+  """
+  def backfill_missing_themes(opts \\ []) do
+    preset_key = Keyword.get(opts, :preset, Theme.default_preset_key())
+    dry_run? = Keyword.get(opts, :dry_run, false)
+
+    case Theme.preset_attrs(preset_key) do
+      nil ->
+        {:error, :unknown_preset}
+
+      preset_attrs ->
+        orgs = list_orgs_without_theme()
+
+        cond do
+          orgs == [] ->
+            {:ok, empty_summary(preset_key, dry_run?)}
+
+          dry_run? ->
+            {:ok,
+             %{
+               created: 0,
+               dry_run?: true,
+               preset: preset_key,
+               orgs: orgs,
+               failed: []
+             }}
+
+          true ->
+            apply_preset_to_orgs(orgs, preset_attrs, preset_key)
+        end
+    end
+  end
+
+  defp empty_summary(preset_key, dry_run?) do
+    %{created: 0, dry_run?: dry_run?, preset: preset_key, orgs: [], failed: []}
+  end
+
+  defp apply_preset_to_orgs(orgs, preset_attrs, preset_key) do
+    {created, failed} =
+      Enum.reduce(orgs, {[], []}, fn org, {ok_acc, err_acc} ->
+        attrs = Map.put(preset_attrs, :organization_id, org.id)
+
+        case create_theme(attrs) do
+          {:ok, _theme} -> {[org | ok_acc], err_acc}
+          {:error, :validation, changeset} -> {ok_acc, [{org, changeset} | err_acc]}
+        end
+      end)
+
+    {:ok,
+     %{
+       created: length(created),
+       dry_run?: false,
+       preset: preset_key,
+       orgs: Enum.reverse(created),
+       failed: Enum.reverse(failed)
+     }}
   end
 
   defp invalidate_theme_cache(org_id) do

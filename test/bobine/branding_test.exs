@@ -2,6 +2,13 @@ defmodule Bobine.BrandingTest do
   use Bobine.DataCase
 
   alias Bobine.Branding
+  alias Bobine.Branding.Theme
+
+  defp seed_default_theme_for(org) do
+    attrs = Theme.preset_attrs(Theme.default_preset_key()) |> Map.put(:organization_id, org.id)
+    {:ok, theme} = Branding.create_theme(attrs)
+    theme
+  end
 
   describe "themes" do
     alias Bobine.Branding.Theme
@@ -131,6 +138,116 @@ defmodule Bobine.BrandingTest do
     test "change_theme/1 returns a theme changeset" do
       theme = theme_fixture()
       assert %Ecto.Changeset{} = Branding.change_theme(theme)
+    end
+  end
+
+  describe "list_orgs_without_theme/0" do
+    test "returns only orgs that have no theme" do
+      with_theme = insert(:organization)
+      seed_default_theme_for(with_theme)
+
+      without_theme_a = insert(:organization)
+      without_theme_b = insert(:organization)
+
+      result_ids = Branding.list_orgs_without_theme() |> Enum.map(& &1.id)
+
+      assert without_theme_a.id in result_ids
+      assert without_theme_b.id in result_ids
+      refute with_theme.id in result_ids
+    end
+
+    test "excludes soft-deleted organizations" do
+      live_org = insert(:organization)
+
+      deleted_org =
+        insert(:organization)
+        |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+        |> Bobine.Repo.update!()
+
+      result_ids = Branding.list_orgs_without_theme() |> Enum.map(& &1.id)
+
+      assert live_org.id in result_ids
+      refute deleted_org.id in result_ids
+    end
+  end
+
+  describe "backfill_missing_themes/1" do
+    test "creates a theme for every org missing one using the default preset" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+
+      org_with_theme = insert(:organization)
+      seed_default_theme_for(org_with_theme)
+
+      assert {:ok, summary} = Branding.backfill_missing_themes()
+
+      assert summary.created == 2
+      assert summary.preset == Theme.default_preset_key()
+      refute summary.dry_run?
+      assert summary.failed == []
+
+      created_org_ids = Enum.map(summary.orgs, & &1.id)
+      assert org_a.id in created_org_ids
+      assert org_b.id in created_org_ids
+      refute org_with_theme.id in created_org_ids
+
+      preset = Theme.preset_attrs(Theme.default_preset_key())
+
+      for org <- [org_a, org_b] do
+        theme = Branding.get_theme_by_org(org)
+        assert theme.background == preset.background
+        assert theme.brand_primary == preset.brand_primary
+      end
+    end
+
+    test "applies the requested preset when one is supplied" do
+      org = insert(:organization)
+
+      assert {:ok, summary} = Branding.backfill_missing_themes(preset: "daybreak")
+      assert summary.preset == "daybreak"
+      assert summary.created == 1
+
+      theme = Branding.get_theme_by_org(org)
+      preset = Theme.preset_attrs("daybreak")
+      assert theme.background == preset.background
+      assert theme.brand_primary == preset.brand_primary
+    end
+
+    test "dry_run returns matching orgs without writing" do
+      org = insert(:organization)
+
+      assert {:ok, summary} = Branding.backfill_missing_themes(dry_run: true)
+      assert summary.dry_run?
+      assert summary.created == 0
+      assert Enum.map(summary.orgs, & &1.id) |> Enum.member?(org.id)
+
+      assert Branding.get_theme_by_org(org) == nil
+    end
+
+    test "is idempotent — running twice does not create duplicate themes" do
+      insert(:organization)
+
+      {:ok, first} = Branding.backfill_missing_themes()
+      {:ok, second} = Branding.backfill_missing_themes()
+
+      assert first.created == 1
+      assert second.created == 0
+      assert second.orgs == []
+    end
+
+    test "returns {:error, :unknown_preset} for an invalid preset key" do
+      assert Branding.backfill_missing_themes(preset: "neon-rainbow") ==
+               {:error, :unknown_preset}
+    end
+
+    test "returns an empty summary when no orgs need backfilling" do
+      org = insert(:organization)
+      seed_default_theme_for(org)
+
+      assert {:ok, summary} = Branding.backfill_missing_themes()
+      assert summary.created == 0
+      assert summary.orgs == []
+      assert summary.failed == []
     end
   end
 end
