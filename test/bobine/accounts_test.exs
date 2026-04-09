@@ -97,6 +97,76 @@ defmodule Bobine.AccountsTest do
     end
   end
 
+  describe "register_user_with_organization/3" do
+    alias Bobine.Branding
+    alias Bobine.Branding.Theme
+
+    test "creates the org's starter theme from the chosen preset" do
+      email = unique_user_email()
+
+      {:ok, _user, org} =
+        Accounts.register_user_with_organization(%{email: email}, "Daybreak Studio", "daybreak")
+
+      theme = Branding.get_theme_by_org(org)
+      preset = Theme.preset_attrs("daybreak")
+
+      assert theme.background == preset.background
+      assert theme.brand_primary == preset.brand_primary
+      assert theme.text_primary == preset.text_primary
+      assert theme.form_text == preset.form_text
+    end
+
+    test "supports each available preset" do
+      for key <- Theme.preset_keys() do
+        email = unique_user_email()
+
+        {:ok, _user, org} =
+          Accounts.register_user_with_organization(
+            %{email: email},
+            "Org #{key} #{System.unique_integer([:positive])}",
+            key
+          )
+
+        theme = Branding.get_theme_by_org(org)
+        preset = Theme.preset_attrs(key)
+
+        assert theme.background == preset.background, "background mismatch for preset #{key}"
+
+        assert theme.brand_primary == preset.brand_primary,
+               "brand_primary mismatch for preset #{key}"
+      end
+    end
+
+    test "falls back to the default preset when none is supplied" do
+      email = unique_user_email()
+
+      {:ok, _user, org} =
+        Accounts.register_user_with_organization(%{email: email}, "Default Theme Org")
+
+      theme = Branding.get_theme_by_org(org)
+      default = Theme.preset_attrs(Theme.default_preset_key())
+
+      assert theme.background == default.background
+      assert theme.brand_primary == default.brand_primary
+    end
+
+    test "falls back to the default preset when an unknown key is supplied" do
+      email = unique_user_email()
+
+      {:ok, _user, org} =
+        Accounts.register_user_with_organization(
+          %{email: email},
+          "Unknown Theme Org",
+          "neon-rainbow"
+        )
+
+      theme = Branding.get_theme_by_org(org)
+      default = Theme.preset_attrs(Theme.default_preset_key())
+
+      assert theme.background == default.background
+    end
+  end
+
   describe "sudo_mode?/2" do
     test "validates the authenticated_at time" do
       now = DateTime.utc_now()

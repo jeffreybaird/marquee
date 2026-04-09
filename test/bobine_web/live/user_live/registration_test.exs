@@ -4,6 +4,8 @@ defmodule BobineWeb.UserLive.RegistrationTest do
   import Phoenix.LiveViewTest
   import Bobine.AccountsFixtures
 
+  alias Bobine.Branding.Theme
+
   describe "Registration page" do
     test "renders registration page", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/users/register")
@@ -65,6 +67,59 @@ defmodule BobineWeb.UserLive.RegistrationTest do
 
       membership = Bobine.Accounts.get_membership(org, user)
       assert membership.role == :owner
+    end
+
+    test "renders both starter theme presets", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/users/register")
+
+      assert html =~ "Choose a starter theme"
+      assert html =~ "Midnight"
+      assert html =~ "Daybreak"
+      assert html =~ ~s(data-test="registration-theme-preset-midnight")
+      assert html =~ ~s(data-test="registration-theme-preset-daybreak")
+    end
+
+    test "applies the selected theme preset to the new organization", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/register")
+
+      email = unique_user_email()
+
+      form =
+        form(lv, "#registration_form",
+          user: %{
+            "email" => email,
+            "organization_name" => "Bright Studio",
+            "theme_preset" => "daybreak"
+          }
+        )
+
+      {:ok, _lv, _html} =
+        render_submit(form)
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      org = Bobine.Repo.get_by(Bobine.Accounts.Organization, slug: "bright-studio")
+      theme = Bobine.Branding.get_theme_by_org(org)
+      preset = Theme.preset_attrs("daybreak")
+
+      assert theme.background == preset.background
+      assert theme.brand_primary == preset.brand_primary
+    end
+
+    test "rejects an unknown theme preset value via the form", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/register")
+
+      result =
+        lv
+        |> element("#registration_form")
+        |> render_change(
+          user: %{
+            "email" => unique_user_email(),
+            "organization_name" => "Bad Theme",
+            "theme_preset" => "neon-rainbow"
+          }
+        )
+
+      assert result =~ "is invalid"
     end
 
     test "requires organization name", %{conn: conn} do

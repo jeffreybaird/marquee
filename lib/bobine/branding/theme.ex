@@ -50,6 +50,61 @@ defmodule Bobine.Branding.Theme do
     form_placeholder: "#8A8A8A"
   }
 
+  # Named starter themes offered to operators at signup. Each preset is a
+  # complete set of color values that can be applied directly via
+  # `create_theme/1`. The `:label` and `:description` are presentation-only
+  # metadata for the chooser UI and are stripped by `preset_attrs/1`.
+  @theme_presets %{
+    "midnight" => %{
+      label: "Midnight",
+      description: "Cinema-dark with bold red accents.",
+      background: "#0F0F0F",
+      surface: "#1A1A1A",
+      elevated: "#252525",
+      text_primary: "#FFFFFF",
+      text_secondary: "#A0A0A0",
+      text_on_accent: "#FFFFFF",
+      brand_primary: "#E50914",
+      brand_primary_hover: "#F6121D",
+      font_heading: "Inter",
+      font_body: "Inter",
+      border_radius: "0.5rem",
+      card_border_radius: "0.75rem",
+      border_color: "rgba(255, 255, 255, 0.08)",
+      divider_color: "rgba(255, 255, 255, 0.05)",
+      nav_background: "rgba(0, 0, 0, 0.85)",
+      card_background: "#1A1A1A",
+      overlay_color: "rgba(0, 0, 0, 0.7)",
+      form_text: "#FFFFFF",
+      form_placeholder: "#8A8A8A"
+    },
+    "daybreak" => %{
+      label: "Daybreak",
+      description: "Bright and minimal with calm blue accents.",
+      background: "#FFFFFF",
+      surface: "#F5F5F7",
+      elevated: "#FFFFFF",
+      text_primary: "#111827",
+      text_secondary: "#6B7280",
+      text_on_accent: "#FFFFFF",
+      brand_primary: "#2563EB",
+      brand_primary_hover: "#1D4ED8",
+      font_heading: "Inter",
+      font_body: "Inter",
+      border_radius: "0.5rem",
+      card_border_radius: "0.75rem",
+      border_color: "rgba(17, 24, 39, 0.08)",
+      divider_color: "rgba(17, 24, 39, 0.05)",
+      nav_background: "rgba(255, 255, 255, 0.92)",
+      card_background: "#FFFFFF",
+      overlay_color: "rgba(17, 24, 39, 0.5)",
+      form_text: "#111827",
+      form_placeholder: "#9CA3AF"
+    }
+  }
+
+  @default_preset_key "midnight"
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "themes" do
@@ -98,6 +153,81 @@ defmodule Bobine.Branding.Theme do
 
   """
   def default_viewer_theme, do: @default_viewer_theme
+
+  @doc """
+  Returns the map of named starter theme presets offered to new operators
+  at signup.
+
+  ## Examples
+
+      iex> presets = Bobine.Branding.Theme.presets()
+      iex> Map.keys(presets) |> Enum.sort()
+      ["daybreak", "midnight"]
+      iex> presets["midnight"].label
+      "Midnight"
+
+  """
+  def presets, do: @theme_presets
+
+  @doc """
+  Returns the list of valid preset keys.
+
+  ## Examples
+
+      iex> Enum.sort(Bobine.Branding.Theme.preset_keys())
+      ["daybreak", "midnight"]
+
+  """
+  def preset_keys, do: Map.keys(@theme_presets)
+
+  @doc """
+  Returns the default preset key used when none is supplied at signup.
+
+  ## Examples
+
+      iex> Bobine.Branding.Theme.default_preset_key()
+      "midnight"
+
+  """
+  def default_preset_key, do: @default_preset_key
+
+  @doc """
+  Looks up a preset by key, returning the full presentation map (label,
+  description, and color values) or `nil` when the key is unknown.
+
+  ## Examples
+
+      iex> Bobine.Branding.Theme.preset("daybreak").background
+      "#FFFFFF"
+
+      iex> Bobine.Branding.Theme.preset("nope")
+      nil
+
+  """
+  def preset(key) when is_binary(key), do: Map.get(@theme_presets, key)
+
+  @doc """
+  Returns just the theme attribute map for a preset, with presentation
+  metadata stripped — suitable for passing to `Bobine.Branding.create_theme/1`.
+
+  ## Examples
+
+      iex> attrs = Bobine.Branding.Theme.preset_attrs("midnight")
+      iex> attrs.background
+      "#0F0F0F"
+      iex> Map.has_key?(attrs, :label)
+      false
+
+      iex> Bobine.Branding.Theme.preset_attrs("nope")
+      nil
+
+  """
+  def preset_attrs(key) when is_binary(key) do
+    case preset(key) do
+      nil -> nil
+      preset -> Map.drop(preset, [:label, :description])
+    end
+  end
 
   @doc """
   Builds a CSS custom property string from theme values, applying defaults for missing fields.

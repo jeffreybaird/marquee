@@ -4,6 +4,8 @@ defmodule Bobine.Accounts do
   """
 
   import Ecto.Query, warn: false
+  alias Bobine.Branding
+  alias Bobine.Branding.Theme
   alias Bobine.Repo
 
   alias Bobine.Accounts.{Membership, Organization, User, UserNotifier, UserToken}
@@ -184,18 +186,19 @@ defmodule Bobine.Accounts do
   @doc """
   Registers a new user and creates an organization with the user as owner.
 
-  The organization gets a default theme and the user is assigned the `:owner`
-  role. Returns `{:ok, user, org}` so callers can build org-scoped URLs (for
-  example, magic-link emails) without a follow-up lookup.
+  The organization is seeded with the named theme preset (one of
+  `Bobine.Branding.Theme.preset_keys/0`) and the user is assigned the `:owner`
+  role. When `theme_preset` is omitted, the platform default preset is used.
 
   Exempt from doctest — hits the database.
   """
-  def register_user_with_organization(user_attrs, org_name) do
+  def register_user_with_organization(user_attrs, org_name, theme_preset \\ nil) do
     slug = slugify(org_name)
+    preset_key = resolve_theme_preset(theme_preset)
 
     Repo.transaction(fn ->
       with {:ok, user} <- %User{} |> User.email_changeset(user_attrs) |> Repo.insert(),
-           {:ok, org} <- create_organization_inline(org_name, slug),
+           {:ok, org} <- create_organization_inline(org_name, slug, preset_key),
            {:ok, _membership} <-
              %Membership{}
              |> Membership.changeset(%{user_id: user.id, organization_id: org.id, role: :owner})
@@ -212,29 +215,31 @@ defmodule Bobine.Accounts do
     end
   end
 
+  defp resolve_theme_preset(nil), do: Theme.default_preset_key()
+
+  defp resolve_theme_preset(key) when is_binary(key) do
+    if key in Theme.preset_keys() do
+      key
+    else
+      Theme.default_preset_key()
+    end
+  end
+
   # Inline org creation without a nested transaction. Creates the org record
-  # and a default theme, matching what Admin.create_organization does.
-  defp create_organization_inline(name, slug) do
+  # and a starter theme from the chosen preset, matching what
+  # Admin.create_organization does.
+  defp create_organization_inline(name, slug, preset_key) do
     changeset =
       Organization.changeset(%Organization{}, %{name: name, slug: slug, template: "default"})
 
     case Repo.insert(changeset) do
       {:ok, org} ->
+        preset_attrs = Theme.preset_attrs(preset_key)
+
         {:ok, _theme} =
-          Bobine.Branding.create_theme(%{
-            organization_id: org.id,
-            background: "#0f0f0f",
-            surface: "#1c1c1c",
-            text_primary: "#ffffff",
-            text_secondary: "#aaaaaa",
-            brand_primary: "#1a73e8",
-            brand_secondary: "#174ea6",
-            accent: "#e8a21a",
-            font_heading: "Inter",
-            font_body: "Inter",
-            border_radius: "0.5rem",
-            card_border_radius: "0.75rem"
-          })
+          preset_attrs
+          |> Map.put(:organization_id, org.id)
+          |> Branding.create_theme()
 
         Bobine.Events.broadcast(nil, {:organization_created, org})
         {:ok, org}
@@ -252,13 +257,19 @@ defmodule Bobine.Accounts do
     |> String.trim("-")
   end
 
-  @registration_types %{email: :string, organization_name: :string}
+  @registration_types %{
+    email: :string,
+    organization_name: :string,
+    theme_preset: :string
+  }
 
   @doc """
   Returns a schemaless changeset for the registration form.
 
   Validates that email and organization name are present, email has a valid
-  format, and organization name is between 1 and 100 characters.
+  format, organization name is between 1 and 100 characters, and the chosen
+  `theme_preset` is one of `Bobine.Branding.Theme.preset_keys/0`. The default
+  preset is pre-selected so the form renders with a valid value.
 
   ## Examples
 
@@ -271,6 +282,17 @@ defmodule Bobine.Accounts do
       iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "user@example.com", "organization_name" => "Acme"})
       iex> changeset.valid?
       true
+      iex> Ecto.Changeset.get_field(changeset, :theme_preset)
+      "midnight"
+
+      iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "user@example.com", "organization_name" => "Acme", "theme_preset" => "daybreak"})
+      iex> Ecto.Changeset.get_field(changeset, :theme_preset)
+      "daybreak"
+
+      iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "user@example.com", "organization_name" => "Acme", "theme_preset" => "neon"})
+      iex> changeset.valid?
+      false
+      iex> {"is invalid", _} = changeset.errors[:theme_preset]
 
       iex> changeset = Bobine.Accounts.registration_changeset(%{"email" => "bad", "organization_name" => "Acme"})
       iex> changeset.valid?
@@ -279,13 +301,16 @@ defmodule Bobine.Accounts do
 
   """
   def registration_changeset(params) do
-    {%{}, @registration_types}
+    initial_data = %{theme_preset: Theme.default_preset_key()}
+
+    {initial_data, @registration_types}
     |> Ecto.Changeset.cast(params, Map.keys(@registration_types))
-    |> Ecto.Changeset.validate_required([:email, :organization_name])
+    |> Ecto.Changeset.validate_required([:email, :organization_name, :theme_preset])
     |> Ecto.Changeset.validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
       message: "must have the @ sign and no spaces"
     )
     |> Ecto.Changeset.validate_length(:organization_name, min: 1, max: 100)
+    |> Ecto.Changeset.validate_inclusion(:theme_preset, Theme.preset_keys())
   end
 
   @doc """

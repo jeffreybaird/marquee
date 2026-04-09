@@ -2,12 +2,13 @@ defmodule BobineWeb.UserLive.Registration do
   use BobineWeb, :live_view
 
   alias Bobine.Accounts
+  alias Bobine.Branding.Theme
 
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm">
+      <div class="mx-auto max-w-md">
         <div class="text-center">
           <.header>
             Register for an account
@@ -41,6 +42,65 @@ defmodule BobineWeb.UserLive.Registration do
             data-test="registration-email"
           />
 
+          <fieldset class="fieldset mb-4">
+            <legend class="label mb-2">Choose a starter theme</legend>
+            <div
+              class="grid grid-cols-2 gap-3"
+              role="radiogroup"
+              aria-label="Starter theme"
+              data-test="registration-theme-presets"
+            >
+              <label
+                :for={{key, preset} <- @theme_presets}
+                class={[
+                  "cursor-pointer rounded-lg border-2 p-3 transition",
+                  "focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary",
+                  if(@form[:theme_preset].value == key,
+                    do: "border-primary",
+                    else: "border-base-300 hover:border-base-content/40"
+                  )
+                ]}
+                data-test={"registration-theme-preset-#{key}"}
+              >
+                <input
+                  type="radio"
+                  name={@form[:theme_preset].name}
+                  id={"#{@form[:theme_preset].id}_#{key}"}
+                  value={key}
+                  checked={@form[:theme_preset].value == key}
+                  class="sr-only"
+                  required
+                />
+                <div
+                  class="mb-2 h-16 w-full overflow-hidden rounded border border-black/10"
+                  style={"background: #{preset.background};"}
+                  aria-hidden="true"
+                >
+                  <div class="flex h-full items-end gap-1 p-2">
+                    <span
+                      class="block h-6 w-6 rounded-full"
+                      style={"background: #{preset.brand_primary};"}
+                    >
+                    </span>
+                    <span
+                      class="block h-2 flex-1 rounded"
+                      style={"background: #{preset.text_primary};"}
+                    >
+                    </span>
+                  </div>
+                </div>
+                <div class="text-sm font-semibold">{preset.label}</div>
+                <div class="text-xs opacity-70">{preset.description}</div>
+              </label>
+            </div>
+            <p
+              :for={msg <- @form[:theme_preset].errors |> Enum.map(&translate_error/1)}
+              class="mt-2 text-sm text-error"
+            >
+              {msg}
+            </p>
+          </fieldset>
+
           <.button
             phx-disable-with="Creating account..."
             class="btn btn-primary w-full"
@@ -62,7 +122,11 @@ defmodule BobineWeb.UserLive.Registration do
 
   def mount(_params, _session, socket) do
     changeset = Accounts.registration_changeset(%{})
-    {:ok, assign(socket, form: to_form(changeset, as: "user")), temporary_assigns: [form: nil]}
+
+    {:ok,
+     socket
+     |> assign(form: to_form(changeset, as: "user"))
+     |> assign(theme_presets: Theme.presets()), temporary_assigns: [form: nil]}
   end
 
   @impl true
@@ -73,8 +137,9 @@ defmodule BobineWeb.UserLive.Registration do
 
     if changeset.valid? do
       org_name = params["organization_name"]
+      theme_preset = params["theme_preset"]
 
-      case Accounts.register_user_with_organization(params, org_name) do
+      case Accounts.register_user_with_organization(params, org_name, theme_preset) do
         {:ok, user, org} ->
           {:ok, _} =
             Accounts.deliver_login_instructions(

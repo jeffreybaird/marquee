@@ -3,6 +3,67 @@ defmodule Bobine.Branding.ThemeTest do
 
   alias Bobine.Branding.Theme
 
+  doctest Theme,
+    only: [
+      default_viewer_theme: 0,
+      presets: 0,
+      preset_keys: 0,
+      default_preset_key: 0,
+      preset: 1,
+      preset_attrs: 1
+    ]
+
+  describe "presets/0" do
+    test "exposes exactly the midnight and daybreak starter themes" do
+      assert Map.keys(Theme.presets()) |> Enum.sort() == ["daybreak", "midnight"]
+    end
+
+    test "every preset has a label, description, and the colors required by the changeset" do
+      for {key, preset} <- Theme.presets() do
+        assert is_binary(preset.label), "preset #{key} missing :label"
+        assert is_binary(preset.description), "preset #{key} missing :description"
+
+        for color <- [
+              :background,
+              :surface,
+              :text_primary,
+              :text_secondary,
+              :brand_primary,
+              :brand_primary_hover,
+              :form_text,
+              :form_placeholder
+            ] do
+          assert is_binary(Map.fetch!(preset, color)),
+                 "preset #{key} missing color #{color}"
+        end
+      end
+    end
+  end
+
+  describe "preset_attrs/1" do
+    test "strips presentation metadata so the result is changeset-ready" do
+      attrs = Theme.preset_attrs("daybreak")
+
+      refute Map.has_key?(attrs, :label)
+      refute Map.has_key?(attrs, :description)
+      assert attrs.background == "#FFFFFF"
+    end
+
+    test "produces a valid theme changeset when paired with an organization_id" do
+      org = insert(:organization)
+
+      for key <- Theme.preset_keys() do
+        attrs = Theme.preset_attrs(key) |> Map.put(:organization_id, org.id)
+        changeset = Theme.changeset(%Theme{}, attrs)
+        assert changeset.valid?, "preset #{key} did not produce a valid changeset"
+      end
+    end
+
+    test "returns nil for an unknown preset key" do
+      assert Theme.preset_attrs("nope") == nil
+    end
+  end
+
   describe "default_viewer_theme/0" do
     test "returns a map with all required default values" do
       defaults = Theme.default_viewer_theme()
