@@ -475,6 +475,14 @@ defmodule Bobine.Catalog do
   end
 
   defp flatten_item_to_videos(_org, %Video{} = video), do: [video]
+
+  # Continue-watching maps carry their playable video under :video for the
+  # in_progress / between_episodes types. :next_season has no video.
+  defp flatten_item_to_videos(_org, %{type: type, video: %Video{} = video})
+       when type in [:in_progress, :between_episodes],
+       do: [video]
+
+  defp flatten_item_to_videos(_org, %{type: :next_season}), do: []
   defp flatten_item_to_videos(_org, _), do: []
 
   @doc """

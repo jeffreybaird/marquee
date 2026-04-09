@@ -50,6 +50,13 @@ defmodule BobineWeb.Components.ViewerComponents do
     """
   end
 
+  def content_item_card(%{item: %{type: type}} = assigns)
+      when type in [:in_progress, :between_episodes, :next_season] do
+    ~H"""
+    <.continue_watching_card item={@item} card_id={@card_id} />
+    """
+  end
+
   def content_item_card(%{item: %Video{}} = assigns) do
     ~H"""
     <.content_card
@@ -219,6 +226,151 @@ defmodule BobineWeb.Components.ViewerComponents do
     </div>
     """
   end
+
+  # ---------------------------------------------------------------------------
+  # Continue Watching Card
+  # ---------------------------------------------------------------------------
+
+  attr :item, :map, required: true
+  attr :card_id, :string, default: nil
+
+  @doc """
+  Renders a continue-watching card. The shape of the card is determined by
+  the item's `:type` field:
+
+    * `:in_progress` — episode/standalone with a progress bar
+    * `:between_episodes` — next unwatched episode in a season (no bar)
+    * `:next_season` — next season for a viewer who finished the previous one
+
+  All variants reuse the standard `sv-card` shell so they sit alongside
+  regular video cards in a row without visual drift.
+  """
+  def continue_watching_card(%{item: %{type: :next_season}} = assigns) do
+    assigns =
+      assigns
+      |> assign_new(:resolved_card_id, fn ->
+        assigns[:card_id] || "continue-card-season-#{assigns.item.season.id}"
+      end)
+      |> assign(:thumbnail_url, Content.resolve_season_thumbnail_cached(assigns.item.season))
+
+    ~H"""
+    <div
+      id={@resolved_card_id}
+      class="sv-card-container sv-card-container-row"
+      data-test={"continue-card-season-#{@item.season.id}"}
+    >
+      <.link
+        navigate={~p"/series/#{@item.series.slug}/season/#{@item.season.season_number}"}
+        class="sv-card sv-card-row sv-continue-card"
+      >
+        <div class="sv-card-thumb">
+          <img src={@thumbnail_url} alt={@item.season.title} loading="lazy" />
+        </div>
+        <div class="sv-card-info">
+          <span class="sv-card-context">{@item.series.title} · New season</span>
+          <span class="sv-card-title">{@item.season.title}</span>
+          <div class="sv-card-meta-row">
+            <span class="sv-card-meta">
+              {@item.season.episode_count} {if @item.season.episode_count == 1,
+                do: "Episode",
+                else: "Episodes"}
+            </span>
+          </div>
+        </div>
+      </.link>
+    </div>
+    """
+  end
+
+  def continue_watching_card(%{item: %{type: type}} = assigns)
+      when type in [:in_progress, :between_episodes] do
+    assigns =
+      assigns
+      |> assign_new(:resolved_card_id, fn ->
+        assigns[:card_id] || "continue-card-#{assigns.item.video.id}"
+      end)
+      |> assign(:show_progress_bar?, type == :in_progress and assigns.item.duration > 0)
+      |> assign(
+        :progress_pct,
+        progress_percent(assigns.item.position, assigns.item.duration)
+      )
+      |> assign(:remaining_seconds, assigns.item.duration - assigns.item.position)
+
+    ~H"""
+    <div
+      id={@resolved_card_id}
+      class="sv-card-container sv-card-container-row"
+      data-test={"continue-card-#{@item.video.id}"}
+    >
+      <.link
+        navigate={~p"/watch/#{@item.video.id}"}
+        class="sv-card sv-card-row sv-continue-card"
+      >
+        <div class="sv-card-thumb">
+          <img
+            :if={@item.video.mux_playback_id}
+            src={"https://image.mux.com/#{@item.video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+            alt={@item.video.title}
+            loading="lazy"
+          />
+          <div
+            :if={@show_progress_bar?}
+            class="sv-card-progress"
+            style={"width: #{@progress_pct}%"}
+            data-test={"continue-card-progress-#{@item.video.id}"}
+          />
+        </div>
+        <div class="sv-card-info">
+          <%= if @item.episode_context do %>
+            <span class="sv-card-context" data-test={"continue-card-context-#{@item.video.id}"}>
+              {@item.episode_context.series.title} · {@item.episode_context.season.title}
+            </span>
+            <span class="sv-card-title">
+              S{@item.episode_context.season_number} E{@item.episode_context.episode_number} — {@item.video.title}
+            </span>
+            <div class="sv-card-meta-row">
+              <span :if={@item.type == :in_progress} class="sv-card-meta">
+                {format_remaining(@remaining_seconds)} remaining
+              </span>
+              <span :if={@item.type == :between_episodes} class="sv-card-meta">
+                Up next
+              </span>
+            </div>
+          <% else %>
+            <span class="sv-card-title">{@item.video.title}</span>
+            <div class="sv-card-meta-row">
+              <span class="sv-card-meta">
+                {format_remaining(@remaining_seconds)} remaining
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </.link>
+    </div>
+    """
+  end
+
+  defp progress_percent(position, duration) when is_number(position) and duration > 0 do
+    percent = position / duration * 100
+    min(percent, 100)
+  end
+
+  defp progress_percent(_position, _duration), do: 0
+
+  defp format_remaining(seconds) when is_number(seconds) and seconds > 0 do
+    minutes = div(trunc(seconds), 60)
+    secs = rem(trunc(seconds), 60)
+
+    if minutes >= 60 do
+      hours = div(minutes, 60)
+      mins = rem(minutes, 60)
+      "#{hours}h #{mins}m"
+    else
+      "#{minutes}:#{String.pad_leading(Integer.to_string(secs), 2, "0")}"
+    end
+  end
+
+  defp format_remaining(_), do: "0:00"
 
   # ---------------------------------------------------------------------------
   # Series Card

@@ -231,6 +231,52 @@
                 </option>
               </select>
             </form>
+
+            <div
+              :if={@current_viewer}
+              class="sv-queue-dropdown-wrapper"
+              phx-click-away="close_queue_dropdown"
+            >
+              <button
+                type="button"
+                phx-click="toggle_queue_dropdown"
+                phx-value-target-id={@selected_season.id}
+                class="sv-season-queue-btn"
+                data-test="season-queue-btn"
+                aria-haspopup="true"
+                aria-expanded={to_string(@queue_dropdown_open == @selected_season.id)}
+              >
+                + Add season to queue ▾
+              </button>
+
+              <div
+                :if={@queue_dropdown_open == @selected_season.id}
+                class="sv-queue-dropdown"
+                data-test={"queue-dropdown-season-#{@selected_season.id}"}
+                role="menu"
+              >
+                <button
+                  type="button"
+                  phx-click="add_to_queue"
+                  phx-value-id={@selected_season.id}
+                  phx-value-type="season"
+                  phx-value-position="end"
+                  data-test={"queue-add-end-#{@selected_season.id}"}
+                >
+                  Add to end
+                </button>
+                <button
+                  type="button"
+                  phx-click="add_to_queue"
+                  phx-value-id={@selected_season.id}
+                  phx-value-type="season"
+                  phx-value-position="beginning"
+                  data-test={"queue-add-beginning-#{@selected_season.id}"}
+                >
+                  Add to beginning
+                </button>
+              </div>
+            </div>
           </div>
 
           <%!-- Episode list --%>
@@ -245,10 +291,12 @@
               <% is_current = ep.video_id == @video.id %>
               <% progress = Map.get(@viewer_progress, ep.video_id) %>
               <% is_completed = progress && progress.completed %>
-              <% has_progress = progress && progress.position > 0 && !is_completed %>
+              <% has_progress =
+                progress && is_number(progress.position) && progress.position > 0 &&
+                  !is_completed %>
               <% progress_pct =
-                if has_progress,
-                  do: progress.position / max(progress.duration, 1) * 100,
+                if has_progress && is_number(progress.duration) && progress.duration > 0,
+                  do: progress.position / progress.duration * 100,
                   else: 0 %>
               <div
                 class={[
@@ -337,6 +385,56 @@
             queued_ids={@queued_ids}
           />
         </div>
+      </div>
+    </div>
+  </div>
+
+  <%!-- Confirmation dialog when adding a season the viewer has progress in --%>
+  <div
+    :if={@queue_season_confirm}
+    class="sv-dialog-overlay"
+    phx-click-away="cancel_add_season"
+    data-test="queue-season-confirm"
+    role="presentation"
+  >
+    <div
+      class="sv-dialog"
+      data-test="queue-season-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="queue-season-dialog-title"
+    >
+      <h3 id="queue-season-dialog-title">Add to queue</h3>
+      <p>
+        You've started watching <strong>{@queue_season_confirm.season.title}</strong>. Which episodes would you like to add?
+      </p>
+      <div class="sv-dialog-actions">
+        <button
+          type="button"
+          phx-click="confirm_add_season"
+          phx-value-mode="all"
+          class="sv-dialog-btn-primary"
+          data-test="confirm-add-all"
+        >
+          All episodes
+        </button>
+        <button
+          type="button"
+          phx-click="confirm_add_season"
+          phx-value-mode="unwatched"
+          class="sv-dialog-btn-secondary"
+          data-test="confirm-add-unwatched"
+        >
+          Only unwatched
+        </button>
+        <button
+          type="button"
+          phx-click="cancel_add_season"
+          class="sv-dialog-btn-cancel"
+          data-test="confirm-cancel"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   </div>

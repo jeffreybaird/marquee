@@ -309,7 +309,7 @@ defmodule Bobine.Catalog.CatalogTest do
 
       result = Catalog.resolve_row_content(org, row, viewer: viewer)
       assert result.total == 1
-      assert hd(result.results).id == video.id
+      assert hd(result.results).video.id == video.id
     end
 
     test "for continue_watching without viewer returns empty", %{org: org, scope: scope} do

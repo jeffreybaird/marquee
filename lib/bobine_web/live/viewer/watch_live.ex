@@ -164,6 +164,8 @@ defmodule BobineWeb.Viewer.WatchLive do
          queue_count: watch_state.queue_count,
          queue_loaded?: false,
          queue_open: false,
+         queue_dropdown_open: nil,
+         queue_season_confirm: nil,
          is_favorited: watch_state.is_favorited,
          in_watchlist: watch_state.in_watchlist,
          go_back_available: false,
@@ -213,6 +215,8 @@ defmodule BobineWeb.Viewer.WatchLive do
        queue_count: watch_state.queue_count,
        queue_loaded?: false,
        queue_open: false,
+       queue_dropdown_open: nil,
+       queue_season_confirm: nil,
        is_favorited: watch_state.is_favorited,
        in_watchlist: watch_state.in_watchlist,
        go_back_available: false,
@@ -417,6 +421,53 @@ defmodule BobineWeb.Viewer.WatchLive do
       {:error, :already_in_queue} ->
         {:noreply, put_flash(socket, :info, "Already in your queue.")}
     end
+  end
+
+  ## Targeted add: dispatched by the new dropdown that fires with
+  ##   id    — the resource id (video or season)
+  ##   type  — "video" | "season"
+  ##   position — "beginning" | "end"
+  ##
+  ## A separate clause is used so the legacy single-click button keeps
+  ## working without changes.
+  @impl true
+  def handle_event(
+        "add_to_queue",
+        %{"id" => id, "type" => type, "position" => position},
+        socket
+      ) do
+    case type do
+      "video" -> add_video_to_queue(socket, id, position)
+      "season" -> dispatch_add_season_to_queue(socket, id, position)
+    end
+  end
+
+  @impl true
+  def handle_event(
+        "toggle_queue_dropdown",
+        %{"target-id" => target_id},
+        socket
+      ) do
+    next =
+      if socket.assigns.queue_dropdown_open == target_id, do: nil, else: target_id
+
+    {:noreply, assign(socket, queue_dropdown_open: next)}
+  end
+
+  @impl true
+  def handle_event("close_queue_dropdown", _params, socket) do
+    {:noreply, assign(socket, queue_dropdown_open: nil)}
+  end
+
+  @impl true
+  def handle_event("confirm_add_season", %{"mode" => mode}, socket) do
+    %{season: season, position: position} = socket.assigns.queue_season_confirm
+    do_add_season_to_queue(socket, season, position, String.to_atom(mode))
+  end
+
+  @impl true
+  def handle_event("cancel_add_season", _params, socket) do
+    {:noreply, assign(socket, queue_season_confirm: nil)}
   end
 
   @impl true
@@ -702,6 +753,92 @@ defmodule BobineWeb.Viewer.WatchLive do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Private — targeted queue add (video / season dropdown)
+  ## -----------------------------------------------------------------------
+
+  defp add_video_to_queue(socket, video_id, position) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+    video = current_or_load_video(socket, video_id)
+
+    result =
+      case position do
+        "beginning" -> Engagement.play_next(org, viewer, video)
+        _ -> Engagement.add_to_queue(org, viewer, video)
+      end
+
+    case result do
+      {:ok, _} ->
+        socket =
+          socket
+          |> assign(queue_dropdown_open: nil)
+          |> refresh_queue(open?: true)
+
+        {:noreply, socket}
+
+      {:error, :already_in_queue} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Already in your queue.")
+         |> assign(queue_dropdown_open: nil)}
+    end
+  end
+
+  defp dispatch_add_season_to_queue(socket, season_id, position) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+    season = Content.get_season!(org, season_id)
+
+    if Engagement.has_season_progress?(org, viewer, season) do
+      {:noreply,
+       assign(socket,
+         queue_season_confirm: %{season: season, position: position},
+         queue_dropdown_open: nil
+       )}
+    else
+      do_add_season_to_queue(socket, season, position, :all)
+    end
+  end
+
+  defp do_add_season_to_queue(socket, season, position, mode) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+    episodes = Content.list_episodes(org, season)
+
+    videos_to_add = select_episodes_for_queue(org, viewer, episodes, mode)
+
+    case position do
+      "beginning" ->
+        Engagement.add_videos_to_queue_beginning(org, viewer, videos_to_add)
+
+      _ ->
+        Engagement.add_videos_to_queue_end(org, viewer, videos_to_add)
+    end
+
+    socket =
+      socket
+      |> assign(queue_season_confirm: nil, queue_dropdown_open: nil)
+      |> refresh_queue(open?: true)
+
+    {:noreply, socket}
+  end
+
+  defp select_episodes_for_queue(_org, _viewer, episodes, :all) do
+    Enum.map(episodes, & &1.video)
+  end
+
+  defp select_episodes_for_queue(org, viewer, episodes, :unwatched) do
+    episodes
+    |> Enum.reject(fn ep ->
+      case Engagement.get_progress(org, viewer, ep.video) do
+        %{completed: true} -> true
+        _ -> false
+      end
+    end)
+    |> Enum.map(& &1.video)
   end
 
   ## -----------------------------------------------------------------------

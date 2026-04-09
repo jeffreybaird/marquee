@@ -248,6 +248,92 @@ Every create, update, and delete operation is logged via the event system
 and the `AuditSubscriber`. The audit log records who did it, when, what
 changed, and from which IP — including impersonation context.
 
+## Git process: Trunk-Based Development & Atomic Commits
+
+### Core rules
+
+- Work off `main`.
+- Keep branches short-lived.
+- Rebase frequently onto latest `main`.
+- Never create merge commits.
+- Maintain a clean, linear history.
+- Ship in small, safe increments.
+
+### Workflow
+
+- Pull latest `main`
+- Make a small, focused change
+- Commit immediately (atomic)
+- Repeat
+- Rebase often to stay current
+
+Before **every commit**:
+
+- Run `mix bobine.verify`
+- Run `mix test`
+
+Do not commit if checks fail.
+
+### Atomic commits
+
+Each commit must:
+
+- Do one thing
+- Contain only related changes
+- Leave the codebase in a valid, working state
+- Be independently understandable and reviewable
+
+Avoid:
+
+- Mixing refactors + behavior changes
+- Large, multi-purpose commits
+- “WIP”, “misc”, or “fix stuff” commits
+- Broken intermediate states (unless safely gated)
+
+### Commit structure (build in layers)
+
+Commit in this order when possible:
+
+1. **Scaffold** (types, files, interfaces)
+2. **Logic** (core behavior)
+3. **Integration** (wiring)
+4. **Validation** (tests, checks)
+5. **Cleanup** (refactors, naming)
+
+### Commit messages
+
+Format:
+
+- `feat: add search query parser`
+- `fix: prevent empty submission`
+- `refactor: extract enrollment mapper`
+- `test: cover edge cases`
+
+Be specific. Describe what changed.
+
+### History hygiene
+
+Before opening or landing a PR:
+
+- Rebase onto latest `main`
+- Clean up commit history (squash/reorder as needed)
+- Remove WIP/debug commits
+- Ensure history reads clearly, top → bottom
+
+### Non-atomic work
+
+If a change can’t be done atomically:
+
+- Use feature flags or guards
+- Break into safe intermediate steps
+- Land in multiple commits, each valid on its own
+
+### Goal
+
+- `main` is always releasable
+- History is linear and readable
+- Every commit is intentional and reversible
+
 ---
 
 ## Tests Are a Contract, Not an Obstacle

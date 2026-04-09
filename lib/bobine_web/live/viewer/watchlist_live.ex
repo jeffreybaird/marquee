@@ -29,14 +29,14 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
 
-    videos = Engagement.list_viewer_watchlist_videos(org, viewer.id, per_page: 100)
+    %{results: watchlist_items} = Engagement.list_viewer_watchlist(org, viewer.id, per_page: 100)
     %{results: favorites} = Engagement.list_favorites(org, viewer)
     queue_items = Engagement.list_queue(org, viewer)
 
     {:ok,
      socket
      |> assign(:page_title, "My Library")
-     |> assign(:videos, videos)
+     |> assign(:watchlist_items, watchlist_items)
      |> assign(:favorites, favorites)
      |> assign(:queue_items, queue_items)
      |> assign(:active_tab, "watchlist")}
@@ -56,11 +56,36 @@ defmodule BobineWeb.Viewer.WatchlistLive do
 
     case Engagement.remove_from_viewer_watchlist(org.id, viewer.id, video_id) do
       {:ok, _} ->
-        videos = Enum.reject(socket.assigns.videos, &(&1.id == video_id))
-        {:noreply, assign(socket, :videos, videos)}
+        items =
+          Enum.reject(socket.assigns.watchlist_items, fn item ->
+            item.item_type == :video and item.video_id == video_id
+          end)
+
+        {:noreply, assign(socket, :watchlist_items, items)}
 
       {:error, _} ->
         {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("remove_watchlist_item", %{"item-id" => item_id}, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.current_viewer
+
+    case find_watchlist_item(socket.assigns.watchlist_items, item_id) do
+      nil ->
+        {:noreply, socket}
+
+      item ->
+        target = watchlist_item_target(item)
+
+        if target do
+          Engagement.remove_from_watchlist(org, viewer, target)
+        end
+
+        items = Enum.reject(socket.assigns.watchlist_items, &(&1.id == item_id))
+        {:noreply, assign(socket, :watchlist_items, items)}
     end
   end
 
@@ -106,6 +131,13 @@ defmodule BobineWeb.Viewer.WatchlistLive do
   defp tab_path("favorites"), do: "/favorites"
   defp tab_path("queue"), do: "/queue"
   defp tab_path(_), do: "/watchlist"
+
+  defp find_watchlist_item(items, id), do: Enum.find(items, &(&1.id == id))
+
+  defp watchlist_item_target(%{item_type: :video, video: %{} = video}), do: video
+  defp watchlist_item_target(%{item_type: :season, season: %{} = season}), do: season
+  defp watchlist_item_target(%{item_type: :series, series: %{} = series}), do: series
+  defp watchlist_item_target(_), do: nil
 
   @impl true
   def render(assigns) do
@@ -159,7 +191,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
         <%!-- Watchlist tab --%>
         <div :if={@active_tab == "watchlist"} role="tabpanel" data-test="watchlist-panel">
           <ViewerComponents.empty_state
-            :if={@videos == []}
+            :if={@watchlist_items == []}
             title="Your watchlist is empty"
             description="Browse content to add videos."
             icon="hero-bookmark"
@@ -169,24 +201,56 @@ defmodule BobineWeb.Viewer.WatchlistLive do
             </.link>
           </ViewerComponents.empty_state>
 
-          <div :if={@videos != []} class="sv-browse-grid" data-test="sv-watchlist-grid">
-            <div :for={video <- @videos} class="sv-library-card-wrapper">
-              <ViewerComponents.content_card
-                video={video}
-                size="grid"
-                current_viewer={@current_viewer}
-                favorited_ids={@favorited_ids}
-                watchlisted_ids={@watchlisted_ids}
-                queued_ids={@queued_ids}
-              />
-              <button
-                phx-click="remove"
-                phx-value-video-id={video.id}
-                class="sv-btn sv-btn-ghost sv-library-action-btn"
-                data-test={"sv-watchlist-remove-#{video.id}"}
-              >
-                <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
-              </button>
+          <div
+            :if={@watchlist_items != []}
+            class="sv-browse-grid"
+            data-test="sv-watchlist-grid"
+          >
+            <div
+              :for={item <- @watchlist_items}
+              :if={watchlist_item_target(item)}
+              class="sv-library-card-wrapper"
+              data-test={"sv-watchlist-item-#{item.id}"}
+            >
+              <%= case item.item_type do %>
+                <% :video -> %>
+                  <ViewerComponents.content_card
+                    video={item.video}
+                    size="grid"
+                    current_viewer={@current_viewer}
+                    favorited_ids={@favorited_ids}
+                    watchlisted_ids={@watchlisted_ids}
+                    queued_ids={@queued_ids}
+                  />
+                  <button
+                    phx-click="remove"
+                    phx-value-video-id={item.video.id}
+                    class="sv-btn sv-btn-ghost sv-library-action-btn"
+                    data-test={"sv-watchlist-remove-#{item.video.id}"}
+                  >
+                    <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
+                  </button>
+                <% :season -> %>
+                  <ViewerComponents.season_card season={item.season} size="grid" />
+                  <button
+                    phx-click="remove_watchlist_item"
+                    phx-value-item-id={item.id}
+                    class="sv-btn sv-btn-ghost sv-library-action-btn"
+                    data-test={"sv-watchlist-remove-season-#{item.season.id}"}
+                  >
+                    <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
+                  </button>
+                <% :series -> %>
+                  <ViewerComponents.series_card series={item.series} size="grid" />
+                  <button
+                    phx-click="remove_watchlist_item"
+                    phx-value-item-id={item.id}
+                    class="sv-btn sv-btn-ghost sv-library-action-btn"
+                    data-test={"sv-watchlist-remove-series-#{item.series.id}"}
+                  >
+                    <.icon name="hero-x-mark" class="size-4 mr-1" aria-hidden="true" /> Remove
+                  </button>
+              <% end %>
             </div>
           </div>
         </div>

@@ -94,7 +94,8 @@
       "Bash(git show:*)",
       "Bash(mix ecto.migrations)",
       "Bash(grep -E \"^[^/]*content\\\\.ex$\")",
-      "Bash(grep -l \"create.*table.*seasons\\\\|create.*unique\\\\|create.*index\" /Users/jeffreybaird/personal-repos/bobine/priv/repo/migrations/*season*.exs)"
+      "Bash(grep -l \"create.*table.*seasons\\\\|create.*unique\\\\|create.*index\" /Users/jeffreybaird/personal-repos/bobine/priv/repo/migrations/*season*.exs)",
+      "Bash(MIX_ENV=test mix ecto.rollback)"
     ]
   }
 }

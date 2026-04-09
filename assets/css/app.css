@@ -579,6 +579,17 @@
   flex-shrink: 0;
 }
 
+/* Continue-watching context line: "Series · Season" above the title */
+.sv-card-context {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--sv-text-secondary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* --- Card Action Buttons --- */
 
 .sv-card-actions {
@@ -1245,7 +1256,150 @@
 }
 
 .sv-season-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+.sv-season-queue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--sv-bg-elevated);
+  color: var(--sv-text-primary);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-sm);
+  font-size: 0.875rem;
+  font-family: var(--sv-font-body);
+  cursor: pointer;
+}
+
+.sv-season-queue-btn:hover,
+.sv-season-queue-btn:focus-visible {
+  background: var(--sv-bg-secondary);
+  border-color: var(--sv-accent);
+}
+
+.sv-season-queue-btn:focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 2px;
+}
+
+/* Reusable add-to-queue dropdown (used by season header today; the
+   pattern is intended for future card buttons too). */
+.sv-queue-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.sv-queue-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--sv-bg-elevated);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-md);
+  overflow: hidden;
+  z-index: 10;
+  min-width: 180px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.sv-queue-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 0.875rem;
+  font-family: var(--sv-font-body);
+  color: var(--sv-text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sv-queue-dropdown button:hover,
+.sv-queue-dropdown button:focus-visible {
+  background: var(--sv-bg-secondary);
+}
+
+/* Confirmation dialog for "add season with progress" */
+.sv-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.sv-dialog {
+  background: var(--sv-bg-secondary);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg);
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.sv-dialog h3 {
+  font-family: var(--sv-font-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--sv-text-primary);
+  margin: 0 0 8px;
+}
+
+.sv-dialog p {
+  font-size: 0.875rem;
+  color: var(--sv-text-secondary);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.sv-dialog-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sv-dialog-btn-primary {
+  padding: 8px 16px;
+  background: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+  border: none;
+  border-radius: var(--sv-radius-sm);
+  font-size: 0.875rem;
+  font-family: var(--sv-font-body);
+  cursor: pointer;
+}
+
+.sv-dialog-btn-secondary {
+  padding: 8px 16px;
+  background: var(--sv-bg-elevated);
+  color: var(--sv-text-primary);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-sm);
+  font-size: 0.875rem;
+  font-family: var(--sv-font-body);
+  cursor: pointer;
+}
+
+.sv-dialog-btn-cancel {
+  padding: 8px 16px;
+  background: none;
+  color: var(--sv-text-secondary);
+  border: none;
+  font-size: 0.875rem;
+  font-family: var(--sv-font-body);
+  cursor: pointer;
 }
 
 .sv-season-dropdown {

@@ -11,6 +11,7 @@ defmodule Bobine.Engagement do
   alias Bobine.Accounts.Organization
   alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Content
+  alias Bobine.Content.{Episode, Season, Series, Video}
   alias Bobine.Engagement.{Favorite, Progress, QueueItem, WatchHistory, WatchlistItem}
   alias Bobine.Events
   alias Bobine.Metrics
@@ -179,6 +180,151 @@ defmodule Bobine.Engagement do
 
       {:ok, count}
     end
+  end
+
+  @doc """
+  Adds a list of videos to the END of the queue, preserving the input order.
+
+  Skips videos already in the queue (idempotent — useful for "add a season"
+  flows where some episodes may already be queued). Returns `{:ok, count}`
+  where `count` is the number of NEW items inserted.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_videos_to_queue_end(
+        %Organization{id: org_id} = org,
+        %{id: viewer_id} = viewer,
+        videos
+      )
+      when is_list(videos) do
+    Bobine.Otel.with_span "bobine.engagement.add_videos_to_queue_end",
+                          %{"bobine.org.id" => org_id, "bobine.viewer.id" => viewer_id} do
+      current_max = get_max_queue_position(org_id, viewer_id)
+      existing_ids = list_queue_video_ids(org_id, viewer_id)
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      new_items =
+        videos
+        |> Enum.reject(fn v -> v.id in existing_ids end)
+        |> Enum.with_index(current_max + 1)
+        |> Enum.map(fn {video, position} ->
+          %{
+            id: Ecto.UUID.generate(),
+            organization_id: org_id,
+            viewer_id: viewer_id,
+            video_id: video.id,
+            position: position,
+            added_from: "collection",
+            added_at: now,
+            inserted_at: now,
+            updated_at: now
+          }
+        end)
+
+      {count, _} = Repo.insert_all(QueueItem, new_items, on_conflict: :nothing)
+
+      if count > 0 do
+        Events.broadcast(
+          nil,
+          {:queue_collection_added, %{organization: org, viewer: viewer, count: count}}
+        )
+      end
+
+      {:ok, count}
+    end
+  end
+
+  @doc """
+  Adds a list of videos to the BEGINNING of the queue, preserving the
+  input order. Existing items are shifted down by the number of new items
+  added. Skips videos already in the queue.
+
+  Exempt from doctest — hits the database.
+  """
+  def add_videos_to_queue_beginning(
+        %Organization{id: org_id} = org,
+        %{id: viewer_id} = viewer,
+        videos
+      )
+      when is_list(videos) do
+    Bobine.Otel.with_span "bobine.engagement.add_videos_to_queue_beginning",
+                          %{"bobine.org.id" => org_id, "bobine.viewer.id" => viewer_id} do
+      existing_ids = list_queue_video_ids(org_id, viewer_id)
+      videos_to_add = Enum.reject(videos, fn v -> v.id in existing_ids end)
+      shift_amount = length(videos_to_add)
+
+      if shift_amount == 0 do
+        {:ok, 0}
+      else
+        do_add_videos_to_queue_beginning(org, viewer, videos_to_add, shift_amount)
+      end
+    end
+  end
+
+  defp do_add_videos_to_queue_beginning(
+         %Organization{id: org_id} = org,
+         %{id: viewer_id} = viewer,
+         videos_to_add,
+         shift_amount
+       ) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {:ok, count} =
+      Repo.transaction(fn ->
+        from(q in QueueItem,
+          where: q.organization_id == ^org_id,
+          where: q.viewer_id == ^viewer_id
+        )
+        |> Repo.update_all(inc: [position: shift_amount])
+
+        new_items =
+          videos_to_add
+          |> Enum.with_index(0)
+          |> Enum.map(fn {video, position} ->
+            %{
+              id: Ecto.UUID.generate(),
+              organization_id: org_id,
+              viewer_id: viewer_id,
+              video_id: video.id,
+              position: position,
+              added_from: "collection",
+              added_at: now,
+              inserted_at: now,
+              updated_at: now
+            }
+          end)
+
+        {count, _} = Repo.insert_all(QueueItem, new_items, on_conflict: :nothing)
+        count
+      end)
+
+    if count > 0 do
+      Events.broadcast(
+        nil,
+        {:queue_collection_added, %{organization: org, viewer: viewer, count: count}}
+      )
+    end
+
+    {:ok, count}
+  end
+
+  @doc """
+  Returns true when the viewer has any progress on any episode in the
+  given season. Used to decide whether the "add season to queue" button
+  should prompt for a confirmation (all vs. unwatched).
+
+  Exempt from doctest — hits the database.
+  """
+  def has_season_progress?(%Organization{id: org_id}, %{id: viewer_id}, season) do
+    episode_video_ids =
+      Episode
+      |> where(organization_id: ^org_id, season_id: ^season.id)
+      |> select([e], e.video_id)
+
+    Progress
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([p], p.video_id in subquery(episode_video_ids))
+    |> Repo.exists?()
   end
 
   @doc """
@@ -565,7 +711,7 @@ defmodule Bobine.Engagement do
     |> where([w], w.viewer_id == ^viewer_id)
     |> where([w], is_nil(w.deleted_at))
     |> order_by(desc: :inserted_at)
-    |> preload(:video)
+    |> preload([:video, :series, season: :series])
     |> Pagination.paginate(opts)
   end
 
@@ -586,6 +732,10 @@ defmodule Bobine.Engagement do
   @doc """
   Returns a paginated watchlist for a viewer (struct-based API).
 
+  Each item is one of three polymorphic kinds (`:video`, `:season`, or
+  `:series`); all three associations are preloaded so the renderer can
+  dispatch on `item_type` without follow-up queries.
+
   Exempt from doctest — hits the database.
   """
   def list_watchlist(%Organization{id: org_id}, %{id: viewer_id}, opts \\ []) do
@@ -594,48 +744,132 @@ defmodule Bobine.Engagement do
     |> where([w], w.viewer_id == ^viewer_id)
     |> where([w], is_nil(w.deleted_at))
     |> order_by(desc: :inserted_at)
-    |> preload(:video)
+    |> preload([:video, :season, :series])
     |> Pagination.paginate(opts)
   end
 
   @doc """
-  Adds a video to a viewer's watchlist.
-  Restores previously soft-deleted items rather than creating duplicates.
+  Adds a video, season, or series to a viewer's watchlist.
+
+  Dispatches on the struct type. Restores previously soft-deleted items
+  rather than creating duplicates.
 
   Exempt from doctest — hits the database.
   """
-  def add_to_watchlist(%Organization{id: org_id}, %{id: viewer_id}, video) do
+  def add_to_watchlist(
+        %Organization{id: org_id} = _org,
+        %{id: viewer_id} = _viewer,
+        %Video{} = video
+      ) do
     Bobine.Otel.with_span "bobine.engagement.add_to_watchlist",
                           %{"bobine.org.id" => org_id} do
-      # Check for soft-deleted entry to restore
-      existing =
-        WatchlistItem
-        |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
-        |> Repo.one()
+      do_add_video_to_watchlist(org_id, viewer_id, video)
+    end
+  end
 
-      case existing do
-        %WatchlistItem{deleted_at: deleted_at} = item when not is_nil(deleted_at) ->
-          restore_watchlist_item(item)
+  def add_to_watchlist(
+        %Organization{id: org_id} = _org,
+        %{id: viewer_id} = _viewer,
+        %Season{} = season
+      ) do
+    Bobine.Otel.with_span "bobine.engagement.add_to_watchlist",
+                          %{"bobine.org.id" => org_id, "bobine.engagement.item_type" => "season"} do
+      do_add_polymorphic_to_watchlist(
+        org_id,
+        viewer_id,
+        :season,
+        :season_id,
+        season.id
+      )
+    end
+  end
 
-        %WatchlistItem{} ->
-          {:error, :already_in_watchlist}
+  def add_to_watchlist(
+        %Organization{id: org_id} = _org,
+        %{id: viewer_id} = _viewer,
+        %Series{} = series
+      ) do
+    Bobine.Otel.with_span "bobine.engagement.add_to_watchlist",
+                          %{"bobine.org.id" => org_id, "bobine.engagement.item_type" => "series"} do
+      do_add_polymorphic_to_watchlist(
+        org_id,
+        viewer_id,
+        :series,
+        :series_id,
+        series.id
+      )
+    end
+  end
 
-        nil ->
-          attrs = %{
+  defp do_add_video_to_watchlist(org_id, viewer_id, video) do
+    existing =
+      WatchlistItem
+      |> where(
+        organization_id: ^org_id,
+        viewer_id: ^viewer_id,
+        video_id: ^video.id,
+        item_type: :video
+      )
+      |> Repo.one()
+
+    case existing do
+      %WatchlistItem{deleted_at: deleted_at} = item when not is_nil(deleted_at) ->
+        restore_watchlist_item(item)
+
+      %WatchlistItem{} ->
+        {:error, :already_in_watchlist}
+
+      nil ->
+        attrs = %{
+          organization_id: org_id,
+          viewer_id: viewer_id,
+          video_id: video.id,
+          item_type: :video
+        }
+
+        case %WatchlistItem{} |> WatchlistItem.viewer_changeset(attrs) |> Repo.insert() do
+          {:ok, item} ->
+            Events.broadcast(nil, {:watchlist_item_added, item})
+            {:ok, item}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+    end
+  end
+
+  defp do_add_polymorphic_to_watchlist(org_id, viewer_id, item_type, fk_field, fk_value) do
+    existing =
+      WatchlistItem
+      |> where([w], w.organization_id == ^org_id and w.viewer_id == ^viewer_id)
+      |> where([w], field(w, ^fk_field) == ^fk_value)
+      |> where([w], w.item_type == ^item_type)
+      |> Repo.one()
+
+    case existing do
+      %WatchlistItem{deleted_at: deleted_at} = item when not is_nil(deleted_at) ->
+        restore_watchlist_item(item)
+
+      %WatchlistItem{} ->
+        {:error, :already_in_watchlist}
+
+      nil ->
+        attrs =
+          %{
             organization_id: org_id,
             viewer_id: viewer_id,
-            video_id: video.id
+            item_type: item_type
           }
+          |> Map.put(fk_field, fk_value)
 
-          case %WatchlistItem{} |> WatchlistItem.viewer_changeset(attrs) |> Repo.insert() do
-            {:ok, item} ->
-              Events.broadcast(nil, {:watchlist_item_added, item})
-              {:ok, item}
+        case %WatchlistItem{} |> WatchlistItem.viewer_changeset(attrs) |> Repo.insert() do
+          {:ok, item} ->
+            Events.broadcast(nil, {:watchlist_item_added, item})
+            {:ok, item}
 
-            {:error, changeset} ->
-              {:error, :validation, changeset}
-          end
-      end
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
     end
   end
 
@@ -663,22 +897,44 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
-  Removes a video from a viewer's watchlist (soft delete).
+  Removes a video, season, or series from a viewer's watchlist (soft delete).
+
+  Dispatches on the struct type.
 
   Exempt from doctest — hits the database.
   """
-  def remove_from_watchlist(%Organization{id: org_id}, %{id: viewer_id}, video) do
+  def remove_from_watchlist(%Organization{id: org_id}, %{id: viewer_id}, %Video{} = video) do
     Bobine.Otel.with_span "bobine.engagement.remove_from_watchlist",
                           %{"bobine.org.id" => org_id} do
-      query =
-        WatchlistItem
-        |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
-        |> where([w], is_nil(w.deleted_at))
+      delete_polymorphic_watchlist_item(org_id, viewer_id, :video, :video_id, video.id)
+    end
+  end
 
-      case Repo.one(query) do
-        nil -> {:error, :not_found}
-        item -> delete_watchlist_item(item)
-      end
+  def remove_from_watchlist(%Organization{id: org_id}, %{id: viewer_id}, %Season{} = season) do
+    Bobine.Otel.with_span "bobine.engagement.remove_from_watchlist",
+                          %{"bobine.org.id" => org_id} do
+      delete_polymorphic_watchlist_item(org_id, viewer_id, :season, :season_id, season.id)
+    end
+  end
+
+  def remove_from_watchlist(%Organization{id: org_id}, %{id: viewer_id}, %Series{} = series) do
+    Bobine.Otel.with_span "bobine.engagement.remove_from_watchlist",
+                          %{"bobine.org.id" => org_id} do
+      delete_polymorphic_watchlist_item(org_id, viewer_id, :series, :series_id, series.id)
+    end
+  end
+
+  defp delete_polymorphic_watchlist_item(org_id, viewer_id, item_type, fk_field, fk_value) do
+    query =
+      WatchlistItem
+      |> where([w], w.organization_id == ^org_id and w.viewer_id == ^viewer_id)
+      |> where([w], field(w, ^fk_field) == ^fk_value)
+      |> where([w], w.item_type == ^item_type)
+      |> where([w], is_nil(w.deleted_at))
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      item -> delete_watchlist_item(item)
     end
   end
 
@@ -700,13 +956,42 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
-  Checks if a video is in a viewer's watchlist.
+  Checks if a video, season, or series is in a viewer's watchlist.
 
   Exempt from doctest — hits the database.
   """
-  def in_watchlist?(%Organization{id: org_id}, %{id: viewer_id}, video) do
+  def in_watchlist?(%Organization{id: org_id}, %{id: viewer_id}, %Video{id: video_id}) do
     WatchlistItem
-    |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
+    |> where(
+      organization_id: ^org_id,
+      viewer_id: ^viewer_id,
+      video_id: ^video_id,
+      item_type: :video
+    )
+    |> where([w], is_nil(w.deleted_at))
+    |> Repo.exists?()
+  end
+
+  def in_watchlist?(%Organization{id: org_id}, %{id: viewer_id}, %Season{id: season_id}) do
+    WatchlistItem
+    |> where(
+      organization_id: ^org_id,
+      viewer_id: ^viewer_id,
+      season_id: ^season_id,
+      item_type: :season
+    )
+    |> where([w], is_nil(w.deleted_at))
+    |> Repo.exists?()
+  end
+
+  def in_watchlist?(%Organization{id: org_id}, %{id: viewer_id}, %Series{id: series_id}) do
+    WatchlistItem
+    |> where(
+      organization_id: ^org_id,
+      viewer_id: ^viewer_id,
+      series_id: ^series_id,
+      item_type: :series
+    )
     |> where([w], is_nil(w.deleted_at))
     |> Repo.exists?()
   end
@@ -879,20 +1164,261 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
-  Gets videos the viewer has started but not completed, ordered by last watched.
+  Returns the viewer's continue-watching items.
+
+  Mixes three kinds of entries, deduplicated to one per series:
+
+    * `:in_progress` — episode/standalone videos the viewer started but
+      hasn't finished. The card shows a progress bar.
+    * `:between_episodes` — the viewer finished an episode in a season
+      and there are more unwatched episodes after it. The next episode is
+      surfaced with no progress bar.
+    * `:next_season` — the viewer finished every episode in a season and
+      another season exists. The next season is surfaced.
+
+  Each result is a map with `:type`, `:video`, `:episode_context`,
+  `:position`, `:duration`, `:last_activity_at`, `:series_id`, and
+  (for `:next_season`) `:season` and `:series` keys.
+
+  Items are deduplicated by `series_id` (standalone items are never
+  deduplicated) and sorted by most recent activity.
 
   Exempt from doctest — hits the database.
   """
-  def list_continue_watching(%Organization{id: org_id}, %{id: viewer_id}, opts \\ []) do
-    Bobine.Content.Video
-    |> join(:inner, [v], p in Progress, on: p.video_id == v.id)
-    |> where([v, p], v.organization_id == ^org_id and p.organization_id == ^org_id)
-    |> where([_v, p], p.viewer_id == ^viewer_id)
-    |> where([_v, p], p.completed == false)
-    |> where([_v, p], p.position > 0.0)
-    |> where([v], is_nil(v.deleted_at))
-    |> order_by([_v, p], desc: p.updated_at)
-    |> Pagination.paginate(opts)
+  def list_continue_watching(%Organization{} = org, %{} = viewer, opts \\ []) do
+    Bobine.Otel.with_span "bobine.engagement.list_continue_watching",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      per_page = Keyword.get(opts, :per_page, 20)
+
+      in_progress_records = list_in_progress_records(org, viewer)
+
+      episode_items = build_in_progress_items(org, in_progress_records)
+      between_items = find_between_episode_items(org, viewer, in_progress_records)
+      next_season_items = find_next_season_items(org, viewer)
+
+      results =
+        (episode_items ++ between_items ++ next_season_items)
+        |> deduplicate_by_series()
+        |> Enum.sort_by(& &1.last_activity_at, {:desc, DateTime})
+        |> Enum.take(per_page)
+
+      %{
+        results: results,
+        page: 1,
+        per_page: per_page,
+        total: length(results),
+        total_pages: 1
+      }
+    end
+  end
+
+  defp list_in_progress_records(%Organization{id: org_id}, %{id: viewer_id}) do
+    Progress
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([p], p.completed == false)
+    |> where([p], p.position > 0.0)
+    |> join(:inner, [p], v in Video, on: v.id == p.video_id and is_nil(v.deleted_at))
+    |> order_by([p], desc: p.updated_at)
+    |> preload(:video)
+    |> Repo.all()
+  end
+
+  defp build_in_progress_items(%Organization{} = org, in_progress_records) do
+    Enum.map(in_progress_records, fn progress ->
+      video = progress.video
+      episode_context = Content.get_episode_context(org, video)
+
+      %{
+        type: :in_progress,
+        video: video,
+        episode_context: episode_context,
+        position: progress.position,
+        duration: progress.duration || video.duration || 0.0,
+        last_activity_at: progress.updated_at,
+        season: episode_context && episode_context.season,
+        series: episode_context && episode_context.series,
+        series_id: episode_context && episode_context.series.id
+      }
+    end)
+  end
+
+  # Finds seasons where the viewer's most-recent completed episode has a
+  # successor episode they haven't started yet.
+  defp find_between_episode_items(%Organization{id: org_id} = org, viewer, in_progress_records) do
+    in_progress_video_ids =
+      in_progress_records
+      |> Enum.map(& &1.video_id)
+      |> MapSet.new()
+
+    completed_progress_by_season =
+      Progress
+      |> where(organization_id: ^org_id, viewer_id: ^viewer.id)
+      |> where([p], p.completed == true)
+      |> join(:inner, [p], e in Episode,
+        on: e.video_id == p.video_id and e.organization_id == ^org_id
+      )
+      |> select([p, e], %{
+        episode_number: e.episode_number,
+        season_id: e.season_id,
+        updated_at: p.updated_at
+      })
+      |> Repo.all()
+      |> Enum.group_by(& &1.season_id)
+
+    Enum.flat_map(completed_progress_by_season, fn {season_id, completed_records} ->
+      build_between_episode_item(org, viewer, season_id, completed_records, in_progress_video_ids)
+    end)
+  end
+
+  defp build_between_episode_item(
+         org,
+         _viewer,
+         season_id,
+         completed_records,
+         in_progress_video_ids
+       ) do
+    season = Content.get_season!(org, season_id)
+    episodes = Content.list_episodes(org, season)
+    max_completed = completed_records |> Enum.map(& &1.episode_number) |> Enum.max(fn -> 0 end)
+
+    next_episode = Enum.find(episodes, &(&1.episode_number > max_completed))
+
+    cond do
+      is_nil(next_episode) ->
+        []
+
+      MapSet.member?(in_progress_video_ids, next_episode.video_id) ->
+        # The viewer has already started the next episode — the in-progress
+        # entry will represent it; don't double-count.
+        []
+
+      true ->
+        episode_context = Content.get_episode_context(org, next_episode.video)
+        most_recent = Enum.max_by(completed_records, & &1.updated_at, DateTime)
+
+        [
+          %{
+            type: :between_episodes,
+            video: next_episode.video,
+            episode_context: episode_context,
+            position: 0.0,
+            duration: next_episode.video.duration || 0.0,
+            last_activity_at: most_recent.updated_at,
+            season: episode_context && episode_context.season,
+            series: episode_context && episode_context.series,
+            series_id: episode_context && episode_context.series.id
+          }
+        ]
+    end
+  end
+
+  # Finds seasons where every episode is completed and the next season has
+  # no progress yet.
+  defp find_next_season_items(%Organization{id: org_id} = org, viewer) do
+    viewer_season_ids =
+      Progress
+      |> where(organization_id: ^org_id, viewer_id: ^viewer.id)
+      |> join(:inner, [p], e in Episode,
+        on: e.video_id == p.video_id and e.organization_id == ^org_id
+      )
+      |> select([_p, e], e.season_id)
+      |> distinct(true)
+      |> Repo.all()
+
+    Enum.flat_map(viewer_season_ids, fn season_id ->
+      build_next_season_item(org, viewer, season_id)
+    end)
+  end
+
+  defp build_next_season_item(%Organization{} = org, viewer, season_id) do
+    season = Content.get_season!(org, season_id)
+    episodes = Content.list_episodes(org, season)
+
+    cond do
+      episodes == [] ->
+        []
+
+      not all_episodes_completed?(org, viewer, episodes) ->
+        []
+
+      true ->
+        case Content.next_season(org, season) do
+          nil -> []
+          next_season -> maybe_build_next_season_item(org, viewer, season, next_season)
+        end
+    end
+  end
+
+  defp maybe_build_next_season_item(org, viewer, season, next_season) do
+    next_episodes = Content.list_episodes(org, next_season)
+
+    cond do
+      next_episodes == [] ->
+        []
+
+      season_started?(org, viewer, next_episodes) ->
+        []
+
+      true ->
+        series = season.series || Repo.preload(season, :series).series
+        most_recent = most_recent_progress_in_season(org, viewer, season.id)
+
+        [
+          %{
+            type: :next_season,
+            video: nil,
+            episode_context: nil,
+            season: next_season,
+            series: series,
+            position: 0.0,
+            duration: 0.0,
+            last_activity_at: most_recent && most_recent.updated_at,
+            series_id: season.series_id
+          }
+        ]
+    end
+  end
+
+  defp all_episodes_completed?(org, viewer, episodes) do
+    Enum.all?(episodes, fn ep ->
+      case get_progress(org, viewer, ep.video) do
+        %Progress{completed: true} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  defp season_started?(org, viewer, episodes) do
+    Enum.any?(episodes, fn ep ->
+      case get_progress(org, viewer, ep.video) do
+        nil -> false
+        _ -> true
+      end
+    end)
+  end
+
+  defp most_recent_progress_in_season(%Organization{id: org_id}, %{id: viewer_id}, season_id) do
+    Progress
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> join(:inner, [p], e in Episode, on: e.video_id == p.video_id and e.season_id == ^season_id)
+    |> order_by(desc: :updated_at)
+    |> limit(1)
+    |> Repo.one()
+  end
+
+  # Standalone items (series_id == nil) are never collapsed; series-bound
+  # items keep only the most recent representative per series.
+  defp deduplicate_by_series(items) do
+    {standalone, series_items} = Enum.split_with(items, &is_nil(&1.series_id))
+
+    deduped =
+      series_items
+      |> Enum.group_by(& &1.series_id)
+      |> Enum.map(fn {_id, group} ->
+        Enum.max_by(group, & &1.last_activity_at, DateTime)
+      end)
+
+    standalone ++ deduped
   end
 
   ## -----------------------------------------------------------------------

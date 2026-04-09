@@ -420,6 +420,13 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
     """
   end
 
+  defp item_card_id(row, %{type: :next_season, season: %{id: season_id}}),
+    do: "home-row-#{row.id}-card-season-#{season_id}"
+
+  defp item_card_id(row, %{type: type, video: %{id: video_id}})
+       when type in [:in_progress, :between_episodes],
+       do: "home-row-#{row.id}-card-#{video_id}"
+
   defp item_card_id(row, item) do
     "home-row-#{row.id}-card-#{item.id}"
   end
