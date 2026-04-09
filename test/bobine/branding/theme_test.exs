@@ -108,5 +108,20 @@ defmodule Bobine.Branding.ThemeTest do
       changeset = Theme.changeset(%Theme{}, attrs)
       assert changeset.valid?
     end
+
+    test "allows login_background_image_url" do
+      org = insert(:organization)
+
+      attrs = %{
+        organization_id: org.id,
+        login_background_image_url: "https://cdn.example.com/login-bg.jpg"
+      }
+
+      changeset = Theme.changeset(%Theme{}, attrs)
+      assert changeset.valid?
+
+      assert Ecto.Changeset.get_change(changeset, :login_background_image_url) ==
+               "https://cdn.example.com/login-bg.jpg"
+    end
   end
 end

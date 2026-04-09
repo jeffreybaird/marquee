@@ -24,6 +24,7 @@ defmodule Bobine.Branding.Theme do
     :overlay_color,
     :logo_url,
     :favicon_url,
+    :login_background_image_url,
     :organization_id
   ]
 
@@ -69,6 +70,7 @@ defmodule Bobine.Branding.Theme do
     field :overlay_color, :string
     field :logo_url, :string
     field :favicon_url, :string
+    field :login_background_image_url, :string
 
     belongs_to :organization, Bobine.Accounts.Organization
 
