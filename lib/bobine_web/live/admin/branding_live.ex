@@ -123,6 +123,12 @@ defmodule BobineWeb.Admin.BrandingLive do
               <h3 class="text-lg font-medium mt-6">Assets</h3>
               <.input field={@form[:logo_url]} type="text" label="Logo URL" />
               <.input field={@form[:favicon_url]} type="text" label="Favicon URL" />
+              <.input
+                field={@form[:login_background_image_url]}
+                type="text"
+                label="Login background image URL"
+                placeholder="https://example.com/login-bg.jpg"
+              />
 
               <div class="mt-6">
                 <.button type="submit" data-test="branding-publish-btn">
