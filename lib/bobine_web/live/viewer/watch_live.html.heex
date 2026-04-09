@@ -6,7 +6,7 @@
   theme={@theme}
   flash={@flash}
 >
-  <div class="sv-watch-layout">
+  <div class="sv-watch-layout" data-test="watch-page">
     <%!-- Player + Queue row --%>
     <div class="sv-watch-player-row">
       <div class="sv-watch-player-col">
@@ -117,10 +117,25 @@
 
     <div class="sv-watch-below">
       <%!-- Video metadata --%>
-      <div class="sv-video-meta">
+      <div class="sv-video-meta" data-test="video-detail">
+        <%!-- Series breadcrumb (only for episodes) --%>
+        <.link
+          :if={@episode_context}
+          navigate={~p"/series/#{@episode_context.series.slug}"}
+          class="sv-series-breadcrumb"
+          data-test="series-breadcrumb"
+        >
+          {@episode_context.series.title}
+        </.link>
+
         <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
 
-        <div :if={@video.duration} class="sv-video-badges">
+        <p :if={@episode_context} class="sv-episode-label" data-test="episode-label">
+          Season {@episode_context.season_number},
+          Episode {@episode_context.episode_number} of {@episode_context.total_episodes}
+        </p>
+
+        <div :if={@video.duration && !@episode_context} class="sv-video-badges">
           <ViewerComponents.badge label={format_duration(@video.duration)} />
         </div>
 
@@ -196,8 +211,120 @@
         </div>
       </div>
 
-      <%!-- Related content --%>
-      <div :if={fill_rows(@related_videos, 4) != []} class="sv-row" style="margin-top: 48px;">
+      <%!-- Season section (only for episodes) --%>
+      <%= if @episode_context do %>
+        <section class="sv-season-section" data-test="season-section">
+          <%!-- Season selector dropdown --%>
+          <div class="sv-season-header">
+            <form phx-change="switch_season" data-test="season-selector">
+              <label for="season-select" class="sr-only">Select season</label>
+              <select name="season_id" id="season-select" class="sv-season-dropdown">
+                <option
+                  :for={season <- @seasons}
+                  value={season.id}
+                  selected={season.id == @selected_season.id}
+                >
+                  {season.title}
+                  {if season.id != @selected_season.id,
+                    do: " · #{season.episode_count} episodes",
+                    else: ""}
+                </option>
+              </select>
+            </form>
+          </div>
+
+          <%!-- Episode list --%>
+          <div
+            class="sv-episode-list"
+            id="episode-list"
+            phx-hook="ScrollToCurrentEpisode"
+            data-current-video-id={@video.id}
+            data-test="episode-list"
+          >
+            <%= for ep <- @episodes do %>
+              <% is_current = ep.video_id == @video.id %>
+              <% progress = Map.get(@viewer_progress, ep.video_id) %>
+              <% is_completed = progress && progress.completed %>
+              <% has_progress = progress && progress.position > 0 && !is_completed %>
+              <% progress_pct =
+                if has_progress,
+                  do: progress.position / max(progress.duration, 1) * 100,
+                  else: 0 %>
+              <div
+                class={[
+                  "sv-episode-row",
+                  is_current && "current",
+                  is_completed && "completed"
+                ]}
+                data-test={"episode-row-#{ep.video_id}"}
+              >
+                <%!-- Episode number / status indicator --%>
+                <div
+                  class="sv-episode-number"
+                  data-test={"episode-status-#{ep.video_id}"}
+                >
+                  <%= cond do %>
+                    <% is_current -> %>
+                      <span class="sv-now-playing-icon" aria-label="Now playing">▶</span>
+                    <% is_completed -> %>
+                      <span class="sv-completed-icon" aria-label="Completed">✓</span>
+                    <% true -> %>
+                      <span>{ep.episode_number}</span>
+                  <% end %>
+                </div>
+
+                <%!-- Thumbnail with progress bar --%>
+                <div class="sv-episode-thumb-container">
+                  <img
+                    :if={ep.video && ep.video.mux_playback_id}
+                    src={"https://image.mux.com/#{ep.video.mux_playback_id}/thumbnail.webp?width=200&height=112&fit_mode=smartcrop"}
+                    alt={ep.title || ep.video.title}
+                    class="sv-episode-thumb"
+                  />
+                  <div
+                    :if={has_progress}
+                    class="sv-episode-progress-bar"
+                    style={"width: #{progress_pct}%"}
+                    data-test={"episode-progress-#{ep.video_id}"}
+                  />
+                </div>
+
+                <%!-- Episode info --%>
+                <div class="sv-episode-info">
+                  <button
+                    phx-click="play_episode"
+                    phx-value-video-id={ep.video_id}
+                    class="sv-episode-title"
+                    data-test={"episode-link-#{ep.video_id}"}
+                  >
+                    {ep.title || ep.video.title}
+                  </button>
+                  <div class="sv-episode-meta">
+                    <span :if={ep.video.duration}>{format_duration(ep.video.duration)}</span>
+                    <%= cond do %>
+                      <% is_completed -> %>
+                        <span class="sv-episode-watched-badge">Watched</span>
+                      <% has_progress -> %>
+                        <span>
+                          · {format_duration(ep.video.duration - progress.position)} remaining
+                        </span>
+                      <% true -> %>
+                        <span></span>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+
+      <%!-- Related content (for standalone videos only) --%>
+      <div
+        :if={@episode_context == nil && fill_rows(@related_videos, 4) != []}
+        class="sv-row"
+        style="margin-top: 48px;"
+      >
         <h2 class="sv-row-title">More from {@organization.name}</h2>
         <div class="sv-browse-grid">
           <ViewerComponents.content_card

@@ -92,7 +92,8 @@
       "Bash(ls /Users/jeffreybaird/personal-repos/bobine/lib/bobine/telemetry*)",
       "Bash(fly secrets:*)",
       "Bash(git show:*)",
-      "Bash(mix ecto.migrations)"
+      "Bash(mix ecto.migrations)",
+      "Bash(grep -E \"^[^/]*content\\\\.ex$\")"
     ]
   }
 }

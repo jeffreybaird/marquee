@@ -98,6 +98,8 @@ defmodule BobineWeb.Router do
       live "/", DashboardLive
       live "/content", ContentLive
       live "/collections", CollectionsLive
+      live "/series", SeriesLive
+      live "/series/:series_id/seasons/:season_id", SeasonLive
       live "/tags", TagsLive
       live "/catalog", CatalogLive
       live "/analytics", AnalyticsLive
@@ -259,6 +261,8 @@ defmodule BobineWeb.Router do
         {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/watch/:id", WatchLive
+      live "/series/:slug", WatchLive, :series
+      live "/series/:slug/season/:season_number", WatchLive, :series_season
       live "/watchlist", WatchlistLive
       live "/favorites", WatchlistLive
       live "/queue", WatchlistLive

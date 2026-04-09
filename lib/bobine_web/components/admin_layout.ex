@@ -114,6 +114,12 @@ defmodule BobineWeb.Components.AdminLayout do
               data_test="admin-nav-collections"
             />
             <.nav_link
+              href={~p"/admin/series"}
+              label="Series"
+              current_path={@current_path}
+              data_test="admin-nav-series"
+            />
+            <.nav_link
               href={~p"/admin/tags"}
               label="Tags"
               current_path={@current_path}

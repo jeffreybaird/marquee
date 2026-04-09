@@ -1402,7 +1402,10 @@ defmodule Bobine.Content do
                             "bobine.org.id" => scope.organization.id,
                             "bobine.series.id" => series.id
                           } do
-      attrs = maybe_assign_season_number(attrs, series)
+      attrs =
+        attrs
+        |> maybe_assign_season_number(series)
+        |> maybe_assign_default_title(series)
 
       case %Season{organization_id: scope.organization.id, series_id: series.id}
            |> Season.changeset(attrs)
@@ -1422,10 +1425,29 @@ defmodule Bobine.Content do
     has_season_number =
       Map.has_key?(attrs, :season_number) || Map.has_key?(attrs, "season_number")
 
-    if has_season_number do
+    cond do
+      has_season_number -> attrs
+      has_string_keys?(attrs) -> Map.put(attrs, "season_number", next_season_number(series))
+      true -> Map.put(attrs, :season_number, next_season_number(series))
+    end
+  end
+
+  # If the caller did not provide a title (or provided a blank one), default to
+  # "<series title> <season number>". Honors the params' key style (string vs atom).
+  defp maybe_assign_default_title(attrs, %Series{title: series_title}) do
+    title = Map.get(attrs, :title) || Map.get(attrs, "title")
+
+    if is_binary(title) and String.trim(title) != "" do
       attrs
     else
-      Map.put(attrs, :season_number, next_season_number(series))
+      season_number = Map.get(attrs, :season_number) || Map.get(attrs, "season_number")
+      default = "#{series_title} #{season_number}"
+
+      if has_string_keys?(attrs) do
+        Map.put(attrs, "title", default)
+      else
+        Map.put(attrs, :title, default)
+      end
     end
   end
 

@@ -130,6 +130,8 @@ defmodule BobineWeb.Hooks.AssignScope do
       BobineWeb.Admin.DashboardLive -> "/admin"
       BobineWeb.Admin.ContentLive -> "/admin/content"
       BobineWeb.Admin.CollectionsLive -> "/admin/collections"
+      BobineWeb.Admin.SeriesLive -> "/admin/series"
+      BobineWeb.Admin.SeasonLive -> "/admin/series"
       BobineWeb.Admin.TagsLive -> "/admin/tags"
       BobineWeb.Admin.CatalogLive -> "/admin/catalog"
       BobineWeb.Admin.AnalyticsLive -> "/admin/analytics"

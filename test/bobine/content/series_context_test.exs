@@ -184,6 +184,33 @@ defmodule Bobine.Content.SeriesContextTest do
 
       assert season.season_number == 5
     end
+
+    test "defaults title to '<series title> <season_number>' when no title given",
+         %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Breaking Code"})
+
+      {:ok, s1} = Content.create_season(scope, series, %{})
+      {:ok, s2} = Content.create_season(scope, series, %{})
+
+      assert s1.title == "Breaking Code 1"
+      assert s2.title == "Breaking Code 2"
+    end
+
+    test "defaults title when title is blank string", %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Show Name"})
+
+      {:ok, season} = Content.create_season(scope, series, %{"title" => "  "})
+
+      assert season.title == "Show Name 1"
+    end
+
+    test "preserves an explicit title", %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Show Name"})
+
+      {:ok, season} = Content.create_season(scope, series, %{title: "Pilot Arc"})
+
+      assert season.title == "Pilot Arc"
+    end
   end
 
   describe "list_seasons/3" do

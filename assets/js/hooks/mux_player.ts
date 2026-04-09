@@ -107,6 +107,33 @@ const MuxPlayer = {
       player.currentTime = position
     })
 
+    // Handle video load (season switch, episode click, queue advance)
+    this.handleEvent(
+      "load_video",
+      ({
+        playback_id,
+        video_id,
+        resume_position,
+      }: {
+        playback_id: string
+        video_id: string
+        resume_position: number
+      }) => {
+        this.videoId = video_id
+        player.setAttribute("playback-id", playback_id)
+
+        if (resume_position > 0) {
+          player.addEventListener(
+            "loadedmetadata",
+            () => {
+              player.currentTime = resume_position
+            },
+            { once: true },
+          )
+        }
+      },
+    )
+
     // Handle queue auto-advance — server pushes next video
     this.handleEvent(
       "play_next_in_queue",

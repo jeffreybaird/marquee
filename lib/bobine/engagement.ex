@@ -1112,6 +1112,21 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
+  Gets progress for multiple videos in a single query.
+  Returns a map of %{video_id => %Progress{}}.
+
+  Exempt from doctest — hits the database.
+  """
+  def batch_get_progress(%Organization{id: org_id}, %{id: viewer_id}, video_ids)
+      when is_list(video_ids) do
+    Progress
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> where([p], p.video_id in ^video_ids)
+    |> Repo.all()
+    |> Map.new(&{&1.video_id, &1})
+  end
+
+  @doc """
   Marks a video as completed.
 
   Exempt from doctest — hits the database.

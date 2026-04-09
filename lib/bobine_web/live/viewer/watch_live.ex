@@ -1,16 +1,22 @@
 # NOTE: Convert to static page with LiveView island for the player
 defmodule BobineWeb.Viewer.WatchLive do
   @moduledoc """
-  Video player page for subscribed viewers.
+  Unified video player page for subscribed viewers.
 
-  Handles Mux playback, resume position, queue panel with drag-and-drop
-  reordering, related videos grid, and engagement actions (favorite,
-  watchlist, queue) via CardActions.
+  Handles standalone video playback, series/season navigation, Mux playback,
+  resume position, queue panel with drag-and-drop reordering, related videos
+  grid, and engagement actions (favorite, watchlist, queue) via CardActions.
 
-  Hooks: MuxPlayer, PlaybackTracker, QueueSortable, CardFocus, RowScroller
+  Routes:
+    - /watch/:id           — direct video playback (standalone or episode)
+    - /series/:slug        — series entry, picks best episode for viewer
+    - /series/:slug/season/:season_number — specific season entry
+
+  Hooks: MuxPlayer, PlaybackTracker, QueueSortable, CardFocus, RowScroller,
+         ScrollToCurrentEpisode
   Events: playback_started, playback_progress, playback_paused, progress_update,
-          reorder_queue, card_toggle_favorite, card_add_to_watchlist, card_add_to_queue
-  Route: /watch/:id (viewer_subscribed session)
+          reorder_queue, card_toggle_favorite, card_add_to_watchlist,
+          card_add_to_queue, switch_season, play_episode, playback_ended
   """
 
   use BobineWeb, :live_view
@@ -26,10 +32,25 @@ defmodule BobineWeb.Viewer.WatchLive do
   alias BobineWeb.Components.ViewerLayout
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
-    mount_started_at = System.monotonic_time()
+  def mount(params, _session, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns[:current_viewer]
+
+    case socket.assigns.live_action do
+      action when action in [nil, :index] ->
+        mount_direct_video(params, org, viewer, socket)
+
+      action when action in [:series, :series_season] ->
+        mount_series(params, org, viewer, socket)
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Mount — direct video (/watch/:id)
+  ## -----------------------------------------------------------------------
+
+  defp mount_direct_video(%{"id" => id}, org, viewer, socket) do
+    mount_started_at = System.monotonic_time()
     scope = socket.assigns[:current_scope]
 
     {video_db_duration_ms, video_result} = timed(fn -> Content.get_video(org, id) end)
@@ -37,7 +58,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     case video_result do
       {:ok, %{mux_status: "ready"} = video} ->
         if AccessControl.can_watch?(video, viewer) do
-          mount_video(
+          mount_ready_video(
             socket,
             video,
             viewer,
@@ -86,7 +107,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     end
   end
 
-  defp mount_video(
+  defp mount_ready_video(
          socket,
          video,
          viewer,
@@ -120,12 +141,74 @@ defmodule BobineWeb.Viewer.WatchLive do
       db_duration_ms
     )
 
+    # Check if this video is an episode — if so, load season context
+    episode_context = Content.get_episode_context(org, video)
+
+    season_assigns =
+      if episode_context do
+        build_season_assigns(org, viewer, episode_context)
+      else
+        standalone_assigns()
+      end
+
+    {:ok,
+     assign(
+       socket,
+       Map.merge(season_assigns, %{
+         video: video,
+         episode_context: episode_context,
+         page_title: video.title,
+         resume_position: watch_state.resume_position,
+         related_videos: related_result.videos,
+         queue_items: [],
+         queue_count: watch_state.queue_count,
+         queue_loaded?: false,
+         queue_open: false,
+         is_favorited: watch_state.is_favorited,
+         in_watchlist: watch_state.in_watchlist,
+         go_back_available: false,
+         go_back_timer: nil
+       })
+     )}
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Mount — series entry (/series/:slug, /series/:slug/season/:number)
+  ## -----------------------------------------------------------------------
+
+  defp mount_series(params, org, viewer, socket) do
+    slug = params["slug"]
+
+    with {:ok, series} <- Content.get_series_by_slug(org, slug),
+         %{results: [_ | _] = season_results} = seasons <- Content.list_seasons(org, series),
+         selected_season <- resolve_season(params, org, viewer, season_results),
+         [_ | _] = episodes <- Content.list_episodes(org, selected_season) do
+      mount_series_episode(socket, org, viewer, series, selected_season, seasons, episodes)
+    else
+      _ -> {:ok, push_navigate(socket, to: ~p"/")}
+    end
+  end
+
+  defp mount_series_episode(socket, org, viewer, series, selected_season, seasons, episodes) do
+    scope = socket.assigns[:current_scope]
+    video = resolve_episode_video(org, viewer, episodes)
+    episode_context = Content.get_episode_context(org, video)
+    watch_state = build_watch_state(org, viewer, scope, video)
+
+    viewer_progress = build_viewer_progress(org, viewer, episodes)
+
     {:ok,
      assign(socket,
        video: video,
-       page_title: video.title,
+       episode_context: episode_context,
+       episodes: episodes,
+       seasons: seasons.results,
+       selected_season: selected_season,
+       viewer_progress: viewer_progress,
+       playback_mode: :collection,
+       page_title: "#{series.title} — #{selected_season.title}",
        resume_position: watch_state.resume_position,
-       related_videos: related_result.videos,
+       related_videos: [],
        queue_items: [],
        queue_count: watch_state.queue_count,
        queue_loaded?: false,
@@ -135,6 +218,99 @@ defmodule BobineWeb.Viewer.WatchLive do
        go_back_available: false,
        go_back_timer: nil
      )}
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Season/episode resolution helpers
+  ## -----------------------------------------------------------------------
+
+  defp resolve_season(params, org, viewer, seasons) do
+    cond do
+      params["season_number"] ->
+        number = String.to_integer(params["season_number"])
+        Enum.find(seasons, List.first(seasons), &(&1.season_number == number))
+
+      viewer ->
+        find_active_season(org, viewer, seasons) || List.first(seasons)
+
+      true ->
+        List.first(seasons)
+    end
+  end
+
+  defp find_active_season(org, viewer, seasons) do
+    Enum.find(seasons, fn season ->
+      season
+      |> then(&Content.list_episodes(org, &1))
+      |> Enum.any?(&episode_in_progress?(org, viewer, &1))
+    end)
+  end
+
+  defp episode_in_progress?(org, viewer, episode) do
+    case Engagement.get_progress(org, viewer, episode.video) do
+      %{completed: false} -> true
+      _ -> false
+    end
+  end
+
+  defp resolve_episode_video(_org, nil, episodes), do: List.first(episodes).video
+
+  defp resolve_episode_video(org, viewer, episodes) do
+    in_progress = Enum.find(episodes, &episode_resumable?(org, viewer, &1))
+    unwatched = Enum.find(episodes, &episode_unwatched?(org, viewer, &1))
+
+    chosen = in_progress || unwatched || List.first(episodes)
+    chosen.video
+  end
+
+  defp episode_resumable?(org, viewer, episode) do
+    case Engagement.get_progress(org, viewer, episode.video) do
+      %{completed: false, position: pos} when pos > 0 -> true
+      _ -> false
+    end
+  end
+
+  defp episode_unwatched?(org, viewer, episode) do
+    Engagement.get_progress(org, viewer, episode.video) == nil
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Shared assign builders
+  ## -----------------------------------------------------------------------
+
+  defp build_season_assigns(org, viewer, episode_context) do
+    episodes = Content.list_episodes(org, episode_context.season)
+    seasons = Content.list_seasons(org, episode_context.series)
+
+    viewer_progress = build_viewer_progress(org, viewer, episodes)
+
+    %{
+      episodes: episodes,
+      seasons: seasons.results,
+      selected_season: episode_context.season,
+      viewer_progress: viewer_progress,
+      playback_mode: :collection
+    }
+  end
+
+  defp standalone_assigns do
+    %{
+      episodes: [],
+      seasons: [],
+      selected_season: nil,
+      viewer_progress: %{},
+      playback_mode: :standalone,
+      episode_context: nil
+    }
+  end
+
+  defp build_viewer_progress(org, viewer, episodes) do
+    if viewer do
+      episode_video_ids = Enum.map(episodes, & &1.video_id)
+      Engagement.batch_get_progress(org, viewer, episode_video_ids)
+    else
+      %{}
+    end
   end
 
   defp handle_access_denied(socket, _video, viewer) do
@@ -205,7 +381,20 @@ defmodule BobineWeb.Viewer.WatchLive do
 
     if viewer do
       Engagement.mark_completed(org, viewer, socket.assigns.video)
-      advance_to_next(socket, video_id)
+
+      cond do
+        # Queue takes precedence when it has items
+        Engagement.queue_count(org, viewer) > 0 ->
+          advance_to_next(socket, video_id)
+
+        # Collection mode — advance to next episode in season
+        socket.assigns.playback_mode == :collection && socket.assigns.episode_context ->
+          handle_season_advance(socket, org, viewer)
+
+        # Standalone or no queue — use existing queue advance (handles go-back)
+        true ->
+          advance_to_next(socket, video_id)
+      end
     else
       {:noreply, socket}
     end
@@ -331,6 +520,78 @@ defmodule BobineWeb.Viewer.WatchLive do
   end
 
   ## -----------------------------------------------------------------------
+  ## Season switching and episode navigation
+  ## -----------------------------------------------------------------------
+
+  @impl true
+  def handle_event("switch_season", %{"season_id" => season_id}, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns[:current_viewer]
+    season = Content.get_season!(org, season_id)
+    episodes = Content.list_episodes(org, season)
+
+    if episodes == [] do
+      {:noreply, put_flash(socket, :info, "This season has no episodes yet.")}
+    else
+      video = resolve_episode_video(org, viewer, episodes)
+      progress = get_viewer_progress(org, viewer, video)
+      episode_context = Content.get_episode_context(org, video)
+
+      viewer_progress = build_viewer_progress(org, viewer, episodes)
+
+      socket =
+        socket
+        |> assign(
+          video: video,
+          episode_context: episode_context,
+          episodes: episodes,
+          selected_season: season,
+          viewer_progress: viewer_progress,
+          resume_position: (progress && progress.position) || 0.0,
+          page_title: "#{episode_context.series.title} — #{season.title}"
+        )
+        |> push_event("play_next_in_queue", %{
+          playback_id: video.mux_playback_id,
+          video_id: video.id,
+          resume_position: (progress && progress.position) || 0.0
+        })
+
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("play_episode", %{"video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns[:current_viewer]
+
+    case Content.get_video(org, video_id) do
+      {:ok, video} ->
+        progress = get_viewer_progress(org, viewer, video)
+        episode_context = Content.get_episode_context(org, video)
+
+        socket =
+          socket
+          |> assign(
+            video: video,
+            episode_context: episode_context,
+            resume_position: (progress && progress.position) || 0.0,
+            page_title: video.title
+          )
+          |> push_event("play_next_in_queue", %{
+            playback_id: video.mux_playback_id,
+            video_id: video.id,
+            resume_position: (progress && progress.position) || 0.0
+          })
+
+        {:noreply, socket}
+
+      {:error, :not_found} ->
+        {:noreply, socket}
+    end
+  end
+
+  ## -----------------------------------------------------------------------
   ## Collection queue
   ## -----------------------------------------------------------------------
 
@@ -440,6 +701,78 @@ defmodule BobineWeb.Viewer.WatchLive do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Private — season auto-advance
+  ## -----------------------------------------------------------------------
+
+  defp handle_season_advance(socket, org, viewer) do
+    video = socket.assigns.video
+
+    case Content.next_episode(org, video) do
+      nil ->
+        advance_to_next_season(socket, org, viewer)
+
+      next_ep ->
+        switch_to_video(
+          socket,
+          org,
+          viewer,
+          next_ep.video,
+          socket.assigns.selected_season,
+          socket.assigns.episodes
+        )
+    end
+  end
+
+  defp advance_to_next_season(socket, org, viewer) do
+    case Content.next_season(org, socket.assigns.selected_season) do
+      nil ->
+        {:noreply, assign(socket, playback_mode: :ended)}
+
+      next_season ->
+        episodes = Content.list_episodes(org, next_season)
+
+        case List.first(episodes) do
+          nil -> {:noreply, assign(socket, playback_mode: :ended)}
+          first_ep -> switch_to_video(socket, org, viewer, first_ep.video, next_season, episodes)
+        end
+    end
+  end
+
+  defp switch_to_video(socket, org, viewer, video, season, episodes) do
+    progress = get_viewer_progress(org, viewer, video)
+    episode_context = Content.get_episode_context(org, video)
+    viewer_progress = build_viewer_progress(org, viewer, episodes)
+
+    socket =
+      socket
+      |> assign(
+        video: video,
+        episode_context: episode_context,
+        episodes: episodes,
+        selected_season: season,
+        viewer_progress: viewer_progress,
+        resume_position: (progress && progress.position) || 0.0,
+        page_title: video.title
+      )
+      |> push_event("play_next_in_queue", %{
+        playback_id: video.mux_playback_id,
+        video_id: video.id,
+        resume_position: (progress && progress.position) || 0.0
+      })
+
+    {:noreply, socket}
+  end
+
+  defp get_viewer_progress(_org, nil, _video), do: nil
+
+  defp get_viewer_progress(org, viewer, video) do
+    case Engagement.get_progress(org, viewer, video) do
+      %{position: _} = progress -> progress
+      _ -> nil
     end
   end
 

@@ -6,6 +6,7 @@ import PlaybackTracker from "./playback_tracker"
 import PushNotifications from "./push_notifications"
 import QueueSortable from "./queue_sortable"
 import RowScroller from "./row_scroller"
+import ScrollToCurrentEpisode from "./scroll_to_current_episode"
 import Sortable from "./sortable"
 import ViewerNav from "./viewer_nav"
 
@@ -18,6 +19,7 @@ export const hooks = {
   PushNotifications,
   QueueSortable,
   RowScroller,
+  ScrollToCurrentEpisode,
   Sortable,
   ViewerNav,
 }
