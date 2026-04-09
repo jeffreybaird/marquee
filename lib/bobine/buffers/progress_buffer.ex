@@ -143,7 +143,7 @@ defmodule Bobine.Buffers.ProgressBuffer do
         inserted_at: now,
         updated_at: now
       },
-      on_conflict: [set: [position: position, updated_at: now]],
+      on_conflict: [set: [position: position, completed: false, updated_at: now]],
       conflict_target: [:user_id, :video_id, :organization_id]
     )
   end
@@ -165,7 +165,9 @@ defmodule Bobine.Buffers.ProgressBuffer do
         inserted_at: now,
         updated_at: now
       },
-      on_conflict: [set: [position: position, duration: duration, updated_at: now]],
+      on_conflict: [
+        set: [position: position, duration: duration, completed: false, updated_at: now]
+      ],
       conflict_target:
         {:unsafe_fragment,
          ~s|("viewer_id","video_id","organization_id") WHERE viewer_id IS NOT NULL|}

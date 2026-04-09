@@ -90,7 +90,9 @@
       "Bash(mix ecto.gen.migration backfill_collection_item_types)",
       "Bash(pg_isready)",
       "Bash(ls /Users/jeffreybaird/personal-repos/bobine/lib/bobine/telemetry*)",
-      "Bash(fly secrets:*)"
+      "Bash(fly secrets:*)",
+      "Bash(git show:*)",
+      "Bash(mix ecto.migrations)"
     ]
   }
 }

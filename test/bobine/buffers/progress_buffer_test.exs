@@ -98,5 +98,53 @@ defmodule Bobine.Buffers.ProgressBufferTest do
       assert progress.position == 33.0
       assert progress.duration == 80.0
     end
+
+    test "flush resets completed to false when new viewer progress is buffered" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org)
+
+      # Simulate a previously completed video
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 120.0,
+        duration: 120.0,
+        completed: true
+      )
+
+      # Viewer starts rewatching — new progress goes to buffer
+      :ok = ProgressBuffer.update_viewer(org.id, viewer.id, video.id, 15.0, 120.0)
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+      assert progress.position == 15.0
+      assert progress.completed == false
+    end
+
+    test "flush resets completed to false when new user progress is buffered" do
+      org = insert(:organization)
+      user = insert(:user)
+      _membership = insert(:membership, organization: org, user: user)
+      video = insert(:video, organization: org)
+
+      # Simulate a previously completed video
+      insert(:progress,
+        organization: org,
+        user: user,
+        video: video,
+        position: 60.0,
+        completed: true
+      )
+
+      # User starts rewatching — new progress goes to buffer
+      :ok = ProgressBuffer.update(org.id, user.id, video.id, 5.0)
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, user_id: user.id, video_id: video.id)
+      assert progress.position == 5.0
+      assert progress.completed == false
+    end
   end
 end

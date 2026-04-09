@@ -77,3 +77,4 @@
 - Queue/favorite/watchlist actions still hit Postgres synchronously on interaction. That is fine for lightweight interactivity, but not for high-frequency social overlays.
 - Audit/global event broadcasting still exists for viewer-side engagement actions. If those events are not operationally required, they should be reduced further.
 - No load-test-validated capacity numbers are claimed here; Fly concurrency, machine sizing, and hibernation settings are starting points only.
+  
