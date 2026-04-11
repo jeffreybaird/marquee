@@ -10,10 +10,17 @@ defmodule BobineWeb.Admin.CollectionsLive do
   """
 
   use BobineWeb, :live_view
+  use BobineWeb.Admin.ImageUploadHandlers
 
   alias Bobine.Accounts
   alias Bobine.Content
+  alias Bobine.Content.Collection
   alias Bobine.Events
+  alias BobineWeb.Admin.ImageUploadHandlers
+
+  @impl true
+  def allowed_upload_kind?("collection_cover"), do: true
+  def allowed_upload_kind?(_), do: false
 
   @impl true
   def mount(_params, _session, socket) do
@@ -47,15 +54,19 @@ defmodule BobineWeb.Admin.CollectionsLive do
   @impl true
   def handle_event("new_collection", _params, socket) do
     form =
-      Content.change_collection(%Bobine.Content.Collection{})
+      Content.change_collection(%Collection{})
       |> to_form()
 
-    {:noreply,
-     assign(socket,
-       show_form: true,
-       editing_collection: nil,
-       form: form
-     )}
+    socket =
+      socket
+      |> ImageUploadHandlers.put_initial_url(
+        "collection_cover",
+        collection_cover_target(nil),
+        nil
+      )
+      |> assign(show_form: true, editing_collection: nil, form: form)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -66,12 +77,16 @@ defmodule BobineWeb.Admin.CollectionsLive do
       {:ok, collection} ->
         form = Content.change_collection(collection) |> to_form()
 
-        {:noreply,
-         assign(socket,
-           show_form: true,
-           editing_collection: collection,
-           form: form
-         )}
+        socket =
+          socket
+          |> ImageUploadHandlers.put_initial_url(
+            "collection_cover",
+            collection_cover_target(collection),
+            collection.cover_image_url
+          )
+          |> assign(show_form: true, editing_collection: collection, form: form)
+
+        {:noreply, socket}
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Collection not found.")}
@@ -86,6 +101,10 @@ defmodule BobineWeb.Admin.CollectionsLive do
   @impl true
   def handle_event("save_collection", %{"collection" => params}, socket) do
     scope = socket.assigns.current_scope
+
+    target_id = collection_cover_target(socket.assigns.editing_collection)
+    uploaded_url = ImageUploadHandlers.upload_url(socket, "collection_cover", target_id)
+    params = maybe_put_cover_image_url(params, uploaded_url)
 
     result =
       case socket.assigns.editing_collection do
@@ -408,6 +427,14 @@ defmodule BobineWeb.Admin.CollectionsLive do
           show_form={@show_form}
           form={@form}
           editing_collection={@editing_collection}
+          collection_cover_target={collection_cover_target(@editing_collection)}
+          collection_cover_state={
+            ImageUploadHandlers.upload_state(
+              @image_uploads,
+              "collection_cover",
+              collection_cover_target(@editing_collection)
+            )
+          }
         />
       <% end %>
     </BobineWeb.Components.AdminLayout.admin_layout>
@@ -516,7 +543,13 @@ defmodule BobineWeb.Admin.CollectionsLive do
       </table>
     </div>
 
-    <.collection_form :if={@show_form} form={@form} editing={@editing_collection} />
+    <.collection_form
+      :if={@show_form}
+      form={@form}
+      editing={@editing_collection}
+      collection_cover_target={@collection_cover_target}
+      collection_cover_state={@collection_cover_state}
+    />
     """
   end
 
@@ -553,13 +586,16 @@ defmodule BobineWeb.Admin.CollectionsLive do
             >{@form[:description].value}</textarea>
           </div>
           <div class="mb-4">
-            <label class="label" for="collection-cover">Cover Image URL</label>
-            <input
-              type="text"
-              id="collection-cover"
+            <BobineWeb.Components.AdminComponents.image_upload_field
               name="collection[cover_image_url]"
-              value={@form[:cover_image_url].value}
-              class="input input-bordered w-full"
+              kind="collection_cover"
+              target_id={@collection_cover_target}
+              url={@collection_cover_state.url}
+              status={@collection_cover_state.status}
+              percent={@collection_cover_state.percent}
+              error={@collection_cover_state.error}
+              label="Cover image"
+              help="JPG, PNG or WebP. Optional."
             />
           </div>
           <div class="flex justify-end gap-2">
@@ -846,6 +882,17 @@ defmodule BobineWeb.Admin.CollectionsLive do
     org = socket.assigns.organization
     %{results: collections} = Content.list_collections(org)
     assign(socket, :collections, collections)
+  end
+
+  defp collection_cover_target(nil), do: "new"
+  defp collection_cover_target(%Collection{id: id}), do: id
+  defp collection_cover_target(%{id: id}), do: id
+
+  defp maybe_put_cover_image_url(params, nil), do: params
+  defp maybe_put_cover_image_url(params, ""), do: params
+
+  defp maybe_put_cover_image_url(params, url) when is_binary(url) do
+    Map.put(params, "cover_image_url", url)
   end
 
   defp load_picker_content(socket, :video) do

@@ -12,11 +12,18 @@ defmodule BobineWeb.Admin.SeriesLive do
   """
 
   use BobineWeb, :live_view
+  use BobineWeb.Admin.ImageUploadHandlers
 
   alias Bobine.Accounts
   alias Bobine.Content
   alias Bobine.Content.{Season, Series}
   alias Bobine.Events
+  alias BobineWeb.Admin.ImageUploadHandlers
+
+  @upload_kinds ~w(series_cover season_cover)
+
+  @impl true
+  def allowed_upload_kind?(kind), do: kind in @upload_kinds
 
   @impl true
   def mount(_params, _session, socket) do
@@ -52,7 +59,12 @@ defmodule BobineWeb.Admin.SeriesLive do
   def handle_event("new_series", _params, socket) do
     form = Content.change_series(%Series{}) |> to_form()
 
-    {:noreply, assign(socket, show_series_form: true, editing_series: nil, series_form: form)}
+    socket =
+      socket
+      |> ImageUploadHandlers.put_initial_url("series_cover", series_cover_target(nil), nil)
+      |> assign(show_series_form: true, editing_series: nil, series_form: form)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -63,8 +75,16 @@ defmodule BobineWeb.Admin.SeriesLive do
       {:ok, series} ->
         form = Content.change_series(series) |> to_form()
 
-        {:noreply,
-         assign(socket, show_series_form: true, editing_series: series, series_form: form)}
+        socket =
+          socket
+          |> ImageUploadHandlers.put_initial_url(
+            "series_cover",
+            series_cover_target(series),
+            series.cover_image_url
+          )
+          |> assign(show_series_form: true, editing_series: series, series_form: form)
+
+        {:noreply, socket}
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Series not found.")}
@@ -79,7 +99,14 @@ defmodule BobineWeb.Admin.SeriesLive do
   @impl true
   def handle_event("save_series", %{"series" => params}, socket) do
     scope = socket.assigns.current_scope
-    params = normalize_new_season_params(params)
+
+    target_id = series_cover_target(socket.assigns.editing_series)
+    uploaded_url = ImageUploadHandlers.upload_url(socket, "series_cover", target_id)
+
+    params =
+      params
+      |> normalize_new_season_params()
+      |> maybe_put_cover_image_url(uploaded_url)
 
     result =
       case socket.assigns.editing_series do
@@ -170,7 +197,12 @@ defmodule BobineWeb.Admin.SeriesLive do
   def handle_event("new_season", _params, socket) do
     form = Content.change_season(%Season{}) |> to_form()
 
-    {:noreply, assign(socket, show_season_form: true, editing_season: nil, season_form: form)}
+    socket =
+      socket
+      |> ImageUploadHandlers.put_initial_url("season_cover", season_cover_target(nil), nil)
+      |> assign(show_season_form: true, editing_season: nil, season_form: form)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -181,8 +213,16 @@ defmodule BobineWeb.Admin.SeriesLive do
       {:ok, season} ->
         form = Content.change_season(season) |> to_form()
 
-        {:noreply,
-         assign(socket, show_season_form: true, editing_season: season, season_form: form)}
+        socket =
+          socket
+          |> ImageUploadHandlers.put_initial_url(
+            "season_cover",
+            season_cover_target(season),
+            season.cover_image_url
+          )
+          |> assign(show_season_form: true, editing_season: season, season_form: form)
+
+        {:noreply, socket}
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Season not found.")}
@@ -198,7 +238,14 @@ defmodule BobineWeb.Admin.SeriesLive do
   def handle_event("save_season", %{"season" => params}, socket) do
     scope = socket.assigns.current_scope
     series = socket.assigns.selected_series
-    params = drop_blank_season_number(params)
+
+    target_id = season_cover_target(socket.assigns.editing_season)
+    uploaded_url = ImageUploadHandlers.upload_url(socket, "season_cover", target_id)
+
+    params =
+      params
+      |> drop_blank_season_number()
+      |> maybe_put_cover_image_url(uploaded_url)
 
     result =
       case socket.assigns.editing_season do
@@ -295,6 +342,14 @@ defmodule BobineWeb.Admin.SeriesLive do
           show_season_form={@show_season_form}
           season_form={@season_form}
           editing_season={@editing_season}
+          season_cover_target={season_cover_target(@editing_season)}
+          season_cover_state={
+            ImageUploadHandlers.upload_state(
+              @image_uploads,
+              "season_cover",
+              season_cover_target(@editing_season)
+            )
+          }
         />
       <% else %>
         <.series_list_view
@@ -303,6 +358,14 @@ defmodule BobineWeb.Admin.SeriesLive do
           show_series_form={@show_series_form}
           series_form={@series_form}
           editing_series={@editing_series}
+          series_cover_target={series_cover_target(@editing_series)}
+          series_cover_state={
+            ImageUploadHandlers.upload_state(
+              @image_uploads,
+              "series_cover",
+              series_cover_target(@editing_series)
+            )
+          }
         />
       <% end %>
     </BobineWeb.Components.AdminLayout.admin_layout>
@@ -398,7 +461,13 @@ defmodule BobineWeb.Admin.SeriesLive do
       </table>
     </div>
 
-    <.series_form :if={@show_series_form} form={@series_form} editing={@editing_series} />
+    <.series_form
+      :if={@show_series_form}
+      form={@series_form}
+      editing={@editing_series}
+      series_cover_target={@series_cover_target}
+      series_cover_state={@series_cover_state}
+    />
     """
   end
 
@@ -467,13 +536,16 @@ defmodule BobineWeb.Admin.SeriesLive do
             >{@form[:description].value}</textarea>
           </div>
           <div class="mb-4">
-            <label class="label" for="series-cover">Cover Image URL</label>
-            <input
-              type="text"
-              id="series-cover"
+            <BobineWeb.Components.AdminComponents.image_upload_field
               name="series[cover_image_url]"
-              value={@form[:cover_image_url].value}
-              class="input input-bordered w-full"
+              kind="series_cover"
+              target_id={@series_cover_target}
+              url={@series_cover_state.url}
+              status={@series_cover_state.status}
+              percent={@series_cover_state.percent}
+              error={@series_cover_state.error}
+              label="Cover image"
+              help="JPG, PNG or WebP. Used for cards and hero slides."
             />
           </div>
           <div class="mb-4">
@@ -639,6 +711,8 @@ defmodule BobineWeb.Admin.SeriesLive do
       :if={@show_season_form}
       form={@season_form}
       editing={@editing_season}
+      season_cover_target={@season_cover_target}
+      season_cover_state={@season_cover_state}
     />
     """
   end
@@ -694,13 +768,16 @@ defmodule BobineWeb.Admin.SeriesLive do
             >{@form[:description].value}</textarea>
           </div>
           <div class="mb-4">
-            <label class="label" for="season-cover">Cover Image URL</label>
-            <input
-              type="text"
-              id="season-cover"
+            <BobineWeb.Components.AdminComponents.image_upload_field
               name="season[cover_image_url]"
-              value={@form[:cover_image_url].value}
-              class="input input-bordered w-full"
+              kind="season_cover"
+              target_id={@season_cover_target}
+              url={@season_cover_state.url}
+              status={@season_cover_state.status}
+              percent={@season_cover_state.percent}
+              error={@season_cover_state.error}
+              label="Cover image"
+              help="JPG, PNG or WebP. Optional — falls back to the first episode's thumbnail."
             />
           </div>
           <div class="mb-4">
@@ -794,6 +871,26 @@ defmodule BobineWeb.Admin.SeriesLive do
     do: Map.put(params, "new_season_expires_at", nil)
 
   defp clear_expiry_when_flag_off(params), do: params
+
+  # Upload slot ids — stable for the whole editing session of one record.
+  defp series_cover_target(nil), do: "new"
+  defp series_cover_target(%Series{id: id}), do: id
+  defp series_cover_target(%{id: id}), do: id
+
+  defp season_cover_target(nil), do: "new"
+  defp season_cover_target(%Season{id: id}), do: id
+  defp season_cover_target(%{id: id}), do: id
+
+  # Prefer the URL the operator actually uploaded. If nothing was uploaded,
+  # don't touch the existing value (caller decides whether that's a create or
+  # update). Blank strings are dropped so create_* doesn't store "".
+  defp maybe_put_cover_image_url(params, nil), do: params
+
+  defp maybe_put_cover_image_url(params, ""), do: params
+
+  defp maybe_put_cover_image_url(params, url) when is_binary(url) do
+    Map.put(params, "cover_image_url", url)
+  end
 
   # Renders a date input value from whatever the form holds. The form may
   # carry a DateTime (after editing an existing record), an ISO date string
