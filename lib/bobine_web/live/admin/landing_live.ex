@@ -73,7 +73,8 @@ defmodule BobineWeb.Admin.LandingLive do
          |> put_flash(:info, "Section added.")}
 
       {:error, :validation, changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not add section: #{format_errors(changeset)}")}
+        {:noreply,
+         put_flash(socket, :error, "Could not add section: #{format_errors(changeset)}")}
     end
   end
 

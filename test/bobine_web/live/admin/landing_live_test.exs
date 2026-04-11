@@ -110,7 +110,8 @@ defmodule BobineWeb.Admin.LandingLiveTest do
       assert has_element?(view, "[data-test=section-editor]")
     end
 
-    for type_str <- ~w(hero_video hero_image hero_slider marketing_copy content_row plan_display header_text faq) do
+    for type_str <-
+          ~w(hero_video hero_image hero_slider marketing_copy content_row plan_display header_text faq) do
       test "can add a #{type_str} section without a validation error" do
         membership = insert(:membership, role: :admin)
         scope = build_scope(membership)
@@ -131,6 +132,7 @@ defmodule BobineWeb.Admin.LandingLiveTest do
         type = String.to_existing_atom(unquote(type_str))
 
         sections = LandingPage.list_landing_sections_admin(membership.organization)
+
         assert Enum.any?(sections, &(&1.section_type == type)),
                "expected a #{unquote(type_str)} section to be created"
 
