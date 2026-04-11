@@ -53,14 +53,26 @@ defmodule Bobine.LandingPageTest do
       assert section.config["headline"] == "Atomic"
     end
 
-    test "rejects hero_video without video source", %{scope: scope} do
-      assert {:error, :validation, changeset} =
+    test "allows hero_video stub without video source so operator can edit",
+         %{scope: scope} do
+      assert {:ok, section} =
                LandingPage.create_landing_section(scope, %{
                  section_type: :hero_video,
                  config: %{"headline" => "Watch"}
                })
 
-      assert "must include video_url or video_playback_id" in errors_on(changeset).config
+      assert section.section_type == :hero_video
+    end
+
+    test "allows hero_image stub without image_url so operator can edit",
+         %{scope: scope} do
+      assert {:ok, section} =
+               LandingPage.create_landing_section(scope, %{
+                 section_type: :hero_image,
+                 config: %{"headline" => "Welcome"}
+               })
+
+      assert section.section_type == :hero_image
     end
 
     test "rejects content_row without recognized source_type", %{scope: scope} do
@@ -209,16 +221,13 @@ defmodule Bobine.LandingPageTest do
     test "returns validation error for bad config", %{scope: scope} do
       {:ok, section} =
         LandingPage.create_landing_section(scope, %{
-          section_type: :hero_image,
-          config: %{
-            "image_url" => "https://example.com/x.jpg",
-            "headline" => "Hello"
-          }
+          section_type: :content_row,
+          config: %{"source_type" => "recent", "title" => "Recent"}
         })
 
       assert {:error, :validation, _} =
                LandingPage.update_landing_section(scope, section, %{
-                 config: %{"image_url" => "", "headline" => ""}
+                 config: %{"source_type" => "bogus"}
                })
     end
   end

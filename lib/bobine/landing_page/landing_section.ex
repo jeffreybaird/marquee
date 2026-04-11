@@ -89,26 +89,11 @@ defmodule Bobine.LandingPage.LandingSection do
     end
   end
 
-  defp validate_config_for(:hero_video, config) do
-    cond do
-      blank?(config["video_url"]) and blank?(config["video_playback_id"]) ->
-        {:error, "must include video_url or video_playback_id"}
-
-      blank?(config["headline"]) ->
-        {:error, "must include headline"}
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_config_for(:hero_image, config) do
-    cond do
-      blank?(config["image_url"]) -> {:error, "must include image_url"}
-      blank?(config["headline"]) -> {:error, "must include headline"}
-      true -> :ok
-    end
-  end
+  # Hero sections allow empty media so an operator can add a stub and fill in
+  # the video/image via the editor. Headline is also optional at create time;
+  # the renderer tolerates blanks.
+  defp validate_config_for(:hero_video, _config), do: :ok
+  defp validate_config_for(:hero_image, _config), do: :ok
 
   defp validate_config_for(:hero_slider, _config), do: :ok
 

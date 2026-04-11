@@ -109,6 +109,35 @@ defmodule BobineWeb.Admin.LandingLiveTest do
       assert Enum.any?(sections, &(&1.section_type == :marketing_copy))
       assert has_element?(view, "[data-test=section-editor]")
     end
+
+    for type_str <- ~w(hero_video hero_image hero_slider marketing_copy content_row plan_display header_text faq) do
+      test "can add a #{type_str} section without a validation error" do
+        membership = insert(:membership, role: :admin)
+        scope = build_scope(membership)
+
+        # Pre-seed so the auto-seed doesn't run.
+        {:ok, _} =
+          LandingPage.create_landing_section(scope, %{
+            section_type: :header_text,
+            config: %{"headline" => "Seed"}
+          })
+
+        {:ok, view, _html} = live(conn_for(membership), ~p"/admin/landing")
+
+        view
+        |> element("#add-section-form")
+        |> render_change(%{"section_type" => unquote(type_str)})
+
+        type = String.to_existing_atom(unquote(type_str))
+
+        sections = LandingPage.list_landing_sections_admin(membership.organization)
+        assert Enum.any?(sections, &(&1.section_type == type)),
+               "expected a #{unquote(type_str)} section to be created"
+
+        rendered = render(view)
+        refute rendered =~ "Could not add section"
+      end
+    end
   end
 
   describe "edit + save section" do
