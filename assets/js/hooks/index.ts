@@ -8,6 +8,7 @@ import QueueSortable from "./queue_sortable"
 import RowScroller from "./row_scroller"
 import ScrollToCurrentEpisode from "./scroll_to_current_episode"
 import Sortable from "./sortable"
+import SpacesUploader from "./spaces_uploader"
 import ViewerNav from "./viewer_nav"
 
 export const hooks = {
@@ -21,5 +22,6 @@ export const hooks = {
   RowScroller,
   ScrollToCurrentEpisode,
   Sortable,
+  SpacesUploader,
   ViewerNav,
 }

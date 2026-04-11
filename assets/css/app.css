@@ -2930,3 +2930,91 @@ details[open] .sv-faq-question::after {
     max-width: 100%;
   }
 }
+
+/* -------------------------------------------------------------------------
+ * Admin: reusable image upload control (Bobine.Storage → DO Spaces)
+ * ------------------------------------------------------------------------- */
+
+.sv-image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sv-image-upload-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-width: 320px;
+  border: 1px dashed oklch(var(--b3) / 1);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: oklch(var(--b2) / 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sv-image-upload-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sv-image-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: oklch(var(--bc) / 0.5);
+  font-size: 0.8125rem;
+}
+
+.sv-image-upload-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sv-image-upload-btn {
+  cursor: pointer;
+}
+
+.sv-image-upload-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sv-image-upload-progress {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: oklch(var(--bc) / 0.7);
+}
+
+.sv-image-upload-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: oklch(var(--p) / 1);
+  border-radius: 2px;
+  transition: width 120ms linear;
+}
+
+.sv-image-upload-error {
+  color: oklch(var(--er) / 1);
+  font-size: 0.8125rem;
+}
+
+.sv-image-upload-help {
+  color: oklch(var(--bc) / 0.6);
+  font-size: 0.75rem;
+}
