@@ -11,6 +11,7 @@ defmodule BobineWeb.Admin.ContentLive do
   """
 
   use BobineWeb, :live_view
+  use BobineWeb.Admin.ImageUploadHandlers
 
   import BobineWeb.Admin.ContentLive.Components
 
@@ -18,6 +19,11 @@ defmodule BobineWeb.Admin.ContentLive do
   alias Bobine.Content
   alias Bobine.Events
   alias Bobine.Workers.MuxAssetCleanup
+  alias BobineWeb.Admin.ImageUploadHandlers
+
+  @impl true
+  def allowed_upload_kind?("video_thumbnail"), do: true
+  def allowed_upload_kind?(_), do: false
 
   require Logger
 
@@ -257,6 +263,11 @@ defmodule BobineWeb.Admin.ContentLive do
 
         {:noreply,
          socket
+         |> ImageUploadHandlers.put_initial_url(
+           "video_thumbnail",
+           video.id,
+           video.custom_thumbnail_url
+         )
          |> assign(:viewing_video, video)
          |> assign(:video_tags, tags)
          |> assign(:editing_video, false)
@@ -285,6 +296,11 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def handle_event("save_video", %{"video" => params}, socket) do
     video = socket.assigns.viewing_video
+
+    uploaded_thumbnail =
+      ImageUploadHandlers.upload_url(socket, "video_thumbnail", video.id)
+
+    params = maybe_put_custom_thumbnail_url(params, uploaded_thumbnail)
 
     case Content.update_video(video, params) do
       {:ok, updated} ->
@@ -487,6 +503,13 @@ defmodule BobineWeb.Admin.ContentLive do
       {:error, _, _} ->
         {:noreply, put_flash(socket, :error, "Failed to add tag.")}
     end
+  end
+
+  defp maybe_put_custom_thumbnail_url(params, nil), do: params
+  defp maybe_put_custom_thumbnail_url(params, ""), do: params
+
+  defp maybe_put_custom_thumbnail_url(params, url) when is_binary(url) do
+    Map.put(params, "custom_thumbnail_url", url)
   end
 
   defp upload_complete_message(1), do: "Upload complete. Processing video..."

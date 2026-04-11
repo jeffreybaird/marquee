@@ -16,6 +16,7 @@ defmodule Bobine.Content.Video do
     field :max_resolution, :string
     field :published, :boolean, default: false
     field :visibility, :string, default: "subscribers_only"
+    field :custom_thumbnail_url, :string
     field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
@@ -40,6 +41,7 @@ defmodule Bobine.Content.Video do
       :max_resolution,
       :published,
       :visibility,
+      :custom_thumbnail_url,
       :organization_id
     ])
     |> validate_required([:title, :slug, :organization_id])

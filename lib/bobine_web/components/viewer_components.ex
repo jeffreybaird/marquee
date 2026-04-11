@@ -101,9 +101,11 @@ defmodule BobineWeb.Components.ViewerComponents do
   """
   def content_card(assigns) do
     assigns =
-      assign_new(assigns, :resolved_card_id, fn ->
+      assigns
+      |> assign_new(:resolved_card_id, fn ->
         assigns[:card_id] || "card-#{assigns.video.id}"
       end)
+      |> assign(:thumbnail_url, video_thumbnail_url(assigns.video, width: 640, height: 360))
 
     ~H"""
     <div
@@ -116,8 +118,8 @@ defmodule BobineWeb.Components.ViewerComponents do
         <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-thumb-link">
           <div class="sv-card-thumb">
             <img
-              :if={@video.mux_playback_id}
-              src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+              :if={@thumbnail_url}
+              src={@thumbnail_url}
               alt={@video.title}
               loading="lazy"
             />
@@ -205,8 +207,8 @@ defmodule BobineWeb.Components.ViewerComponents do
       >
         <div class="sv-card-popup-thumb" data-playback-id={@video.mux_playback_id}>
           <img
-            :if={@video.mux_playback_id}
-            src={"https://image.mux.com/#{@video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+            :if={@thumbnail_url}
+            src={@thumbnail_url}
             alt=""
             aria-hidden="true"
           />
@@ -289,6 +291,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       |> assign_new(:resolved_card_id, fn ->
         assigns[:card_id] || "continue-card-#{assigns.item.video.id}"
       end)
+      |> assign(:thumbnail_url, video_thumbnail_url(assigns.item.video, width: 640, height: 360))
       |> assign(:show_progress_bar?, type == :in_progress and assigns.item.duration > 0)
       |> assign(
         :progress_pct,
@@ -308,8 +311,8 @@ defmodule BobineWeb.Components.ViewerComponents do
       >
         <div class="sv-card-thumb">
           <img
-            :if={@item.video.mux_playback_id}
-            src={"https://image.mux.com/#{@item.video.mux_playback_id}/thumbnail.webp?width=640&height=360&fit_mode=smartcrop"}
+            :if={@thumbnail_url}
+            src={@thumbnail_url}
             alt={@item.video.title}
             loading="lazy"
           />
@@ -371,6 +374,39 @@ defmodule BobineWeb.Components.ViewerComponents do
   end
 
   defp format_remaining(_), do: "0:00"
+
+  @doc """
+  Resolves the thumbnail URL for a video.
+
+  Prefers the operator-uploaded `custom_thumbnail_url` when present;
+  otherwise falls back to the Mux auto-generated thumbnail. Returns
+  `nil` for videos without either source (e.g. still-processing uploads).
+
+  ## Options
+
+    * `:width` — requested Mux width (default 640)
+    * `:height` — requested Mux height (default 360)
+
+  Custom uploads are served as-is — the uploader is trusted to have
+  stored an appropriately-sized image. Mux URLs honor the size params
+  via `smartcrop`.
+  """
+  def video_thumbnail_url(video, opts \\ [])
+
+  def video_thumbnail_url(%{custom_thumbnail_url: url}, _opts)
+      when is_binary(url) and url != "",
+      do: url
+
+  def video_thumbnail_url(%{mux_playback_id: playback_id}, opts)
+      when is_binary(playback_id) do
+    width = Keyword.get(opts, :width, 640)
+    height = Keyword.get(opts, :height, 360)
+
+    "https://image.mux.com/#{playback_id}/thumbnail.webp?" <>
+      "width=#{width}&height=#{height}&fit_mode=smartcrop"
+  end
+
+  def video_thumbnail_url(_, _opts), do: nil
 
   # ---------------------------------------------------------------------------
   # Series Card

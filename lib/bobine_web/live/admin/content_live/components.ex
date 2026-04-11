@@ -282,6 +282,19 @@ defmodule BobineWeb.Admin.ContentLive.Components do
                   data-test="video-description-input"
                 >{@video.description}</textarea>
               </div>
+              <div>
+                <BobineWeb.Components.AdminComponents.image_upload_field
+                  name="video[custom_thumbnail_url]"
+                  kind="video_thumbnail"
+                  target_id={@video.id}
+                  url={@video_thumbnail_state.url}
+                  status={@video_thumbnail_state.status}
+                  percent={@video_thumbnail_state.percent}
+                  error={@video_thumbnail_state.error}
+                  label="Custom thumbnail"
+                  help="Optional — overrides the Mux auto-generated thumbnail on cards."
+                />
+              </div>
               <div class="flex gap-2">
                 <button type="submit" class="btn btn-primary btn-sm" data-test="save-video-btn">
                   Save
