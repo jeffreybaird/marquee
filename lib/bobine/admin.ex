@@ -17,7 +17,15 @@ defmodule Bobine.Admin do
   alias Bobine.Accounts.{Membership, Organization, User}
   alias Bobine.Analytics.Event, as: AnalyticsEvent
   alias Bobine.Audit.Log, as: AuditLog
-  alias Bobine.Billing.{Plan, Subscription}
+
+  alias Bobine.Billing.{
+    Plan,
+    PlatformPlan,
+    PlatformSubscription,
+    Subscription,
+    ViewerSubscription
+  }
+
   alias Bobine.Branding
   alias Bobine.Branding.Theme
   alias Bobine.Catalog.HeroSlide
@@ -351,6 +359,258 @@ defmodule Bobine.Admin do
     Membership
     |> where(organization_id: ^org_id)
     |> Repo.aggregate(:count)
+  end
+
+  ## Analytics
+
+  @doc """
+  System-level: crosses tenants.
+
+  Returns platform-wide financial and viewer overview stats across all tenants.
+
+  Platform MRR is the sum of active PlatformSubscription plan amounts.
+  Viewer fee revenue is the sum across all active ViewerSubscriptions of
+  `plan.amount * application_fee_percent / 100`.
+
+  Exempt from doctest — hits the database.
+  """
+  def platform_overview do
+    Bobine.Otel.with_span "bobine.admin.platform_overview" do
+      total_orgs = Repo.aggregate(from(o in Organization, where: is_nil(o.deleted_at)), :count)
+      total_viewers = Repo.aggregate(Viewer, :count)
+      platform_mrr_cents = compute_platform_mrr()
+      viewer_fee_revenue_cents = compute_viewer_fee_revenue()
+
+      %{
+        total_orgs: total_orgs,
+        total_viewers: total_viewers,
+        platform_mrr_cents: platform_mrr_cents,
+        viewer_fee_revenue_cents: viewer_fee_revenue_cents
+      }
+    end
+  end
+
+  defp compute_platform_mrr do
+    from(ps in PlatformSubscription,
+      join: pp in PlatformPlan,
+      on: ps.platform_plan_id == pp.id,
+      where: ps.status == :active,
+      select: sum(pp.amount)
+    )
+    |> Repo.one() || 0
+  end
+
+  defp compute_viewer_fee_revenue do
+    from(vs in ViewerSubscription,
+      join: p in Plan,
+      on: vs.plan_id == p.id,
+      where: vs.status == "active",
+      select: sum(fragment("? * ? / 100.0", p.amount, vs.application_fee_percent))
+    )
+    |> Repo.one()
+    |> case do
+      nil -> 0
+      val -> val |> Decimal.to_integer()
+    end
+  end
+
+  @doc """
+  System-level: crosses tenants.
+
+  Returns paginated organizations with health metrics for the super admin dashboard.
+
+  Each result is a map:
+  `%{id, name, platform_plan_name, subscriber_count, mrr_cents, video_count, active_viewers_last_7d, status}`
+
+  Options:
+  - `:page` — page number (default 1)
+  - `:per_page` — results per page (default 25, max 100)
+  - `:search` — ILIKE filter on org name
+  - `:sort_by` — `:name | :mrr | :subscribers | :videos` (default `:name`)
+  - `:sort_dir` — `:asc | :desc` (default `:asc`)
+
+  Exempt from doctest — hits the database.
+  """
+  def list_organizations_with_health(opts \\ []) do
+    Bobine.Otel.with_span "bobine.admin.list_organizations_with_health" do
+      search = Keyword.get(opts, :search)
+      sort_by = Keyword.get(opts, :sort_by, :name)
+      sort_dir = Keyword.get(opts, :sort_dir, :asc)
+      {page, per_page} = Pagination.normalize_opts(opts)
+
+      seven_days_ago = DateTime.utc_now() |> DateTime.add(-7, :day)
+
+      base_query =
+        from o in Organization,
+          as: :org,
+          where: is_nil(o.deleted_at),
+          left_join: ps in PlatformSubscription,
+          as: :platform_sub,
+          on: ps.organization_id == o.id and ps.status == :active,
+          left_join: pp in PlatformPlan,
+          as: :platform_plan,
+          on: pp.id == ps.platform_plan_id,
+          left_join: sub in Subscription,
+          as: :subscription,
+          on: sub.organization_id == o.id and sub.status == :active,
+          left_join: v in Video,
+          as: :video,
+          on: v.organization_id == o.id,
+          left_join: ae in AnalyticsEvent,
+          as: :analytics_event,
+          on:
+            ae.organization_id == o.id and
+              ae.event_type == "video.play" and
+              ae.occurred_at >= ^seven_days_ago,
+          group_by: [o.id, o.name, pp.id, pp.name, pp.amount, ps.status],
+          select: %{
+            id: o.id,
+            name: o.name,
+            inserted_at: o.inserted_at,
+            platform_plan_name: pp.name,
+            subscriber_count: count(sub.id, :distinct),
+            mrr_cents: coalesce(pp.amount, 0),
+            video_count: count(v.id, :distinct),
+            active_viewers_last_7d: count(ae.viewer_id, :distinct),
+            status: ps.status
+          }
+
+      filtered_query = apply_health_search(base_query, search)
+      sorted_query = apply_health_sort(filtered_query, sort_by, sort_dir)
+
+      count_query =
+        from o in Organization,
+          where: is_nil(o.deleted_at),
+          select: count()
+
+      count_query = apply_org_search_simple(count_query, search)
+      total = Repo.one(count_query) || 0
+
+      results =
+        sorted_query
+        |> limit(^per_page)
+        |> offset(^((page - 1) * per_page))
+        |> Repo.all()
+
+      %{
+        results: results,
+        page: page,
+        per_page: per_page,
+        total: total,
+        total_pages: max(ceil(total / per_page), 1)
+      }
+    end
+  end
+
+  defp apply_health_search(query, nil), do: query
+
+  defp apply_health_search(query, term) do
+    pattern = "%#{term}%"
+    where(query, [o], ilike(o.name, ^pattern))
+  end
+
+  defp apply_org_search_simple(query, nil), do: query
+
+  defp apply_org_search_simple(query, term) do
+    pattern = "%#{term}%"
+    where(query, [o], ilike(o.name, ^pattern))
+  end
+
+  defp apply_health_sort(query, :name, :asc),
+    do: order_by(query, [org: o], asc: o.name)
+
+  defp apply_health_sort(query, :name, :desc),
+    do: order_by(query, [org: o], desc: o.name)
+
+  defp apply_health_sort(query, :mrr, dir) do
+    order_by(query, [platform_plan: pp], [{^dir, coalesce(pp.amount, 0)}])
+  end
+
+  defp apply_health_sort(query, :subscribers, dir) do
+    order_by(query, [subscription: sub], [{^dir, count(sub.id, :distinct)}])
+  end
+
+  defp apply_health_sort(query, :videos, dir) do
+    order_by(query, [video: v], [{^dir, count(v.id, :distinct)}])
+  end
+
+  defp apply_health_sort(query, _, _), do: order_by(query, [org: o], asc: o.name)
+
+  @doc """
+  System-level: crosses tenants.
+
+  Returns a daily series of total platform MRR (in cents) between two dates,
+  inclusive. Each entry is `%{date: ~D[...], mrr_cents: integer}`.
+
+  MRR is computed as the sum of active PlatformSubscription plan amounts on
+  each day — a subscription is counted for a day if its `inserted_at` is on
+  or before that day and it has not been canceled before that day.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_daily_platform_mrr(from_date, to_date) do
+    Bobine.Otel.with_span "bobine.admin.list_daily_platform_mrr" do
+      dates = date_range(from_date, to_date)
+
+      subscriptions =
+        from(ps in PlatformSubscription,
+          join: pp in PlatformPlan,
+          on: pp.id == ps.platform_plan_id,
+          where: ps.status == :active,
+          select: %{amount: pp.amount, inserted_at: ps.inserted_at, canceled_at: ps.canceled_at}
+        )
+        |> Repo.all()
+
+      Enum.map(dates, fn date ->
+        %{date: date, mrr_cents: mrr_for_day(subscriptions, date)}
+      end)
+    end
+  end
+
+  defp mrr_for_day(subscriptions, date) do
+    day_start = DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
+
+    Enum.reduce(subscriptions, 0, fn sub, acc ->
+      if subscription_active_on?(sub, day_start), do: acc + sub.amount, else: acc
+    end)
+  end
+
+  defp subscription_active_on?(sub, day_start) do
+    DateTime.compare(sub.inserted_at, day_start) != :gt and
+      (is_nil(sub.canceled_at) or DateTime.compare(sub.canceled_at, day_start) == :gt)
+  end
+
+  @doc """
+  System-level: crosses tenants.
+
+  Returns a daily count of new organization signups between two dates, inclusive.
+  Each entry is `%{date: ~D[...], count: integer}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_new_org_signups(from_date, to_date) do
+    Bobine.Otel.with_span "bobine.admin.list_new_org_signups" do
+      from_dt = DateTime.new!(from_date, ~T[00:00:00], "Etc/UTC")
+      to_dt = DateTime.new!(to_date, ~T[23:59:59], "Etc/UTC")
+
+      rows =
+        from(o in Organization,
+          where: o.inserted_at >= ^from_dt and o.inserted_at <= ^to_dt,
+          group_by: fragment("DATE(? AT TIME ZONE 'UTC')", o.inserted_at),
+          select: {fragment("DATE(? AT TIME ZONE 'UTC')", o.inserted_at), count()}
+        )
+        |> Repo.all()
+        |> Map.new()
+
+      date_range(from_date, to_date)
+      |> Enum.map(fn date ->
+        %{date: date, count: Map.get(rows, date, 0)}
+      end)
+    end
+  end
+
+  defp date_range(from_date, to_date) do
+    Date.range(from_date, to_date) |> Enum.to_list()
   end
 
   ## Data export

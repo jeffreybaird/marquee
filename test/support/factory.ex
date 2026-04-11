@@ -368,6 +368,22 @@ defmodule Bobine.Factory do
   end
 
   # -------------------------------------------------------------------------
+  # Audit
+  # -------------------------------------------------------------------------
+
+  def audit_log_factory do
+    %Bobine.Audit.Log{
+      organization: build(:organization),
+      user: build(:user),
+      action: sequence(:audit_action, &"resource.action_#{&1}"),
+      resource_type: "Video",
+      resource_id: Ecto.UUID.generate(),
+      changes: %{},
+      metadata: %{}
+    }
+  end
+
+  # -------------------------------------------------------------------------
   # Analytics
   # -------------------------------------------------------------------------
 
@@ -376,6 +392,16 @@ defmodule Bobine.Factory do
       organization: build(:organization),
       event_type: "video.play",
       occurred_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  def analytics_snapshot_factory do
+    %Bobine.Analytics.Snapshot{
+      organization: build(:organization),
+      period_date: Date.utc_today() |> Date.add(-1),
+      metric_type: "daily_subscribers",
+      value: Decimal.new("10"),
+      metadata: %{}
     }
   end
 

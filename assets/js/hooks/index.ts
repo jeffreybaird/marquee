@@ -1,3 +1,4 @@
+import AnalyticsChart from "./analytics_chart_hook"
 import CardFocus from "./card_focus"
 import HeroCarousel from "./hero_carousel"
 import MuxPlayer from "./mux_player"
@@ -12,6 +13,7 @@ import SpacesUploader from "./spaces_uploader"
 import ViewerNav from "./viewer_nav"
 
 export const hooks = {
+  AnalyticsChart,
   CardFocus,
   HeroCarousel,
   MuxPlayer,

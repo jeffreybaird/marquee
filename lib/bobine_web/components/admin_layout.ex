@@ -173,6 +173,12 @@ defmodule BobineWeb.Components.AdminLayout do
               current_path={@current_path}
               data_test="admin-nav-billing"
             />
+            <.nav_link
+              href={~p"/admin/audit-log"}
+              label="Audit Log"
+              current_path={@current_path}
+              data_test="admin-nav-audit-log"
+            />
           </nav>
 
           <div class="p-3 border-t border-base-300">

@@ -113,6 +113,34 @@ defmodule Bobine.Storage do
   defp filename_extension(_), do: ""
 
   @doc """
+  Uploads bytes to the bucket at the given key with the given content type.
+
+  Used for server-side uploads such as CSV exports.
+  Returns `:ok` on success or `{:error, reason}` on failure.
+
+  Exempt from doctest — calls external service.
+  """
+  def put_object(key, body, content_type)
+      when is_binary(key) and is_binary(content_type) do
+    Bobine.Otel.with_span "bobine.storage.put_object",
+                          %{"bobine.storage.key" => key} do
+      client().put_object(key, body, content_type)
+    end
+  end
+
+  @doc """
+  Returns the public URL for a given bucket key.
+
+      iex> url = Bobine.Storage.public_url_for_key("org/abc/exports/audit/file.csv")
+      iex> is_binary(url)
+      true
+  """
+  def public_url_for_key(key) when is_binary(key) do
+    cfg = config()
+    "#{String.trim_trailing(cfg.public_url_base, "/")}/#{key}"
+  end
+
+  @doc """
   Returns the list of image content types we accept at the upload
   endpoint. Used both as client-side `accept` and as server-side
   validation so a malicious client can't upload arbitrary binaries.

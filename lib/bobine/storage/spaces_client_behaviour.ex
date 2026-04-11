@@ -28,4 +28,7 @@ defmodule Bobine.Storage.SpacesClientBehaviour do
 
   @callback presign_put(presign_opts()) ::
               {:ok, presigned()} | {:error, atom() | binary()}
+
+  @callback put_object(key :: String.t(), body :: iodata(), content_type :: String.t()) ::
+              :ok | {:error, atom() | binary()}
 end

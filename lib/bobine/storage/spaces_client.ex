@@ -50,6 +50,18 @@ defmodule Bobine.Storage.SpacesClient do
     end
   end
 
+  @impl true
+  def put_object(key, body, content_type) do
+    cfg = Bobine.Storage.config()
+    opts = [content_type: content_type]
+
+    case ExAws.S3.put_object(cfg.bucket, key, body, opts)
+         |> ExAws.request(region: cfg.region, host: cfg.host, scheme: "https://") do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp build_aws_config(cfg) do
     ExAws.Config.new(:s3, region: cfg.region, host: cfg.host, scheme: "https://")
   end

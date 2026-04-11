@@ -112,6 +112,7 @@ defmodule BobineWeb.Router do
       live "/settings/billing/success", PlanSuccessLive
       live "/plans", PlansLive
       live "/coupons", CouponsLive
+      live "/audit-log", AuditLogLive
     end
   end
 
@@ -144,12 +145,14 @@ defmodule BobineWeb.Router do
         {BobineWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", DashboardLive
+      live "/analytics", AnalyticsLive
       live "/organizations", OrganizationsLive
       live "/organizations/new", OrganizationNewLive
       live "/organizations/:id", OrganizationShowLive
       live "/organizations/:id/edit", OrganizationEditLive
       live "/users", UsersLive
       live "/plans", PlansLive
+      live "/audit-log", AuditLogLive
     end
   end
 

@@ -121,7 +121,13 @@ config :logger, :default_formatter,
 # Configure Oban
 config :bobine, Oban,
   repo: Bobine.Repo,
-  plugins: [Oban.Plugins.Pruner],
+  plugins: [
+    Oban.Plugins.Pruner,
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 */6 * * *", Bobine.Workers.AnalyticsComputer, args: %{"dispatch" => true}}
+     ]}
+  ],
   queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3]
 
 # OpenTelemetry

@@ -71,6 +71,12 @@ defmodule BobineWeb.Components.SuperLayout do
               data_test="super-nav-dashboard"
             />
             <.super_nav_link
+              href={~p"/super/analytics"}
+              label="Analytics"
+              current_path={@current_path}
+              data_test="super-nav-analytics"
+            />
+            <.super_nav_link
               href={~p"/super/organizations"}
               label="Organizations"
               current_path={@current_path}
@@ -87,6 +93,12 @@ defmodule BobineWeb.Components.SuperLayout do
               label="Plans"
               current_path={@current_path}
               data_test="super-nav-plans"
+            />
+            <.super_nav_link
+              href={~p"/super/audit-log"}
+              label="Audit Log"
+              current_path={@current_path}
+              data_test="super-nav-audit-log"
             />
           </nav>
 
