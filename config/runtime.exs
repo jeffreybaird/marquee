@@ -54,6 +54,28 @@ if config_env() != :test do
   if stripe_connect_webhook_secret = System.get_env("STRIPE_CONNECT_WEBHOOK_SECRET") do
     config :bobine, :stripe_connect_webhook_secret, stripe_connect_webhook_secret
   end
+
+  # DigitalOcean Spaces (S3-compatible) credentials. Required for image
+  # uploads; absent credentials fail fast in the client so we don't ship
+  # broken presigned URLs.
+  if spaces_key = System.get_env("SPACES_ACCESS_KEY_ID") do
+    config :ex_aws,
+      access_key_id: spaces_key,
+      secret_access_key: System.get_env("SPACES_SECRET_ACCESS_KEY")
+  end
+
+  # Allow env-time override of the bucket / region for staging buckets, etc.
+  if spaces_bucket = System.get_env("SPACES_BUCKET") do
+    config :bobine, Bobine.Storage,
+      bucket: spaces_bucket,
+      region: System.get_env("SPACES_REGION", "nyc3"),
+      host: System.get_env("SPACES_HOST", "nyc3.digitaloceanspaces.com"),
+      public_url_base:
+        System.get_env(
+          "SPACES_PUBLIC_URL_BASE",
+          "https://#{spaces_bucket}.#{System.get_env("SPACES_HOST", "nyc3.digitaloceanspaces.com")}"
+        )
+  end
 end
 
 if config_env() == :prod do

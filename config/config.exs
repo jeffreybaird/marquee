@@ -138,6 +138,29 @@ config :opentelemetry,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Storage — DigitalOcean Spaces (S3-compatible). Credentials and
+# environment-specific overrides live in `runtime.exs`; this block sets
+# defaults shared across environments.
+#
+# The production bucket is `bobine` in region `nyc3`, hence the
+# `nyc3.digitaloceanspaces.com` endpoint. Images are uploaded directly
+# from the browser via presigned PUT URLs (see Bobine.Storage).
+config :bobine, Bobine.Storage,
+  client: Bobine.Storage.SpacesClient,
+  bucket: "bobine",
+  region: "nyc3",
+  host: "nyc3.digitaloceanspaces.com",
+  public_url_base: "https://bobine.nyc3.digitaloceanspaces.com"
+
+config :ex_aws,
+  json_codec: Jason,
+  region: "nyc3",
+  s3: [
+    scheme: "https://",
+    host: "nyc3.digitaloceanspaces.com",
+    region: "nyc3"
+  ]
+
 # Suppress Tesla deprecation warning (comes from mux dep, not our code)
 config :tesla, disable_deprecated_builder_warning: true
 

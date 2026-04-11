@@ -47,6 +47,15 @@ config :bobine, Oban, testing: :inline
 config :bobine, :mux_client, Bobine.Content.MockMuxClient
 config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
 
+# Route Bobine.Storage through a Mox-backed stub in tests so no real
+# requests hit DigitalOcean Spaces.
+config :bobine, Bobine.Storage,
+  client: Bobine.Storage.MockSpacesClient,
+  bucket: "bobine-test",
+  region: "nyc3",
+  host: "nyc3.digitaloceanspaces.com",
+  public_url_base: "https://bobine-test.nyc3.digitaloceanspaces.com"
+
 # Disable OTel in test to avoid noise
 config :opentelemetry,
   traces_exporter: :none,
