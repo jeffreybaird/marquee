@@ -663,7 +663,9 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ ~s(data-test="sv-root")
     end
 
-    test "shows org landing page for unauthenticated visitor with org", %{conn: conn} do
+    test "shows org catalog for unauthenticated visitor when no landing sections exist", %{
+      conn: conn
+    } do
       org = insert(:organization, name: "Cool Studio")
 
       conn =
@@ -671,26 +673,9 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
         |> Map.put(:host, "#{org.slug}.localhost")
         |> Phoenix.ConnTest.init_test_session(%{})
 
-      {:ok, view, html} = live(conn, ~p"/")
-      assert html =~ ~s(data-test="org-landing")
-      assert html =~ "Cool Studio"
-      assert has_element?(view, "[data-test=org-landing-headline]")
-      assert has_element?(view, "[data-test=org-landing-login-link]")
-      assert has_element?(view, "[data-test=org-landing-register-link]")
-      assert has_element?(view, "[data-test=org-landing-hero-cta]")
-    end
-
-    test "org landing page links to viewer login and registration", %{conn: conn} do
-      org = insert(:organization)
-
-      conn =
-        conn
-        |> Map.put(:host, "#{org.slug}.localhost")
-        |> Phoenix.ConnTest.init_test_session(%{})
-
       {:ok, _view, html} = live(conn, ~p"/")
-      assert html =~ ~s(href="/login")
-      assert html =~ ~s(href="/register")
+      refute html =~ ~s(data-test="org-landing")
+      assert html =~ "Cool Studio"
     end
 
     test "renders configured landing sections when present", %{conn: conn} do

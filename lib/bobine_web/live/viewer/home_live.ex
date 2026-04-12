@@ -62,10 +62,14 @@ defmodule BobineWeb.Viewer.HomeLive do
       |> LandingPage.list_landing_sections()
       |> Enum.map(&LandingPage.resolve_landing_section(org, &1))
 
-    socket
-    |> assign(:page_title, org.name)
-    |> assign(:page_mode, :org_landing)
-    |> assign(:landing_sections, sections)
+    if sections == [] do
+      mount_org_home(socket, org, nil)
+    else
+      socket
+      |> assign(:page_title, org.name)
+      |> assign(:page_mode, :org_landing)
+      |> assign(:landing_sections, sections)
+    end
   end
 
   defp mount_org_home(socket, org, viewer) do
