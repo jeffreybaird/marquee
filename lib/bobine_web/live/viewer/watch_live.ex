@@ -378,6 +378,39 @@ defmodule BobineWeb.Viewer.WatchLive do
   end
 
   @impl true
+  def handle_event(
+        "playback_drop_off",
+        %{"video_id" => video_id} = params,
+        socket
+      ) do
+    Metrics.watch_event(socket.assigns.organization.id, "playback_drop_off")
+
+    org = socket.assigns.organization
+    viewer = socket.assigns[:current_viewer]
+    scope = socket.assigns[:current_scope]
+
+    subject_ids =
+      cond do
+        viewer -> %{viewer_id: viewer.id}
+        scope && scope.user -> %{user_id: scope.user.id}
+        true -> nil
+      end
+
+    if subject_ids do
+      Engagement.record_drop_off(
+        Map.merge(subject_ids, %{
+          organization_id: org.id,
+          video_id: video_id,
+          max_position: Map.get(params, "max_position", 0.0),
+          video_duration: Map.get(params, "video_duration")
+        })
+      )
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("playback_ended", %{"video_id" => video_id}, socket) do
     Metrics.watch_event(socket.assigns.organization.id, "playback_ended")
     viewer = socket.assigns[:current_viewer]

@@ -5,7 +5,7 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
 
   alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Engagement
-  alias Bobine.Engagement.Progress
+  alias Bobine.Engagement.{PlaybackDropOff, Progress}
   alias Bobine.Repo
 
   setup do
@@ -204,6 +204,44 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
 
       html = render(view)
       assert html =~ "Main Video"
+    end
+  end
+
+  describe "playback_drop_off" do
+    test "records a pending drop-off row for the viewer", %{viewer: viewer, video: video} do
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+
+      render_hook(view, "playback_drop_off", %{
+        "video_id" => video.id,
+        "max_position" => 42.0,
+        "video_duration" => 100.0
+      })
+
+      drop_off = Repo.get_by(PlaybackDropOff, viewer_id: viewer.id, video_id: video.id)
+      assert drop_off
+      assert drop_off.bucket == 4
+      assert drop_off.max_position == 42.0
+      assert drop_off.video_duration == 100.0
+      assert drop_off.counted_at == nil
+    end
+
+    test "does not record anything when max_position is zero", %{
+      viewer: viewer,
+      video: video
+    } do
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+
+      render_hook(view, "playback_drop_off", %{
+        "video_id" => video.id,
+        "max_position" => 0.0,
+        "video_duration" => 100.0
+      })
+
+      # Position 0 still creates a row (bucket 0). That's acceptable — the
+      # aggregator will discard it if the viewer did not genuinely leave.
+      drop_off = Repo.get_by(PlaybackDropOff, viewer_id: viewer.id, video_id: video.id)
+      assert drop_off
+      assert drop_off.bucket == 0
     end
   end
 

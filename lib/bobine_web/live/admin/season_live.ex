@@ -325,8 +325,16 @@ defmodule BobineWeb.Admin.SeasonLive do
             </div>
           </div>
         </div>
-        <div :if={@can_manage} class="flex gap-2">
+        <div class="flex gap-2">
+          <.link
+            navigate={~p"/admin/analytics/series/#{@series.id}/seasons/#{@season.id}"}
+            class="btn btn-outline btn-sm"
+            data-test="view-season-analytics"
+          >
+            Analytics
+          </.link>
           <button
+            :if={@can_manage}
             phx-click="open_picker"
             class="btn btn-outline btn-sm"
             data-test="add-existing-btn"
@@ -334,6 +342,7 @@ defmodule BobineWeb.Admin.SeasonLive do
             Add Existing Video
           </button>
           <button
+            :if={@can_manage}
             phx-click="open_upload"
             class="btn btn-primary btn-sm"
             data-test="upload-episode-btn"

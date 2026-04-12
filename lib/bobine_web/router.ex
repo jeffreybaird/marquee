@@ -104,6 +104,9 @@ defmodule BobineWeb.Router do
       live "/catalog", CatalogLive
       live "/landing", LandingLive
       live "/analytics", AnalyticsLive
+      live "/analytics/videos/:video_id", VideoAnalyticsLive
+      live "/analytics/series/:series_id", SeriesAnalyticsLive
+      live "/analytics/series/:series_id/seasons/:season_id", SeasonAnalyticsLive
       live "/branding", BrandingLive
       live "/members", MembersLive
       live "/webhooks", WebhooksLive

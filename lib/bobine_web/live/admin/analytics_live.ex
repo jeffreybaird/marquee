@@ -213,6 +213,11 @@ defmodule BobineWeb.Admin.AnalyticsLive do
                     sort_by={@sort_by}
                     sort_dir={@sort_dir}
                   />
+                  <th>
+                    <span class="text-xs font-semibold uppercase tracking-wide">
+                      Top Drop-off
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -220,7 +225,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
                   :if={@content_performance.results == []}
                   data-test="content-empty-state"
                 >
-                  <td colspan="6" class="text-center py-8 text-base-content/50">
+                  <td colspan="7" class="text-center py-8 text-base-content/50">
                     No content data yet.
                   </td>
                 </tr>
@@ -228,12 +233,23 @@ defmodule BobineWeb.Admin.AnalyticsLive do
                   :for={row <- @content_performance.results}
                   data-test={"content-row-#{row.video_id}"}
                 >
-                  <td class="font-medium">{row.title}</td>
+                  <td class="font-medium">
+                    <.link
+                      navigate={~p"/admin/analytics/videos/#{row.video_id}"}
+                      class="hover:underline"
+                      data-test={"content-title-link-#{row.video_id}"}
+                    >
+                      {row.title}
+                    </.link>
+                  </td>
                   <td>{row.unique_viewers}</td>
                   <td>{row.avg_watch_percentage}%</td>
                   <td>{row.completion_rate}%</td>
                   <td>{row.watchlist_adds}</td>
                   <td>{row.favorites}</td>
+                  <td data-test={"drop-off-cell-#{row.video_id}"}>
+                    {format_top_drop_off(row.top_drop_off)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -446,6 +462,12 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   end
 
   defp format_seconds(_), do: "0m 0s"
+
+  defp format_top_drop_off(nil), do: "—"
+
+  defp format_top_drop_off(%{start_seconds: s, end_seconds: e, count: n}) do
+    "#{s}–#{e}s (#{n})"
+  end
 
   defp period_btn_class(current, value) when current == value do
     "btn btn-sm btn-primary"

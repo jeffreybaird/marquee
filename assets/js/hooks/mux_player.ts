@@ -16,6 +16,7 @@
  *   - "playback_progress" { video_id, position }
  *   - "playback_paused"   { video_id, position }
  *   - "playback_ended"    { video_id }
+ *   - "playback_drop_off" { video_id, max_position, video_duration }
  *
  * Events received from server:
  *   - "seek_to" { position }
@@ -32,6 +33,37 @@ const MuxPlayer = {
     this.progressJitterMs = Math.floor(Math.random() * 5000)
     this.lastReportedPosition = 0
     this.lastReportAt = 0
+    this.maxPosition = 0
+    this.videoDuration = 0
+    this.dropOffSent = false
+
+    this.resetDropOffState = (videoId: string) => {
+      this.videoId = videoId
+      this.maxPosition = 0
+      this.videoDuration = 0
+      this.dropOffSent = false
+    }
+
+    this.sendDropOff = () => {
+      if (this.dropOffSent) return
+      if (this.maxPosition <= 0) return
+      this.dropOffSent = true
+      this.pushEvent("playback_drop_off", {
+        video_id: this.videoId,
+        max_position: this.maxPosition,
+        video_duration: this.videoDuration,
+      })
+    }
+
+    player.addEventListener("timeupdate", () => {
+      const pos = Number(player.currentTime || 0)
+      if (pos > this.maxPosition) this.maxPosition = pos
+    })
+
+    player.addEventListener("loadedmetadata", () => {
+      const dur = Number(player.duration || 0)
+      if (dur > 0) this.videoDuration = dur
+    })
 
     this.reportProgress = (eventName = "playback_progress") => {
       const position = Number(player.currentTime || 0)
@@ -99,8 +131,20 @@ const MuxPlayer = {
     // Report ended — triggers queue auto-advance on server
     player.addEventListener("ended", () => {
       this.lastReportedPosition = Number(player.duration || player.currentTime || 0)
+      this.dropOffSent = true
       this.pushEvent("playback_ended", { video_id: this.videoId })
     })
+
+    this.onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        this.sendDropOff()
+      } else {
+        this.dropOffSent = false
+      }
+    }
+
+    window.addEventListener("pagehide", this.sendDropOff)
+    document.addEventListener("visibilitychange", this.onVisibilityChange)
 
     // Handle server-initiated seek
     this.handleEvent("seek_to", ({ position }: { position: number }) => {
@@ -119,7 +163,8 @@ const MuxPlayer = {
         video_id: string
         resume_position: number
       }) => {
-        this.videoId = video_id
+        this.sendDropOff()
+        this.resetDropOffState(video_id)
         player.setAttribute("playback-id", playback_id)
 
         if (resume_position > 0) {
@@ -146,7 +191,8 @@ const MuxPlayer = {
         video_id: string
         resume_position: number
       }) => {
-        this.videoId = video_id
+        this.sendDropOff()
+        this.resetDropOffState(video_id)
         player.setAttribute("playback-id", playback_id)
 
         if (resume_position > 0) {
@@ -165,6 +211,10 @@ const MuxPlayer = {
   },
 
   destroyed(this: any) {
+    if (this.sendDropOff) {
+      this.sendDropOff()
+    }
+
     if (this.startProgressInterval) {
       clearTimeout(this.startProgressInterval)
     }
@@ -176,6 +226,14 @@ const MuxPlayer = {
     if (this.flushProgress) {
       window.removeEventListener("pagehide", this.flushProgress)
       document.removeEventListener("visibilitychange", this.flushProgress)
+    }
+
+    if (this.sendDropOff) {
+      window.removeEventListener("pagehide", this.sendDropOff)
+    }
+
+    if (this.onVisibilityChange) {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange)
     }
   },
 }

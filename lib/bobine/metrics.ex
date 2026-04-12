@@ -173,6 +173,20 @@ defmodule Bobine.Metrics do
   end
 
   @doc """
+  Records a playback drop-off event.
+
+      iex> Bobine.Metrics.drop_off_recorded("org_123", "video_456")
+      :ok
+  """
+  def drop_off_recorded(org_id, video_id) do
+    :telemetry.execute(
+      [:bobine, :playback, :drop_off_recorded],
+      %{count: 1},
+      %{org_id: org_id, video_id: video_id}
+    )
+  end
+
+  @doc """
   Records a queue item added event.
 
       iex> Bobine.Metrics.queue_item_added("org_123")

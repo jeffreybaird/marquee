@@ -51,7 +51,10 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 | `/admin/collections`           | `Admin.CollectionsLive`   | CRUD collections, assign videos |
 | `/admin/tags`                  | `Admin.TagsLive`          | CRUD tags |
 | `/admin/catalog`               | `Admin.CatalogLive`       | Homepage row builder: add/edit/reorder rows, hero config |
-| `/admin/analytics`             | `Admin.AnalyticsLive`     | Placeholder |
+| `/admin/analytics`             | `Admin.AnalyticsLive`     | Org dashboard: KPIs, charts, content performance table (title links to video analytics), engagement, churn |
+| `/admin/analytics/videos/:video_id` | `Admin.VideoAnalyticsLive` | Per-video drop-off distribution (bar chart) + bucket KPIs |
+| `/admin/analytics/series/:series_id` | `Admin.SeriesAnalyticsLive` | Per-season completion stats table + overall KPIs; period selector; drill-in per season |
+| `/admin/analytics/series/:series_id/seasons/:season_id` | `Admin.SeasonAnalyticsLive` | Episode funnel chart, drop-off episode, next-season start rate |
 | `/admin/branding`              | `Admin.BrandingLive`      | Theme color editor with live preview |
 | `/admin/members`               | `Admin.MembersLive`       | Viewer and operator member management |
 | `/admin/webhooks`              | `Admin.WebhooksLive`      | Placeholder |
@@ -114,7 +117,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 
 | Hook              | File                          | Used By                        | Server Events |
 |-------------------|-------------------------------|--------------------------------|---------------|
-| `MuxPlayer`       | `hooks/mux_player.ts`         | `WatchLive`                    | `playback_started`, `playback_progress`, `playback_paused` |
+| `MuxPlayer`       | `hooks/mux_player.ts`         | `WatchLive`                    | `playback_started`, `playback_progress`, `playback_paused`, `playback_ended`, `playback_drop_off` |
 | `PlaybackTracker` | `hooks/playback_tracker.ts`   | `WatchLive`                    | `progress_update` |
 | `HeroCarousel`    | `hooks/hero_carousel.ts`      | `HomeLive`                     | None (client-side only) |
 | `CardFocus`       | `hooks/card_focus.ts`         | `ViewerComponents.content_card`| None (client-side hover/focus popup + preview player) |

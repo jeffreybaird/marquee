@@ -252,6 +252,27 @@ defmodule Bobine.Factory do
     }
   end
 
+  def playback_drop_off_factory do
+    %Bobine.Engagement.PlaybackDropOff{
+      organization: build(:organization),
+      video: build(:video),
+      viewer: build(:viewer),
+      bucket: 0,
+      max_position: 0.0,
+      video_duration: 600.0,
+      left_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
+  def video_drop_off_bucket_factory do
+    %Bobine.Engagement.VideoDropOffBucket{
+      organization: build(:organization),
+      video: build(:video),
+      bucket: 0,
+      count: 0
+    }
+  end
+
   # -------------------------------------------------------------------------
   # Billing
   # -------------------------------------------------------------------------

@@ -12,7 +12,16 @@ defmodule Bobine.Engagement do
   alias Bobine.Buffers.ProgressBuffer
   alias Bobine.Content
   alias Bobine.Content.{Episode, Season, Series, Video}
-  alias Bobine.Engagement.{Favorite, Progress, QueueItem, WatchHistory, WatchlistItem}
+
+  alias Bobine.Engagement.{
+    Favorite,
+    PlaybackDropOff,
+    Progress,
+    QueueItem,
+    WatchHistory,
+    WatchlistItem
+  }
+
   alias Bobine.Events
   alias Bobine.Metrics
   alias Bobine.Pagination
@@ -1695,6 +1704,80 @@ defmodule Bobine.Engagement do
 
       Metrics.video_completed(org.id, video.id)
       :ok
+    end
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Playback drop-offs
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Records a playback drop-off event for later aggregation.
+
+  The caller provides the viewer (or user), the video, the max position
+  reached in the session, and the video duration. The event is stored raw
+  and processed by `Bobine.Workers.DropOffAggregator` after the 1-hour
+  return window has elapsed.
+
+  Completed watches should not be recorded — the player is responsible for
+  skipping drop-off events when playback reaches the end. The aggregator
+  also double-checks the completed flag before counting.
+
+  Accepts a map with string or atom keys so LiveView events can be routed
+  directly without conversion.
+
+  Returns `{:ok, drop_off}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def record_drop_off(attrs) when is_map(attrs) do
+    Bobine.Otel.with_span "bobine.engagement.record_drop_off",
+                          %{
+                            "bobine.org.id" => fetch_attr(attrs, :organization_id),
+                            "bobine.video.id" => fetch_attr(attrs, :video_id)
+                          } do
+      max_position = fetch_attr(attrs, :max_position) |> to_float_or_zero()
+
+      full_attrs =
+        attrs
+        |> normalize_attrs()
+        |> Map.put(:bucket, PlaybackDropOff.bucket_for(max_position))
+        |> Map.put(:max_position, max_position)
+        |> Map.put_new(:left_at, DateTime.utc_now() |> DateTime.truncate(:second))
+
+      case %PlaybackDropOff{} |> PlaybackDropOff.changeset(full_attrs) |> Repo.insert() do
+        {:ok, drop_off} ->
+          Metrics.drop_off_recorded(drop_off.organization_id, drop_off.video_id)
+          {:ok, drop_off}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  defp fetch_attr(attrs, key) when is_atom(key) do
+    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  end
+
+  defp normalize_attrs(attrs) do
+    [:organization_id, :video_id, :viewer_id, :user_id, :video_duration]
+    |> Enum.reduce(%{}, fn key, acc ->
+      case fetch_attr(attrs, key) do
+        nil -> acc
+        value -> Map.put(acc, key, value)
+      end
+    end)
+  end
+
+  defp to_float_or_zero(nil), do: 0.0
+  defp to_float_or_zero(n) when is_integer(n), do: n * 1.0
+  defp to_float_or_zero(n) when is_float(n), do: n
+
+  defp to_float_or_zero(s) when is_binary(s) do
+    case Float.parse(s) do
+      {f, _} -> f
+      :error -> 0.0
     end
   end
 end

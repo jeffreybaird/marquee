@@ -242,6 +242,36 @@ defmodule BobineWeb.Admin.AnalyticsLiveTest do
       assert has_element?(view, "[data-test='kpi-active-subscribers']", "1")
     end
 
+    test "renders top drop-off bucket cell for each video" do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      video = insert(:video, organization: org)
+
+      insert(:video_drop_off_bucket,
+        organization: org,
+        video: video,
+        bucket: 6,
+        count: 4
+      )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/analytics")
+
+      cell = element(view, "[data-test='drop-off-cell-#{video.id}']")
+      assert render(cell) =~ "60–70s"
+      assert render(cell) =~ "(4)"
+    end
+
+    test "shows em-dash when video has no drop-off data" do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      video = insert(:video, organization: org)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/analytics")
+
+      cell = element(view, "[data-test='drop-off-cell-#{video.id}']")
+      assert render(cell) =~ "—"
+    end
+
     test "mounts without crashing when progress rows have float averages" do
       membership = insert(:membership, role: :admin)
       org = membership.organization

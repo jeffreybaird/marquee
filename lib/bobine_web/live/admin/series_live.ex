@@ -437,6 +437,13 @@ defmodule BobineWeb.Admin.SeriesLive do
             </td>
             <td :if={@can_manage}>
               <div class="flex gap-1">
+                <.link
+                  navigate={~p"/admin/analytics/series/#{series.id}"}
+                  class="btn btn-xs btn-outline"
+                  data-test={"analytics-series-#{series.id}"}
+                >
+                  Analytics
+                </.link>
                 <button
                   phx-click="edit_series"
                   phx-value-id={series.id}

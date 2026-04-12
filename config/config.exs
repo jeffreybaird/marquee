@@ -115,7 +115,9 @@ config :logger, :default_formatter,
     :request_path,
     :error,
     :old_plan_id,
-    :new_plan_id
+    :new_plan_id,
+    :counted,
+    :discarded
   ]
 
 # Configure Oban
@@ -125,10 +127,11 @@ config :bobine, Oban,
     Oban.Plugins.Pruner,
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 */6 * * *", Bobine.Workers.AnalyticsComputer, args: %{"dispatch" => true}}
+       {"0 */6 * * *", Bobine.Workers.AnalyticsComputer, args: %{"dispatch" => true}},
+       {"*/15 * * * *", Bobine.Workers.DropOffAggregator}
      ]}
   ],
-  queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3]
+  queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3, bulk: 5]
 
 # OpenTelemetry
 config :opentelemetry,
