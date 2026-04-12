@@ -293,4 +293,27 @@ defmodule BobineWeb.Admin.AnalyticsLiveTest do
       assert has_element?(view, "[data-test='content-row-#{video.id}']")
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Series analytics links
+  # ---------------------------------------------------------------------------
+
+  describe "series analytics section" do
+    test "renders links to series analytics when org has series" do
+      membership = insert(:membership, role: :admin)
+      series = insert(:series, organization: membership.organization, title: "My Show")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/analytics")
+
+      assert has_element?(view, "[data-test='series-analytics-link-#{series.id}']", "My Show")
+    end
+
+    test "hides series section when org has no series" do
+      membership = insert(:membership, role: :admin)
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/analytics")
+
+      refute html =~ "View retention"
+    end
+  end
 end

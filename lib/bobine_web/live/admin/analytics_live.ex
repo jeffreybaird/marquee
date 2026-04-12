@@ -11,6 +11,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   use BobineWeb, :live_view
 
   alias Bobine.Analytics
+  alias Bobine.Content
 
   @default_period "30"
 
@@ -318,6 +319,24 @@ defmodule BobineWeb.Admin.AnalyticsLive do
             />
           </div>
         </section>
+
+        <%!-- Series analytics --%>
+        <section :if={@series_list != []} aria-label="Series analytics">
+          <h2 class="text-lg font-semibold mb-3">Series</h2>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <.link
+              :for={series <- @series_list}
+              navigate={~p"/admin/analytics/series/#{series.id}"}
+              class="bg-base-200 rounded-xl p-5 hover:bg-base-300 transition-colors"
+              data-test={"series-analytics-link-#{series.id}"}
+            >
+              <p class="font-semibold">{series.title}</p>
+              <p class="text-sm text-base-content/60 mt-1">
+                View retention &amp; completion stats
+              </p>
+            </.link>
+          </div>
+        </section>
       </div>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
@@ -437,11 +456,14 @@ defmodule BobineWeb.Admin.AnalyticsLive do
     rev_labels = Enum.map(revenue_data, &Date.to_string(&1.period_date))
     rev_values = Enum.map(revenue_data, &Decimal.to_integer(&1.value))
 
+    series_list = Content.list_series(org, per_page: 100).results
+
     socket
     |> assign(overview: overview)
     |> assign(engagement: engagement)
     |> assign(churn: churn)
     |> assign(content_performance: content)
+    |> assign(series_list: series_list)
     |> push_event("chart:subscribers", %{labels: sub_labels, data: sub_values, type: "line"})
     |> push_event("chart:revenue", %{labels: rev_labels, data: rev_values, type: "bar"})
   end
