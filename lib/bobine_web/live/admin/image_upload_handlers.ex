@@ -34,6 +34,8 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
     * `:image_uploads` — injected by `on_mount`
   """
 
+  require Logger
+
   alias Bobine.Storage
 
   @doc """
@@ -140,11 +142,26 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
       "content_type" => content_type
     } = params
 
+    org_id = socket.assigns.organization.id
+
     cond do
       not using_module.allowed_upload_kind?(kind) ->
+        Logger.error("Spaces upload rejected: unauthorized kind",
+          org_id: org_id,
+          upload_kind: kind,
+          target_id: target_id
+        )
+
         {:noreply, fail_slot(socket, kind, target_id, "Uploads not allowed here")}
 
       not Storage.allowed_image_content_type?(content_type) ->
+        Logger.error("Spaces upload rejected: unsupported content type",
+          org_id: org_id,
+          upload_kind: kind,
+          target_id: target_id,
+          content_type: content_type
+        )
+
         {:noreply, fail_slot(socket, kind, target_id, "Unsupported file type")}
 
       true ->
@@ -176,7 +193,14 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
 
         {:noreply, socket}
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.error("Spaces presign failed",
+          org_id: org.id,
+          upload_kind: kind,
+          target_id: target_id,
+          reason: inspect(reason)
+        )
+
         {:noreply, fail_slot(socket, kind, target_id, "Could not start upload.")}
     end
   end
@@ -213,6 +237,15 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
   @doc false
   def handle_upload_error(params, socket) do
     %{"kind" => kind, "target_id" => target_id, "error" => error} = params
+    org_id = socket.assigns.organization.id
+
+    Logger.error("Spaces upload failed",
+      org_id: org_id,
+      upload_kind: kind,
+      target_id: target_id,
+      error: error
+    )
+
     {:noreply, fail_slot(socket, kind, target_id, error)}
   end
 

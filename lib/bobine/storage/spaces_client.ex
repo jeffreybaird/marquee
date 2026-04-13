@@ -27,13 +27,14 @@ defmodule Bobine.Storage.SpacesClient do
 
     aws_config = build_aws_config(cfg)
 
-    query_params = [
+    signed_headers = [
       {"Content-Type", content_type}
     ]
 
     case ExAws.S3.presigned_url(aws_config, :put, cfg.bucket, key,
            expires_in: expires_in,
-           query_params: query_params
+           headers: signed_headers,
+           virtual_host: true
          ) do
       {:ok, presigned_url} ->
         {:ok,

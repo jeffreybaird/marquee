@@ -12,6 +12,7 @@ defmodule BobineWeb.Admin.SeriesLiveImageUploadTest do
 
   use BobineWeb.ConnCase, async: false
 
+  import ExUnit.CaptureLog
   import Mox
   import Phoenix.LiveViewTest
 
@@ -121,6 +122,84 @@ defmodule BobineWeb.Admin.SeriesLiveImageUploadTest do
 
       # Implicit assertion: no crash, no Mox expectation violation.
       assert render(view) =~ "series-form"
+    end
+
+    test "logs error on upload failure from the browser", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/series")
+      view |> element(~s([data-test="new-series-btn"])) |> render_click()
+
+      log =
+        capture_log(fn ->
+          render_hook(view, "spaces_upload_error", %{
+            "kind" => "series_cover",
+            "target_id" => "new",
+            "error" => "Network error during upload"
+          })
+        end)
+
+      assert log =~ "Spaces upload failed"
+      assert log =~ "Network error during upload"
+    end
+
+    test "logs error when presigning fails", %{membership: membership} do
+      expect(MockSpacesClient, :presign_put, fn _opts ->
+        {:error, :invalid_credentials}
+      end)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/series")
+      view |> element(~s([data-test="new-series-btn"])) |> render_click()
+
+      log =
+        capture_log(fn ->
+          render_hook(view, "spaces_presign_requested", %{
+            "kind" => "series_cover",
+            "target_id" => "new",
+            "filename" => "pic.jpg",
+            "content_type" => "image/jpeg",
+            "size" => 10
+          })
+        end)
+
+      assert log =~ "Spaces presign failed"
+      assert log =~ "invalid_credentials"
+    end
+
+    test "logs error when content type is unsupported", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/series")
+      view |> element(~s([data-test="new-series-btn"])) |> render_click()
+
+      log =
+        capture_log(fn ->
+          render_hook(view, "spaces_presign_requested", %{
+            "kind" => "series_cover",
+            "target_id" => "new",
+            "filename" => "evil.exe",
+            "content_type" => "application/x-msdownload",
+            "size" => 10
+          })
+        end)
+
+      assert log =~ "Spaces upload rejected"
+      assert log =~ "unsupported content type"
+    end
+
+    test "logs error when upload kind is unauthorized", %{membership: membership} do
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/series")
+      view |> element(~s([data-test="new-series-btn"])) |> render_click()
+
+      log =
+        capture_log(fn ->
+          render_hook(view, "spaces_presign_requested", %{
+            "kind" => "video_thumbnail",
+            "target_id" => "new",
+            "filename" => "pic.jpg",
+            "content_type" => "image/jpeg",
+            "size" => 10
+          })
+        end)
+
+      assert log =~ "Spaces upload rejected"
+      assert log =~ "unauthorized kind"
     end
   end
 

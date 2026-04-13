@@ -117,7 +117,10 @@ config :logger, :default_formatter,
     :old_plan_id,
     :new_plan_id,
     :counted,
-    :discarded
+    :discarded,
+    :upload_kind,
+    :target_id,
+    :content_type
   ]
 
 # Configure Oban

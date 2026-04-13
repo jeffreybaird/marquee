@@ -33,8 +33,12 @@ Fly secrets.
 ## Bucket CORS policy
 
 The browser uploads directly to `https://<bucket>.<host>/...` via a
-`PUT`, so the bucket **must** allow the operator's origins. Use the
-DO control panel (Spaces → Settings → CORS) or `s3cmd`:
+`PUT`, so the bucket **must** allow the operator's origins. `SpacesClient`
+signs URLs in virtual-hosted style (`virtual_host: true`) precisely so
+the preflight request host matches the bucket's CORS surface — path-style
+URLs will not get CORS headers back and the browser fires a bare
+"Network error during upload." Use the DO control panel
+(Spaces → Settings → CORS) or `s3cmd`:
 
 ```json
 [
@@ -42,7 +46,8 @@ DO control panel (Spaces → Settings → CORS) or `s3cmd`:
     "AllowedOrigins": [
       "https://*.bobine.io",
       "https://bobine.io",
-      "http://localhost:4000"
+      "http://localhost:4000",
+      "http://*.localhost:4000"
     ],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["*"],
@@ -52,8 +57,23 @@ DO control panel (Spaces → Settings → CORS) or `s3cmd`:
 ]
 ```
 
-Replace the origin list with whatever domains your operators use. In
-dev, `http://localhost:4000` is enough.
+Replace the origin list with whatever domains your operators use.
+
+**Dev:** the admin dashboard resolves tenants by subdomain, so in dev
+you're hitting `http://<org-slug>.localhost:4000`, not bare
+`http://localhost:4000`. The CORS allowlist has to include the
+subdomain form or every upload will fail with
+"Network error during upload." If your bucket provider doesn't accept
+`http://*.localhost:4000` (DO Spaces sometimes rejects wildcards on
+non-TLD hosts), fall back to listing each org slug explicitly or point
+dev uploads at a dev-only bucket whose CORS is `"*"`.
+
+**Debugging a CORS failure:** open DevTools → Network, retry the
+upload, find the OPTIONS preflight to
+`https://<bucket>.nyc3.digitaloceanspaces.com/...`. Check the request's
+`Origin` header against the bucket's `AllowedOrigins`. If the response
+is missing `Access-Control-Allow-Origin`, the bucket rejected the
+preflight — update the policy above.
 
 ## Bucket key layout
 
