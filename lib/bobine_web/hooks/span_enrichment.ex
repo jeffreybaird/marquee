@@ -43,8 +43,9 @@ defmodule BobineWeb.Hooks.SpanEnrichment do
   defp maybe_put(kw, _key, nil), do: kw
   defp maybe_put(kw, key, value), do: Keyword.put(kw, key, value)
 
-  defp socket_org_id(%{assigns: %{current_scope: %{organization: %{id: id}}}}) when not is_nil(id),
-    do: id
+  defp socket_org_id(%{assigns: %{current_scope: %{organization: %{id: id}}}})
+       when not is_nil(id),
+       do: id
 
   defp socket_org_id(%{assigns: %{organization: %{id: id}}}) when not is_nil(id), do: id
   defp socket_org_id(_), do: nil
