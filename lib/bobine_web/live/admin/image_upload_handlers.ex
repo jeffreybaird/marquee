@@ -34,6 +34,7 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
     * `:image_uploads` — injected by `on_mount`
   """
 
+  require Bobine.Otel, as: Otel
   require Logger
 
   alias Bobine.Storage
@@ -239,14 +240,19 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
     %{"kind" => kind, "target_id" => target_id, "error" => error} = params
     org_id = socket.assigns.organization.id
 
-    Logger.error("Spaces upload failed",
-      org_id: org_id,
-      upload_kind: kind,
-      target_id: target_id,
-      error: error
-    )
+    Otel.with_span "bobine.admin.spaces_upload_error", %{
+      "bobine.org.id" => org_id,
+      "bobine.upload.kind" => kind
+    } do
+      Logger.error("Spaces upload failed",
+        org_id: org_id,
+        upload_kind: kind,
+        target_id: target_id,
+        error: error
+      )
 
-    {:noreply, fail_slot(socket, kind, target_id, error)}
+      {:noreply, fail_slot(socket, kind, target_id, error)}
+    end
   end
 
   ## -----------------------------------------------------------------------
