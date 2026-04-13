@@ -120,7 +120,13 @@ config :logger, :default_formatter,
     :discarded,
     :upload_kind,
     :target_id,
-    :content_type
+    :content_type,
+    :http_status,
+    :response_body,
+    :bytes_uploaded,
+    :filename,
+    :size,
+    :spaces_key
   ]
 
 # Configure Oban

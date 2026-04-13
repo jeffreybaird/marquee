@@ -36,6 +36,7 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
 
   require Bobine.Otel, as: Otel
   require Logger
+  require OpenTelemetry.Tracer, as: Tracer
 
   alias Bobine.Storage
 
@@ -242,13 +243,28 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
 
     Otel.with_span "bobine.admin.spaces_upload_error", %{
       "bobine.org.id" => org_id,
-      "bobine.upload.kind" => kind
+      "bobine.upload.kind" => kind,
+      "bobine.upload.http_status" => params["http_status"],
+      "bobine.upload.duration_ms" => params["duration_ms"],
+      "bobine.upload.bytes_uploaded" => params["bytes_uploaded"],
+      "bobine.upload.size" => params["size"],
+      "bobine.upload.key" => params["key"]
     } do
+      mark_span_error(error)
+
       Logger.error("Spaces upload failed",
         org_id: org_id,
         upload_kind: kind,
         target_id: target_id,
-        error: error
+        error: error,
+        http_status: params["http_status"],
+        response_body: params["response_body"],
+        bytes_uploaded: params["bytes_uploaded"],
+        duration_ms: params["duration_ms"],
+        filename: params["filename"],
+        content_type: params["content_type"],
+        size: params["size"],
+        spaces_key: params["key"]
       )
 
       {:noreply, fail_slot(socket, kind, target_id, error)}
@@ -280,6 +296,12 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
   end
 
   defp slot_key(kind, target_id), do: {to_string(kind), to_string(target_id || kind)}
+
+  defp mark_span_error(reason) do
+    Tracer.set_status(:error, to_string(reason))
+  rescue
+    UndefinedFunctionError -> :ok
+  end
 
   defp ensure_int(v) when is_integer(v), do: v
   defp ensure_int(v) when is_binary(v), do: String.to_integer(v)

@@ -31,6 +31,18 @@
  * Events received from the server:
  *   "spaces_presign_ready" {kind, target_id, presigned_url, public_url, key, headers}
  */
+type UploadErrorDetails = {
+  error: string
+  http_status?: number | null
+  response_body?: string | null
+  bytes_uploaded?: number
+  duration_ms?: number
+  filename?: string
+  content_type?: string
+  size?: number
+  key?: string | null
+}
+
 const SpacesUploader = {
   mounted(this: any) {
     this.pendingFile = null as File | null
@@ -80,33 +92,50 @@ const SpacesUploader = {
         if (!file) return
         this.pendingFile = null
 
+        const fileMeta = {
+          filename: file.name,
+          content_type: file.type || "application/octet-stream",
+          size: file.size,
+        }
+
         this.uploadToSpaces(presigned_url, file, headers || {})
-          .then(() => {
+          .then(({ duration_ms }) => {
             this.pushEvent("spaces_upload_complete", {
               kind,
               target_id: targetId,
               public_url,
               key,
+              duration_ms,
+              ...fileMeta,
             })
           })
-          .catch((err: Error) => {
+          .catch((details: UploadErrorDetails) => {
             this.pushEvent("spaces_upload_error", {
               kind,
               target_id: targetId,
-              error: err.message || String(err),
+              key,
+              ...fileMeta,
+              ...details,
             })
           })
       },
     )
   },
 
-  uploadToSpaces(url: string, file: File, headers: Record<string, string>): Promise<void> {
+  uploadToSpaces(
+    url: string,
+    file: File,
+    headers: Record<string, string>,
+  ): Promise<{ duration_ms: number }> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       this.currentXhr = xhr
+      const startedAt = performance.now()
+      let bytesUploaded = 0
 
       xhr.upload.addEventListener("progress", (e: ProgressEvent) => {
         if (!e.lengthComputable) return
+        bytesUploaded = e.loaded
         const percent = Math.round((e.loaded / e.total) * 100)
         this.pushEvent("spaces_upload_progress", {
           kind: this.el.dataset.uploadKind || "",
@@ -115,16 +144,51 @@ const SpacesUploader = {
         })
       })
 
+      const elapsed = () => Math.round(performance.now() - startedAt)
+      const truncate = (body: string) => (body.length > 1024 ? body.slice(0, 1024) : body)
+
       xhr.addEventListener("load", () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve()
+          resolve({ duration_ms: elapsed() })
         } else {
-          reject(new Error(`Upload failed with status ${xhr.status}`))
+          reject({
+            error: `Upload failed with status ${xhr.status}`,
+            http_status: xhr.status,
+            response_body: truncate(xhr.responseText || ""),
+            bytes_uploaded: bytesUploaded,
+            duration_ms: elapsed(),
+          })
         }
       })
 
       xhr.addEventListener("error", () => {
-        reject(new Error("Network error during upload"))
+        reject({
+          error: "Network error during upload",
+          http_status: xhr.status || null,
+          response_body: null,
+          bytes_uploaded: bytesUploaded,
+          duration_ms: elapsed(),
+        })
+      })
+
+      xhr.addEventListener("timeout", () => {
+        reject({
+          error: "Upload timed out",
+          http_status: null,
+          response_body: null,
+          bytes_uploaded: bytesUploaded,
+          duration_ms: elapsed(),
+        })
+      })
+
+      xhr.addEventListener("abort", () => {
+        reject({
+          error: "Upload aborted",
+          http_status: null,
+          response_body: null,
+          bytes_uploaded: bytesUploaded,
+          duration_ms: elapsed(),
+        })
       })
 
       xhr.open("PUT", url)

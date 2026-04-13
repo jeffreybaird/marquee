@@ -32,7 +32,42 @@ config :logger, level: :info
 # Includes trace context for log-to-trace correlation.
 config :logger, :default_handler,
   formatter:
-    {LoggerJSON.Formatters.Basic, metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]}
+    {LoggerJSON.Formatters.Basic,
+     metadata: [
+       :request_id,
+       :trace_id,
+       :span_id,
+       :org_id,
+       :org_slug,
+       :user_id,
+       :viewer_id,
+       :reason,
+       :error,
+       :worker,
+       :event_type,
+       :status,
+       :duration_ms,
+       :asset_id,
+       :stripe_event_id,
+       :stripe_id,
+       :stripe_subscription_id,
+       :connect_account_id,
+       :plan_id,
+       :plan,
+       :organization_id,
+       :route,
+       :view,
+       :request_path,
+       :upload_kind,
+       :target_id,
+       :content_type,
+       :http_status,
+       :response_body,
+       :bytes_uploaded,
+       :filename,
+       :size,
+       :spaces_key
+     ]}
 
 # Production uploads should request Mux plus quality.
 config :bobine, mux_video_quality: "basic"
