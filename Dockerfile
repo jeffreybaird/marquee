@@ -54,6 +54,10 @@ COPY priv priv
 COPY lib lib
 COPY assets assets
 
+# pre-install asset binaries with retry for transient GitHub 504s
+RUN for i in 1 2 3 4 5; do mix tailwind.install --if-missing && break || sleep 10; done
+RUN for i in 1 2 3 4 5; do mix esbuild.install --if-missing && break || sleep 10; done
+
 # compile assets
 RUN mix assets.deploy
 
