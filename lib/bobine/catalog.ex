@@ -944,6 +944,62 @@ defmodule Bobine.Catalog do
   end
 
   @doc """
+  Seeds the organization's `rows` table from a named preset — but only
+  when the org has no rows yet. Existing catalogs are never rewritten.
+
+  Returns `{:ok, :seeded, [rows]}` on first seed, `{:ok, :skipped}` when
+  the org already has rows, or `{:error, :not_found}` for unknown presets.
+
+  Exempt from doctest — hits the database.
+  """
+  def seed_rows_from_preset_if_empty(scope, preset_name) when is_binary(preset_name) do
+    org = scope.organization
+
+    with {:ok, preset} <- Presets.get(preset_name),
+         {:rows, []} <- {:rows, existing_non_deleted_rows(org.id)} do
+      inserted =
+        preset.rows
+        |> Enum.map(&preset_row_attrs/1)
+        |> Enum.map(fn attrs -> create_row(scope, attrs) end)
+
+      case Enum.split_with(inserted, &match?({:ok, _}, &1)) do
+        {oks, []} -> {:ok, :seeded, Enum.map(oks, fn {:ok, r} -> r end)}
+        {_, [{:error, kind, cs} | _]} -> {:error, kind, cs}
+      end
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {:rows, _existing} -> {:ok, :skipped}
+    end
+  end
+
+  defp existing_non_deleted_rows(org_id) do
+    Row
+    |> where(organization_id: ^org_id)
+    |> where([r], is_nil(r.deleted_at))
+    |> Repo.all()
+  end
+
+  defp preset_row_attrs(%{row_type: row_type, card_variant: variant, position: pos}) do
+    %{
+      title: preset_row_title(row_type),
+      source_type: row_type,
+      card_variant: Atom.to_string(variant),
+      position: pos,
+      visible: true
+    }
+  end
+
+  defp preset_row_title(:hero), do: "Featured"
+  defp preset_row_title(:continue_watching), do: "Continue watching"
+  defp preset_row_title(:popularity), do: "Popular this week"
+  defp preset_row_title(:tags), do: "Browse by tag"
+  defp preset_row_title(:preferences), do: "Picked for you"
+  defp preset_row_title(:series), do: "Series"
+  defp preset_row_title(:creator_showcase), do: "Creators"
+  defp preset_row_title(:editorial_spotlight), do: "Editor's picks"
+  defp preset_row_title(other), do: other |> to_string() |> String.capitalize()
+
+  @doc """
   Subscribes the calling process to layout updates for an organization.
   """
   def subscribe_to_layout(%Organization{id: org_id}), do: subscribe_to_layout(org_id)

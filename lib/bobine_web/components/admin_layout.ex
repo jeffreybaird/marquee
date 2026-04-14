@@ -150,6 +150,12 @@ defmodule BobineWeb.Components.AdminLayout do
               data_test="admin-nav-branding"
             />
             <.nav_link
+              href={~p"/admin/appearance"}
+              label="Appearance"
+              current_path={@current_path}
+              data_test="admin-nav-appearance"
+            />
+            <.nav_link
               href={~p"/admin/members"}
               label="Members"
               current_path={@current_path}

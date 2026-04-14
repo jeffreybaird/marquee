@@ -26,7 +26,13 @@ defmodule BobineWeb.Admin.CatalogLive do
     {"Recent", "recent"},
     {"Popular", "popular"},
     {"Continue Watching", "continue_watching"},
-    {"Series with new seasons (auto-populated)", "new_seasons"}
+    {"Series with new seasons (auto-populated)", "new_seasons"},
+    {"Popularity (preset row type)", "popularity"},
+    {"Tags (preset row type)", "tags"},
+    {"Preferences (preset row type)", "preferences"},
+    {"Series (preset row type)", "series"},
+    {"Creator showcase", "creator_showcase"},
+    {"Editorial spotlight", "editorial_spotlight"}
   ]
 
   @impl true
@@ -154,6 +160,32 @@ defmodule BobineWeb.Admin.CatalogLive do
          socket
          |> put_flash(:info, "Row deleted.")
          |> load_rows()}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Row not found.")}
+    end
+  end
+
+  @impl true
+  def handle_event("update_row_variant", %{"row_id" => id, "variant" => variant}, socket) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    case Catalog.get_row(org, id) do
+      {:ok, row} ->
+        attrs = %{card_variant: normalize_variant(variant)}
+
+        case Catalog.update_row(scope, row, attrs) do
+          {:ok, _} ->
+            {:noreply, socket |> load_rows() |> put_flash(:info, "Card variant updated.")}
+
+          {:error, :validation, changeset} ->
+            msg =
+              changeset.errors
+              |> Enum.map_join("; ", fn {f, {m, _}} -> "#{f}: #{m}" end)
+
+            {:noreply, put_flash(socket, :error, msg)}
+        end
 
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Row not found.")}
@@ -575,4 +607,8 @@ defmodule BobineWeb.Admin.CatalogLive do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(str) when is_binary(str), do: str
+
+  defp normalize_variant(""), do: nil
+  defp normalize_variant(nil), do: nil
+  defp normalize_variant(variant) when is_binary(variant), do: variant
 end

@@ -29,7 +29,51 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   def source_type_label(:popular), do: "Popular"
   def source_type_label(:continue_watching), do: "Continue Watching"
   def source_type_label(:hero), do: "Hero"
+  def source_type_label(:new_seasons), do: "New seasons"
+  def source_type_label(:popularity), do: "Popularity"
+  def source_type_label(:tags), do: "Tags"
+  def source_type_label(:preferences), do: "Preferences"
+  def source_type_label(:series), do: "Series"
+  def source_type_label(:creator_showcase), do: "Creator showcase"
+  def source_type_label(:editorial_spotlight), do: "Editorial spotlight"
   def source_type_label(other), do: to_string(other)
+
+  @doc """
+  Returns card variant options compatible with a row's source_type as
+  `{label, value}` tuples suitable for an HTML select. Prepends a blank
+  option so operators can clear the variant and fall back to default.
+  """
+  def card_variant_options(source_type) when is_atom(source_type) and not is_nil(source_type) do
+    row_type = Bobine.Catalog.Row.compat_row_type(source_type)
+
+    variants = Bobine.Catalog.Presets.variants_for_row(row_type)
+
+    [{"Default", ""} | Enum.map(variants, &{card_variant_label(&1), Atom.to_string(&1)})]
+  end
+
+  def card_variant_options(source_type) when is_binary(source_type) do
+    source_type
+    |> String.to_existing_atom()
+    |> card_variant_options()
+  rescue
+    ArgumentError -> [{"Default", ""}]
+  end
+
+  def card_variant_options(_), do: [{"Default", ""}]
+
+  @doc """
+  Human label for a card variant atom.
+
+      iex> BobineWeb.Admin.CatalogLive.Components.card_variant_label(:poster_portrait)
+      "Poster portrait"
+  """
+  def card_variant_label(:poster_portrait), do: "Poster portrait"
+  def card_variant_label(:landscape_episode), do: "Landscape episode"
+  def card_variant_label(:creator_identity), do: "Creator identity"
+  def card_variant_label(:collection_editorial), do: "Collection editorial"
+  def card_variant_label(:progress_course), do: "Progress course"
+  def card_variant_label(:minimal_list_item), do: "Minimal list item"
+  def card_variant_label(other), do: to_string(other)
 
   @doc """
   Returns true when the current source type matches the target source type.
@@ -435,6 +479,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
           <tr>
             <th>Title</th>
             <th>Source</th>
+            <th>Card variant</th>
             <th>Visible</th>
             <th>Order</th>
             <th></th>
@@ -446,6 +491,34 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <td>
               <span class="badge badge-sm badge-outline">
                 {source_type_label(row.source_type)}
+              </span>
+            </td>
+            <td>
+              <form
+                :if={@can_manage}
+                phx-change="update_row_variant"
+                class="flex items-center gap-2"
+              >
+                <input type="hidden" name="row_id" value={row.id} />
+                <select
+                  name="variant"
+                  class="select select-xs select-bordered"
+                  data-test={"row-variant-#{row.id}"}
+                >
+                  <option
+                    :for={{label, value} <- card_variant_options(row.source_type)}
+                    value={value}
+                    selected={to_string(row.card_variant || "") == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </form>
+              <span
+                :if={!@can_manage}
+                class="text-xs text-base-content/60"
+              >
+                {card_variant_label(row.card_variant || :default)}
               </span>
             </td>
             <td>
@@ -617,6 +690,27 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 {t.name}
               </option>
             </select>
+          </div>
+          <div class="mb-4">
+            <label class="label" for="row-card-variant">Card variant</label>
+            <select
+              id="row-card-variant"
+              name="row[card_variant]"
+              class="select select-bordered w-full"
+              data-test="row-card-variant-select"
+            >
+              <option
+                :for={{label, value} <- card_variant_options(@form[:source_type].value)}
+                value={value}
+                selected={to_string(@form[:card_variant].value || "") == value}
+              >
+                {label}
+              </option>
+            </select>
+            <p class="text-xs text-base-content/60 mt-1">
+              Only variants compatible with the selected source type appear. Leave
+              as Default to use the system default for that row.
+            </p>
           </div>
           <div class="mb-4">
             <label class="label" for="row-max-items">Max Items</label>

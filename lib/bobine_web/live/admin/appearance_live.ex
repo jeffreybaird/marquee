@@ -1,16 +1,17 @@
 defmodule BobineWeb.Admin.AppearanceLive do
   @moduledoc """
-  Operator appearance settings. Configures the homepage row layout
-  (preset, row order, per-row card variant) and tenant branding
-  (accent color, display font).
+  Operator appearance settings. Picks a preset (seeds an empty catalog
+  with the preset's default rows) and configures tenant branding (accent
+  color, display font).
+
+  Row order + per-row card variant are edited on `/admin/catalog` against
+  the `rows` table — this page only picks presets and branding.
 
   Events:
-    * `preview_preset`        — stage a preset preview (no save)
-    * `apply_preset`          — reset layout rows to preset defaults
-    * `move_row_up` / `move_row_down` — reorder + save
-    * `update_row_variant`    — swap card variant for a row + save
-    * `preview_branding`      — live-update accent swatch as operator types
-    * `save_branding`         — persist accent colors + display font
+    * `preview_preset`   — stage a preset preview (no save)
+    * `apply_preset`     — seed the catalog from a preset if empty
+    * `preview_branding` — live-update accent swatch as operator types
+    * `save_branding`    — persist accent colors + display font
 
   Route: /admin/appearance
   """
@@ -35,7 +36,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
     {:ok,
      socket
      |> assign(:page_title, "Appearance")
-     |> assign(:layout, layout)
+     |> assign(:layout_config, layout)
      |> assign(:selected_preset, layout.preset_name)
      |> assign(:presets, Presets.list())
      |> assign(:branding_form, branding_form)
@@ -51,47 +52,24 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
   @impl true
   def handle_event("apply_preset", %{"name" => name}, socket) do
-    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
 
-    case Catalog.reset_layout_to_preset(org, name) do
-      {:ok, layout} ->
-        {:noreply,
-         socket
-         |> assign(:layout, layout)
-         |> assign(:selected_preset, layout.preset_name)
-         |> put_flash(:info, "Applied preset: #{name}")}
+    seed_result = Catalog.seed_rows_from_preset_if_empty(scope, name)
 
-      {:error, :not_found} ->
+    case {seed_result, record_preset_choice(socket.assigns.layout_config, name)} do
+      {{:error, :not_found}, _} ->
         {:noreply, put_flash(socket, :error, "Unknown preset.")}
 
-      {:error, :validation, _changeset} ->
+      {_, {:ok, layout}} ->
+        {:noreply,
+         socket
+         |> assign(:layout_config, layout)
+         |> assign(:selected_preset, layout.preset_name)
+         |> put_flash(:info, apply_preset_message(seed_result, name))}
+
+      {_, {:error, :validation, _changeset}} ->
         {:noreply, put_flash(socket, :error, "Could not apply preset.")}
     end
-  end
-
-  @impl true
-  def handle_event("move_row_up", %{"index" => idx_str}, socket) do
-    reorder_rows(socket, String.to_integer(idx_str), :up)
-  end
-
-  @impl true
-  def handle_event("move_row_down", %{"index" => idx_str}, socket) do
-    reorder_rows(socket, String.to_integer(idx_str), :down)
-  end
-
-  @impl true
-  def handle_event(
-        "update_row_variant",
-        %{"index" => idx_str, "variant" => variant},
-        socket
-      ) do
-    idx = String.to_integer(idx_str)
-    rows = socket.assigns.layout.rows
-
-    new_rows =
-      List.update_at(rows, idx, fn row -> Map.put(row, "card_variant", variant) end)
-
-    save_rows(socket, new_rows)
   end
 
   @impl true
@@ -110,7 +88,6 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
   @impl true
   def handle_event("save_branding", %{"organization" => params}, socket) do
-    # Derive variants from base oklch if operator only supplies the base.
     params = maybe_derive_accent_variants(params)
 
     org = socket.assigns.organization
@@ -127,57 +104,19 @@ defmodule BobineWeb.Admin.AppearanceLive do
     end
   end
 
-  defp reorder_rows(socket, idx, direction) do
-    rows = socket.assigns.layout.rows
-    swap_with = if direction == :up, do: idx - 1, else: idx + 1
-
-    if swap_with < 0 or swap_with >= length(rows) do
-      {:noreply, socket}
-    else
-      a = Enum.at(rows, idx)
-      b = Enum.at(rows, swap_with)
-
-      new_rows =
-        rows
-        |> List.replace_at(idx, b)
-        |> List.replace_at(swap_with, a)
-        |> reindex_positions()
-
-      save_rows(socket, new_rows)
-    end
+  defp record_preset_choice(layout, preset_name) do
+    Catalog.update_layout(layout, %{preset_name: preset_name})
   end
 
-  defp reindex_positions(rows) do
-    rows
-    |> Enum.with_index()
-    |> Enum.map(fn {row, i} -> Map.put(row, "position", i) end)
-  end
+  defp apply_preset_message({:ok, :seeded, rows}, name),
+    do: "Applied preset #{name}. Seeded #{length(rows)} rows in Catalog."
 
-  defp save_rows(socket, new_rows) do
-    case Catalog.update_layout(socket.assigns.layout, %{rows: new_rows}) do
-      {:ok, layout} ->
-        {:noreply, assign(socket, :layout, layout)}
+  defp apply_preset_message({:ok, :skipped}, name),
+    do: "Preset #{name} selected. Catalog already has rows — not overwritten."
 
-      {:error, :validation, changeset} ->
-        msg = format_row_errors(changeset)
-        {:noreply, put_flash(socket, :error, msg)}
-    end
-  end
+  defp apply_preset_message(_other, name),
+    do: "Preset #{name} selected."
 
-  defp format_row_errors(changeset) do
-    changeset.errors
-    |> Enum.filter(fn {field, _} -> field == :rows end)
-    |> Enum.map(fn {_, {msg, _}} -> msg end)
-    |> Enum.join("; ")
-    |> case do
-      "" -> "Could not save layout."
-      msg -> msg
-    end
-  end
-
-  # When operator provides only the base oklch, auto-derive hover/active/subtle
-  # by nudging the lightness channel. Keeps single-field UX while populating
-  # all four stored variants.
   defp maybe_derive_accent_variants(%{"accent_color_base" => base} = params)
        when is_binary(base) and base != "" do
     params
@@ -243,7 +182,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
     >
       <.header>
         Appearance
-        <:subtitle>Homepage layout + tenant branding</:subtitle>
+        <:subtitle>Preset + tenant branding. Row order lives in Catalog.</:subtitle>
       </.header>
 
       <section class="mt-8" data-test="preset-picker">
@@ -257,7 +196,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
             data-test={"preset-card-" <> preset.name}
             class={[
               "text-left rounded-lg border p-4 transition",
-              preset_card_class(preset.name, @selected_preset, @layout.preset_name)
+              preset_card_class(preset.name, @selected_preset, @layout_config.preset_name)
             ]}
           >
             <div class="font-semibold">{preset.display_name}</div>
@@ -268,9 +207,10 @@ defmodule BobineWeb.Admin.AppearanceLive do
           </button>
         </div>
 
-        <div :if={@selected_preset != @layout.preset_name} class="mt-4 flex gap-3 items-center">
+        <div :if={@selected_preset != @layout_config.preset_name} class="mt-4 flex gap-3 items-center">
           <span class="text-sm opacity-70">
-            Previewing <strong>{@selected_preset}</strong>. Applying replaces your current rows.
+            Previewing <strong>{@selected_preset}</strong>. Applying seeds
+            Catalog rows only if it is currently empty.
           </span>
           <button
             type="button"
@@ -286,58 +226,13 @@ defmodule BobineWeb.Admin.AppearanceLive do
         <div class="mt-4" data-test="preset-preview">
           <.preset_preview preset={preset_by_name(@presets, @selected_preset)} />
         </div>
-      </section>
 
-      <section class="mt-10" data-test="row-editor">
-        <h2 class="text-xl font-semibold mb-4">Row order</h2>
-        <ol class="space-y-2">
-          <li
-            :for={{row, idx} <- Enum.with_index(@layout.rows)}
-            class="flex items-center gap-3 rounded-md border border-base-300 px-3 py-2"
-            data-test={"layout-row-" <> to_string(idx)}
-          >
-            <span class="font-mono text-xs opacity-60 w-6">{idx + 1}.</span>
-            <span class="flex-1 font-medium">{row["row_type"]}</span>
-            <form phx-change="update_row_variant" class="flex items-center gap-2">
-              <input type="hidden" name="index" value={idx} />
-              <select
-                name="variant"
-                class="select select-sm select-bordered"
-                data-test={"row-variant-" <> to_string(idx)}
-              >
-                <option
-                  :for={variant <- compatible_variants(row["row_type"])}
-                  value={to_string(variant)}
-                  selected={to_string(variant) == row["card_variant"]}
-                >
-                  {variant}
-                </option>
-              </select>
-            </form>
-            <button
-              type="button"
-              phx-click="move_row_up"
-              phx-value-index={idx}
-              disabled={idx == 0}
-              class="btn btn-ghost btn-xs"
-              data-test={"move-up-" <> to_string(idx)}
-              aria-label="Move row up"
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              phx-click="move_row_down"
-              phx-value-index={idx}
-              disabled={idx == length(@layout.rows) - 1}
-              class="btn btn-ghost btn-xs"
-              data-test={"move-down-" <> to_string(idx)}
-              aria-label="Move row down"
-            >
-              ↓
-            </button>
-          </li>
-        </ol>
+        <div class="mt-6 rounded-md bg-base-200 p-3 text-sm" data-test="catalog-link-note">
+          Row order and per-row card variants are edited on <.link
+            navigate={~p"/admin/catalog"}
+            class="link link-primary"
+          >Catalog</.link>.
+        </div>
       </section>
 
       <section class="mt-10" data-test="branding-editor">
@@ -405,16 +300,6 @@ defmodule BobineWeb.Admin.AppearanceLive do
   defp preset_by_name(presets, name) do
     Enum.find(presets, &(&1.name == name))
   end
-
-  defp compatible_variants(row_type_str) when is_binary(row_type_str) do
-    row_type =
-      Presets.row_types()
-      |> Enum.find(&(Atom.to_string(&1) == row_type_str))
-
-    if row_type, do: Presets.variants_for_row(row_type), else: []
-  end
-
-  defp compatible_variants(_), do: []
 
   defp preset_card_class(name, selected, active) do
     cond do
