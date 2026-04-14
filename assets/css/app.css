@@ -641,6 +641,23 @@
   background: var(--sv-bg-secondary);
 }
 
+/* Per-row card variant aspect overrides. Applied via data-card-variant on
+   the row wrapper so operators' variant choice in /admin/catalog changes
+   the visible card shape. See Bobine.Catalog.Row.card_variant. */
+.content-row-items[data-card-variant="poster_portrait"] .sv-card-thumb {
+  aspect-ratio: 2 / 3;
+}
+.content-row-items[data-card-variant="creator_identity"] .sv-card-thumb {
+  aspect-ratio: 1 / 1;
+}
+.content-row-items[data-card-variant="collection_editorial"] .sv-card-thumb {
+  aspect-ratio: 3 / 2;
+}
+.content-row-items[data-card-variant="minimal_list_item"] .sv-card-thumb {
+  aspect-ratio: 2 / 3;
+}
+/* landscape_episode + progress_course keep the 16:9 default. */
+
 .sv-card-thumb img {
   position: absolute;
   inset: 0;

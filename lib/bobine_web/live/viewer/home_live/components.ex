@@ -369,12 +369,15 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   attr :queued_ids, :any, default: MapSet.new()
 
   def content_row(assigns) do
+    assigns = assign(assigns, :card_variant, resolve_card_variant(assigns.row))
+
     ~H"""
     <section
       class="content-row"
       id={"row-#{@row.id}"}
       phx-hook="RowScroller"
       data-test={"content-row-#{@row.id}"}
+      data-card-variant={@card_variant}
     >
       <div class="content-row-header">
         <h2 class="content-row-title">{@row.title}</h2>
@@ -397,7 +400,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
         >
           <.icon name="hero-chevron-left" class="size-5" aria-hidden="true" />
         </button>
-        <div class="content-row-items">
+        <div class="content-row-items" data-card-variant={@card_variant}>
           <ViewerComponents.content_item_card
             :for={item <- @items}
             item={item}
@@ -431,6 +434,31 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   defp item_card_id(row, item) do
     "home-row-#{row.id}-card-#{item.id}"
   end
+
+  # The row's stored `card_variant` wins; when nil (legacy rows created
+  # before card_variant landed) we fall back to the default variant for
+  # this row's source type. Always emits a string attribute safe for CSS
+  # attribute-selector targeting.
+  @default_variant_by_row_type %{
+    hero: "collection_editorial",
+    popularity: "poster_portrait",
+    tags: "poster_portrait",
+    preferences: "poster_portrait",
+    series: "landscape_episode",
+    continue_watching: "landscape_episode",
+    creator_showcase: "creator_identity",
+    editorial_spotlight: "collection_editorial"
+  }
+
+  defp resolve_card_variant(%{card_variant: variant}) when is_binary(variant) and variant != "",
+    do: variant
+
+  defp resolve_card_variant(%{source_type: source_type}) when not is_nil(source_type) do
+    row_type = Bobine.Catalog.Row.compat_row_type(source_type)
+    Map.get(@default_variant_by_row_type, row_type, "landscape_episode")
+  end
+
+  defp resolve_card_variant(_), do: "landscape_episode"
 
   ## ─────────────────────────────────────────────────────────────────────
   ## Landing page section components
