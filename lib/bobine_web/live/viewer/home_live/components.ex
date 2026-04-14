@@ -7,6 +7,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   - `feature_card/1` — feature highlight card for marketing page
   - `hero_carousel/1` — hero slide carousel for org home
   - `content_row/1` — horizontal scrollable row of video cards
+  - `welcome_state/1` — warm onboarding banner for viewers with no watch history
   """
 
   use BobineWeb, :html
@@ -723,4 +724,46 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   end
 
   defp format_cents(_), do: "0"
+
+  attr :organization, :map, required: true
+  attr :browse_href, :string, default: "/browse"
+
+  @doc """
+  Warm onboarding banner shown in place of an empty continue-watching row
+  when a viewer has no watch history. Encourages exploration without
+  showing a bare or empty section.
+  """
+  def welcome_state(assigns) do
+    ~H"""
+    <section
+      class="sv-welcome relative overflow-hidden rounded-lg border border-border-subtle bg-surface px-6 py-10 sm:px-10 sm:py-14"
+      data-test="viewer-welcome-state"
+      aria-labelledby="welcome-heading"
+    >
+      <div class="max-w-2xl">
+        <p class="font-mono text-xs uppercase tracking-[0.2em] text-text-muted">
+          Welcome to {@organization.name}
+        </p>
+        <h2
+          id="welcome-heading"
+          class="mt-3 font-display text-3xl leading-tight tracking-tight text-text-primary sm:text-4xl"
+        >
+          Find your first favorite.
+        </h2>
+        <p class="mt-3 font-body text-base leading-relaxed text-text-secondary">
+          Browse the full catalog, save what catches your eye, and we'll pick up where you leave off every time you return.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <.link
+            href={@browse_href}
+            class="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-ui text-sm text-accent-text hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            data-test="welcome-browse-btn"
+          >
+            Browse the catalog
+          </.link>
+        </div>
+      </div>
+    </section>
+    """
+  end
 end

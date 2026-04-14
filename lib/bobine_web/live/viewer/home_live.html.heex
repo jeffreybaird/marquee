@@ -36,8 +36,10 @@
         auto_advance_ms={@hero_auto_advance_ms}
       />
 
+      <.welcome_state :if={@new_viewer?} organization={@organization} />
+
       <div
-        :if={@hero_slides == [] && @rows == []}
+        :if={@hero_slides == [] && @rows == [] && !@new_viewer?}
         class="py-12 text-center text-base-content/60"
       >
         <p class="text-lg">No videos available yet.</p>

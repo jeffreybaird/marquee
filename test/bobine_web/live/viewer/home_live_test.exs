@@ -247,12 +247,13 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       refute html =~ "Secret Row"
     end
 
-    test "shows empty state when no rows exist", %{conn: _conn} do
+    test "shows the welcome state when no rows exist (Stage 5 replaces the old empty banner)",
+         %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ "No videos available"
+      assert html =~ "Find your first favorite"
     end
   end
 
@@ -883,6 +884,49 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/")
       assert has_element?(view, "[data-test=marketing-bottom-cta]")
+    end
+  end
+
+  describe "GET / as an authenticated viewer" do
+    alias Bobine.Catalog
+
+    test "shows the welcome state when the viewer has no watch history" do
+      org = insert(:organization, name: "Indie House")
+      viewer = insert(:viewer, organization: org)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Find your first favorite"
+      assert html =~ "Indie House"
+    end
+
+    test "reloads rows when the org's layout is updated via PubSub" do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      insert(:video, organization: org, mux_status: "ready")
+
+      insert(:row,
+        organization: org,
+        title: "First Title",
+        source_type: :recent,
+        visible: true,
+        position: 0
+      )
+
+      {:ok, layout} = Catalog.get_or_create_layout(org)
+      {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "First Title"
+
+      # Broadcasts the new row state; the LiveView should re-query and pick
+      # up the renamed row without a full page reload.
+      Bobine.Repo.update_all(
+        Bobine.Catalog.Row,
+        set: [title: "Renamed Row"]
+      )
+
+      send(view.pid, {:layout_updated, layout})
+
+      refreshed = render(view)
+      assert refreshed =~ "Renamed Row"
     end
   end
 end

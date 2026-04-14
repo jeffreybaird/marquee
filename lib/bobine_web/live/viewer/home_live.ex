@@ -20,6 +20,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   alias Bobine.Catalog
   alias Bobine.Content
+  alias Bobine.Engagement
   alias Bobine.LandingPage
   alias BobineWeb.Components.ViewerLayout
 
@@ -78,12 +79,44 @@ defmodule BobineWeb.Viewer.HomeLive do
 
     rows = load_catalog_rows(org, viewer)
 
+    if connected?(socket), do: Catalog.subscribe_to_layout(org)
+
     socket
     |> assign(:page_title, org.name)
     |> assign(:page_mode, :org_home)
     |> assign(:hero_slides, hero_slides)
     |> assign(:hero_auto_advance_ms, auto_advance_ms)
     |> assign(:rows, rows)
+    |> assign(:new_viewer?, new_viewer?(org, viewer))
+  end
+
+  @impl true
+  def handle_info({:layout_updated, _layout}, socket) do
+    org = socket.assigns[:organization]
+    viewer = socket.assigns[:current_viewer]
+
+    if org do
+      rows = load_catalog_rows(org, viewer)
+
+      {:noreply,
+       socket
+       |> assign(:rows, rows)
+       |> assign(:new_viewer?, new_viewer?(org, viewer))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # A new viewer is a logged-in viewer with no in-progress items in any
+  # series/video. Anonymous visitors and operator-authenticated users
+  # without a viewer session do not see the welcome state.
+  defp new_viewer?(_org, nil), do: false
+
+  defp new_viewer?(org, viewer) do
+    case Engagement.list_continue_watching(org, viewer, per_page: 1) do
+      %{results: []} -> true
+      _ -> false
+    end
   end
 
   defp load_catalog_rows(org, viewer) do
