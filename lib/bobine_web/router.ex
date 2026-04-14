@@ -45,6 +45,12 @@ defmodule BobineWeb.Router do
       live_dashboard "/dashboard", metrics: BobineWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+
+    scope "/dev", BobineWeb do
+      pipe_through :browser
+
+      live "/components", Dev.CardShowcaseLive, :index
+    end
   end
 
   ## ──────────────────────────────────────────────────────────────────────
