@@ -84,9 +84,18 @@ defmodule Bobine.Accounts.Organization do
       message: "must be one of the approved Google Fonts"
     )
     |> validate_inclusion(:preset_name, @approved_presets)
-    |> validate_format(:accent_color_base, ~r/^oklch\(/, message: "must be an oklch() value")
-    |> validate_format(:accent_color_hover, ~r/^oklch\(/, message: "must be an oklch() value")
-    |> validate_format(:accent_color_active, ~r/^oklch\(/, message: "must be an oklch() value")
-    |> validate_format(:accent_color_subtle, ~r/^oklch\(/, message: "must be an oklch() value")
+    |> validate_accent_color(:accent_color_base)
+    |> validate_accent_color(:accent_color_hover)
+    |> validate_accent_color(:accent_color_active)
+    |> validate_accent_color(:accent_color_subtle)
+  end
+
+  # Accept either an oklch() value (preferred) or a hex color (legacy —
+  # values backfilled from the old Theme.brand_primary column during
+  # the Wave B branding unification). Both render fine in CSS.
+  defp validate_accent_color(changeset, field) do
+    validate_format(changeset, field, ~r/^(oklch\(|#)/,
+      message: "must be an oklch() or hex color"
+    )
   end
 end

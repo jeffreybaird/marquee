@@ -182,8 +182,23 @@ defmodule BobineWeb.Admin.AppearanceLive do
     >
       <.header>
         Appearance
-        <:subtitle>Preset + tenant branding. Row order lives in Catalog.</:subtitle>
+        <:subtitle>Preset + tenant accent and display font</:subtitle>
       </.header>
+
+      <div
+        class="mt-4 rounded-md border border-base-300 bg-base-200/50 p-3 text-sm"
+        data-test="appearance-split-notice"
+      >
+        This page sets the preset, accent color, and display font.
+        Row order and card variants are edited on <.link
+          navigate={~p"/admin/catalog"}
+          class="link link-primary"
+        >Catalog</.link>.
+        Surface colors (background, text, nav) live on <.link
+          navigate={~p"/admin/branding"}
+          class="link link-primary"
+        >Branding</.link>.
+      </div>
 
       <section class="mt-8" data-test="preset-picker">
         <h2 class="text-xl font-semibold mb-4">Presets</h2>

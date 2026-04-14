@@ -2,6 +2,9 @@ defmodule Bobine.Branding.Theme do
   use Ecto.Schema
   import Ecto.Changeset
 
+  # Wave B: brand_primary / brand_primary_hover / accent still live on the
+  # schema so presets and backfills keep working, but the Branding UI
+  # hides them — the tenant accent is authoritative on Organization now.
   @castable_fields [
     :brand_primary,
     :brand_secondary,
@@ -238,7 +241,7 @@ defmodule Bobine.Branding.Theme do
       iex> css = Bobine.Branding.Theme.build_css_vars(theme)
       iex> css =~ "--sv-bg-primary: #000000"
       true
-      iex> css =~ "--sv-accent: #FF0000"
+      iex> css =~ "--sv-accent: var(--color-accent, #FF0000)"
       true
 
   """
@@ -253,8 +256,12 @@ defmodule Bobine.Branding.Theme do
       {"--sv-text-primary", theme.text_primary || defaults.text_primary},
       {"--sv-text-secondary", theme.text_secondary || defaults.text_secondary},
       {"--sv-text-on-accent", theme.text_on_accent || defaults.text_on_accent},
-      {"--sv-accent", theme.brand_primary || defaults.brand_primary},
-      {"--sv-accent-hover", theme.brand_primary_hover || defaults.brand_primary_hover},
+      # --sv-accent / --sv-accent-hover now alias to the tenant accent tokens
+      # owned by Organization.accent_color_*. See app.css for the alias rule.
+      # Hex defaults remain as a last-resort fallback for legacy theme rows.
+      {"--sv-accent", "var(--color-accent, #{theme.brand_primary || defaults.brand_primary})"},
+      {"--sv-accent-hover",
+       "var(--color-accent-hover, #{theme.brand_primary_hover || defaults.brand_primary_hover})"},
       {"--sv-font-heading",
        "#{theme.font_heading || defaults.font_heading}, system-ui, sans-serif"},
       {"--sv-font-body", "#{theme.font_body || defaults.font_body}, system-ui, sans-serif"},

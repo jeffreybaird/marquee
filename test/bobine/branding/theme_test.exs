@@ -94,7 +94,7 @@ defmodule Bobine.Branding.ThemeTest do
       css = Theme.build_css_vars(theme)
 
       assert css =~ "--sv-bg-primary: #000000"
-      assert css =~ "--sv-accent: #FF0000"
+      assert css =~ "--sv-accent: var(--color-accent, #FF0000)"
       assert css =~ "--sv-text-primary: #FFFFFF"
     end
 
@@ -103,7 +103,7 @@ defmodule Bobine.Branding.ThemeTest do
       css = Theme.build_css_vars(theme)
 
       assert css =~ "--sv-bg-primary: #0F0F0F"
-      assert css =~ "--sv-accent: #E50914"
+      assert css =~ "--sv-accent: var(--color-accent, #E50914)"
       assert css =~ "--sv-font-heading: Inter, system-ui, sans-serif"
     end
 
@@ -149,7 +149,7 @@ defmodule Bobine.Branding.ThemeTest do
 
       assert css =~ "--sv-bg-primary: #112233"
       assert css =~ "--sv-bg-secondary: #445566"
-      assert css =~ "--sv-accent: #00FF00"
+      assert css =~ "--sv-accent: var(--color-accent, #00FF00)"
     end
   end
 

@@ -102,10 +102,20 @@ defmodule BobineWeb.Admin.BrandingLive do
         <div class="sv-preview-editor">
           <.form for={@form} phx-change="validate" phx-submit="save">
             <div class="space-y-4">
-              <h3 class="text-lg font-medium">Colors</h3>
+              <div
+                class="rounded-md border border-base-300 bg-base-200/50 p-3 text-sm"
+                data-test="branding-accent-notice"
+              >
+                <strong>Accent color moved.</strong>
+                Your tenant accent is now managed on
+                <.link navigate={~p"/admin/appearance"} class="link link-primary">
+                  Appearance
+                </.link>
+                along with the display font and preset. This page configures
+                the surface colors (background, text, nav) only.
+              </div>
 
-              <.color_input form={@form} field={:brand_primary} label="Brand Primary" />
-              <.color_input form={@form} field={:brand_primary_hover} label="Brand Primary Hover" />
+              <h3 class="text-lg font-medium">Colors</h3>
               <.color_input form={@form} field={:background} label="Background" />
               <.color_input form={@form} field={:surface} label="Surface" />
               <.color_input form={@form} field={:elevated} label="Elevated" />

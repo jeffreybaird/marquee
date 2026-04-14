@@ -10,7 +10,7 @@ defmodule BobineWeb.Components.ViewerLayoutTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ "--sv-bg-primary: #0F0F0F"
-      assert html =~ "--sv-accent: #E50914"
+      assert html =~ "--sv-accent: var(--color-accent, #E50914)"
       assert html =~ ~s(data-test="sv-root")
     end
 
@@ -27,7 +27,7 @@ defmodule BobineWeb.Components.ViewerLayoutTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ "--sv-bg-primary: #112233"
-      assert html =~ "--sv-accent: #00FF00"
+      assert html =~ "--sv-accent: var(--color-accent, #00FF00)"
       assert html =~ "--sv-text-primary: #EEEEFF"
     end
 
@@ -43,11 +43,11 @@ defmodule BobineWeb.Components.ViewerLayoutTest do
       {:ok, _view, html_a} = live(conn_for_viewer(viewer_a), ~p"/")
       {:ok, _view, html_b} = live(conn_for_viewer(viewer_b), ~p"/")
 
-      assert html_a =~ "--sv-accent: #AA0000"
-      refute html_a =~ "--sv-accent: #BB0000"
+      assert html_a =~ "--sv-accent: var(--color-accent, #AA0000)"
+      refute html_a =~ "#BB0000"
 
-      assert html_b =~ "--sv-accent: #BB0000"
-      refute html_b =~ "--sv-accent: #AA0000"
+      assert html_b =~ "--sv-accent: var(--color-accent, #BB0000)"
+      refute html_b =~ "#AA0000"
     end
   end
 
