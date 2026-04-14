@@ -880,4 +880,114 @@ defmodule Bobine.Catalog do
   defp has_string_keys?(map) do
     map |> Map.keys() |> Enum.any?(&is_binary/1)
   end
+
+  ## -----------------------------------------------------------------------
+  ## Layouts — per-tenant homepage configuration + PubSub propagation
+  ##
+  ## Topic: `"layout:#{organization_id}"`
+  ## Message: `{:layout_updated, %Bobine.Catalog.Layout{}}`
+  ##
+  ## Subscribers (viewer homepage LiveView, cache) subscribe via
+  ## `Bobine.Catalog.subscribe_to_layout/1` and re-render on receipt.
+  ## -----------------------------------------------------------------------
+
+  alias Bobine.Catalog.{Layout, Presets}
+
+  @doc """
+  Returns the layout for an organization, creating one seeded from the
+  org's preset (or Catalog Cinema if none selected) on first access.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_or_create_layout(%Organization{} = org) do
+    case Repo.get_by(Layout, organization_id: org.id) do
+      nil -> create_layout_from_preset(org, org.preset_name || "catalog_cinema")
+      layout -> {:ok, layout}
+    end
+  end
+
+  @doc """
+  Updates an organization's layout. On success broadcasts
+  `{:layout_updated, layout}` on the `"layout:ORG_ID"` topic.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_layout(%Layout{} = layout, attrs) do
+    case layout |> Layout.changeset(attrs) |> Repo.update() do
+      {:ok, updated} ->
+        broadcast_layout(updated)
+        {:ok, updated}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
+  Resets an organization's layout to a named preset's defaults and
+  broadcasts `{:layout_updated, layout}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def reset_layout_to_preset(%Organization{} = org, preset_name)
+      when is_binary(preset_name) do
+    with {:ok, preset} <- Presets.get(preset_name),
+         {:ok, layout} <- get_or_create_layout(org) do
+      attrs = %{
+        preset_name: preset.name,
+        default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant),
+        rows: preset.rows
+      }
+
+      update_layout(layout, attrs)
+    end
+  end
+
+  @doc """
+  Subscribes the calling process to layout updates for an organization.
+  """
+  def subscribe_to_layout(%Organization{id: org_id}), do: subscribe_to_layout(org_id)
+
+  def subscribe_to_layout(org_id) when is_binary(org_id) do
+    Phoenix.PubSub.subscribe(Bobine.PubSub, layout_topic(org_id))
+  end
+
+  @doc """
+  Returns the PubSub topic name for layout events.
+  """
+  def layout_topic(%Organization{id: org_id}), do: layout_topic(org_id)
+  def layout_topic(org_id) when is_binary(org_id), do: "layout:#{org_id}"
+
+  defp create_layout_from_preset(%Organization{} = org, preset_name) do
+    case Presets.get(preset_name) do
+      {:ok, preset} ->
+        %Layout{}
+        |> Layout.changeset(%{
+          organization_id: org.id,
+          preset_name: preset.name,
+          default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant),
+          rows: preset.rows
+        })
+        |> Repo.insert()
+        |> case do
+          {:ok, layout} ->
+            broadcast_layout(layout)
+            {:ok, layout}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+    end
+  end
+
+  defp broadcast_layout(%Layout{organization_id: org_id} = layout) do
+    Phoenix.PubSub.broadcast(
+      Bobine.PubSub,
+      layout_topic(org_id),
+      {:layout_updated, layout}
+    )
+  end
 end

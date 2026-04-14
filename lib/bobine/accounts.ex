@@ -668,4 +668,17 @@ defmodule Bobine.Accounts do
       end
     end)
   end
+
+  @doc """
+  Updates per-tenant branding fields on an organization (accent color
+  variants, display font, preset name). Returns tagged tuples.
+
+  Exempt from doctest — hits the database.
+  """
+  def update_organization_branding(%Organization{} = org, attrs) do
+    case org |> Organization.branding_changeset(attrs) |> Repo.update() do
+      {:ok, updated} -> {:ok, updated}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
 end

@@ -11,6 +11,7 @@ defmodule BobineWeb.Dev.CardShowcaseLive do
   use BobineWeb, :live_view
 
   alias BobineWeb.Components.Cards
+  alias BobineWeb.Components.Rows
 
   @impl true
   def mount(_params, _session, socket) do
@@ -22,7 +23,16 @@ defmodule BobineWeb.Dev.CardShowcaseLive do
      |> assign(:creators, creators())
      |> assign(:collections, collections())
      |> assign(:courses, courses())
-     |> assign(:list_items, list_items()), layout: false}
+     |> assign(:list_items, list_items())
+     |> assign(:continue_items, continue_items())
+     |> assign(:continue_empty, [])
+     |> assign(:series_items, series_items())
+     |> assign(:hero, hero_item()), layout: false}
+  end
+
+  @impl true
+  def handle_event("dismiss_continue", %{"id" => _id}, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -167,6 +177,92 @@ defmodule BobineWeb.Dev.CardShowcaseLive do
           </:skeleton>
         </.section>
       </div>
+
+      <section id="page-simulation" class="scroll-mt-6 border-t border-border-subtle bg-bg">
+        <div class="mx-auto max-w-7xl px-6 pt-12">
+          <p class="font-mono text-xs uppercase tracking-wide text-text-muted">
+            Page simulation
+          </p>
+          <h2 class="mt-2 font-display text-3xl leading-tight tracking-tighter text-text-primary">
+            Assembled homepage
+          </h2>
+          <p class="mt-3 max-w-2xl font-body text-base leading-relaxed text-text-secondary">
+            Four rows composed from Stage 3 components. Carousels drag with
+            momentum. Cards stagger in on mount.
+          </p>
+        </div>
+
+        <Rows.row row={%{type: :hero, id: "sim-hero", item: @hero}} />
+
+        <div class="mx-auto max-w-7xl">
+          <Rows.row row={
+            %{
+              type: :continue_watching,
+              id: "sim-cw",
+              card: :progress_course,
+              items: @continue_items
+            }
+          } />
+
+          <Rows.row row={
+            %{
+              type: :content,
+              id: "sim-popularity",
+              title: "Popular this week",
+              see_all_href: "#",
+              card: :poster_portrait,
+              items: @posters
+            }
+          } />
+
+          <Rows.row row={
+            %{
+              type: :editorial_spotlight,
+              id: "sim-spotlight",
+              title: "Editor's picks",
+              collection: hd(@collections),
+              posters: tl(@posters)
+            }
+          } />
+
+          <Rows.row row={
+            %{
+              type: :creator_showcase,
+              id: "sim-creators",
+              title: "Creators to follow",
+              items: @creators
+            }
+          } />
+
+          <Rows.row row={
+            %{
+              type: :series,
+              id: "sim-series",
+              title: "Fieldwork · Season 1",
+              see_all_href: "#",
+              card: :landscape_episode,
+              items: @series_items
+            }
+          } />
+
+          <Rows.row row={
+            %{
+              type: :continue_watching,
+              id: "sim-cw-empty",
+              card: :landscape_episode,
+              items: @continue_empty
+            }
+          } />
+
+          <div
+            class="mx-6 mb-16 mt-4 rounded-md border border-dashed border-border-subtle bg-surface/40 p-4 font-mono text-xs text-text-muted"
+            data-test="empty-cw-note"
+          >
+            The empty continue-watching row above renders nothing —
+            absolute rule.
+          </div>
+        </div>
+      </section>
     </main>
     """
   end
@@ -392,6 +488,92 @@ defmodule BobineWeb.Dev.CardShowcaseLive do
         synopsis:
           "A man impersonates a famous director and is caught. Kiarostami then asks the real participants to reenact the story — documentary, fiction, and conscience collapse into each other.",
         image_url: seed_image("close-up", 200, 300)
+      }
+    ]
+  end
+
+  defp hero_item do
+    %{
+      title: "The Quiet Revolutions",
+      byline: "Editor's picks · April",
+      synopsis:
+        "Fourteen films that found their power in stillness — from Varda's beaches to Hou's back alleys. A month of cinema that refuses to raise its voice.",
+      image_url: seed_image("hero-quiet-revolutions", 1600, 900),
+      cta_primary: %{label: "Start watching", href: "#"},
+      cta_secondary: %{label: "More info", href: "#"}
+    }
+  end
+
+  defp continue_items do
+    [
+      %{
+        id: "co1",
+        title: "Cinematography Foundations",
+        instructor: "Priya Raman",
+        lessons_completed: 6,
+        lessons_total: 18,
+        percent: 33,
+        image_url: seed_image("cinematography", 640, 360),
+        time_remaining: "2h 14m"
+      },
+      %{
+        id: "co3",
+        title: "Sound Design for Short Film",
+        instructor: "Helena Vidar",
+        lessons_completed: 2,
+        lessons_total: 10,
+        percent: 20,
+        image_url: seed_image("sound-design", 640, 360),
+        time_remaining: "3h 42m"
+      }
+    ]
+  end
+
+  defp series_items do
+    [
+      %{
+        id: "fw1",
+        title: "Pilot",
+        series: "Fieldwork",
+        episode_number: 1,
+        duration: "38:04",
+        image_url: seed_image("fieldwork-1", 640, 360),
+        progress: 1.0
+      },
+      %{
+        id: "fw2",
+        title: "The Map Room",
+        series: "Fieldwork",
+        episode_number: 2,
+        duration: "41:22",
+        image_url: seed_image("fieldwork-2", 640, 360),
+        progress: 1.0
+      },
+      %{
+        id: "fw3",
+        title: "Crossings",
+        series: "Fieldwork",
+        episode_number: 3,
+        duration: "44:18",
+        image_url: seed_image("fieldwork-3", 640, 360),
+        progress: 0.42,
+        current?: true
+      },
+      %{
+        id: "fw4",
+        title: "Silt",
+        series: "Fieldwork",
+        episode_number: 4,
+        duration: "39:50",
+        image_url: seed_image("fieldwork-4", 640, 360)
+      },
+      %{
+        id: "fw5",
+        title: "Inheritance",
+        series: "Fieldwork",
+        episode_number: 5,
+        duration: "38:42",
+        image_url: seed_image("fieldwork-5", 640, 360)
       }
     ]
   end

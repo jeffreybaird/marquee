@@ -114,6 +114,7 @@ defmodule BobineWeb.Router do
       live "/analytics/series/:series_id", SeriesAnalyticsLive
       live "/analytics/series/:series_id/seasons/:season_id", SeasonAnalyticsLive
       live "/branding", BrandingLive
+      live "/appearance", AppearanceLive
       live "/members", MembersLive
       live "/webhooks", WebhooksLive
       live "/settings", SettingsLive
