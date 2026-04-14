@@ -98,6 +98,9 @@ defmodule Bobine.Admin do
   """
   def create_organization(attrs) do
     Bobine.Otel.with_span "bobine.admin.create_organization" do
+      preset_name =
+        Map.get(attrs, "preset_name") || Map.get(attrs, :preset_name) || "catalog_cinema"
+
       result =
         Repo.transaction(fn ->
           changeset = Organization.changeset(%Organization{}, attrs)
@@ -120,6 +123,8 @@ defmodule Bobine.Admin do
                   card_border_radius: "0.75rem"
                 })
 
+              seed_catalog_defaults(org, preset_name)
+
               Events.broadcast(nil, {:organization_created, org})
               org
 
@@ -133,6 +138,25 @@ defmodule Bobine.Admin do
         {:error, changeset} -> {:error, :validation, changeset}
       end
     end
+  end
+
+  # Seed a Layout and default Row records for a freshly-created org so
+  # the viewer homepage has something to render from day one. Unknown
+  # presets fall back to catalog_cinema; seed errors are swallowed so a
+  # bad preset can't roll back the org create.
+  defp seed_catalog_defaults(org, preset_name) do
+    name =
+      case Bobine.Catalog.Presets.get(preset_name) do
+        {:ok, _} -> preset_name
+        {:error, :not_found} -> "catalog_cinema"
+      end
+
+    {:ok, _layout} = Bobine.Catalog.get_or_create_layout(%{org | preset_name: name})
+
+    scope = %Bobine.Accounts.Scope{organization: org}
+    _ = Bobine.Catalog.seed_rows_from_preset_if_empty(scope, name)
+
+    :ok
   end
 
   @doc """
