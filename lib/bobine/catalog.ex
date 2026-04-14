@@ -935,8 +935,7 @@ defmodule Bobine.Catalog do
          {:ok, layout} <- get_or_create_layout(org) do
       attrs = %{
         preset_name: preset.name,
-        default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant),
-        rows: preset.rows
+        default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant)
       }
 
       update_layout(layout, attrs)
@@ -1021,8 +1020,7 @@ defmodule Bobine.Catalog do
         |> Layout.changeset(%{
           organization_id: org.id,
           preset_name: preset.name,
-          default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant),
-          rows: preset.rows
+          default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant)
         })
         |> Repo.insert()
         |> case do

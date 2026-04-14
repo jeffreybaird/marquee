@@ -13,7 +13,7 @@ defmodule Bobine.Catalog.LayoutContextTest do
       assert {:ok, layout} = Catalog.get_or_create_layout(org)
       assert layout.preset_name == "catalog_cinema"
       assert layout.organization_id == org.id
-      assert length(layout.rows) >= 2
+      assert layout.default_browse_card_variant == "poster_portrait"
     end
 
     test "returns existing layout on second call", %{org: org} do
@@ -43,31 +43,25 @@ defmodule Bobine.Catalog.LayoutContextTest do
       {:ok, layout} = Catalog.get_or_create_layout(org)
       Catalog.subscribe_to_layout(org)
 
-      new_rows =
-        layout.rows
-        |> Enum.reverse()
-        |> Enum.with_index()
-        |> Enum.map(fn {row, i} -> Map.put(row, "position", i) end)
+      assert {:ok, updated} =
+               Catalog.update_layout(layout, %{default_browse_card_variant: "landscape_episode"})
 
-      assert {:ok, updated} = Catalog.update_layout(layout, %{rows: new_rows})
+      assert updated.default_browse_card_variant == "landscape_episode"
       assert_receive {:layout_updated, ^updated}
     end
 
-    test "returns validation error for incompatible row", %{org: org} do
+    test "returns validation error for unknown browse card variant", %{org: org} do
       {:ok, layout} = Catalog.get_or_create_layout(org)
 
-      bad_rows = [
-        %{row_type: :hero, card_variant: :progress_course, position: 0},
-        %{row_type: :continue_watching, card_variant: :landscape_episode, position: 1}
-      ]
+      assert {:error, :validation, cs} =
+               Catalog.update_layout(layout, %{default_browse_card_variant: "bogus"})
 
-      assert {:error, :validation, cs} = Catalog.update_layout(layout, %{rows: bad_rows})
       refute cs.valid?
     end
   end
 
   describe "reset_layout_to_preset/2" do
-    test "replaces rows with preset defaults and broadcasts", %{org: org} do
+    test "records the preset_name and broadcasts", %{org: org} do
       {:ok, _} = Catalog.get_or_create_layout(org)
       Catalog.subscribe_to_layout(org)
 
