@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-tenant={assigns[:organization] && assigns[:organization].slug}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,6 +7,8 @@
     <.live_title default="Bobine" suffix=" · Bobine">
       {assigns[:page_title]}
     </.live_title>
+    <.tenant_font_tags organization={assigns[:organization]} />
+    <.tenant_overrides organization={assigns[:organization]} />
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>

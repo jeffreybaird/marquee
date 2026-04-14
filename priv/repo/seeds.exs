@@ -73,6 +73,22 @@ end
 
 demo_org = create_org.("Demo Studio", "demo")
 
+# Seed tenant branding so font injection + accent override can be verified
+# end-to-end in dev. Uses the Catalog Cinema preset defaults.
+demo_org =
+  demo_org
+  |> Organization.branding_changeset(%{
+    accent_color_base: "oklch(0.72 0.14 68)",
+    accent_color_hover: "oklch(0.78 0.14 68)",
+    accent_color_active: "oklch(0.66 0.14 68)",
+    accent_color_subtle: "oklch(0.28 0.06 68)",
+    display_font: "Cormorant Garamond",
+    preset_name: "catalog_cinema"
+  })
+  |> Repo.update!()
+
+IO.puts("  branding: #{demo_org.preset_name} / #{demo_org.display_font}")
+
 IO.puts("Creating users for #{demo_org.name}:")
 create_user_with_membership.("Run mix format --check-formatted", :owner, demo_org)
 create_user_with_membership.("editor@demo.localhost", :editor, demo_org)

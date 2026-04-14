@@ -249,4 +249,99 @@ defmodule BobineWeb.Layouts do
   end
 
   defp viewer_identity(%{email: email}), do: email
+
+  @doc """
+  Google Fonts link tags for the tenant's display font.
+
+  Uses the print/onload pattern so the stylesheet is not render-blocking,
+  with a `<noscript>` fallback for non-JS clients. Preconnects + preloads
+  the stylesheet so swap-in has no flash of unstyled text. Returns empty
+  when the tenant has not selected a custom display font (system fallback
+  already present as CSS custom property default).
+  """
+  attr :organization, :map, default: nil
+
+  def tenant_font_tags(%{organization: %{display_font: font}} = assigns)
+      when is_binary(font) and font != "" do
+    assigns = assign(assigns, :href, google_fonts_href(font))
+
+    ~H"""
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href={@href} />
+    <link
+      rel="stylesheet"
+      href={@href}
+      media="print"
+      onload="this.media='all'; this.onload=null;"
+    />
+    <noscript>
+      <link rel="stylesheet" href={@href} />
+    </noscript>
+    """
+  end
+
+  def tenant_font_tags(assigns), do: ~H""
+
+  @doc """
+  Inline `<style>` block scoped to the tenant's `data-tenant` attribute,
+  overriding `--color-accent*` and `--font-display` at zero latency.
+  Returns empty when the org has no custom branding set.
+  """
+  attr :organization, :map, default: nil
+
+  def tenant_overrides(%{organization: %{slug: slug} = org} = assigns)
+      when is_binary(slug) do
+    case build_tenant_overrides(org) do
+      [] ->
+        ~H""
+
+      overrides ->
+        css = render_tenant_css(slug, overrides)
+        assigns = assign(assigns, :css, css)
+
+        ~H"""
+        <style>
+          {Phoenix.HTML.raw(@css)}
+        </style>
+        """
+    end
+  end
+
+  def tenant_overrides(assigns), do: ~H""
+
+  defp render_tenant_css(slug, overrides) do
+    body = Enum.map_join(overrides, "\n", fn {k, v} -> "  #{k}: #{v};" end)
+
+    "html[data-tenant=\"#{escape_css_attr(slug)}\"] {\n#{body}\n}"
+  end
+
+  defp escape_css_attr(value),
+    do: value |> to_string() |> String.replace("\"", "") |> String.replace("\\", "")
+
+  defp build_tenant_overrides(org) do
+    []
+    |> add_override("--color-accent", Map.get(org, :accent_color_base))
+    |> add_override("--color-accent-hover", Map.get(org, :accent_color_hover))
+    |> add_override("--color-accent-active", Map.get(org, :accent_color_active))
+    |> add_override("--color-accent-subtle", Map.get(org, :accent_color_subtle))
+    |> add_display_font(Map.get(org, :display_font))
+  end
+
+  defp add_override(acc, _name, nil), do: acc
+  defp add_override(acc, _name, ""), do: acc
+  defp add_override(acc, name, value), do: acc ++ [{name, value}]
+
+  defp add_display_font(acc, nil), do: acc
+  defp add_display_font(acc, ""), do: acc
+
+  defp add_display_font(acc, font) do
+    acc ++
+      [{"--font-display", "'#{font}', 'Georgia', 'Times New Roman', serif"}]
+  end
+
+  defp google_fonts_href(font) do
+    family = font |> String.replace(" ", "+")
+    "https://fonts.googleapis.com/css2?family=#{family}:wght@400;500;600&display=swap"
+  end
 end
