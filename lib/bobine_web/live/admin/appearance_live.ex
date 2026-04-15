@@ -273,6 +273,10 @@ defmodule BobineWeb.Admin.AppearanceLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
+      <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+      <link rel="stylesheet" href={admin_fonts_href(@display_fonts, @body_fonts)} />
+
       <.header>
         Appearance
         <:subtitle>Preset, accent, display font, and surface colors</:subtitle>
@@ -543,21 +547,25 @@ defmodule BobineWeb.Admin.AppearanceLive do
           <span style="font-family: var(--sv-font-heading); font-weight: 600; color: var(--sv-text-primary)">
             {@organization.name}
           </span>
-          <span style="font-size: 0.75rem; color: var(--sv-text-secondary)">
+          <span style="font-size: 0.75rem; font-family: var(--sv-font-body); color: var(--sv-text-secondary)">
             Home &nbsp; Browse &nbsp; Collections
           </span>
         </div>
 
-        <div style="height: 180px; background: linear-gradient(135deg, var(--sv-bg-secondary), var(--sv-bg-primary)); display: flex; align-items: flex-end; padding: 24px">
+        <div style="min-height: 200px; background: linear-gradient(135deg, var(--sv-bg-secondary), var(--sv-bg-primary)); display: flex; align-items: flex-end; padding: 24px">
           <div>
-            <div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sv-text-secondary); margin-bottom: 4px">
-              Featured
+            <div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sv-text-secondary); margin-bottom: 4px; font-family: var(--sv-font-body)">
+              Featured · Display font
             </div>
-            <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 1.5rem; font-weight: 500; color: var(--sv-text-primary); letter-spacing: -0.01em">
-              Sample Title
+            <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 1.75rem; font-weight: 500; color: var(--sv-text-primary); letter-spacing: -0.01em; line-height: 1.1">
+              A French cinema Sunday
             </div>
-            <div style="margin-top: 8px">
-              <span style="display: inline-block; padding: 6px 16px; background: var(--sv-accent); color: var(--sv-text-on-accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500">
+            <p style="font-family: var(--sv-font-body); font-size: 0.8125rem; line-height: 1.5; color: var(--sv-text-secondary); margin-top: 8px; max-width: 360px">
+              Rohmer would have approved. Body copy uses your body font so
+              synopses and curator notes read comfortably at paragraph length.
+            </p>
+            <div style="margin-top: 10px">
+              <span style="display: inline-block; padding: 6px 16px; background: var(--sv-accent); color: var(--sv-text-on-accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500; font-family: var(--sv-font-heading)">
                 Watch now
               </span>
             </div>
@@ -565,8 +573,8 @@ defmodule BobineWeb.Admin.AppearanceLive do
         </div>
 
         <div style="padding: 16px 24px">
-          <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 0.875rem; font-weight: 500; color: var(--sv-text-primary); margin-bottom: 8px">
-            Trending Now
+          <div style="font-family: var(--sv-font-heading); font-size: 0.9rem; font-weight: 600; color: var(--sv-text-primary); margin-bottom: 8px">
+            Trending Now · Heading font
           </div>
           <div style="display: flex; gap: 8px">
             <div
@@ -579,6 +587,9 @@ defmodule BobineWeb.Admin.AppearanceLive do
               </div>
             </div>
           </div>
+          <p style="font-family: var(--sv-font-body); font-size: 0.75rem; line-height: 1.5; color: var(--sv-text-muted, var(--sv-text-secondary)); margin-top: 12px">
+            The quick brown fox jumps over the lazy dog — body font sample.
+          </p>
         </div>
       </div>
     </div>
@@ -669,4 +680,20 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
   defp display_font_style(font) when is_binary(font),
     do: "font-family: '#{font}', Georgia, serif;"
+
+  # Build a single Google Fonts URL preloading every approved display and
+  # body font so the live preview can render whichever the operator selects
+  # without a per-font round trip on every `phx-change`.
+  defp admin_fonts_href(display_fonts, body_fonts) do
+    families =
+      (display_fonts ++ body_fonts)
+      |> Enum.uniq()
+      |> Enum.map(fn name ->
+        encoded = name |> String.replace(" ", "+")
+        "family=#{encoded}:wght@400;500;600"
+      end)
+      |> Enum.join("&")
+
+    "https://fonts.googleapis.com/css2?#{families}&display=swap"
+  end
 end
