@@ -255,6 +255,26 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       assert html =~ "Find your first favorite"
     end
+
+    test "hides the welcome state when the viewer has in-progress content",
+         %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      video = insert(:video, organization: org, mux_status: "ready", duration: 600)
+
+      # Seed a Progress record so list_continue_watching returns a result.
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 120,
+        duration: 600,
+        completed: false
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ "Find your first favorite"
+    end
   end
 
   describe "GET / super admin redirect" do

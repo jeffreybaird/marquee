@@ -38,6 +38,14 @@ defmodule Bobine.Factory do
     }
   end
 
+  def layout_factory do
+    %Bobine.Catalog.Layout{
+      organization: build(:organization),
+      preset_name: "catalog_cinema",
+      default_browse_card_variant: "poster_portrait"
+    }
+  end
+
   # -------------------------------------------------------------------------
   # Viewers
   # -------------------------------------------------------------------------

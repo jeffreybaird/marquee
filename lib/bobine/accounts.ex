@@ -677,8 +677,16 @@ defmodule Bobine.Accounts do
   """
   def update_organization_branding(%Organization{} = org, attrs) do
     case org |> Organization.branding_changeset(attrs) |> Repo.update() do
-      {:ok, updated} -> {:ok, updated}
-      {:error, changeset} -> {:error, :validation, changeset}
+      {:ok, updated} ->
+        Bobine.Events.broadcast(
+          %Bobine.Accounts.Scope{organization: updated},
+          {:organization_branding_updated, updated}
+        )
+
+        {:ok, updated}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 end
