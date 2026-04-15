@@ -63,7 +63,8 @@ defmodule BobineWeb.Admin.AppearanceLive do
      |> assign(:theme, theme)
      |> assign(:preview_theme, theme)
      |> assign(:theme_form, theme_form)
-     |> assign_catalog_state(org)}
+     |> assign_catalog_state(org)
+     |> assign_preview_rows(org)}
   end
 
   @impl true
@@ -155,11 +156,14 @@ defmodule BobineWeb.Admin.AppearanceLive do
         {:noreply, put_flash(socket, :error, "Unknown preset.")}
 
       {_, {:ok, layout}} ->
+        org = socket.assigns.organization
+
         {:noreply,
          socket
          |> assign(:layout_config, layout)
          |> assign(:selected_preset, layout.preset_name)
-         |> assign_catalog_state(socket.assigns.organization)
+         |> assign_catalog_state(org)
+         |> assign_preview_rows(org)
          |> put_flash(:info, apply_preset_message(seed_result, name))}
 
       {_, {:error, :validation, _}} ->
@@ -194,6 +198,23 @@ defmodule BobineWeb.Admin.AppearanceLive do
     socket
     |> assign(:row_count, row_count)
     |> assign(:catalog_empty?, row_count == 0)
+  end
+
+  # Load the operator's configured rows once on mount and after preset
+  # apply/overwrite. Kept off `validate_appearance` on purpose — branding
+  # edits fire on every keystroke and these rows don't change during a
+  # form edit.
+  defp assign_preview_rows(socket, org) do
+    rows =
+      Row
+      |> where(organization_id: ^org.id)
+      |> where([r], is_nil(r.deleted_at))
+      |> where([r], r.visible == true)
+      |> order_by(asc: :position)
+      |> limit(6)
+      |> Repo.all()
+
+    assign(socket, :preview_rows, rows)
   end
 
   defp maybe_derive_accent_variants(%{"accent_color_base" => base} = params)
@@ -519,6 +540,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
             preview_theme={@preview_theme}
             accent_preview={@accent_preview}
             display_font_preview={@display_font_preview}
+            rows={@preview_rows}
           />
           <p class="mt-3 text-xs opacity-60">
             Reflects brand + surface color changes live.
@@ -533,9 +555,16 @@ defmodule BobineWeb.Admin.AppearanceLive do
   attr :preview_theme, :map, required: true
   attr :accent_preview, :string, default: nil
   attr :display_font_preview, :string, default: nil
+  attr :rows, :list, default: []
 
   defp preview_panel(assigns) do
-    assigns = assign(assigns, :style, preview_style(assigns))
+    {hero, content_rows} = split_hero(assigns.rows)
+
+    assigns =
+      assigns
+      |> assign(:style, preview_style(assigns))
+      |> assign(:hero_row, hero)
+      |> assign(:content_rows, content_rows)
 
     ~H"""
     <div
@@ -552,49 +581,103 @@ defmodule BobineWeb.Admin.AppearanceLive do
           </span>
         </div>
 
-        <div style="min-height: 200px; background: linear-gradient(135deg, var(--sv-bg-secondary), var(--sv-bg-primary)); display: flex; align-items: flex-end; padding: 24px">
-          <div>
-            <div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sv-text-secondary); margin-bottom: 4px; font-family: var(--sv-font-body)">
-              Featured · Display font
-            </div>
-            <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 1.75rem; font-weight: 500; color: var(--sv-text-primary); letter-spacing: -0.01em; line-height: 1.1">
-              A French cinema Sunday
-            </div>
-            <p style="font-family: var(--sv-font-body); font-size: 0.8125rem; line-height: 1.5; color: var(--sv-text-secondary); margin-top: 8px; max-width: 360px">
-              Rohmer would have approved. Body copy uses your body font so
-              synopses and curator notes read comfortably at paragraph length.
-            </p>
-            <div style="margin-top: 10px">
-              <span style="display: inline-block; padding: 6px 16px; background: var(--sv-accent); color: var(--sv-text-on-accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500; font-family: var(--sv-font-heading)">
-                Watch now
-              </span>
-            </div>
-          </div>
+        <.preview_hero row={@hero_row} />
+
+        <div
+          :if={@content_rows == []}
+          style="padding: 24px; text-align: center; color: var(--sv-text-secondary); font-family: var(--sv-font-body); font-size: 0.875rem"
+        >
+          No rows configured yet. Apply a preset above or add rows in Catalog.
         </div>
 
-        <div style="padding: 16px 24px">
+        <div
+          :for={row <- @content_rows}
+          style="padding: 12px 24px"
+          data-test={"preview-row-" <> row.id}
+        >
           <div style="font-family: var(--sv-font-heading); font-size: 0.9rem; font-weight: 600; color: var(--sv-text-primary); margin-bottom: 8px">
-            Trending Now · Heading font
+            {row.title}
           </div>
-          <div style="display: flex; gap: 8px">
+          <div style="display: flex; gap: 8px; overflow: hidden">
             <div
-              :for={_i <- 1..4}
-              style="flex-shrink: 0; width: 100px; background: var(--sv-card-bg); border-radius: 4px; overflow: hidden"
+              :for={_i <- 1..preview_card_count(row)}
+              style={"flex-shrink: 0; width: #{preview_card_width(row)}px; background: var(--sv-card-bg); border-radius: 4px; overflow: hidden"}
             >
-              <div style="aspect-ratio: 16/9; background: var(--sv-bg-elevated)" />
+              <div style={"aspect-ratio: #{preview_aspect(row)}; background: var(--sv-bg-elevated)"} />
               <div style="padding: 6px">
                 <div style="height: 8px; width: 80%; background: var(--sv-bg-elevated); border-radius: 2px" />
               </div>
             </div>
           </div>
-          <p style="font-family: var(--sv-font-body); font-size: 0.75rem; line-height: 1.5; color: var(--sv-text-muted, var(--sv-text-secondary)); margin-top: 12px">
-            The quick brown fox jumps over the lazy dog — body font sample.
-          </p>
+        </div>
+
+        <p style="padding: 0 24px 16px; font-family: var(--sv-font-body); font-size: 0.75rem; line-height: 1.5; color: var(--sv-text-secondary)">
+          Body font sample — synopses, curator notes, and descriptions pick up this typeface.
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  attr :row, :map, default: nil
+
+  defp preview_hero(assigns) do
+    ~H"""
+    <div style="min-height: 200px; background: linear-gradient(135deg, var(--sv-bg-secondary), var(--sv-bg-primary)); display: flex; align-items: flex-end; padding: 24px">
+      <div>
+        <div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sv-text-secondary); margin-bottom: 4px; font-family: var(--sv-font-body)">
+          {hero_label(@row)}
+        </div>
+        <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 1.75rem; font-weight: 500; color: var(--sv-text-primary); letter-spacing: -0.01em; line-height: 1.1">
+          {hero_title(@row)}
+        </div>
+        <p style="font-family: var(--sv-font-body); font-size: 0.8125rem; line-height: 1.5; color: var(--sv-text-secondary); margin-top: 8px; max-width: 360px">
+          Your display font lives up here, your body font lives in this paragraph, and your accent is the button below.
+        </p>
+        <div style="margin-top: 10px">
+          <span style="display: inline-block; padding: 6px 16px; background: var(--sv-accent); color: var(--sv-text-on-accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500; font-family: var(--sv-font-heading)">
+            Watch now
+          </span>
         </div>
       </div>
     </div>
     """
   end
+
+  defp split_hero(rows) do
+    case Enum.split_with(rows, &(&1.source_type == :hero)) do
+      {[hero | _], content} -> {hero, content}
+      {[], content} -> {nil, content}
+    end
+  end
+
+  defp hero_label(nil), do: "Featured"
+  defp hero_label(%Row{title: title}) when is_binary(title) and title != "", do: title
+  defp hero_label(_), do: "Featured"
+
+  defp hero_title(nil), do: "A French cinema Sunday"
+  defp hero_title(_), do: "A French cinema Sunday"
+
+  # Map a row's card_variant to an aspect ratio + card width that matches
+  # the real viewer layout, so operators see the shape of their catalog.
+  defp preview_aspect(%Row{card_variant: variant}) do
+    case variant do
+      "poster_portrait" -> "2 / 3"
+      "creator_identity" -> "1 / 1"
+      "collection_editorial" -> "3 / 2"
+      "minimal_list_item" -> "2 / 3"
+      _ -> "16 / 9"
+    end
+  end
+
+  defp preview_card_width(%Row{card_variant: "poster_portrait"}), do: 64
+  defp preview_card_width(%Row{card_variant: "minimal_list_item"}), do: 64
+  defp preview_card_width(%Row{card_variant: "creator_identity"}), do: 72
+  defp preview_card_width(_), do: 100
+
+  defp preview_card_count(%Row{card_variant: "creator_identity"}), do: 5
+  defp preview_card_count(%Row{card_variant: "poster_portrait"}), do: 5
+  defp preview_card_count(_), do: 4
 
   # Merge Theme-driven `--sv-*` vars with Organization-driven tokens so the
   # preview reflects both the Brand form (accent + display font) and the
