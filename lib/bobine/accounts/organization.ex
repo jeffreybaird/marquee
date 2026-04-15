@@ -10,6 +10,14 @@ defmodule Bobine.Accounts.Organization do
     "Bodoni Moda"
   ]
 
+  @approved_body_fonts [
+    "Lora",
+    "Merriweather",
+    "Source Serif 4",
+    "Spectral",
+    "EB Garamond"
+  ]
+
   @approved_presets ~w(catalog_cinema learning_platform creator_channel)
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -46,6 +54,14 @@ defmodule Bobine.Accounts.Organization do
       true
   """
   def approved_display_fonts, do: @approved_display_fonts
+
+  @doc """
+  Returns the list of body fonts an operator may select.
+
+      iex> Bobine.Accounts.Organization.approved_body_fonts() |> Enum.member?("Lora")
+      true
+  """
+  def approved_body_fonts, do: @approved_body_fonts
 
   @doc false
   def changeset(organization, attrs) do

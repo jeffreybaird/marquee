@@ -126,7 +126,7 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
     end
   end
 
-  describe "branding form" do
+  describe "unified appearance form" do
     test "rejects a non-color accent value", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
 
@@ -134,40 +134,50 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
 
       html =
         view
-        |> form("form[phx-submit='save_branding']", organization: %{accent_color_base: "red"})
+        |> form("form[phx-submit='save_appearance']",
+          organization: %{accent_color_base: "red"}
+        )
         |> render_submit()
 
       assert html =~ "must be an oklch() or hex color"
     end
 
-    test "save_branding persists accent + display font", %{conn: _conn} do
+    test "save_appearance persists brand + theme in a single submit", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
       org = membership.organization
 
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
 
       view
-      |> form("form[phx-submit='save_branding']",
+      |> form("form[phx-submit='save_appearance']",
         organization: %{
           accent_color_base: "oklch(0.62 0.18 250)",
           display_font: "DM Serif Display"
+        },
+        theme: %{
+          font_heading: "Playfair Display",
+          font_body: "Lora",
+          background: "#111111"
         }
       )
       |> render_submit()
 
-      reloaded = Bobine.Repo.get!(Bobine.Accounts.Organization, org.id)
-      assert reloaded.accent_color_base == "oklch(0.62 0.18 250)"
-      assert reloaded.display_font == "DM Serif Display"
-    end
-  end
+      reloaded_org = Bobine.Repo.get!(Bobine.Accounts.Organization, org.id)
+      assert reloaded_org.accent_color_base == "oklch(0.62 0.18 250)"
+      assert reloaded_org.display_font == "DM Serif Display"
 
-  describe "surface color form (absorbed from /admin/branding)" do
-    test "renders the theme editor", %{conn: _conn} do
+      theme = Bobine.Branding.get_theme_or_default(reloaded_org)
+      assert theme.font_heading == "Playfair Display"
+      assert theme.font_body == "Lora"
+      assert theme.background == "#111111"
+    end
+
+    test "renders the theme editor inside the unified form", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
 
       assert has_element?(view, "[data-test='theme-editor']")
-      assert has_element?(view, "[data-test='theme-publish-btn']")
+      assert has_element?(view, "[data-test='save-branding-btn']")
     end
   end
 end

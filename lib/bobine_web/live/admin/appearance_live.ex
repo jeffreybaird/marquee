@@ -59,6 +59,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
      |> assign(:accent_preview, org.accent_color_base)
      |> assign(:display_font_preview, org.display_font)
      |> assign(:display_fonts, Organization.approved_display_fonts())
+     |> assign(:body_fonts, Organization.approved_body_fonts())
      |> assign(:theme, theme)
      |> assign(:preview_theme, theme)
      |> assign(:theme_form, theme_form)
@@ -83,73 +84,63 @@ defmodule BobineWeb.Admin.AppearanceLive do
   end
 
   @impl true
-  def handle_event("preview_branding", %{"organization" => params}, socket) do
+  def handle_event("validate_appearance", params, socket) do
+    org_params = Map.get(params, "organization", %{})
+    theme_params = Map.get(params, "theme", %{})
+
+    theme = socket.assigns.theme
+    preview = apply_theme_preview(theme, theme_params)
+
     {:noreply,
      socket
-     |> assign(:accent_preview, Map.get(params, "accent_color_base") || "")
-     |> assign(:display_font_preview, Map.get(params, "display_font") || "")
+     |> assign(:accent_preview, Map.get(org_params, "accent_color_base") || "")
+     |> assign(:display_font_preview, Map.get(org_params, "display_font") || "")
      |> assign(
        :branding_form,
        socket.assigns.organization
-       |> Organization.branding_changeset(params)
+       |> Organization.branding_changeset(org_params)
        |> to_form()
-     )}
-  end
-
-  @impl true
-  def handle_event("save_branding", %{"organization" => params}, socket) do
-    params = maybe_derive_accent_variants(params)
-    org = socket.assigns.organization
-
-    case Accounts.update_organization_branding(org, params) do
-      {:ok, updated} ->
-        {:noreply,
-         socket
-         |> assign(:organization, updated)
-         |> put_flash(:info, "Branding saved.")}
-
-      {:error, :validation, changeset} ->
-        {:noreply, assign(socket, :branding_form, to_form(changeset))}
-    end
-  end
-
-  @impl true
-  def handle_event("validate_theme", %{"theme" => params}, socket) do
-    theme = socket.assigns.theme
-    changeset = Branding.change_theme(theme, params)
-    preview = apply_theme_preview(theme, params)
-
-    {:noreply,
-     socket
-     |> assign(:theme_form, to_form(changeset))
+     )
+     |> assign(:theme_form, theme |> Branding.change_theme(theme_params) |> to_form())
      |> assign(:preview_theme, preview)}
   end
 
   @impl true
-  def handle_event("save_theme", %{"theme" => params}, socket) do
+  def handle_event("save_appearance", params, socket) do
     org = socket.assigns.organization
     theme = socket.assigns.theme
 
-    result =
-      if theme.id do
-        Branding.update_theme(theme, params)
-      else
-        Branding.create_theme(Map.put(params, "organization_id", org.id))
-      end
+    org_params = params |> Map.get("organization", %{}) |> maybe_derive_accent_variants()
+    theme_params = Map.get(params, "theme", %{})
 
-    case result do
-      {:ok, updated} ->
-        {:noreply,
-         socket
-         |> assign(:theme, updated)
-         |> assign(:preview_theme, updated)
-         |> assign(:theme_form, to_form(Branding.change_theme(updated)))
-         |> put_flash(:info, "Surface colors published.")}
+    with {:branding, {:ok, updated_org}} <-
+           {:branding, Accounts.update_organization_branding(org, org_params)},
+         {:theme, {:ok, updated_theme}} <- {:theme, save_theme(theme, theme_params, org)} do
+      {:noreply,
+       socket
+       |> assign(:organization, updated_org)
+       |> assign(:theme, updated_theme)
+       |> assign(:preview_theme, updated_theme)
+       |> assign(:theme_form, to_form(Branding.change_theme(updated_theme)))
+       |> assign(
+         :branding_form,
+         updated_org |> Organization.branding_changeset(%{}) |> to_form()
+       )
+       |> put_flash(:info, "Appearance saved.")}
+    else
+      {:branding, {:error, :validation, cs}} ->
+        {:noreply, assign(socket, :branding_form, to_form(cs))}
 
-      {:error, :validation, changeset} ->
-        {:noreply, assign(socket, :theme_form, to_form(changeset))}
+      {:theme, {:error, :validation, cs}} ->
+        {:noreply, assign(socket, :theme_form, to_form(cs))}
     end
   end
+
+  defp save_theme(%Theme{id: nil}, params, %{id: org_id}) do
+    Branding.create_theme(Map.put(params, "organization_id", org_id))
+  end
+
+  defp save_theme(%Theme{} = theme, params, _org), do: Branding.update_theme(theme, params)
 
   defp apply_preset(socket, scope, name, destructive: destructive) do
     seed_result =
@@ -371,57 +362,77 @@ defmodule BobineWeb.Admin.AppearanceLive do
         data-test="branding-editor"
       >
         <div class="space-y-10">
-          <section>
-            <h2 class="text-xl font-semibold mb-4">Brand</h2>
-            <.form
-              for={@branding_form}
-              phx-change="preview_branding"
-              phx-submit="save_branding"
-              class="space-y-4"
-            >
-              <div class="flex items-center gap-3">
-                <.input
-                  field={@branding_form[:accent_color_base]}
-                  type="text"
-                  label="Accent color (oklch or hex)"
-                  placeholder="oklch(0.72 0.14 68)"
-                />
-                <div
-                  class="w-10 h-10 rounded-full border border-base-300"
-                  style={"background-color: " <> (@accent_preview || "transparent")}
-                  data-test="accent-swatch"
-                  aria-hidden="true"
-                  title="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
-                >
+          <.form
+            for={@branding_form}
+            phx-change="validate_appearance"
+            phx-submit="save_appearance"
+            class="space-y-10"
+          >
+            <section>
+              <h2 class="text-xl font-semibold mb-4">Brand</h2>
+              <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                  <.input
+                    field={@branding_form[:accent_color_base]}
+                    type="text"
+                    label="Accent color (oklch or hex)"
+                    placeholder="oklch(0.72 0.14 68)"
+                  />
+                  <div
+                    class="w-10 h-10 rounded-full border border-base-300"
+                    style={"background-color: " <> (@accent_preview || "transparent")}
+                    data-test="accent-swatch"
+                    aria-hidden="true"
+                    title="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
+                  >
+                  </div>
                 </div>
-              </div>
 
-              <div style={display_font_style(@display_font_preview)}>
+                <div style={display_font_style(@display_font_preview)}>
+                  <.input
+                    field={@branding_form[:display_font]}
+                    type="select"
+                    label="Display font"
+                    options={[{"System default", ""} | Enum.map(@display_fonts, &{&1, &1})]}
+                  />
+                  <p class="text-3xl mt-2" data-test="display-font-preview">
+                    The quick brown fox
+                  </p>
+                </div>
+
+                <h3 class="text-lg font-medium mt-6">Typography</h3>
                 <.input
-                  field={@branding_form[:display_font]}
+                  field={@theme_form[:font_heading]}
                   type="select"
-                  label="Display font"
+                  label="Heading font"
                   options={[{"System default", ""} | Enum.map(@display_fonts, &{&1, &1})]}
                 />
-                <p class="text-3xl mt-2" data-test="display-font-preview">
-                  The quick brown fox
-                </p>
+                <.input
+                  field={@theme_form[:font_body]}
+                  type="select"
+                  label="Body font"
+                  options={[{"System default", ""} | Enum.map(@body_fonts, &{&1, &1})]}
+                />
+
+                <h3 class="text-lg font-medium mt-6">Assets</h3>
+                <.input field={@theme_form[:logo_url]} type="text" label="Logo URL" />
+                <.input field={@theme_form[:favicon_url]} type="text" label="Favicon URL" />
+                <.input
+                  field={@theme_form[:login_background_image_url]}
+                  type="text"
+                  label="Login background image URL"
+                  placeholder="https://example.com/login-bg.jpg"
+                />
               </div>
+            </section>
 
-              <button type="submit" class="btn btn-primary" data-test="save-branding-btn">
-                Save branding
-              </button>
-            </.form>
-          </section>
+            <section data-test="theme-editor">
+              <h2 class="text-xl font-semibold mb-4">Surface colors</h2>
+              <p class="text-sm opacity-70 mb-4">
+                Hover any field for a hint on where it shows up. Changes stream
+                to the preview as you edit.
+              </p>
 
-          <section data-test="theme-editor">
-            <h2 class="text-xl font-semibold mb-4">Surface colors</h2>
-            <p class="text-sm opacity-70 mb-4">
-              Hover any field for a hint on where it shows up. Changes stream to
-              the preview as you edit.
-            </p>
-
-            <.form for={@theme_form} phx-change="validate_theme" phx-submit="save_theme">
               <div class="space-y-4">
                 <h3 class="text-lg font-medium">Colors</h3>
                 <.color_input
@@ -486,33 +497,15 @@ defmodule BobineWeb.Admin.AppearanceLive do
                   label="Input Placeholder"
                   hint="Dimmer placeholder text inside empty inputs before the viewer types."
                 />
-
-                <h3 class="text-lg font-medium mt-6">Typography</h3>
-                <.input
-                  field={@theme_form[:font_heading]}
-                  type="text"
-                  label="Heading Font"
-                />
-                <.input field={@theme_form[:font_body]} type="text" label="Body Font" />
-
-                <h3 class="text-lg font-medium mt-6">Assets</h3>
-                <.input field={@theme_form[:logo_url]} type="text" label="Logo URL" />
-                <.input field={@theme_form[:favicon_url]} type="text" label="Favicon URL" />
-                <.input
-                  field={@theme_form[:login_background_image_url]}
-                  type="text"
-                  label="Login background image URL"
-                  placeholder="https://example.com/login-bg.jpg"
-                />
-
-                <div class="mt-6">
-                  <.button type="submit" data-test="theme-publish-btn">
-                    Publish surface colors
-                  </.button>
-                </div>
               </div>
-            </.form>
-          </section>
+            </section>
+
+            <div class="pt-4">
+              <.button type="submit" data-test="save-branding-btn">
+                Save appearance
+              </.button>
+            </div>
+          </.form>
         </div>
 
         <div class="lg:sticky lg:top-4 self-start">
