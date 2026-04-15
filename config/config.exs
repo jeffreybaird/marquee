@@ -126,7 +126,8 @@ config :logger, :default_formatter,
     :bytes_uploaded,
     :filename,
     :size,
-    :spaces_key
+    :spaces_key,
+    :raw_params
   ]
 
 # Configure Oban

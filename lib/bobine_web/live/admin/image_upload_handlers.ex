@@ -256,7 +256,7 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
         org_id: org_id,
         upload_kind: kind,
         target_id: target_id,
-        error: error,
+        error: error || "(empty)",
         http_status: params["http_status"],
         response_body: params["response_body"],
         bytes_uploaded: params["bytes_uploaded"],
@@ -264,7 +264,8 @@ defmodule BobineWeb.Admin.ImageUploadHandlers do
         filename: params["filename"],
         content_type: params["content_type"],
         size: params["size"],
-        spaces_key: params["key"]
+        spaces_key: params["key"],
+        raw_params: inspect(params, limit: :infinity, printable_limit: 2048)
       )
 
       {:noreply, fail_slot(socket, kind, target_id, error)}

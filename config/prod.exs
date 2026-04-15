@@ -66,7 +66,8 @@ config :logger, :default_handler,
        :bytes_uploaded,
        :filename,
        :size,
-       :spaces_key
+       :spaces_key,
+       :raw_params
      ]}
 
 # Production uploads should request Mux plus quality.

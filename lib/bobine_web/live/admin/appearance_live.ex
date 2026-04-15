@@ -366,51 +366,153 @@ defmodule BobineWeb.Admin.AppearanceLive do
         </div>
       </details>
 
-      <section
+      <div
         class="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
         data-test="branding-editor"
       >
-        <div>
-          <h2 class="text-xl font-semibold mb-4">Brand</h2>
-          <.form
-            for={@branding_form}
-            phx-change="preview_branding"
-            phx-submit="save_branding"
-            class="space-y-4"
-          >
-            <div class="flex items-center gap-3">
-              <.input
-                field={@branding_form[:accent_color_base]}
-                type="text"
-                label="Accent color (oklch or hex)"
-                placeholder="oklch(0.72 0.14 68)"
-              />
-              <div
-                class="w-10 h-10 rounded-full border border-base-300"
-                style={"background-color: " <> (@accent_preview || "transparent")}
-                data-test="accent-swatch"
-                aria-hidden="true"
-                title="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
-              >
+        <div class="space-y-10">
+          <section>
+            <h2 class="text-xl font-semibold mb-4">Brand</h2>
+            <.form
+              for={@branding_form}
+              phx-change="preview_branding"
+              phx-submit="save_branding"
+              class="space-y-4"
+            >
+              <div class="flex items-center gap-3">
+                <.input
+                  field={@branding_form[:accent_color_base]}
+                  type="text"
+                  label="Accent color (oklch or hex)"
+                  placeholder="oklch(0.72 0.14 68)"
+                />
+                <div
+                  class="w-10 h-10 rounded-full border border-base-300"
+                  style={"background-color: " <> (@accent_preview || "transparent")}
+                  data-test="accent-swatch"
+                  aria-hidden="true"
+                  title="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
+                >
+                </div>
               </div>
-            </div>
 
-            <div style={display_font_style(@display_font_preview)}>
-              <.input
-                field={@branding_form[:display_font]}
-                type="select"
-                label="Display font"
-                options={[{"System default", ""} | Enum.map(@display_fonts, &{&1, &1})]}
-              />
-              <p class="text-3xl mt-2" data-test="display-font-preview">
-                The quick brown fox
-              </p>
-            </div>
+              <div style={display_font_style(@display_font_preview)}>
+                <.input
+                  field={@branding_form[:display_font]}
+                  type="select"
+                  label="Display font"
+                  options={[{"System default", ""} | Enum.map(@display_fonts, &{&1, &1})]}
+                />
+                <p class="text-3xl mt-2" data-test="display-font-preview">
+                  The quick brown fox
+                </p>
+              </div>
 
-            <button type="submit" class="btn btn-primary" data-test="save-branding-btn">
-              Save branding
-            </button>
-          </.form>
+              <button type="submit" class="btn btn-primary" data-test="save-branding-btn">
+                Save branding
+              </button>
+            </.form>
+          </section>
+
+          <section data-test="theme-editor">
+            <h2 class="text-xl font-semibold mb-4">Surface colors</h2>
+            <p class="text-sm opacity-70 mb-4">
+              Hover any field for a hint on where it shows up. Changes stream to
+              the preview as you edit.
+            </p>
+
+            <.form for={@theme_form} phx-change="validate_theme" phx-submit="save_theme">
+              <div class="space-y-4">
+                <h3 class="text-lg font-medium">Colors</h3>
+                <.color_input
+                  form={@theme_form}
+                  field={:background}
+                  label="Background"
+                  hint="Page background behind every viewer surface. Set the darkest or lightest canvas first — other surfaces layer on top."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:surface}
+                  label="Surface"
+                  hint="Cards, panels, and content row backgrounds. Usually one shade lighter than Background."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:elevated}
+                  label="Elevated"
+                  hint="Raised elements — dropdowns, dialogs, inline menus. Usually another step lighter than Surface."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:text_primary}
+                  label="Text Primary"
+                  hint="Main body and heading text. Needs at least 4.5:1 contrast with Background."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:text_secondary}
+                  label="Text Secondary"
+                  hint="Subtitles, metadata, descriptions. Softer than primary text."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:text_on_accent}
+                  label="Text on Accent"
+                  hint="Foreground color for text placed on top of the accent color (buttons, badges). Needs contrast with your accent."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:card_background}
+                  label="Card Background"
+                  hint="Individual content card fill on the catalog. Usually matches Surface or sits just above it."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:nav_background}
+                  label="Nav Background"
+                  hint="Top navigation bar fill. Often semi-transparent over the page background."
+                />
+
+                <h3 class="text-lg font-medium mt-6">Form Fields</h3>
+                <.color_input
+                  form={@theme_form}
+                  field={:form_text}
+                  label="Input Text"
+                  hint="Color of text typed into login, search, and form inputs."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:form_placeholder}
+                  label="Input Placeholder"
+                  hint="Dimmer placeholder text inside empty inputs before the viewer types."
+                />
+
+                <h3 class="text-lg font-medium mt-6">Typography</h3>
+                <.input
+                  field={@theme_form[:font_heading]}
+                  type="text"
+                  label="Heading Font"
+                />
+                <.input field={@theme_form[:font_body]} type="text" label="Body Font" />
+
+                <h3 class="text-lg font-medium mt-6">Assets</h3>
+                <.input field={@theme_form[:logo_url]} type="text" label="Logo URL" />
+                <.input field={@theme_form[:favicon_url]} type="text" label="Favicon URL" />
+                <.input
+                  field={@theme_form[:login_background_image_url]}
+                  type="text"
+                  label="Login background image URL"
+                  placeholder="https://example.com/login-bg.jpg"
+                />
+
+                <div class="mt-6">
+                  <.button type="submit" data-test="theme-publish-btn">
+                    Publish surface colors
+                  </.button>
+                </div>
+              </div>
+            </.form>
+          </section>
         </div>
 
         <div class="lg:sticky lg:top-4 self-start">
@@ -422,115 +524,10 @@ defmodule BobineWeb.Admin.AppearanceLive do
             display_font_preview={@display_font_preview}
           />
           <p class="mt-3 text-xs opacity-60">
-            Reflects both brand and surface color changes as you type.
+            Reflects brand + surface color changes live.
           </p>
         </div>
-      </section>
-
-      <section class="mt-10" data-test="theme-editor">
-        <h2 class="text-xl font-semibold mb-4">Surface colors</h2>
-        <p class="text-sm opacity-70 mb-4 max-w-2xl">
-          Hover any field for a hint on where it shows up. Changes stream to
-          the preview above as you edit.
-        </p>
-
-        <.form
-          for={@theme_form}
-          phx-change="validate_theme"
-          phx-submit="save_theme"
-          class="max-w-xl"
-        >
-          <div class="space-y-4">
-            <h3 class="text-lg font-medium">Colors</h3>
-            <.color_input
-              form={@theme_form}
-              field={:background}
-              label="Background"
-              hint="Page background behind every viewer surface. Set the darkest or lightest canvas first — other surfaces layer on top."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:surface}
-              label="Surface"
-              hint="Cards, panels, and content row backgrounds. Usually one shade lighter than Background."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:elevated}
-              label="Elevated"
-              hint="Raised elements — dropdowns, dialogs, inline menus. Usually another step lighter than Surface."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:text_primary}
-              label="Text Primary"
-              hint="Main body and heading text. Needs at least 4.5:1 contrast with Background."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:text_secondary}
-              label="Text Secondary"
-              hint="Subtitles, metadata, descriptions. Softer than primary text."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:text_on_accent}
-              label="Text on Accent"
-              hint="Foreground color for text placed on top of the accent color (buttons, badges). Needs contrast with your accent."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:card_background}
-              label="Card Background"
-              hint="Individual content card fill on the catalog. Usually matches Surface or sits just above it."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:nav_background}
-              label="Nav Background"
-              hint="Top navigation bar fill. Often semi-transparent over the page background."
-            />
-
-            <h3 class="text-lg font-medium mt-6">Form Fields</h3>
-            <.color_input
-              form={@theme_form}
-              field={:form_text}
-              label="Input Text"
-              hint="Color of text typed into login, search, and form inputs."
-            />
-            <.color_input
-              form={@theme_form}
-              field={:form_placeholder}
-              label="Input Placeholder"
-              hint="Dimmer placeholder text inside empty inputs before the viewer types."
-            />
-
-            <h3 class="text-lg font-medium mt-6">Typography</h3>
-            <.input
-              field={@theme_form[:font_heading]}
-              type="text"
-              label="Heading Font"
-            />
-            <.input field={@theme_form[:font_body]} type="text" label="Body Font" />
-
-            <h3 class="text-lg font-medium mt-6">Assets</h3>
-            <.input field={@theme_form[:logo_url]} type="text" label="Logo URL" />
-            <.input field={@theme_form[:favicon_url]} type="text" label="Favicon URL" />
-            <.input
-              field={@theme_form[:login_background_image_url]}
-              type="text"
-              label="Login background image URL"
-              placeholder="https://example.com/login-bg.jpg"
-            />
-
-            <div class="mt-6">
-              <.button type="submit" data-test="theme-publish-btn">
-                Publish surface colors
-              </.button>
-            </div>
-          </div>
-        </.form>
-      </section>
+      </div>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end
