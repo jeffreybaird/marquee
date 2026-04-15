@@ -90,7 +90,7 @@ defmodule BobineWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "[data-test='admin-nav-content']")
       assert has_element?(view, "[data-test='admin-nav-catalog']")
       assert has_element?(view, "[data-test='admin-nav-analytics']")
-      assert has_element?(view, "[data-test='admin-nav-branding']")
+      assert has_element?(view, "[data-test='admin-nav-appearance']")
       assert has_element?(view, "[data-test='admin-nav-members']")
       assert has_element?(view, "[data-test='admin-nav-webhooks']")
       assert has_element?(view, "[data-test='admin-nav-settings']")

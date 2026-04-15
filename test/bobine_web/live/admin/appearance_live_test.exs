@@ -13,14 +13,7 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
 
       {:ok, _view, html} = live(conn_for(membership), ~p"/admin/appearance")
       assert html =~ "Appearance"
-      assert html =~ "Presets"
-    end
-
-    test "shows the split notice pointing to Catalog + Branding", %{conn: _conn} do
-      membership = insert(:membership, role: :admin)
-
-      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
-      assert has_element?(view, "[data-test='appearance-split-notice']")
+      assert html =~ "Preset chooser"
     end
 
     test "unauthenticated user is redirected", %{conn: conn} do
@@ -31,24 +24,44 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
     end
   end
 
-  describe "preset selection" do
-    test "preview_preset stages a preview without persisting", %{conn: _conn} do
+  describe "preset drawer" do
+    test "drawer opens by default when the catalog is empty", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
-      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/appearance")
 
-      view
-      |> element("button[data-test='preset-card-learning_platform']")
-      |> render_click()
-
-      # Preview state — an "Apply preset" button surfaces.
-      assert has_element?(view, "[data-test='apply-preset-btn']")
-
-      # Layout row untouched until apply.
-      {:ok, layout} = Catalog.get_or_create_layout(membership.organization)
-      assert layout.preset_name == "catalog_cinema"
+      # details tag rendered with `open` attribute when catalog_empty? is true.
+      assert html =~ ~s(data-test="preset-drawer" open)
+      refute html =~ "preset-destructive-warning"
     end
 
-    test "apply_preset seeds rows from the preset on an empty catalog", %{conn: _conn} do
+    test "drawer shows destructive warning + overwrite button when the catalog has rows",
+         %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+
+      insert(:row,
+        organization: org,
+        title: "Keep Me",
+        source_type: :recent,
+        position: 0,
+        visible: true
+      )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      # Switch the selected preset so the apply controls surface.
+      view
+      |> element("button[data-test='preset-card-creator_channel']")
+      |> render_click()
+
+      assert has_element?(view, "[data-test='preset-destructive-warning']")
+      assert has_element?(view, "[data-test='overwrite-preset-btn']")
+      refute has_element?(view, "[data-test='apply-preset-btn']")
+    end
+  end
+
+  describe "apply_preset (empty catalog)" do
+    test "seeds rows from the preset", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
       org = membership.organization
 
@@ -69,8 +82,10 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
       assert length(rows) >= 2, "expected preset rows to be seeded"
       assert Enum.any?(rows, &(&1.source_type == :continue_watching))
     end
+  end
 
-    test "apply_preset does not overwrite an existing catalog", %{conn: _conn} do
+  describe "overwrite_preset (existing catalog)" do
+    test "soft-deletes existing rows and seeds preset defaults", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
       org = membership.organization
 
@@ -90,13 +105,24 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
       |> render_click()
 
       view
-      |> element("[data-test='apply-preset-btn']")
+      |> element("[data-test='overwrite-preset-btn']")
       |> render_click()
 
-      rows = Bobine.Repo.all(from r in Row, where: r.organization_id == ^org.id)
-      assert Enum.any?(rows, &(&1.id == existing.id))
-      # Preset did not duplicate rows on top of the existing catalog.
-      assert length(rows) == 1
+      live_rows =
+        Bobine.Repo.all(
+          from r in Row,
+            where: r.organization_id == ^org.id and is_nil(r.deleted_at)
+        )
+
+      refute Enum.any?(live_rows, &(&1.id == existing.id)),
+             "destructive overwrite should soft-delete the old row"
+
+      assert length(live_rows) >= 2, "expected preset rows to be seeded post-overwrite"
+      assert Enum.any?(live_rows, &(&1.source_type == :continue_watching))
+
+      # The original row is still queryable with deleted_at set.
+      deleted = Bobine.Repo.get(Row, existing.id)
+      assert deleted.deleted_at != nil
     end
   end
 
@@ -108,7 +134,7 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
 
       html =
         view
-        |> form("form", organization: %{accent_color_base: "red"})
+        |> form("form[phx-submit='save_branding']", organization: %{accent_color_base: "red"})
         |> render_submit()
 
       assert html =~ "must be an oklch() or hex color"
@@ -121,7 +147,7 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
 
       view
-      |> form("form",
+      |> form("form[phx-submit='save_branding']",
         organization: %{
           accent_color_base: "oklch(0.62 0.18 250)",
           display_font: "DM Serif Display"
@@ -132,6 +158,16 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
       reloaded = Bobine.Repo.get!(Bobine.Accounts.Organization, org.id)
       assert reloaded.accent_color_base == "oklch(0.62 0.18 250)"
       assert reloaded.display_font == "DM Serif Display"
+    end
+  end
+
+  describe "surface color form (absorbed from /admin/branding)" do
+    test "renders the theme editor", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      assert has_element?(view, "[data-test='theme-editor']")
+      assert has_element?(view, "[data-test='theme-publish-btn']")
     end
   end
 end

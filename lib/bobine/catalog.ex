@@ -1004,6 +1004,36 @@ defmodule Bobine.Catalog do
     end
   end
 
+  @doc """
+  Destructive: soft-deletes every row in the org's catalog and seeds
+  fresh rows from the named preset. Used by the operator appearance
+  page's "overwrite" path — the caller is responsible for confirming
+  with the user first.
+
+  Returns `{:ok, :overwritten, rows}` on success, `{:error, :not_found}`
+  for unknown presets, or `{:error, :validation, changeset}` if seeding
+  one of the new rows fails.
+
+  Exempt from doctest — hits the database.
+  """
+  def overwrite_rows_with_preset(scope, preset_name) when is_binary(preset_name) do
+    org = scope.organization
+
+    with {:ok, _preset} <- Presets.get(preset_name) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      Row
+      |> where(organization_id: ^org.id)
+      |> where([r], is_nil(r.deleted_at))
+      |> Repo.update_all(set: [deleted_at: now, updated_at: now])
+
+      case seed_rows_from_preset_if_empty(scope, preset_name) do
+        {:ok, :seeded, rows} -> {:ok, :overwritten, rows}
+        other -> other
+      end
+    end
+  end
+
   defp existing_non_deleted_rows(org_id) do
     Row
     |> where(organization_id: ^org_id)

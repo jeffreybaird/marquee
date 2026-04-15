@@ -3,30 +3,22 @@ defmodule BobineWeb.Admin.BrandingLiveTest do
 
   import Phoenix.LiveViewTest
 
-  describe "access control" do
-    test "admin can access branding page", %{conn: _conn} do
+  describe "legacy /admin/branding redirect" do
+    test "admin is redirected to /admin/appearance", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
-      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/branding")
-      assert html =~ "Branding"
+
+      assert {:error, {:live_redirect, %{to: path}}} =
+               live(conn_for(membership), ~p"/admin/branding")
+
+      assert path == ~p"/admin/appearance"
     end
 
-    test "viewer_support can access branding page", %{conn: _conn} do
-      membership = insert(:membership, role: :viewer_support)
-      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/branding")
-      assert html =~ "Branding"
-    end
-
-    test "unauthenticated user is redirected", %{conn: conn} do
+    test "unauthenticated user is redirected to log-in", %{conn: conn} do
       org = insert(:organization)
       conn = Map.put(conn, :host, "#{org.slug}.localhost")
+
       assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/admin/branding")
       assert path == ~p"/users/log-in"
-    end
-
-    test "displays organization name", %{conn: _conn} do
-      membership = insert(:membership, role: :admin)
-      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/branding")
-      assert has_element?(view, "[data-test='org-name']", membership.organization.name)
     end
   end
 end

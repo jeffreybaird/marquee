@@ -144,12 +144,6 @@ defmodule BobineWeb.Components.AdminLayout do
               data_test="admin-nav-analytics"
             />
             <.nav_link
-              href={~p"/admin/branding"}
-              label="Branding"
-              current_path={@current_path}
-              data_test="admin-nav-branding"
-            />
-            <.nav_link
               href={~p"/admin/appearance"}
               label="Appearance"
               current_path={@current_path}
