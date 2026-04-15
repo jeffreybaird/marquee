@@ -368,6 +368,39 @@ defmodule Bobine.Catalog do
       :hero ->
         # Hero rows resolve their content through resolve_hero_slides/1, not here
         %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+
+      # Preset row types seeded by Catalog.seed_rows_from_preset_if_empty/2.
+      # Until operators point these rows at specific content, they resolve
+      # to sensible defaults so a fresh org never crashes the homepage.
+      :popularity ->
+        Content.list_videos(
+          organization,
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}], exclude_episodes: true)
+        )
+
+      :preferences ->
+        Content.list_videos(
+          organization,
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}], exclude_episodes: true)
+        )
+
+      :tags ->
+        # No specific tag bound yet — fall back to recent videos.
+        Content.list_videos(
+          organization,
+          Keyword.merge(opts, order_by: [{:desc, :inserted_at}], exclude_episodes: true)
+        )
+
+      :series ->
+        Content.list_series(organization, opts)
+
+      :creator_showcase ->
+        # No creator schema yet — empty until wired up by operator UI.
+        %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+
+      :editorial_spotlight ->
+        # Editorial rows need a bound collection — empty until configured.
+        %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
     end
   end
 
