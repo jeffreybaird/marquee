@@ -182,6 +182,18 @@ defmodule BobineWeb.Plugs.SetOrganizationTest do
       assert conn.assigns.organization.id == org.id
     end
 
+    test "resolves `?org=` when query params have not been pre-fetched", %{conn: conn} do
+      org = insert(:organization, slug: "lazy-fetch-org")
+
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Map.put(:query_string, "org=lazy-fetch-org")
+        |> SetOrganization.call([])
+
+      assert conn.assigns.organization.id == org.id
+    end
+
     test "stashes the resolved slug in the session", %{conn: conn} do
       org = insert(:organization, slug: "demo-org")
 

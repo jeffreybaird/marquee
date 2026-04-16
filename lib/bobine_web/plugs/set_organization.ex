@@ -35,6 +35,8 @@ defmodule BobineWeb.Plugs.SetOrganization do
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   def call(conn, opts) do
+    conn = fetch_query_params(conn)
+
     case resolve_organization(conn, opts) do
       {:ok, organization} ->
         conn = put_org_in_session(conn, organization)
@@ -142,7 +144,7 @@ defmodule BobineWeb.Plugs.SetOrganization do
   defp explicit_org_signal(conn) do
     slug =
       get_req_header(conn, "x-bobine-org") |> List.first() ||
-        case conn.params do
+        case conn.query_params do
           %Plug.Conn.Unfetched{} -> nil
           params -> Map.get(params, "org")
         end
