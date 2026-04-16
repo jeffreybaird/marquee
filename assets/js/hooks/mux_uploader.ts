@@ -25,10 +25,9 @@
  *   - "upload_error"     { video_id: string, error: string }
  */
 
-let clientIdCounter = 0
-
 const MuxUploader = {
   mounted() {
+    this.clientIdCounter = 0
     this.selectedFiles = new Map<string, File>()
 
     // Listen for file selection anywhere in the document
@@ -40,7 +39,7 @@ const MuxUploader = {
         const fileEntries: { client_id: string; name: string }[] = []
 
         for (const file of Array.from(target.files)) {
-          const clientId = `file_${++clientIdCounter}`
+          const clientId = `file_${++this.clientIdCounter}`
           this.selectedFiles.set(clientId, file)
           fileEntries.push({ client_id: clientId, name: file.name })
         }
