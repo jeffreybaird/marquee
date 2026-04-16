@@ -69,6 +69,7 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:hero_available_videos, [])
      |> assign(:hero_save_status, %{})
      |> assign(:hero_collapsed, false)
+     |> assign(:hero_expanded_slide, nil)
      |> load_rows()
      |> load_hero_row()}
   end
@@ -341,6 +342,14 @@ defmodule BobineWeb.Admin.CatalogLive do
   end
 
   @impl true
+  def handle_event("expand_hero_slide", %{"slide-id" => slide_id}, socket) do
+    current = socket.assigns.hero_expanded_slide
+
+    {:noreply,
+     assign(socket, :hero_expanded_slide, if(current == slide_id, do: nil, else: slide_id))}
+  end
+
+  @impl true
   def handle_event("create_hero", _params, socket) do
     scope = socket.assigns.current_scope
 
@@ -419,6 +428,7 @@ defmodule BobineWeb.Admin.CatalogLive do
   def handle_event("save_hero_slide", %{"slide-id" => slide_id} = params, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
+    autosave? = Map.has_key?(params, "_target")
 
     case Catalog.get_hero_slide(org, slide_id) do
       {:ok, slide} ->
@@ -436,19 +446,22 @@ defmodule BobineWeb.Admin.CatalogLive do
           {:ok, _} ->
             Process.send_after(self(), {:clear_hero_save_status, slide_id}, 3_000)
 
-            {:noreply,
-             socket
-             |> put_flash(:info, "Slide updated.")
-             |> update(:hero_save_status, &Map.put(&1, slide_id, :ok))
-             |> load_hero_slides()}
+            socket =
+              socket
+              |> update(:hero_save_status, &Map.put(&1, slide_id, :ok))
+              |> load_hero_slides()
+
+            {:noreply, if(autosave?, do: socket, else: put_flash(socket, :info, "Slide updated."))}
 
           {:error, :validation, _changeset} ->
             Process.send_after(self(), {:clear_hero_save_status, slide_id}, 5_000)
 
+            socket =
+              socket
+              |> update(:hero_save_status, &Map.put(&1, slide_id, :error))
+
             {:noreply,
-             socket
-             |> put_flash(:error, "Failed to update slide.")
-             |> update(:hero_save_status, &Map.put(&1, slide_id, :error))}
+             if(autosave?, do: socket, else: put_flash(socket, :error, "Failed to update slide."))}
         end
 
       {:error, :not_found} ->
@@ -547,9 +560,20 @@ defmodule BobineWeb.Admin.CatalogLive do
 
     if hero_row do
       enriched = Catalog.list_enriched_hero_slides(org, hero_row)
-      assign(socket, :hero_slides, enriched)
+      expanded = socket.assigns.hero_expanded_slide
+
+      expanded =
+        cond do
+          expanded && Enum.any?(enriched, &(&1.id == expanded)) -> expanded
+          enriched != [] -> hd(enriched).id
+          true -> nil
+        end
+
+      socket
+      |> assign(:hero_slides, enriched)
+      |> assign(:hero_expanded_slide, expanded)
     else
-      assign(socket, :hero_slides, [])
+      assign(socket, hero_slides: [], hero_expanded_slide: nil)
     end
   end
 

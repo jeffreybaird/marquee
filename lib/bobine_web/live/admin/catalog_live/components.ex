@@ -126,6 +126,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   attr :hero_available_videos, :list, required: true
   attr :hero_save_status, :map, required: true
   attr :hero_collapsed, :boolean, required: true
+  attr :hero_expanded_slide, :string, default: nil
 
   def hero_editor(assigns) do
     ~H"""
@@ -164,19 +165,19 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <p class="text-admin-muted mb-4">
               Create a hero carousel to feature up to 4 items at the top of your homepage.
             </p>
-            <button
+            <BobineWeb.Components.AdminUI.admin_button
               :if={@can_manage}
               phx-click="create_hero"
-              class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
               data-test="create-hero-btn"
             >
               Create hero carousel
-            </button>
+            </BobineWeb.Components.AdminUI.admin_button>
           </div>
         <% else %>
-          <%!-- Auto-advance config --%>
-          <div :if={@can_manage} class="flex items-center gap-4 mb-4 p-3 bg-admin-bg rounded-lg">
-            <label for="hero-auto-advance" class="text-sm font-medium">Auto-rotate:</label>
+          <div :if={@can_manage} class="flex items-center gap-3 mb-4 p-3 bg-admin-bg rounded-lg">
+            <label for="hero-auto-advance" class="font-ui text-sm font-medium text-admin-fg">
+              Auto-rotate
+            </label>
             <form phx-submit="save_hero_auto_advance" class="flex items-center gap-2">
               <select
                 id="hero-auto-advance"
@@ -184,30 +185,20 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 class="w-auto rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
                 data-test="hero-auto-advance-select"
               >
-                <option value="0" selected={hero_auto_advance_ms(@hero_row) == 0}>
-                  Disabled
-                </option>
-                <option value="5000" selected={hero_auto_advance_ms(@hero_row) == 5000}>
-                  5 seconds
-                </option>
-                <option value="8000" selected={hero_auto_advance_ms(@hero_row) == 8000}>
-                  8 seconds
-                </option>
-                <option value="10000" selected={hero_auto_advance_ms(@hero_row) == 10_000}>
-                  10 seconds
-                </option>
-                <option value="15000" selected={hero_auto_advance_ms(@hero_row) == 15_000}>
-                  15 seconds
-                </option>
+                <option value="0" selected={hero_auto_advance_ms(@hero_row) == 0}>Off</option>
+                <option value="5000" selected={hero_auto_advance_ms(@hero_row) == 5000}>5s</option>
+                <option value="8000" selected={hero_auto_advance_ms(@hero_row) == 8000}>8s</option>
+                <option value="10000" selected={hero_auto_advance_ms(@hero_row) == 10_000}>10s</option>
+                <option value="15000" selected={hero_auto_advance_ms(@hero_row) == 15_000}>15s</option>
               </select>
-              <button
+              <BobineWeb.Components.AdminUI.admin_button
                 type="submit"
-                class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
+                size={:sm}
                 phx-disable-with="Saving..."
                 data-test="hero-auto-advance-save-btn"
               >
                 Save
-              </button>
+              </BobineWeb.Components.AdminUI.admin_button>
               <span
                 :if={@hero_save_status["auto_advance"] == :ok}
                 class="text-sm text-success flex items-center gap-1"
@@ -219,218 +210,233 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             </form>
           </div>
 
-          <div class="space-y-4">
-            <%!-- Existing slides --%>
+          <div class="space-y-2">
             <div
               :for={slide <- @hero_slides}
-              class="p-4 bg-admin-bg rounded-lg"
+              class="rounded-lg border border-admin-border overflow-hidden"
               data-test={"hero-slide-editor-#{slide.position}"}
             >
-              <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-2">
-                  <span class="rounded-full bg-admin-card px-2 py-0.5 font-ui text-xs text-admin-muted">
-                    Slide {slide.position + 1}
-                  </span>
-                  <span class="text-sm text-admin-muted">
-                    Video: {slide.video_title}
-                  </span>
-                </div>
-                <div :if={@can_manage} class="flex gap-1">
-                  <button
+              <%!-- Accordion header — always visible --%>
+              <button
+                type="button"
+                phx-click="expand_hero_slide"
+                phx-value-slide-id={slide.id}
+                class="flex w-full items-center gap-3 bg-admin-bg px-4 py-3 text-left transition-colors hover:bg-admin-card"
+                aria-expanded={to_string(@hero_expanded_slide == slide.id)}
+              >
+                <span class="rounded bg-admin-card px-2 py-0.5 font-mono text-xs text-admin-muted">
+                  {slide.position + 1}
+                </span>
+                <span class="min-w-0 flex-1 truncate font-ui text-sm font-medium text-admin-fg">
+                  {slide.headline || slide.video_title}
+                </span>
+                <span
+                  :if={@hero_save_status[slide.id] == :ok}
+                  class="text-xs text-success"
+                  data-test={"hero-slide-save-success-#{slide.position}"}
+                  role="status"
+                >
+                  Saved
+                </span>
+                <span
+                  :if={@hero_save_status[slide.id] == :error}
+                  class="text-xs text-error"
+                  data-test={"hero-slide-save-error-#{slide.position}"}
+                  role="alert"
+                >
+                  Error
+                </span>
+                <.icon
+                  name={if @hero_expanded_slide == slide.id, do: "hero-chevron-up", else: "hero-chevron-down"}
+                  class="size-4 shrink-0 text-admin-muted"
+                />
+              </button>
+
+              <%!-- Accordion body — only when expanded --%>
+              <div :if={@hero_expanded_slide == slide.id} class="border-t border-admin-border bg-admin-card px-4 py-4">
+                <div :if={@can_manage} class="flex items-center gap-1 mb-4">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:ghost}
+                    size={:sm}
                     phx-click="move_hero_slide_up"
                     phx-value-slide-id={slide.id}
-                    class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
-                    aria-label="Move slide up"
                   >
-                    ↑
-                  </button>
-                  <button
+                    <.icon name="hero-arrow-up" class="size-4" /> Up
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:ghost}
+                    size={:sm}
                     phx-click="move_hero_slide_down"
                     phx-value-slide-id={slide.id}
-                    class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
-                    aria-label="Move slide down"
                   >
-                    ↓
-                  </button>
-                  <button
+                    <.icon name="hero-arrow-down" class="size-4" /> Down
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <span class="flex-1" />
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:danger}
+                    size={:sm}
                     phx-click="remove_hero_slide"
                     phx-value-slide-id={slide.id}
-                    class="inline-flex items-center gap-1.5 rounded-md border border-error px-2 py-1 font-ui text-xs font-medium text-error hover:bg-error hover:text-admin-on-accent"
                     data-test={"hero-remove-slide-#{slide.position}"}
                   >
                     Remove
-                  </button>
+                  </BobineWeb.Components.AdminUI.admin_button>
                 </div>
-              </div>
 
-              <form phx-submit="save_hero_slide" class="grid grid-cols-2 gap-3">
-                <input type="hidden" name="slide-id" value={slide.id} />
-                <div>
-                  <label class="label text-xs">Headline</label>
-                  <input
-                    type="text"
-                    name="headline"
-                    value={slide.headline}
-                    placeholder={slide.video_title}
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-headline-input-#{slide.position}"}
-                  />
-                </div>
-                <div>
-                  <label class="label text-xs">Subheadline</label>
-                  <input
-                    type="text"
-                    name="subheadline"
-                    value={slide.subheadline}
-                    placeholder="optional"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-subheadline-input-#{slide.position}"}
-                  />
-                </div>
-                <div>
-                  <label class="label text-xs">Brand Tag</label>
-                  <input
-                    type="text"
-                    name="brand_tag"
-                    value={slide.brand_tag}
-                    placeholder="optional"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-brand-tag-input-#{slide.position}"}
-                  />
-                </div>
-                <div>
-                  <label class="label text-xs">Primary CTA Label</label>
-                  <input
-                    type="text"
-                    name="primary_cta_label"
-                    value={slide.primary_cta_label}
-                    placeholder="Watch now"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-primary-cta-input-#{slide.position}"}
-                  />
-                </div>
-                <div>
-                  <label class="label text-xs">Secondary CTA Label</label>
-                  <input
-                    type="text"
-                    name="secondary_cta_label"
-                    value={slide.secondary_cta_label}
-                    placeholder="More info"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-secondary-cta-input-#{slide.position}"}
-                  />
-                </div>
-                <div>
-                  <label class="label text-xs">Custom Background URL</label>
-                  <input
-                    type="text"
-                    name="background_image_url"
-                    value={slide.background_image_url}
-                    placeholder="Uses video thumbnail if empty"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-bg-url-input-#{slide.position}"}
-                  />
-                </div>
-                <div class="col-span-2">
-                  <label class="label text-xs">Description</label>
-                  <textarea
-                    name="description"
-                    placeholder={slide.video_description || "optional"}
-                    rows="2"
-                    class="w-full rounded-md border border-admin-border bg-admin-card px-2 py-1 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-                    data-test={"hero-description-input-#{slide.position}"}
-                  >{slide.description}</textarea>
-                </div>
-                <div class="col-span-2 flex items-center justify-end gap-2">
-                  <span
-                    :if={@hero_save_status[slide.id] == :ok}
-                    class="text-sm text-success flex items-center gap-1"
-                    data-test={"hero-slide-save-success-#{slide.position}"}
-                    role="status"
-                  >
-                    <.icon name="hero-check-circle" class="size-4" /> Saved
-                  </span>
-                  <span
-                    :if={@hero_save_status[slide.id] == :error}
-                    class="text-sm text-error flex items-center gap-1"
-                    data-test={"hero-slide-save-error-#{slide.position}"}
-                    role="alert"
-                  >
-                    <.icon name="hero-exclamation-circle" class="size-4" /> Save failed
-                  </span>
-                  <button
-                    :if={@can_manage}
-                    type="submit"
-                    class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
-                    phx-disable-with="Saving..."
-                    data-test={"hero-slide-save-btn-#{slide.position}"}
-                  >
-                    Save
-                  </button>
-                </div>
-              </form>
+                <form
+                  phx-submit="save_hero_slide"
+                  phx-change="save_hero_slide"
+                  phx-debounce="800"
+                  class="space-y-3"
+                >
+                  <input type="hidden" name="slide-id" value={slide.id} />
+
+                  <div>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Headline</label>
+                    <input
+                      type="text"
+                      name="headline"
+                      value={slide.headline}
+                      placeholder={slide.video_title}
+                      class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                      data-test={"hero-headline-input-#{slide.position}"}
+                    />
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Subheadline</label>
+                      <input
+                        type="text"
+                        name="subheadline"
+                        value={slide.subheadline}
+                        placeholder="optional"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-subheadline-input-#{slide.position}"}
+                      />
+                    </div>
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Brand Tag</label>
+                      <input
+                        type="text"
+                        name="brand_tag"
+                        value={slide.brand_tag}
+                        placeholder="optional"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-brand-tag-input-#{slide.position}"}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Description</label>
+                    <textarea
+                      name="description"
+                      placeholder={slide.video_description || "optional"}
+                      rows="2"
+                      class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                      data-test={"hero-description-input-#{slide.position}"}
+                    >{slide.description}</textarea>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Primary CTA</label>
+                      <input
+                        type="text"
+                        name="primary_cta_label"
+                        value={slide.primary_cta_label}
+                        placeholder="Watch now"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-primary-cta-input-#{slide.position}"}
+                      />
+                    </div>
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Secondary CTA</label>
+                      <input
+                        type="text"
+                        name="secondary_cta_label"
+                        value={slide.secondary_cta_label}
+                        placeholder="More info"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-secondary-cta-input-#{slide.position}"}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Custom Background URL</label>
+                    <input
+                      type="text"
+                      name="background_image_url"
+                      value={slide.background_image_url}
+                      placeholder="Uses video thumbnail if empty"
+                      class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                      data-test={"hero-bg-url-input-#{slide.position}"}
+                    />
+                  </div>
+
+                  <div class="flex justify-end">
+                    <BobineWeb.Components.AdminUI.admin_button
+                      :if={@can_manage}
+                      type="submit"
+                      size={:sm}
+                      phx-disable-with="Saving..."
+                      data-test={"hero-slide-save-btn-#{slide.position}"}
+                    >
+                      Save
+                    </BobineWeb.Components.AdminUI.admin_button>
+                  </div>
+                </form>
+              </div>
             </div>
 
-            <%!-- Add slide button --%>
             <div :if={@can_manage && length(@hero_slides) < 4}>
               <button
                 phx-click="open_hero_video_picker"
-                class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-admin-border px-3 py-1.5 font-ui text-sm font-medium text-admin-fg hover:border-admin-border"
+                class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-admin-border px-3 py-3 font-ui text-sm text-admin-muted transition-colors hover:border-admin-accent hover:text-admin-accent"
                 data-test="hero-add-slide-btn"
               >
                 + Add slide ({length(@hero_slides)}/4)
               </button>
             </div>
 
-            <div
+            <p
               :if={@can_manage && length(@hero_slides) >= 4}
               class="text-center text-sm text-admin-muted"
             >
               Maximum of 4 slides reached.
-            </div>
+            </p>
           </div>
 
-          <%!-- Hero video picker modal --%>
-          <div
-            :if={@show_hero_video_picker}
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          <BobineWeb.Components.AdminUI.admin_sheet
+            id="hero-video-picker"
+            open={@show_hero_video_picker}
+            title="Select a Video"
+            subtitle="Pick a video to feature in the hero carousel."
+            on_close="close_hero_video_picker"
           >
-            <div class="bg-admin-card rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Select a Video for Hero Slide</h3>
-                <button
-                  phx-click="close_hero_video_picker"
-                  class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
-              </div>
+            <div :if={@hero_available_videos == []} class="py-8 text-center text-admin-muted">
+              No available videos.
+            </div>
+            <div :if={@hero_available_videos != []} class="space-y-2">
               <div
-                :if={@hero_available_videos == []}
-                class="py-4 text-center text-admin-muted"
+                :for={video <- @hero_available_videos}
+                class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-bg px-3 py-2"
               >
-                No available videos.
-              </div>
-              <div :if={@hero_available_videos != []} class="space-y-2">
-                <div
-                  :for={video <- @hero_available_videos}
-                  class="flex items-center justify-between p-2 bg-admin-bg rounded"
+                <span class="min-w-0 flex-1 truncate font-body text-sm text-admin-fg" data-test={"hero-video-select-#{video.id}"}>
+                  {video.title}
+                </span>
+                <BobineWeb.Components.AdminUI.admin_button
+                  size={:sm}
+                  phx-click="add_hero_slide"
+                  phx-value-video-id={video.id}
                 >
-                  <span class="truncate" data-test={"hero-video-select-#{video.id}"}>
-                    {video.title}
-                  </span>
-                  <button
-                    phx-click="add_hero_slide"
-                    phx-value-video-id={video.id}
-                    class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-2 py-1 font-ui text-xs font-medium text-admin-on-accent hover:brightness-110"
-                  >
-                    Select
-                  </button>
-                </div>
+                  Select
+                </BobineWeb.Components.AdminUI.admin_button>
               </div>
             </div>
-          </div>
+          </BobineWeb.Components.AdminUI.admin_sheet>
         <% end %>
       </div>
     </div>
