@@ -684,7 +684,7 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ ~s(data-test="sv-root")
     end
 
-    test "shows org catalog for unauthenticated visitor when no landing sections exist", %{
+    test "shows default landing for unauthenticated visitor when no landing sections exist", %{
       conn: conn
     } do
       org = insert(:organization, name: "Cool Studio")
@@ -695,7 +695,7 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
         |> Phoenix.ConnTest.init_test_session(%{})
 
       {:ok, _view, html} = live(conn, ~p"/")
-      refute html =~ ~s(data-test="org-landing")
+      assert html =~ ~s(data-test="org-landing")
       assert html =~ "Cool Studio"
     end
 
