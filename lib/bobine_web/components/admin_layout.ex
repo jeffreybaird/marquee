@@ -17,10 +17,10 @@ defmodule BobineWeb.Components.AdminLayout do
 
   def admin_layout(assigns) do
     ~H"""
-    <div class="flex flex-col h-screen bg-base-100">
+    <div class="flex flex-col h-screen bg-bg font-body text-text-primary">
       <div
         :if={@impersonating}
-        class="bg-red-600 text-white text-sm px-4 py-2 flex items-center justify-between"
+        class="bg-error text-accent-text font-ui text-sm px-4 py-2 flex items-center justify-between"
         data-test="impersonation-banner"
       >
         <span>
@@ -37,20 +37,20 @@ defmodule BobineWeb.Components.AdminLayout do
       </div>
 
       <%!-- Mobile header --%>
-      <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-base-300">
+      <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border">
         <p
           :if={!@impersonating}
-          class="font-bold text-base-content truncate"
+          class="font-display font-semibold text-text-primary truncate"
           data-test="org-name-mobile"
         >
           {@organization.name}
         </p>
-        <p :if={@impersonating} class="font-bold text-base-content truncate text-sm">
+        <p :if={@impersonating} class="font-display font-semibold text-text-primary truncate text-sm">
           Impersonating
         </p>
         <button
           phx-click={show_sidebar()}
-          class="btn btn-ghost btn-sm btn-square"
+          class="rounded-md p-1.5 text-text-secondary hover:bg-elevated hover:text-text-primary"
           aria-label="Open menu"
         >
           <.icon name="hero-bars-3" class="size-5" />
@@ -62,32 +62,35 @@ defmodule BobineWeb.Components.AdminLayout do
         <div
           id="admin-overlay"
           phx-click={hide_sidebar()}
-          class="fixed inset-0 bg-black/50 z-30 hidden lg:!hidden"
+          class="fixed inset-0 bg-bg/60 z-30 hidden lg:!hidden"
         >
         </div>
 
         <%!-- Sidebar --%>
         <aside
           id="admin-sidebar"
-          class="fixed inset-y-0 left-0 z-40 w-64 bg-base-200 flex flex-col border-r border-base-300 -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
+          class="fixed inset-y-0 left-0 z-40 w-64 bg-surface flex flex-col border-r border-border -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
         >
-          <div class="p-4 border-b border-base-300 flex items-center justify-between">
+          <div class="p-4 border-b border-border flex items-center justify-between">
             <div class="min-w-0">
               <p
                 :if={!@impersonating}
-                class="font-bold text-base-content truncate"
+                class="font-display font-semibold text-text-primary truncate"
                 data-test="org-name"
               >
                 {@organization.name}
               </p>
-              <p :if={@impersonating} class="font-bold text-base-content truncate text-sm">
+              <p
+                :if={@impersonating}
+                class="font-display font-semibold text-text-primary truncate text-sm"
+              >
                 Impersonating
               </p>
-              <p class="text-xs text-base-content/60 truncate mt-1">{@current_user.email}</p>
+              <p class="text-xs text-text-muted truncate mt-1">{@current_user.email}</p>
             </div>
             <button
               phx-click={hide_sidebar()}
-              class="btn btn-ghost btn-sm btn-square lg:hidden"
+              class="rounded-md p-1.5 text-text-secondary hover:bg-elevated hover:text-text-primary lg:hidden"
               aria-label="Close menu"
             >
               <.icon name="hero-x-mark" class="size-5" />
@@ -181,11 +184,11 @@ defmodule BobineWeb.Components.AdminLayout do
             />
           </nav>
 
-          <div class="p-3 border-t border-base-300">
+          <div class="p-3 border-t border-border">
             <.link
               href={~p"/users/log-out"}
               method="delete"
-              class="block px-3 py-2 rounded-md text-sm font-medium text-base-content hover:bg-base-300 transition-colors"
+              class="block px-3 py-2 rounded-md font-ui text-sm font-medium text-text-secondary hover:bg-elevated hover:text-text-primary transition-colors"
               data-test="admin-nav-logout"
             >
               Log out
@@ -193,11 +196,11 @@ defmodule BobineWeb.Components.AdminLayout do
           </div>
         </aside>
 
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col overflow-hidden bg-bg">
           <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {render_slot(@inner_block)}
           </main>
-          <div class="flex justify-end px-4 py-2 border-t border-base-300">
+          <div class="flex justify-end px-4 py-2 border-t border-border">
             <Layouts.theme_toggle />
           </div>
         </div>
@@ -242,12 +245,12 @@ defmodule BobineWeb.Components.AdminLayout do
   end
 
   defp nav_link_class(current_path, href) do
-    base = "block px-3 py-2 rounded-md text-sm font-medium transition-colors"
+    base = "block px-3 py-2 rounded-md font-ui text-sm font-medium transition-colors"
 
     if current_path == href do
-      "#{base} bg-primary text-primary-content"
+      "#{base} bg-accent text-accent-text"
     else
-      "#{base} text-base-content hover:bg-base-300"
+      "#{base} text-text-secondary hover:bg-elevated hover:text-text-primary"
     end
   end
 end

@@ -222,31 +222,112 @@ defmodule BobineWeb.Admin.PlansLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
-      <div class="flex items-center justify-between mb-6">
-        <.header>Plans</.header>
-        <button
-          :if={@stripe_connected && !@show_form}
-          phx-click="new_plan"
-          class="btn btn-primary btn-sm"
-          data-test="new-plan-btn"
+      <BobineWeb.Components.AdminUI.admin_panel
+        title="Plans"
+        subtitle="Viewer subscription tiers backed by Stripe Connect."
+      >
+        <:actions>
+          <BobineWeb.Components.AdminUI.admin_button
+            :if={@stripe_connected}
+            phx-click="new_plan"
+            size={:sm}
+            data-test="new-plan-btn"
+          >
+            New plan
+          </BobineWeb.Components.AdminUI.admin_button>
+        </:actions>
+
+        <div
+          :if={!@stripe_connected}
+          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-text-primary"
+          data-test="stripe-required-warning"
         >
-          New plan
-        </button>
-      </div>
-
-      <div :if={!@stripe_connected} class="alert alert-warning" data-test="stripe-required-warning">
-        <p>
-          Connect your Stripe account in <a href="/admin/settings" class="link">Settings</a>
+          Connect your Stripe account in
+          <.link href="/admin/settings" class="text-accent underline">Settings</.link>
           before creating plans.
-        </p>
-      </div>
+        </div>
 
-      <%!-- Plan form --%>
-      <div :if={@show_form} class="mb-8 rounded-lg border border-base-300 p-6" data-test="plan-form">
-        <h3 class="text-lg font-semibold mb-4">
-          {if @editing_plan, do: "Edit plan", else: "New plan"}
-        </h3>
+        <BobineWeb.Components.AdminUI.admin_empty
+          :if={@plans == []}
+          title="No plans yet"
+          description="Create one to start accepting viewer subscriptions."
+          data_test="plans-empty"
+        />
 
+        <div :if={@plans != []} class="space-y-3" data-test="plans-list">
+          <div
+            :for={plan <- @plans}
+            class={[
+              "rounded-lg border border-border bg-surface p-4 flex items-center justify-between",
+              !plan.active && "opacity-60"
+            ]}
+            data-test={"plan-row-#{plan.id}"}
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-display font-semibold text-text-primary">{plan.name}</span>
+                <span
+                  :if={!plan.active}
+                  class="rounded-full border border-border px-2 py-0.5 font-ui text-xs text-text-muted"
+                >
+                  Inactive
+                </span>
+                <span
+                  :if={plan.trial_period_days && plan.trial_period_days > 0}
+                  class="rounded-full bg-accent-subtle px-2 py-0.5 font-ui text-xs text-accent-text"
+                >
+                  {plan.trial_period_days}-day trial
+                </span>
+              </div>
+              <p class="font-mono text-sm text-text-secondary mt-1">
+                ${format_dollars(plan.amount)}/{plan.interval}
+                <span :if={plan.currency != "usd"} class="uppercase">{plan.currency}</span>
+              </p>
+            </div>
+
+            <div class="flex gap-1">
+              <BobineWeb.Components.AdminUI.admin_button
+                variant={:ghost}
+                size={:sm}
+                phx-click="edit_plan"
+                phx-value-id={plan.id}
+                data-test={"edit-plan-#{plan.id}"}
+              >
+                Edit
+              </BobineWeb.Components.AdminUI.admin_button>
+              <BobineWeb.Components.AdminUI.admin_button
+                :if={plan.active}
+                variant={:ghost}
+                size={:sm}
+                phx-click="deactivate_plan"
+                phx-value-id={plan.id}
+                data-test={"deactivate-plan-#{plan.id}"}
+              >
+                Deactivate
+              </BobineWeb.Components.AdminUI.admin_button>
+              <BobineWeb.Components.AdminUI.admin_button
+                :if={!plan.active}
+                variant={:ghost}
+                size={:sm}
+                phx-click="reactivate_plan"
+                phx-value-id={plan.id}
+                data-test={"reactivate-plan-#{plan.id}"}
+              >
+                Reactivate
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
+          </div>
+        </div>
+      </BobineWeb.Components.AdminUI.admin_panel>
+
+      <BobineWeb.Components.AdminUI.admin_sheet
+        id="plan-sheet"
+        open={@show_form}
+        title={if @editing_plan, do: "Edit plan", else: "New plan"}
+        subtitle="Syncs to Stripe on save."
+        on_close="cancel_form"
+        data_test="plan-form"
+      >
         <.form
           for={@form}
           id="plan-form"
@@ -264,8 +345,11 @@ defmodule BobineWeb.Admin.PlansLive do
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="label" for="plan_amount_dollars">
-                <span class="label-text">Price (dollars)</span>
+              <label
+                class="block font-ui text-sm font-medium text-text-primary mb-1"
+                for="plan_amount_dollars"
+              >
+                Price (dollars)
               </label>
               <input
                 type="number"
@@ -274,13 +358,13 @@ defmodule BobineWeb.Admin.PlansLive do
                 step="0.01"
                 min="0"
                 value={if @editing_plan, do: format_dollars(@editing_plan.amount), else: ""}
-                class="input input-bordered w-full"
+                class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm text-text-primary focus:border-accent focus:outline-none"
                 required
                 data-test="plan-amount-input"
               />
               <p
                 :if={@editing_plan && price_will_change?(@editing_plan, @form)}
-                class="text-warning text-xs mt-1"
+                class="font-body text-xs text-warning mt-1"
               >
                 Changing the price will create a new Stripe Price. Existing subscribers keep their current price.
               </p>
@@ -304,90 +388,38 @@ defmodule BobineWeb.Admin.PlansLive do
           />
 
           <div>
-            <label class="label" for="plan_features_text">
-              <span class="label-text">Features (one per line)</span>
+            <label
+              class="block font-ui text-sm font-medium text-text-primary mb-1"
+              for="plan_features_text"
+            >
+              Features (one per line)
             </label>
             <textarea
               id="plan_features_text"
               name="plan[features_text]"
               rows="4"
-              class="textarea textarea-bordered w-full"
+              class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-body text-sm text-text-primary focus:border-accent focus:outline-none"
               data-test="plan-features-input"
             >{if @editing_plan, do: Enum.join(@editing_plan.features, "\n"), else: ""}</textarea>
           </div>
-
-          <div class="flex gap-2 mt-4">
-            <button type="submit" class="btn btn-primary" data-test="plan-save-btn">Save</button>
-            <button type="button" phx-click="cancel_form" class="btn btn-ghost">Cancel</button>
-          </div>
         </.form>
-      </div>
 
-      <%!-- Plans list --%>
-      <div
-        :if={@plans == [] && !@show_form}
-        class="text-center py-12 text-base-content/60"
-        data-test="plans-empty"
-      >
-        <p>No plans yet. Create one to start accepting viewer subscriptions.</p>
-      </div>
-
-      <div :if={@plans != []} class="space-y-3" data-test="plans-list">
-        <div
-          :for={plan <- @plans}
-          class={[
-            "rounded-lg border p-4 flex items-center justify-between",
-            if(!plan.active, do: "opacity-60 border-base-300", else: "border-base-300")
-          ]}
-          data-test={"plan-row-#{plan.id}"}
-        >
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="font-semibold">{plan.name}</span>
-              <span :if={!plan.active} class="badge badge-sm badge-ghost">Inactive</span>
-              <span
-                :if={plan.trial_period_days && plan.trial_period_days > 0}
-                class="badge badge-sm badge-info"
-              >
-                {plan.trial_period_days}-day trial
-              </span>
-            </div>
-            <p class="text-sm text-base-content/70 mt-1">
-              ${format_dollars(plan.amount)}/{plan.interval}
-              <span :if={plan.currency != "usd"} class="uppercase">{plan.currency}</span>
-            </p>
-          </div>
-
-          <div class="flex gap-2">
-            <button
-              phx-click="edit_plan"
-              phx-value-id={plan.id}
-              class="btn btn-sm btn-ghost"
-              data-test={"edit-plan-#{plan.id}"}
-            >
-              Edit
-            </button>
-            <button
-              :if={plan.active}
-              phx-click="deactivate_plan"
-              phx-value-id={plan.id}
-              class="btn btn-sm btn-ghost text-warning"
-              data-test={"deactivate-plan-#{plan.id}"}
-            >
-              Deactivate
-            </button>
-            <button
-              :if={!plan.active}
-              phx-click="reactivate_plan"
-              phx-value-id={plan.id}
-              class="btn btn-sm btn-ghost text-success"
-              data-test={"reactivate-plan-#{plan.id}"}
-            >
-              Reactivate
-            </button>
-          </div>
-        </div>
-      </div>
+        <:footer>
+          <BobineWeb.Components.AdminUI.admin_button
+            variant={:ghost}
+            phx-click="cancel_form"
+          >
+            Cancel
+          </BobineWeb.Components.AdminUI.admin_button>
+          <BobineWeb.Components.AdminUI.admin_button
+            type="submit"
+            form="plan-form"
+            data-test="plan-save-btn"
+          >
+            Save
+          </BobineWeb.Components.AdminUI.admin_button>
+        </:footer>
+      </BobineWeb.Components.AdminUI.admin_sheet>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end
