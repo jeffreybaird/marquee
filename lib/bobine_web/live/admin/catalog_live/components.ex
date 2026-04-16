@@ -317,9 +317,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <input type="hidden" name="slide-id" value={slide.id} />
 
                   <div>
-                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                      Headline
-                    </label>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="font-ui text-xs font-medium text-admin-muted">
+                        Headline
+                      </label>
+                      <.slide_show_toggle
+                        name="show_headline"
+                        checked={slide.show_headline}
+                        position={slide.position}
+                      />
+                    </div>
                     <input
                       type="text"
                       name="headline"
@@ -332,9 +339,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                        Subheadline
-                      </label>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="font-ui text-xs font-medium text-admin-muted">
+                          Subheadline
+                        </label>
+                        <.slide_show_toggle
+                          name="show_subheadline"
+                          checked={slide.show_subheadline}
+                          position={slide.position}
+                        />
+                      </div>
                       <input
                         type="text"
                         name="subheadline"
@@ -345,9 +359,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                       />
                     </div>
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                        Brand Tag
-                      </label>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="font-ui text-xs font-medium text-admin-muted">
+                          Brand Tag
+                        </label>
+                        <.slide_show_toggle
+                          name="show_brand_tag"
+                          checked={slide.show_brand_tag}
+                          position={slide.position}
+                        />
+                      </div>
                       <input
                         type="text"
                         name="brand_tag"
@@ -360,9 +381,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   </div>
 
                   <div>
-                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                      Description
-                    </label>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="font-ui text-xs font-medium text-admin-muted">
+                        Description
+                      </label>
+                      <.slide_show_toggle
+                        name="show_description"
+                        checked={slide.show_description}
+                        position={slide.position}
+                      />
+                    </div>
                     <textarea
                       name="description"
                       placeholder={slide.video_description || "optional"}
@@ -374,9 +402,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                        Primary CTA
-                      </label>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="font-ui text-xs font-medium text-admin-muted">
+                          Primary CTA
+                        </label>
+                        <.slide_show_toggle
+                          name="show_primary_cta"
+                          checked={slide.show_primary_cta}
+                          position={slide.position}
+                        />
+                      </div>
                       <input
                         type="text"
                         name="primary_cta_label"
@@ -387,9 +422,16 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                       />
                     </div>
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
-                        Secondary CTA
-                      </label>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="font-ui text-xs font-medium text-admin-muted">
+                          Secondary CTA
+                        </label>
+                        <.slide_show_toggle
+                          name="show_secondary_cta"
+                          checked={slide.show_secondary_cta}
+                          position={slide.position}
+                        />
+                      </div>
                       <input
                         type="text"
                         name="secondary_cta_label"
@@ -1032,6 +1074,27 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
         </div>
       </div>
     </div>
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :checked, :boolean, required: true
+  attr :position, :integer, required: true
+
+  defp slide_show_toggle(assigns) do
+    ~H"""
+    <label class="flex items-center gap-1.5 font-ui text-xs text-admin-muted cursor-pointer">
+      <input type="hidden" name={@name} value="false" />
+      <input
+        type="checkbox"
+        name={@name}
+        value="true"
+        checked={@checked}
+        class="size-3.5 rounded border-admin-border bg-admin-bg text-admin-accent focus:ring-admin-accent"
+        data-test={"hero-#{@name}-toggle-#{@position}"}
+      />
+      <span>Show</span>
+    </label>
     """
   end
 end

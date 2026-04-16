@@ -565,7 +565,13 @@ defmodule BobineWeb.Admin.CatalogLive do
           description: blank_to_nil(params["description"]),
           primary_cta_label: blank_to_nil(params["primary_cta_label"]),
           secondary_cta_label: blank_to_nil(params["secondary_cta_label"]),
-          background_image_url: blank_to_nil(params["background_image_url"])
+          background_image_url: blank_to_nil(params["background_image_url"]),
+          show_headline: checkbox_bool(params["show_headline"]),
+          show_subheadline: checkbox_bool(params["show_subheadline"]),
+          show_description: checkbox_bool(params["show_description"]),
+          show_brand_tag: checkbox_bool(params["show_brand_tag"]),
+          show_primary_cta: checkbox_bool(params["show_primary_cta"]),
+          show_secondary_cta: checkbox_bool(params["show_secondary_cta"])
         }
 
         case Catalog.update_hero_slide(scope, slide, attrs) do
@@ -758,6 +764,15 @@ defmodule BobineWeb.Admin.CatalogLive do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(str) when is_binary(str), do: str
+
+  # HTML checkbox convention: hidden "false" input before the checkbox means
+  # params carry "false" when unchecked and "true" when checked. Any other
+  # value (missing key, unexpected) defaults to visible.
+  defp checkbox_bool("false"), do: false
+  defp checkbox_bool(false), do: false
+  defp checkbox_bool("true"), do: true
+  defp checkbox_bool(true), do: true
+  defp checkbox_bool(_), do: true
 
   defp normalize_variant(""), do: nil
   defp normalize_variant(nil), do: nil

@@ -390,6 +390,47 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ "Watch now"
     end
 
+    test "hero slide hides elements when show_* flags are false", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+      hero_row = insert(:hero_row, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Default Video Title",
+          mux_status: "ready",
+          mux_playback_id: "pb_h"
+        )
+
+      insert(:hero_slide,
+        organization: org,
+        row: hero_row,
+        video: video,
+        position: 0,
+        headline: "My Headline",
+        subheadline: "My Subheadline",
+        description: "My Description",
+        brand_tag: "My Brand",
+        primary_cta_label: "Primary",
+        secondary_cta_label: "Secondary",
+        show_headline: false,
+        show_subheadline: false,
+        show_description: false,
+        show_brand_tag: false,
+        show_primary_cta: false,
+        show_secondary_cta: false
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ "My Headline"
+      refute html =~ "My Subheadline"
+      refute html =~ "My Description"
+      refute html =~ "My Brand"
+      refute html =~ ~s(data-test="hero-primary-cta-0")
+      refute html =~ ~s(data-test="hero-secondary-cta-0")
+    end
+
     test "hero does NOT render when no hero row exists", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
@@ -837,6 +878,64 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ ~s(playback-id="pb_hero_123")
       assert html =~ ~s(stream-type="on-demand")
       refute html =~ "stream.mux.com"
+    end
+
+    test "hero_video hides headline/subheadline/CTA when show_* flags are false", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :hero_video,
+        position: 0,
+        config: %{
+          "video_playback_id" => "pb_hero",
+          "headline" => "Hidden Headline",
+          "subheadline" => "Hidden Subheadline",
+          "cta_text" => "Hidden CTA",
+          "show_headline" => false,
+          "show_subheadline" => false,
+          "show_cta" => false
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      refute html =~ "Hidden Headline"
+      refute html =~ "Hidden Subheadline"
+      refute html =~ "Hidden CTA"
+    end
+
+    test "hero_image hides overlay text when show_* flags are false", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :hero_image,
+        position: 0,
+        config: %{
+          "image_url" => "https://example.com/hero.jpg",
+          "headline" => "Hidden Image Headline",
+          "subheadline" => "Hidden Image Subheadline",
+          "cta_text" => "Hidden Image CTA",
+          "show_headline" => false,
+          "show_subheadline" => false,
+          "show_cta" => false
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      refute html =~ "Hidden Image Headline"
+      refute html =~ "Hidden Image Subheadline"
+      refute html =~ "Hidden Image CTA"
     end
 
     test "hero_video falls back to <video> for explicit video_url", %{conn: conn} do

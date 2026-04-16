@@ -536,9 +536,27 @@ defmodule BobineWeb.Admin.LandingLive do
       |> Map.drop(["_target", "visible", "_csrf_token"])
       |> coerce_overlay_opacity(type)
       |> coerce_use_existing_hero(type)
+      |> coerce_show_flags(type)
 
     %{config: config, visible: visible_param(params)}
   end
+
+  @show_flag_keys ~w(show_headline show_subheadline show_cta)
+
+  defp coerce_show_flags(map, type) when type in [:hero_video, :hero_image] do
+    Enum.reduce(@show_flag_keys, map, fn key, acc ->
+      case Map.get(acc, key) do
+        "true" -> Map.put(acc, key, true)
+        "false" -> Map.put(acc, key, false)
+        true -> acc
+        false -> acc
+        nil -> Map.put(acc, key, true)
+        _ -> Map.put(acc, key, true)
+      end
+    end)
+  end
+
+  defp coerce_show_flags(map, _type), do: map
 
   defp coerce_overlay_opacity(map, type) when type in [:hero_video, :hero_image] do
     case map["overlay_opacity"] do
@@ -917,7 +935,13 @@ defmodule BobineWeb.Admin.LandingLive do
     ~H"""
     <form phx-submit="save_section" class="space-y-3">
       <.text_input name="headline" label="Headline" value={@form["headline"]} />
+      <.show_field_toggle name="show_headline" label="headline" checked={@form["show_headline"]} />
       <.text_input name="subheadline" label="Subheadline" value={@form["subheadline"]} />
+      <.show_field_toggle
+        name="show_subheadline"
+        label="subheadline"
+        checked={@form["show_subheadline"]}
+      />
 
       <div class="rounded-md border border-admin-border bg-admin-bg p-3 space-y-2">
         <div class="flex items-center justify-between gap-3">
@@ -965,6 +989,7 @@ defmodule BobineWeb.Admin.LandingLive do
       />
       <.text_input name="cta_text" label="CTA text" value={@form["cta_text"]} />
       <.text_input name="cta_link" label="CTA link" value={@form["cta_link"]} />
+      <.show_field_toggle name="show_cta" label="CTA button" checked={@form["show_cta"]} />
       <.number_input
         name="overlay_opacity"
         label="Overlay opacity"
@@ -983,10 +1008,17 @@ defmodule BobineWeb.Admin.LandingLive do
     ~H"""
     <form phx-submit="save_section" class="space-y-3">
       <.text_input name="headline" label="Headline" value={@form["headline"]} />
+      <.show_field_toggle name="show_headline" label="headline" checked={@form["show_headline"]} />
       <.text_input name="subheadline" label="Subheadline" value={@form["subheadline"]} />
+      <.show_field_toggle
+        name="show_subheadline"
+        label="subheadline"
+        checked={@form["show_subheadline"]}
+      />
       <.text_input name="image_url" label="Image URL" value={@form["image_url"]} />
       <.text_input name="cta_text" label="CTA text" value={@form["cta_text"]} />
       <.text_input name="cta_link" label="CTA link" value={@form["cta_link"]} />
+      <.show_field_toggle name="show_cta" label="CTA button" checked={@form["show_cta"]} />
       <.number_input
         name="overlay_opacity"
         label="Overlay opacity"
@@ -1241,6 +1273,34 @@ defmodule BobineWeb.Admin.LandingLive do
     <input type="hidden" name="visible" value={if @value, do: "true", else: "false"} />
     """
   end
+
+  attr :name, :string, required: true
+  attr :label, :string, required: true
+  attr :checked, :any, default: true
+
+  defp show_field_toggle(assigns) do
+    assigns = assign(assigns, :checked?, show_field_checked?(assigns.checked))
+
+    ~H"""
+    <label class="flex items-center gap-2 font-ui text-sm text-admin-fg">
+      <input type="hidden" name={@name} value="false" />
+      <input
+        type="checkbox"
+        name={@name}
+        value="true"
+        checked={@checked?}
+        class="size-4 rounded border-admin-border bg-admin-card text-admin-accent focus:ring-admin-accent"
+        data-test={"toggle-#{@name}"}
+      />
+      <span>Show {@label}</span>
+    </label>
+    """
+  end
+
+  defp show_field_checked?(false), do: false
+  defp show_field_checked?("false"), do: false
+  defp show_field_checked?(nil), do: true
+  defp show_field_checked?(_), do: true
 
   defp form_buttons(assigns) do
     ~H"""

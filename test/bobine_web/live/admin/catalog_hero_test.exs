@@ -123,6 +123,63 @@ defmodule BobineWeb.Admin.CatalogHeroTest do
       assert html =~ ~s(data-test="hero-bg-url-input-0")
     end
 
+    test "per-element show toggles render for each overlay field",
+         %{org: org, membership: membership} do
+      hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
+      video = insert(:video, organization: org)
+      insert(:hero_slide, organization: org, row: hero_row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      assert html =~ ~s(data-test="hero-show_headline-toggle-0")
+      assert html =~ ~s(data-test="hero-show_subheadline-toggle-0")
+      assert html =~ ~s(data-test="hero-show_brand_tag-toggle-0")
+      assert html =~ ~s(data-test="hero-show_description-toggle-0")
+      assert html =~ ~s(data-test="hero-show_primary_cta-toggle-0")
+      assert html =~ ~s(data-test="hero-show_secondary_cta-toggle-0")
+    end
+
+    test "unchecked show_headline persists and hides headline on viewer",
+         %{org: org, membership: membership} do
+      hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Hidden Title",
+          mux_status: "ready",
+          mux_playback_id: "pb_hero"
+        )
+
+      slide =
+        insert(:hero_slide,
+          organization: org,
+          row: hero_row,
+          video: video,
+          position: 0,
+          headline: "Hidden Title"
+        )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      view
+      |> element(~s(form[phx-submit="save_hero_slide"]))
+      |> render_submit(%{
+        "slide-id" => slide.id,
+        "headline" => "Hidden Title",
+        "show_headline" => "false",
+        "show_subheadline" => "true",
+        "show_description" => "true",
+        "show_brand_tag" => "true",
+        "show_primary_cta" => "true",
+        "show_secondary_cta" => "true"
+      })
+
+      {:ok, updated} = Bobine.Catalog.get_hero_slide(org, slide.id)
+      assert updated.show_headline == false
+      assert updated.show_primary_cta == true
+    end
+
     test "saving updates persists changes", %{org: org, membership: membership} do
       hero_row = Bobine.Repo.one!(Bobine.Catalog.Row)
       video = insert(:video, organization: org, title: "Default Title")

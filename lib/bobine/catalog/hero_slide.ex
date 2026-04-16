@@ -30,6 +30,14 @@ defmodule Bobine.Catalog.HeroSlide do
     field :primary_cta_label, :string
     field :secondary_cta_label, :string
 
+    # Per-element visibility toggles (all default true for back-compat).
+    field :show_headline, :boolean, default: true
+    field :show_subheadline, :boolean, default: true
+    field :show_description, :boolean, default: true
+    field :show_brand_tag, :boolean, default: true
+    field :show_primary_cta, :boolean, default: true
+    field :show_secondary_cta, :boolean, default: true
+
     # Optional custom background image
     field :background_image_url, :string
 
@@ -52,7 +60,13 @@ defmodule Bobine.Catalog.HeroSlide do
       :description,
       :primary_cta_label,
       :secondary_cta_label,
-      :background_image_url
+      :background_image_url,
+      :show_headline,
+      :show_subheadline,
+      :show_description,
+      :show_brand_tag,
+      :show_primary_cta,
+      :show_secondary_cta
     ])
     |> validate_required([:organization_id, :row_id, :video_id])
     |> validate_number(:position, greater_than_or_equal_to: 0, less_than_or_equal_to: 3)

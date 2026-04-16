@@ -279,7 +279,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
           class={["hero-slide", index == 0 && "active"]}
           role="group"
           aria-roledescription="slide"
-          aria-label={"Slide #{index + 1} of #{length(@slides)}: #{slide.headline}"}
+          aria-label={hero_slide_aria_label(slide, index, length(@slides))}
           data-index={index}
           data-test={"hero-slide-#{index}"}
         >
@@ -288,7 +288,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             <img
               :if={slide.background_image_url}
               src={slide.background_image_url}
-              alt={slide.headline}
+              alt={hero_slide_image_alt(slide)}
               loading={if index == 0, do: "eager", else: "lazy"}
             />
             <div class="hero-gradient" aria-hidden="true" />
@@ -296,14 +296,30 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
 
           <%!-- Content overlay (left-aligned) --%>
           <div class="hero-content" data-test={"hero-content-#{index}"}>
-            <span :if={slide.brand_tag} class="hero-brand-tag">{slide.brand_tag}</span>
-            <h1 class="hero-title">{slide.headline}</h1>
-            <p :if={slide.subheadline} class="hero-status">{slide.subheadline}</p>
-            <p :if={slide.description} class="hero-metadata">{slide.description}</p>
+            <span
+              :if={slide_show?(slide, :show_brand_tag) && slide.brand_tag}
+              class="hero-brand-tag"
+            >
+              {slide.brand_tag}
+            </span>
+            <h1 :if={slide_show?(slide, :show_headline)} class="hero-title">{slide.headline}</h1>
+            <p
+              :if={slide_show?(slide, :show_subheadline) && slide.subheadline}
+              class="hero-status"
+            >
+              {slide.subheadline}
+            </p>
+            <p
+              :if={slide_show?(slide, :show_description) && slide.description}
+              class="hero-metadata"
+            >
+              {slide.description}
+            </p>
 
             <%!-- CTA group --%>
             <div class="hero-cta-group">
               <.link
+                :if={slide_show?(slide, :show_primary_cta)}
                 href={slide.primary_cta_path}
                 class="hero-cta-primary"
                 data-test={"hero-primary-cta-#{index}"}
@@ -311,7 +327,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
                 {slide.primary_cta_label}
               </.link>
               <.link
-                :if={slide.secondary_cta_path}
+                :if={slide_show?(slide, :show_secondary_cta) && slide.secondary_cta_path}
                 href={slide.secondary_cta_path}
                 class="hero-cta-secondary"
                 data-test={"hero-secondary-cta-#{index}"}
@@ -543,12 +559,17 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
       </div>
 
       <div class="sv-hero-content">
-        <h1 class="sv-hero-headline">{@config["headline"]}</h1>
-        <p :if={@config["subheadline"]} class="sv-hero-subheadline">
+        <h1 :if={show_field?(@config, "headline")} class="sv-hero-headline">
+          {@config["headline"]}
+        </h1>
+        <p
+          :if={show_field?(@config, "subheadline") && @config["subheadline"]}
+          class="sv-hero-subheadline"
+        >
           {@config["subheadline"]}
         </p>
         <.link
-          :if={@config["cta_text"]}
+          :if={show_field?(@config, "cta") && @config["cta_text"]}
           navigate={@config["cta_link"] || "/subscribe"}
           class="sv-hero-cta"
           data-test="hero-cta"
@@ -573,12 +594,17 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
       >
       </div>
       <div class="sv-hero-content">
-        <h1 class="sv-hero-headline">{@config["headline"]}</h1>
-        <p :if={@config["subheadline"]} class="sv-hero-subheadline">
+        <h1 :if={show_field?(@config, "headline")} class="sv-hero-headline">
+          {@config["headline"]}
+        </h1>
+        <p
+          :if={show_field?(@config, "subheadline") && @config["subheadline"]}
+          class="sv-hero-subheadline"
+        >
           {@config["subheadline"]}
         </p>
         <.link
-          :if={@config["cta_text"]}
+          :if={show_field?(@config, "cta") && @config["cta_text"]}
           navigate={@config["cta_link"] || "/subscribe"}
           class="sv-hero-cta"
           data-test="hero-cta"
@@ -746,6 +772,41 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
 
   defp hero_playback_id(%{"video_playback_id" => id}) when is_binary(id) and id != "", do: id
   defp hero_playback_id(_), do: nil
+
+  # Per-field visibility toggle. Missing key defaults to visible so legacy
+  # section configs keep rendering their text + CTA overlays unchanged.
+  defp show_field?(config, name) when is_map(config) do
+    case Map.get(config, "show_#{name}") do
+      false -> false
+      "false" -> false
+      _ -> true
+    end
+  end
+
+  defp slide_show?(slide, key) do
+    case Map.get(slide, key) do
+      false -> false
+      _ -> true
+    end
+  end
+
+  defp hero_slide_aria_label(slide, index, total) do
+    base = "Slide #{index + 1} of #{total}"
+
+    if slide_show?(slide, :show_headline) and slide.headline do
+      "#{base}: #{slide.headline}"
+    else
+      base
+    end
+  end
+
+  defp hero_slide_image_alt(slide) do
+    if slide_show?(slide, :show_headline) and slide.headline do
+      slide.headline
+    else
+      ""
+    end
+  end
 
   defp build_marketing_bg_style(config) do
     cond do

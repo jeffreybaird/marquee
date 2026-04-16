@@ -610,7 +610,13 @@ defmodule Bobine.Catalog do
         description: slide.description,
         primary_cta_label: slide.primary_cta_label,
         secondary_cta_label: slide.secondary_cta_label,
-        background_image_url: slide.background_image_url
+        background_image_url: slide.background_image_url,
+        show_headline: slide.show_headline,
+        show_subheadline: slide.show_subheadline,
+        show_description: slide.show_description,
+        show_brand_tag: slide.show_brand_tag,
+        show_primary_cta: slide.show_primary_cta,
+        show_secondary_cta: slide.show_secondary_cta
       }
     end)
   end
@@ -881,7 +887,13 @@ defmodule Bobine.Catalog do
       primary_cta_label: presence(slide.primary_cta_label) || "Watch now",
       primary_cta_path: "/watch/#{video.id}",
       secondary_cta_label: presence(slide.secondary_cta_label) || "More info",
-      secondary_cta_path: "/watch/#{video.id}"
+      secondary_cta_path: "/watch/#{video.id}",
+      show_headline: slide.show_headline,
+      show_subheadline: slide.show_subheadline,
+      show_description: slide.show_description,
+      show_brand_tag: slide.show_brand_tag,
+      show_primary_cta: slide.show_primary_cta,
+      show_secondary_cta: slide.show_secondary_cta
     }
   end
 
