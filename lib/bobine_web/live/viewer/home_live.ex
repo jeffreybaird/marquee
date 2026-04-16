@@ -18,6 +18,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   import BobineWeb.Viewer.HomeLive.Components
 
+  alias Bobine.Accounts
   alias Bobine.Catalog
   alias Bobine.Content
   alias Bobine.Engagement
@@ -26,34 +27,92 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   @impl true
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     scope = socket.assigns.current_scope
     org = socket.assigns[:organization]
     viewer = socket.assigns[:current_viewer]
+    user = scope && scope.user
+    org_param = params["org"]
+
+    primary_org = user && Accounts.get_user_primary_organization(user)
 
     cond do
-      # Super admin with no org resolved -> send to super admin dashboard
-      scope && scope.user && scope.user.is_super_admin && is_nil(org) ->
-        {:ok, push_navigate(socket, to: ~p"/super")}
+      # Super admin -> always route to the super dashboard regardless of
+      # whether a tenant was resolved in the request.
+      user && user.is_super_admin ->
+        {:ok, redirect(socket, to: ~p"/super")}
 
-      # Authenticated operator with org but no viewer session -> show org home
-      org && is_nil(viewer) && scope && scope.user ->
-        {:ok, mount_org_home(socket, org, nil)}
+      # Operator with at least one membership -> route to that org's admin
+      # with the explicit ?org=<slug> param so dev tenant resolution works.
+      primary_org ->
+        {:ok, redirect(socket, to: admin_path_for_org(primary_org))}
 
-      # Org resolved + viewer -> show catalog
+      # Viewer signed in but reached / without any tenant context in the
+      # URL (no subdomain, no ?org=). Make the URL explicit so links
+      # render with the right org param.
+      viewer && org && org_param != org.slug && needs_org_param?(socket) ->
+        {:ok, redirect(socket, to: home_path_for_org(org))}
+
+      # Viewer with no org resolvable (defensive — shouldn't happen since
+      # the viewer token resolves org by default).
+      viewer && is_nil(org) ->
+        case fetch_viewer_org(viewer) do
+          nil -> {:ok, mount_landing_or_marketing(socket, nil)}
+          viewer_org -> {:ok, redirect(socket, to: home_path_for_org(viewer_org))}
+        end
+
+      # Org resolved + viewer -> full viewer home.
       org && viewer ->
         {:ok, mount_org_home(socket, org, viewer)}
 
-      # Org resolved but no auth -> org landing page
+      # Org resolved but no auth -> org landing page.
       org ->
         {:ok, mount_landing_page(socket, org)}
 
-      # No org, no super admin -> platform marketing page
+      # No org, no user, no viewer -> Bobine platform marketing.
       true ->
-        {:ok,
-         socket
-         |> assign(:page_title, "Bobine — Your Video Platform")
-         |> assign(:page_mode, :platform_marketing)}
+        {:ok, mount_landing_or_marketing(socket, nil)}
+    end
+  end
+
+  defp mount_landing_or_marketing(socket, _) do
+    socket
+    |> assign(:page_title, "Bobine — Your Video Platform")
+    |> assign(:page_mode, :platform_marketing)
+  end
+
+  defp admin_path_for_org(%{slug: slug}) when is_binary(slug),
+    do: "/admin?org=" <> slug
+
+  defp admin_path_for_org(_), do: "/admin"
+
+  defp home_path_for_org(%{slug: slug}) when is_binary(slug),
+    do: "/?org=" <> slug
+
+  defp home_path_for_org(_), do: "/"
+
+  defp fetch_viewer_org(%{organization_id: org_id}) when is_binary(org_id) do
+    Bobine.Repo.get(Bobine.Accounts.Organization, org_id)
+  end
+
+  defp fetch_viewer_org(_), do: nil
+
+  # The URL needs ?org=<slug> only when the request didn't already carry
+  # tenant context via the host — i.e. plain platform domain or
+  # localhost. Subdomain or custom domain requests already pin the
+  # tenant, so don't churn the URL.
+  defp needs_org_param?(socket) do
+    host = socket.host_uri && socket.host_uri.host
+    is_nil(host) or host_subdomain(host) in [nil, "www"]
+  end
+
+  defp host_subdomain(host) do
+    case String.split(host, ".") do
+      [first | rest] when length(rest) >= 1 ->
+        if Regex.match?(~r/^\d+$/, first), do: nil, else: first
+
+      _ ->
+        nil
     end
   end
 

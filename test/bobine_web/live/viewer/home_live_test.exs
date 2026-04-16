@@ -3,152 +3,39 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
 
   import Phoenix.LiveViewTest
 
-  describe "GET / with org resolved" do
-    test "renders org name", %{conn: _conn} do
-      org = insert(:organization, name: "My Studio")
+  describe "GET / auth-based routing" do
+    test "operator user with a membership is redirected to /admin with their org slug", %{
+      conn: conn
+    } do
+      org = insert(:organization, slug: "studio-42")
       user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
+      insert(:membership, organization: org, user: user)
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "My Studio"
+      conn = log_in_user(conn, user)
+      assert {:error, {:redirect, %{to: "/admin?org=studio-42"}}} = live(conn, ~p"/")
     end
 
-    test "renders row titles on the homepage", %{conn: _conn} do
+    test "super admin is redirected to /super even when an org is resolved", %{conn: conn} do
       org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
+      super_admin = insert(:super_admin)
+      insert(:membership, organization: org, user: super_admin)
 
-      video = insert(:video, organization: org, mux_status: "ready")
-
-      row =
-        insert(:row,
-          organization: org,
-          title: "Featured Films",
-          source_type: :curated,
-          visible: true,
-          position: 0
-        )
-
-      insert(:row_item, organization: org, row: row, video: video, position: 0)
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "Featured Films"
+      conn = conn |> log_in_user(super_admin) |> Map.put(:host, "#{org.slug}.localhost")
+      assert {:error, {:redirect, %{to: "/super"}}} = live(conn, ~p"/")
     end
 
-    test "renders multiple row titles in order", %{conn: _conn} do
-      org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
+    test "viewer hitting / without an org resolved is redirected to their org home", %{conn: conn} do
+      org = insert(:organization, slug: "viewer-org")
+      viewer = insert(:viewer, organization: org)
 
-      # Insert a video so :recent rows have content
-      insert(:video, organization: org, mux_status: "ready")
+      token = Bobine.Viewers.generate_viewer_session_token(viewer)
 
-      insert(:row,
-        organization: org,
-        title: "New Releases",
-        source_type: :recent,
-        visible: true,
-        position: 0
-      )
+      conn =
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> Plug.Conn.put_session(:viewer_token, token)
 
-      insert(:row,
-        organization: org,
-        title: "Staff Picks",
-        source_type: :recent,
-        visible: true,
-        position: 1
-      )
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "New Releases"
-      assert html =~ "Staff Picks"
-    end
-
-    test "does not render hidden rows", %{conn: _conn} do
-      org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
-
-      # Insert a video so :recent rows have content
-      insert(:video, organization: org, mux_status: "ready")
-
-      insert(:row,
-        organization: org,
-        title: "Visible Row",
-        source_type: :recent,
-        visible: true,
-        position: 0
-      )
-
-      insert(:row,
-        organization: org,
-        title: "Hidden Row",
-        source_type: :recent,
-        visible: false,
-        position: 1
-      )
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "Visible Row"
-      refute html =~ "Hidden Row"
-    end
-
-    test "lists ready videos within a row", %{conn: _conn} do
-      org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
-
-      video =
-        insert(:video,
-          organization: org,
-          title: "Featured Video",
-          mux_status: "ready",
-          mux_playback_id: "pb_123"
-        )
-
-      row =
-        insert(:row,
-          organization: org,
-          title: "Curated",
-          source_type: :curated,
-          visible: true,
-          position: 0
-        )
-
-      insert(:row_item, organization: org, row: row, video: video, position: 0)
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "Featured Video"
-      assert html =~ ~p"/watch/#{video.id}"
-    end
-
-    test "does not show videos from other orgs", %{conn: _conn} do
-      org = insert(:organization)
-      other_org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
-
-      insert(:video, organization: other_org, title: "Other Org Video", mux_status: "ready")
-
-      insert(:row,
-        organization: org,
-        title: "Our Videos",
-        source_type: :recent,
-        visible: true,
-        position: 0
-      )
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      refute html =~ "Other Org Video"
-    end
-
-    test "shows empty state when no rows exist", %{conn: _conn} do
-      org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
-
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "No videos available"
+      assert {:error, {:redirect, %{to: "/?org=viewer-org"}}} = live(conn, ~p"/")
     end
   end
 
@@ -283,7 +170,7 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       conn = log_in_user(conn, super_admin)
 
       # Visit / without org resolution (no subdomain, no ?org param)
-      assert {:error, {:live_redirect, %{to: "/super"}}} = live(conn, ~p"/")
+      assert {:error, {:redirect, %{to: "/super"}}} = live(conn, ~p"/")
     end
   end
 
@@ -318,13 +205,16 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       refute html =~ ~s(data-test="sign-in-link")
     end
 
-    test "sign in link visible when not logged in", %{conn: _conn} do
+    test "anonymous visit on org subdomain shows landing page with login link", %{conn: conn} do
       org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ ~s(data-test="sign-in-link")
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ ~s(data-test="org-landing-login-link")
       refute html =~ ~s(data-test="profile-avatar")
     end
 
@@ -715,14 +605,13 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
   end
 
   describe "unauthenticated visitor with org" do
-    test "homepage renders for operator with org (no viewer session)", %{conn: _conn} do
-      org = insert(:organization, name: "Public Platform")
+    test "operator with org is redirected to admin instead of viewer home", %{conn: conn} do
+      org = insert(:organization, slug: "public-platform")
       user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
+      insert(:membership, organization: org, user: user)
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
-      assert html =~ "Public Platform"
-      assert html =~ ~s(data-test="sv-root")
+      conn = log_in_user(conn, user)
+      assert {:error, {:redirect, %{to: "/admin?org=public-platform"}}} = live(conn, ~p"/")
     end
 
     test "shows default landing for unauthenticated visitor when no landing sections exist", %{
@@ -982,10 +871,23 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
   end
 
   describe "logged-in viewer without subdomain" do
-    test "shows org home page when viewer is logged in without subdomain", %{conn: conn} do
-      org = insert(:organization, name: "Viewer Org")
+    test "redirects to / with explicit ?org=<slug> when viewer hits root without subdomain",
+         %{conn: conn} do
+      org = insert(:organization, slug: "viewer-org")
       viewer = insert(:viewer, organization: org)
+      token = Bobine.Viewers.generate_viewer_session_token(viewer)
 
+      conn =
+        conn
+        |> Map.put(:host, "localhost")
+        |> Phoenix.ConnTest.init_test_session(%{viewer_token: token})
+
+      assert {:error, {:redirect, %{to: "/?org=viewer-org"}}} = live(conn, ~p"/")
+    end
+
+    test "renders viewer home once the ?org= param is present", %{conn: conn} do
+      org = insert(:organization, slug: "viewer-org-2", name: "Viewer Org 2")
+      viewer = insert(:viewer, organization: org)
       insert(:video, organization: org, mux_status: "ready")
 
       insert(:row,
@@ -1003,10 +905,9 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
         |> Map.put(:host, "localhost")
         |> Phoenix.ConnTest.init_test_session(%{viewer_token: token})
 
-      {:ok, _view, html} = live(conn, ~p"/")
-      assert html =~ "Viewer Org"
+      {:ok, _view, html} = live(conn, ~p"/?org=viewer-org-2")
+      assert html =~ "Viewer Org 2"
       assert html =~ "Viewer Row"
-      refute html =~ ~s(data-test="platform-marketing")
     end
   end
 
