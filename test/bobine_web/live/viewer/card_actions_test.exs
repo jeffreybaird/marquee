@@ -23,6 +23,37 @@ defmodule BobineWeb.Viewer.CardActionsTest do
       assert html =~ "A great video description"
     end
 
+    test "portrait-variant rows omit hover preview popup + CardFocus hook", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Portrait Video",
+          mux_status: "ready",
+          mux_playback_id: "pb_portrait"
+        )
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Portrait Row",
+          source_type: :curated,
+          card_variant: "poster_portrait",
+          visible: true,
+          position: 0
+        )
+
+      insert(:row_item, organization: org, row: row, video: video, position: 0)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+
+      assert html =~ ~s(data-card-variant="poster_portrait")
+      refute html =~ ~s(data-test="sv-card-popup-#{video.id}")
+      refute html =~ ~s(phx-hook="CardFocus")
+    end
+
     test "renders action buttons for authenticated viewer", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
