@@ -2,8 +2,8 @@ defmodule BobineWeb.Components.AdminUI do
   @moduledoc """
   Unified admin UI primitives. All operator-facing admin views render
   through these components so they inherit the **admin-scoped** tokens
-  (`bg-admin-surface`, `bg-admin-elevated`, `border-admin-border`,
-  `text-admin-text-primary`, `bg-admin-accent`) and the same
+  (`bg-admin-card`, `bg-admin-card`, `border-admin-border`,
+  `text-admin-fg`, `bg-admin-accent`) and the same
   content-creation pattern (side sheet, never a centered modal).
 
   Admin tokens are a separate palette from the viewer tokens. Viewer
@@ -51,10 +51,10 @@ defmodule BobineWeb.Components.AdminUI do
     <section class="space-y-6" data-test={@data_test}>
       <header class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <h1 class="font-display text-2xl font-semibold tracking-tight text-admin-text-primary">
+          <h1 class="font-display text-2xl font-semibold tracking-tight text-admin-fg">
             {@title}
           </h1>
-          <p :if={@subtitle} class="mt-1 font-body text-sm text-admin-text-secondary">
+          <p :if={@subtitle} class="mt-1 font-body text-sm text-admin-muted">
             {@subtitle}
           </p>
         </div>
@@ -63,7 +63,7 @@ defmodule BobineWeb.Components.AdminUI do
         </div>
       </header>
 
-      <div class="font-body text-admin-text-primary">
+      <div class="font-body text-admin-fg">
         {render_slot(@inner_block)}
       </div>
     </section>
@@ -82,12 +82,12 @@ defmodule BobineWeb.Components.AdminUI do
   def admin_section(assigns) do
     ~H"""
     <section
-      class="rounded-lg border border-admin-border bg-admin-surface p-6 space-y-4"
+      class="rounded-lg border border-admin-border bg-admin-card p-6 space-y-4"
       data-test={@data_test}
     >
       <div :if={@title} class="space-y-1">
-        <h2 class="font-display text-lg font-semibold text-admin-text-primary">{@title}</h2>
-        <p :if={@description} class="font-body text-sm text-admin-text-secondary">{@description}</p>
+        <h2 class="font-display text-lg font-semibold text-admin-fg">{@title}</h2>
+        <p :if={@description} class="font-body text-sm text-admin-muted">{@description}</p>
       </div>
       {render_slot(@inner_block)}
     </section>
@@ -137,23 +137,23 @@ defmodule BobineWeb.Components.AdminUI do
         phx-click={JS.push(@on_close)}
         aria-hidden="true"
       />
-      <aside class="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col border-l border-admin-border bg-admin-surface shadow-2xl">
+      <aside class="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col border-l border-admin-border bg-admin-card shadow-2xl">
         <header class="flex items-start justify-between gap-4 border-b border-admin-border px-6 py-4">
           <div class="min-w-0">
             <h2
               id={@id <> "-title"}
-              class="font-display text-lg font-semibold text-admin-text-primary"
+              class="font-display text-lg font-semibold text-admin-fg"
             >
               {@title}
             </h2>
-            <p :if={@subtitle} class="mt-1 font-body text-sm text-admin-text-secondary">
+            <p :if={@subtitle} class="mt-1 font-body text-sm text-admin-muted">
               {@subtitle}
             </p>
           </div>
           <button
             type="button"
             phx-click={JS.push(@on_close)}
-            class="rounded-md p-1 text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-admin-accent"
+            class="rounded-md p-1 text-admin-muted hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-admin-accent"
             aria-label="Close"
             data-test={(@data_test && @data_test <> "-close") || nil}
           >
@@ -161,13 +161,13 @@ defmodule BobineWeb.Components.AdminUI do
           </button>
         </header>
 
-        <div class="flex-1 overflow-y-auto px-6 py-5 font-body text-admin-text-primary">
+        <div class="flex-1 overflow-y-auto px-6 py-5 font-body text-admin-fg">
           {render_slot(@inner_block)}
         </div>
 
         <footer
           :if={@footer != []}
-          class="flex items-center justify-end gap-2 border-t border-admin-border bg-admin-elevated px-6 py-4"
+          class="flex items-center justify-end gap-2 border-t border-admin-border bg-admin-card px-6 py-4"
         >
           {render_slot(@footer)}
         </footer>
@@ -215,17 +215,17 @@ defmodule BobineWeb.Components.AdminUI do
 
   defp variant_class(:accent),
     do:
-      "bg-admin-accent text-admin-accent-text hover:bg-admin-accent-hover active:bg-admin-accent-active"
+      "bg-admin-accent text-admin-on-accent hover:brightness-110 active:brightness-95"
 
   defp variant_class(:secondary),
     do:
-      "bg-admin-elevated text-admin-text-primary border border-admin-border hover:border-admin-border-strong"
+      "bg-admin-card text-admin-fg border border-admin-border hover:border-admin-border"
 
   defp variant_class(:ghost),
-    do: "text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+    do: "text-admin-muted hover:bg-admin-card hover:text-admin-fg"
 
   defp variant_class(:danger),
-    do: "bg-error text-admin-accent-text hover:opacity-90"
+    do: "bg-error text-admin-on-accent hover:opacity-90"
 
   attr :title, :string, required: true
   attr :description, :string, default: nil
@@ -238,11 +238,11 @@ defmodule BobineWeb.Components.AdminUI do
   def admin_empty(assigns) do
     ~H"""
     <div
-      class="rounded-lg border border-dashed border-admin-border bg-admin-surface px-6 py-12 text-center"
+      class="rounded-lg border border-dashed border-admin-border bg-admin-card px-6 py-12 text-center"
       data-test={@data_test}
     >
-      <p class="font-display text-base font-semibold text-admin-text-primary">{@title}</p>
-      <p :if={@description} class="mt-1 font-body text-sm text-admin-text-secondary">
+      <p class="font-display text-base font-semibold text-admin-fg">{@title}</p>
+      <p :if={@description} class="mt-1 font-body text-sm text-admin-muted">
         {@description}
       </p>
       <div :if={@actions != []} class="mt-4 flex items-center justify-center gap-2">

@@ -99,7 +99,7 @@ defmodule BobineWeb.Admin.BillingLive do
           role="alert"
         >
           <p class="font-semibold text-warning">Payment overdue</p>
-          <p class="mt-1 text-sm text-admin-text-secondary">
+          <p class="mt-1 text-sm text-admin-muted">
             Your Bobine payment is overdue. Update your payment method to avoid service interruption.
           </p>
           <button
@@ -123,21 +123,21 @@ defmodule BobineWeb.Admin.BillingLive do
                 >
                   Current plan
                 </span>
-                <h3 class="mt-2 text-xl font-bold text-admin-text-primary">
+                <h3 class="mt-2 text-xl font-bold text-admin-fg">
                   {if @current_plan, do: @current_plan.name, else: "Unknown Plan"}
                 </h3>
               </div>
               <div class="flex gap-2">
                 <button
                   phx-click="show_change_plan"
-                  class="rounded-lg border border-admin-border px-4 py-2 text-sm font-medium text-admin-text-primary hover:bg-admin-elevated"
+                  class="rounded-lg border border-admin-border px-4 py-2 text-sm font-medium text-admin-fg hover:bg-admin-card"
                   data-test="change-plan-btn"
                 >
                   Change plan
                 </button>
                 <button
                   phx-click="manage_subscription"
-                  class="rounded-lg bg-admin-accent px-4 py-2 text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
+                  class="rounded-lg bg-admin-accent px-4 py-2 text-sm font-medium text-admin-on-accent hover:brightness-110"
                   data-test="manage-subscription-btn"
                 >
                   Manage subscription
@@ -171,7 +171,7 @@ defmodule BobineWeb.Admin.BillingLive do
 
       <%= if @show_plan_grid do %>
         <div class="mt-8" data-test="platform-plan-grid">
-          <h2 class="text-lg font-semibold text-admin-text-primary">
+          <h2 class="text-lg font-semibold text-admin-fg">
             {if @subscription && @subscription.status == :active,
               do: "Change your plan",
               else: "Choose a plan"}
@@ -197,23 +197,28 @@ defmodule BobineWeb.Admin.BillingLive do
     <div
       class={[
         "rounded-lg border p-6",
-        if(@is_current, do: "border-admin-accent bg-admin-accent-subtle", else: "border-admin-border bg-admin-bg")
+        if(@is_current,
+          do: "border-admin-accent bg-admin-accent/10",
+          else: "border-admin-border bg-admin-bg"
+        )
       ]}
       data-test={"platform-plan-#{@plan.slug}"}
     >
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-admin-text-primary">{@plan.name}</h3>
+        <h3 class="text-lg font-bold text-admin-fg">{@plan.name}</h3>
         <%= if @plan.highlight do %>
-          <span class="rounded-full bg-admin-accent-subtle px-2 py-0.5 text-xs font-medium text-admin-accent">
+          <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 text-xs font-medium text-admin-accent">
             Popular
           </span>
         <% end %>
       </div>
-      <p class="mt-1 text-2xl font-bold text-admin-text-primary">
-        ${format_amount(@plan.amount)}<span class="text-sm font-normal text-admin-text-muted">/mo</span>
+      <p class="mt-1 text-2xl font-bold text-admin-fg">
+        ${format_amount(@plan.amount)}<span class="text-sm font-normal text-admin-muted">/mo</span>
       </p>
-      <p :if={@plan.description} class="mt-2 text-sm text-admin-text-secondary">{@plan.description}</p>
-      <ul class="mt-4 space-y-2 text-sm text-admin-text-secondary">
+      <p :if={@plan.description} class="mt-2 text-sm text-admin-muted">
+        {@plan.description}
+      </p>
+      <ul class="mt-4 space-y-2 text-sm text-admin-muted">
         <li>{format_limit(@plan.max_videos, "videos")}</li>
         <li>{format_limit(@plan.max_monthly_views, "views/mo")}</li>
         <li>{format_limit(@plan.max_team_seats, "team seats")}</li>
@@ -229,7 +234,7 @@ defmodule BobineWeb.Admin.BillingLive do
         <button
           phx-click="subscribe"
           phx-value-plan_id={@plan.id}
-          class="mt-4 w-full rounded-lg bg-admin-accent px-4 py-2 text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
+          class="mt-4 w-full rounded-lg bg-admin-accent px-4 py-2 text-sm font-medium text-admin-on-accent hover:brightness-110"
           data-test="subscribe-btn"
         >
           Subscribe
@@ -254,12 +259,12 @@ defmodule BobineWeb.Admin.BillingLive do
 
     ~H"""
     <div class="rounded-lg border border-admin-border bg-admin-bg p-4" data-test={@data_test}>
-      <p class="text-sm text-admin-text-muted">{@label}</p>
-      <p class="mt-1 text-lg font-bold text-admin-text-primary">
+      <p class="text-sm text-admin-muted">{@label}</p>
+      <p class="mt-1 text-lg font-bold text-admin-fg">
         {@current} / {if @limit, do: @limit, else: "unlimited"}
       </p>
       <%= if @limit do %>
-        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-admin-elevated">
+        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-admin-card">
           <div
             class={[
               "h-full rounded-full",

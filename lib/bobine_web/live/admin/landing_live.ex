@@ -437,7 +437,7 @@ defmodule BobineWeb.Admin.LandingLive do
             <div class="flex flex-col">
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
                 phx-click="move_up"
                 phx-value-id={section.id}
                 disabled={index == 0}
@@ -447,7 +447,7 @@ defmodule BobineWeb.Admin.LandingLive do
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
                 phx-click="move_down"
                 phx-value-id={section.id}
                 disabled={index == length(@sections) - 1}
@@ -459,13 +459,13 @@ defmodule BobineWeb.Admin.LandingLive do
 
             <div class="admin-section-info flex-1">
               <div class="font-medium">{format_section_type(section.section_type)}</div>
-              <div class="text-sm text-admin-text-secondary">{section_preview_text(section)}</div>
+              <div class="text-sm text-admin-muted">{section_preview_text(section)}</div>
             </div>
 
             <div class="admin-section-actions flex gap-2">
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
                 phx-click="toggle_visibility"
                 phx-value-id={section.id}
                 data-test={"toggle-visibility-#{section.id}"}
@@ -474,7 +474,7 @@ defmodule BobineWeb.Admin.LandingLive do
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
                 phx-click="edit_section"
                 phx-value-id={section.id}
                 data-test={"edit-section-#{section.id}"}
@@ -483,7 +483,7 @@ defmodule BobineWeb.Admin.LandingLive do
               </button>
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-error hover:bg-admin-elevated"
+                class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-error hover:bg-admin-card"
                 phx-click="delete_section"
                 phx-value-id={section.id}
                 data-confirm="Delete this section?"
@@ -496,7 +496,7 @@ defmodule BobineWeb.Admin.LandingLive do
 
           <div
             :if={@sections == []}
-            class="rounded-lg border border-dashed border-admin-border p-6 text-center text-admin-text-secondary"
+            class="rounded-lg border border-dashed border-admin-border p-6 text-center text-admin-muted"
             data-test="empty-state"
           >
             No landing sections yet. Add one below.
@@ -505,7 +505,11 @@ defmodule BobineWeb.Admin.LandingLive do
 
         <div class="admin-add-section mt-4" data-test="add-section">
           <form phx-change="add_section" id="add-section-form">
-            <select name="section_type" class="rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none" data-test="add-section-select">
+            <select
+              name="section_type"
+              class="rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+              data-test="add-section-select"
+            >
               <option value="">+ Add section…</option>
               <option :for={{label, value} <- @section_type_options} value={value}>{label}</option>
             </select>
@@ -514,7 +518,7 @@ defmodule BobineWeb.Admin.LandingLive do
 
         <div
           :if={@editing_section}
-          class="mt-6 rounded-lg border border-admin-border bg-admin-surface p-4"
+          class="mt-6 rounded-lg border border-admin-border bg-admin-card p-4"
           data-test="section-editor"
         >
           <h3 class="font-semibold mb-3">
@@ -623,14 +627,17 @@ defmodule BobineWeb.Admin.LandingLive do
         <textarea
           name="body"
           rows="4"
-          class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
         >{@form["body"]}</textarea>
       </label>
       <.text_input name="cta_text" label="CTA text" value={@form["cta_text"]} />
       <.text_input name="cta_link" label="CTA link" value={@form["cta_link"]} />
       <label class="block">
         <span class="block text-sm font-medium mb-1">Text alignment</span>
-        <select name="text_alignment" class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none">
+        <select
+          name="text_alignment"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+        >
           <option value="center" selected={@form["text_alignment"] == "center"}>Center</option>
           <option value="left" selected={@form["text_alignment"] == "left"}>Left</option>
         </select>
@@ -657,7 +664,10 @@ defmodule BobineWeb.Admin.LandingLive do
       <.text_input name="title" label="Title" value={@form["title"]} />
       <label class="block">
         <span class="block text-sm font-medium mb-1">Source</span>
-        <select name="source_type" class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none">
+        <select
+          name="source_type"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+        >
           <option value="recent" selected={@form["source_type"] == "recent"}>Recent videos</option>
           <option value="collection" selected={@form["source_type"] == "collection"}>
             Collection
@@ -666,7 +676,10 @@ defmodule BobineWeb.Admin.LandingLive do
       </label>
       <label class="block">
         <span class="block text-sm font-medium mb-1">Collection (when source = collection)</span>
-        <select name="source_id" class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none">
+        <select
+          name="source_id"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+        >
           <option value="">— select a collection —</option>
           <option
             :for={collection <- @collections}
@@ -689,7 +702,7 @@ defmodule BobineWeb.Admin.LandingLive do
     <form phx-submit="save_section" class="space-y-3">
       <.text_input name="headline" label="Headline" value={@form["headline"]} />
       <.text_input name="subheadline" label="Subheadline" value={@form["subheadline"]} />
-      <p class="text-sm text-admin-text-secondary">
+      <p class="text-sm text-admin-muted">
         Plans are auto-populated from your active billing plans.
       </p>
       <.visible_input value={true} />
@@ -705,7 +718,10 @@ defmodule BobineWeb.Admin.LandingLive do
       <.text_input name="subheadline" label="Subheadline" value={@form["subheadline"]} />
       <label class="block">
         <span class="block text-sm font-medium mb-1">Size</span>
-        <select name="size" class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none">
+        <select
+          name="size"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+        >
           <option value="small" selected={@form["size"] == "small"}>Small</option>
           <option value="medium" selected={@form["size"] == "medium"}>Medium</option>
           <option value="large" selected={@form["size"] == "large"}>Large</option>
@@ -713,7 +729,10 @@ defmodule BobineWeb.Admin.LandingLive do
       </label>
       <label class="block">
         <span class="block text-sm font-medium mb-1">Alignment</span>
-        <select name="text_alignment" class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none">
+        <select
+          name="text_alignment"
+          class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+        >
           <option value="center" selected={@form["text_alignment"] == "center"}>Center</option>
           <option value="left" selected={@form["text_alignment"] == "left"}>Left</option>
         </select>
@@ -740,17 +759,17 @@ defmodule BobineWeb.Admin.LandingLive do
             name={"faq[#{index}][question]"}
             value={item["question"]}
             placeholder="Question"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none mb-1"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none mb-1"
           />
           <textarea
             name={"faq[#{index}][answer]"}
             rows="2"
             placeholder="Answer"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
           >{item["answer"]}</textarea>
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary mt-1"
+            class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg mt-1"
             phx-click="faq_remove_item"
             phx-value-index={index}
           >
@@ -759,7 +778,13 @@ defmodule BobineWeb.Admin.LandingLive do
         </div>
       </div>
 
-      <button type="button" class="inline-flex items-center gap-1.5 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-ui text-sm font-medium text-admin-text-primary hover:border-admin-border-strong" phx-click="faq_add_item">+ Add item</button>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-ui text-sm font-medium text-admin-fg hover:border-admin-border"
+        phx-click="faq_add_item"
+      >
+        + Add item
+      </button>
       <.visible_input value={true} />
       <.form_buttons />
     </form>
@@ -774,7 +799,12 @@ defmodule BobineWeb.Admin.LandingLive do
     ~H"""
     <label class="block">
       <span class="block text-sm font-medium mb-1">{@label}</span>
-      <input type="text" name={@name} value={@value} class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none" />
+      <input
+        type="text"
+        name={@name}
+        value={@value}
+        class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+      />
     </label>
     """
   end
@@ -797,7 +827,7 @@ defmodule BobineWeb.Admin.LandingLive do
         step={@step}
         min={@min}
         max={@max}
-        class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+        class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
       />
     </label>
     """
@@ -814,8 +844,20 @@ defmodule BobineWeb.Admin.LandingLive do
   defp form_buttons(assigns) do
     ~H"""
     <div class="flex gap-2 mt-3">
-      <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover" data-test="save-section">Save</button>
-      <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary" phx-click="cancel_edit">Cancel</button>
+      <button
+        type="submit"
+        class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
+        data-test="save-section"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
+        phx-click="cancel_edit"
+      >
+        Cancel
+      </button>
     </div>
     """
   end

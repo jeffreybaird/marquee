@@ -58,12 +58,12 @@ defmodule BobineWeb.Admin.SettingsLive do
           <h2 class="text-lg font-semibold mb-4">Payments</h2>
 
           <div :if={!@stripe_connected} data-test="stripe-not-connected">
-            <p class="text-admin-text-secondary mb-4">
+            <p class="text-admin-muted mb-4">
               Connect your Stripe account to accept viewer subscriptions and receive payments.
             </p>
             <button
               phx-click="connect_stripe"
-              class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
+              class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
               data-test="connect-stripe-btn"
             >
               Connect Stripe account
@@ -75,14 +75,14 @@ defmodule BobineWeb.Admin.SettingsLive do
               <span class="inline-block w-2 h-2 rounded-full bg-success"></span>
               <span class="font-medium text-success">Stripe connected</span>
             </div>
-            <p class="text-sm text-admin-text-muted mb-4">
+            <p class="text-sm text-admin-muted mb-4">
               Account: <code class="text-xs">{@stripe_account_id}</code>
             </p>
             <a
               href={"https://dashboard.stripe.com/#{@stripe_account_id}"}
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+              class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
               data-test="stripe-dashboard-link"
             >
               Manage in Stripe Dashboard

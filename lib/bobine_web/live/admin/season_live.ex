@@ -313,14 +313,14 @@ defmodule BobineWeb.Admin.SeasonLive do
         <:actions>
           <.link
             navigate={~p"/admin/series"}
-            class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
             data-test="back-to-series"
           >
             ← Series
           </.link>
           <.link
             navigate={~p"/admin/analytics/series/#{@series.id}/seasons/#{@season.id}"}
-            class="inline-flex items-center justify-center gap-1.5 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-ui text-sm font-medium text-admin-text-primary transition-colors hover:border-admin-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-ui text-sm font-medium text-admin-fg transition-colors hover:border-admin-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
             data-test="view-season-analytics"
           >
             Analytics
@@ -344,7 +344,7 @@ defmodule BobineWeb.Admin.SeasonLive do
           </BobineWeb.Components.AdminUI.admin_button>
         </:actions>
 
-        <p class="font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+        <p class="font-ui text-xs uppercase tracking-wide text-admin-muted">
           {@series.title}
         </p>
         <div data-test="season-page-title" class="sr-only">{@season.title}</div>
@@ -358,11 +358,11 @@ defmodule BobineWeb.Admin.SeasonLive do
 
         <div
           :if={@episodes != []}
-          class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+          class="overflow-x-auto rounded-lg border border-admin-border bg-admin-card"
           data-test="episodes-list"
         >
-          <table class="w-full font-body text-sm text-admin-text-primary">
-            <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+          <table class="w-full font-body text-sm text-admin-fg">
+            <thead class="border-b border-admin-border bg-admin-card font-ui text-xs uppercase tracking-wide text-admin-muted">
               <tr>
                 <th class="px-4 py-3 text-left">#</th>
                 <th class="px-4 py-3 text-left">Episode</th>
@@ -375,12 +375,12 @@ defmodule BobineWeb.Admin.SeasonLive do
               <tr
                 :for={ep <- @episodes}
                 data-test={"episode-row-#{ep.id}"}
-                class="border-b border-admin-border-subtle last:border-0"
+                class="border-b border-admin-border last:border-0"
               >
                 <td class="px-4 py-3 font-mono">{ep.episode_number}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
-                    <div class="h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+                    <div class="h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-admin-card">
                       <img
                         :if={ep.video && ep.video.mux_playback_id}
                         src={"https://image.mux.com/#{ep.video.mux_playback_id}/thumbnail.webp?width=192&height=108"}
@@ -389,10 +389,10 @@ defmodule BobineWeb.Admin.SeasonLive do
                       />
                     </div>
                     <div>
-                      <div class="font-display font-semibold text-admin-text-primary">
+                      <div class="font-display font-semibold text-admin-fg">
                         {ep.title || (ep.video && ep.video.title)}
                       </div>
-                      <div class="font-mono text-xs text-admin-text-muted">
+                      <div class="font-mono text-xs text-admin-muted">
                         {ep.video && ep.video.slug}
                       </div>
                     </div>
@@ -401,7 +401,7 @@ defmodule BobineWeb.Admin.SeasonLive do
                 <td class="px-4 py-3" data-test={"episode-status-#{ep.id}"}>
                   <.status_badge status={ep.video && ep.video.mux_status} />
                 </td>
-                <td class="px-4 py-3 font-mono text-admin-text-secondary">
+                <td class="px-4 py-3 font-mono text-admin-muted">
                   {format_duration(ep.video && ep.video.duration)}
                 </td>
                 <td :if={@can_manage} class="px-4 py-3">
@@ -466,8 +466,9 @@ defmodule BobineWeb.Admin.SeasonLive do
       data_test="episode-upload-modal"
     >
       <div :if={@uploading} class="space-y-2" data-test="upload-progress-section">
-        <p class="font-body text-sm text-admin-text-secondary">
-          Uploading {@upload_completed + 1} of {@upload_total}… <span class="font-mono">{@upload_percent}%</span>
+        <p class="font-body text-sm text-admin-muted">
+          Uploading {@upload_completed + 1} of {@upload_total}…
+          <span class="font-mono">{@upload_percent}%</span>
         </p>
         <progress
           class="w-full"
@@ -481,7 +482,7 @@ defmodule BobineWeb.Admin.SeasonLive do
       <div :if={!@uploading && @upload_files == []} data-test="upload-file-picker" class="space-y-4">
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="episode-upload-file"
           >
             Select video files
@@ -492,7 +493,7 @@ defmodule BobineWeb.Admin.SeasonLive do
             name="video_file"
             accept="video/*"
             multiple
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="upload-file"
           />
         </div>
@@ -500,7 +501,7 @@ defmodule BobineWeb.Admin.SeasonLive do
           <button
             type="button"
             phx-click="close_upload"
-            class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
           >
             Cancel
           </button>
@@ -515,7 +516,7 @@ defmodule BobineWeb.Admin.SeasonLive do
         data-test="upload-form"
         class="space-y-4"
       >
-        <p class="font-body text-sm text-admin-text-muted">
+        <p class="font-body text-sm text-admin-muted">
           {length(@upload_files)} file(s) selected. Each file becomes one episode.
         </p>
 
@@ -526,7 +527,7 @@ defmodule BobineWeb.Admin.SeasonLive do
             data-test={"upload-file-row-#{file.client_id}"}
           >
             <div
-              class="w-32 flex-shrink-0 truncate font-mono text-xs text-admin-text-muted"
+              class="w-32 flex-shrink-0 truncate font-mono text-xs text-admin-muted"
               title={file.name}
             >
               {file.name}
@@ -535,7 +536,7 @@ defmodule BobineWeb.Admin.SeasonLive do
               type="text"
               name={"titles[#{file.client_id}]"}
               value={file.title}
-              class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="flex-1 rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               placeholder="Episode title"
               data-test={"upload-title-#{file.client_id}"}
             />
@@ -548,7 +549,7 @@ defmodule BobineWeb.Admin.SeasonLive do
           :if={!@uploading && @upload_files != []}
           type="button"
           phx-click="close_upload"
-          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
         >
           Cancel
         </button>
@@ -580,7 +581,7 @@ defmodule BobineWeb.Admin.SeasonLive do
       on_close="close_picker"
       data_test="episode-video-picker"
     >
-      <div :if={@videos == []} class="py-8 text-center font-body text-sm text-admin-text-muted">
+      <div :if={@videos == []} class="py-8 text-center font-body text-sm text-admin-muted">
         <p>No unassigned videos available.</p>
         <p class="mt-2">All your videos are already episodes in some season.</p>
       </div>
@@ -588,12 +589,12 @@ defmodule BobineWeb.Admin.SeasonLive do
       <div :if={@videos != []} class="space-y-2">
         <label
           :for={video <- @videos}
-          class="flex cursor-pointer items-center gap-3 rounded-lg border border-admin-border bg-admin-elevated p-3 hover:border-admin-border-strong"
+          class="flex cursor-pointer items-center gap-3 rounded-lg border border-admin-border bg-admin-card p-3 hover:border-admin-border"
           data-test={"picker-video-#{video.id}"}
         >
           <input
             type="checkbox"
-            class="size-4 rounded border-admin-border bg-admin-surface accent-admin-accent"
+            class="size-4 rounded border-admin-border bg-admin-card accent-admin-accent"
             checked={MapSet.member?(@selected_video_ids, video.id)}
             phx-click="toggle_picker_video"
             phx-value-video-id={video.id}
@@ -608,10 +609,10 @@ defmodule BobineWeb.Admin.SeasonLive do
             />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="truncate font-display font-semibold text-admin-text-primary">
+            <div class="truncate font-display font-semibold text-admin-fg">
               {video.title}
             </div>
-            <div class="font-mono text-xs text-admin-text-muted">
+            <div class="font-mono text-xs text-admin-muted">
               {format_duration(video.duration)}
             </div>
           </div>
@@ -619,13 +620,13 @@ defmodule BobineWeb.Admin.SeasonLive do
       </div>
 
       <:footer>
-        <span class="mr-auto font-ui text-sm text-admin-text-muted">
+        <span class="mr-auto font-ui text-sm text-admin-muted">
           {@selected_count} selected
         </span>
         <button
           type="button"
           phx-click="close_picker"
-          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
         >
           Cancel
         </button>
@@ -645,20 +646,19 @@ defmodule BobineWeb.Admin.SeasonLive do
     {label, tone_class} =
       case assigns.status do
         "ready" ->
-          {"Ready",
-           "border-admin-accent bg-admin-accent-subtle text-admin-accent-text"}
+          {"Ready", "border-admin-accent bg-admin-accent/10 text-admin-on-accent"}
 
         "preparing" ->
-          {"Processing", "border-warning/50 bg-warning/10 text-admin-text-primary"}
+          {"Processing", "border-warning/50 bg-warning/10 text-admin-fg"}
 
         "waiting" ->
-          {"Waiting", "border-admin-border text-admin-text-muted"}
+          {"Waiting", "border-admin-border text-admin-muted"}
 
         "errored" ->
-          {"Errored", "border-error/50 bg-error/10 text-admin-text-primary"}
+          {"Errored", "border-error/50 bg-error/10 text-admin-fg"}
 
         _ ->
-          {"Unknown", "border-admin-border text-admin-text-muted"}
+          {"Unknown", "border-admin-border text-admin-muted"}
       end
 
     assigns = assign(assigns, label: label, tone_class: tone_class)

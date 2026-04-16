@@ -468,11 +468,11 @@ defmodule BobineWeb.Admin.CollectionsLive do
       <div
         :if={@collections != []}
         data-test="collections-list"
-        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-card"
       >
-        <table class="w-full font-body text-sm text-admin-text-primary">
-          <thead class="border-b border-admin-border bg-admin-elevated">
-            <tr class="text-left font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+        <table class="w-full font-body text-sm text-admin-fg">
+          <thead class="border-b border-admin-border bg-admin-card">
+            <tr class="text-left font-ui text-xs uppercase tracking-wide text-admin-muted">
               <th class="px-4 py-3">Title</th>
               <th class="px-4 py-3">Visible</th>
               <th class="px-4 py-3">Position</th>
@@ -489,11 +489,11 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 <button
                   phx-click="view_collection"
                   phx-value-id={collection.id}
-                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
+                  class="font-display font-semibold text-admin-fg hover:text-admin-accent hover:underline"
                 >
                   {collection.title}
                 </button>
-                <div class="font-mono text-xs text-admin-text-muted">{collection.slug}</div>
+                <div class="font-mono text-xs text-admin-muted">{collection.slug}</div>
               </td>
               <td class="px-4 py-3">
                 <button
@@ -504,9 +504,8 @@ defmodule BobineWeb.Admin.CollectionsLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(collection.visible,
-                      do:
-                        "border-transparent bg-admin-accent-subtle text-admin-accent-text",
-                      else: "border-admin-border text-admin-text-muted"
+                      do: "border-transparent bg-admin-accent/10 text-admin-on-accent",
+                      else: "border-admin-border text-admin-muted"
                     )
                   ]}
                 >
@@ -514,7 +513,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 </button>
                 <span
                   :if={!@can_manage}
-                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 >
                   {if collection.visible, do: "Visible", else: "Hidden"}
                 </span>
@@ -584,7 +583,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
       >
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="collection-title"
           >
             Title
@@ -595,7 +594,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
             name="collection[title]"
             value={@form[:title].value}
             required
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="collection-title-input"
           />
           <.field_error :for={msg <- error_messages(@form[:title])}>
@@ -605,7 +604,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
 
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="collection-description"
           >
             Description
@@ -614,7 +613,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
             id="collection-description"
             name="collection[description]"
             rows="3"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
           >{@form[:description].value}</textarea>
         </div>
 
@@ -687,12 +686,12 @@ defmodule BobineWeb.Admin.CollectionsLive do
       <div :if={@items != []} class="space-y-2">
         <div
           :for={item <- @items}
-          class="flex items-center gap-3 rounded-lg border border-admin-border bg-admin-surface p-3"
+          class="flex items-center gap-3 rounded-lg border border-admin-border bg-admin-card p-3"
           data-test={item_test_id(item)}
         >
           <%= case item.item_type do %>
             <% :video -> %>
-              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-card">
                 <img
                   :if={item.video && item.video.mux_playback_id}
                   src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
@@ -701,18 +700,18 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 />
               </div>
               <div class="min-w-0 flex-1">
-                <div class="truncate font-display font-semibold text-admin-text-primary">
+                <div class="truncate font-display font-semibold text-admin-fg">
                   {item.video && item.video.title}
                 </div>
               </div>
               <span
-                class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 data-test="type-badge"
               >
                 Video
               </span>
             <% :season -> %>
-              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-card">
                 <img
                   :if={item.season && item.season.cover_image_url}
                   src={item.season.cover_image_url}
@@ -721,21 +720,21 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 />
               </div>
               <div class="min-w-0 flex-1">
-                <div class="truncate font-display font-semibold text-admin-text-primary">
+                <div class="truncate font-display font-semibold text-admin-fg">
                   {item.season && item.season.title}
                 </div>
-                <div class="font-mono text-xs text-admin-text-muted">
+                <div class="font-mono text-xs text-admin-muted">
                   {item.season && item.season.episode_count} episodes
                 </div>
               </div>
               <span
-                class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
                 data-test="type-badge"
               >
                 Season
               </span>
             <% :series -> %>
-              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-card">
                 <img
                   :if={item.series && item.series.cover_image_url}
                   src={item.series.cover_image_url}
@@ -744,12 +743,12 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 />
               </div>
               <div class="min-w-0 flex-1">
-                <div class="truncate font-display font-semibold text-admin-text-primary">
+                <div class="truncate font-display font-semibold text-admin-fg">
                   {item.series && item.series.title}
                 </div>
               </div>
               <span
-                class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
                 data-test="type-badge"
               >
                 Series
@@ -831,13 +830,13 @@ defmodule BobineWeb.Admin.CollectionsLive do
           <% :video -> %>
             <div
               :if={@picker_videos == []}
-              class="py-4 text-center font-body text-sm text-admin-text-muted"
+              class="py-4 text-center font-body text-sm text-admin-muted"
             >
               All videos are already in this collection.
             </div>
             <div
               :for={video <- @picker_videos}
-              class="flex items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2"
+              class="flex items-center gap-3 rounded border border-admin-border bg-admin-card p-2"
             >
               <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
                 <input
@@ -848,7 +847,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                   phx-value-video-id={video.id}
                   data-test={"select-video-#{video.id}"}
                 />
-                <span class="truncate font-body text-sm text-admin-text-primary">
+                <span class="truncate font-body text-sm text-admin-fg">
                   {video.title}
                 </span>
               </label>
@@ -856,51 +855,51 @@ defmodule BobineWeb.Admin.CollectionsLive do
           <% :season -> %>
             <div
               :if={@picker_seasons == []}
-              class="py-4 text-center font-body text-sm text-admin-text-muted"
+              class="py-4 text-center font-body text-sm text-admin-muted"
             >
               No seasons available.
             </div>
             <div
               :for={season <- @picker_seasons}
-              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2 hover:border-admin-border-strong"
+              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 hover:border-admin-border"
               phx-click="add_item_to_collection"
               phx-value-type="season"
               phx-value-id={season.id}
               data-test={"picker-item-season-#{season.id}"}
             >
               <div class="min-w-0 flex-1">
-                <span class="font-display font-semibold text-admin-text-primary">
+                <span class="font-display font-semibold text-admin-fg">
                   {season.title}
                 </span>
-                <span class="ml-2 font-mono text-xs text-admin-text-muted">
+                <span class="ml-2 font-mono text-xs text-admin-muted">
                   {season.episode_count} episodes
                 </span>
               </div>
-              <span class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text">
+              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent">
                 Season
               </span>
             </div>
           <% :series -> %>
             <div
               :if={@picker_series == []}
-              class="py-4 text-center font-body text-sm text-admin-text-muted"
+              class="py-4 text-center font-body text-sm text-admin-muted"
             >
               No series available.
             </div>
             <div
               :for={series <- @picker_series}
-              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2 hover:border-admin-border-strong"
+              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 hover:border-admin-border"
               phx-click="add_item_to_collection"
               phx-value-type="series"
               phx-value-id={series.id}
               data-test={"picker-item-series-#{series.id}"}
             >
               <div class="min-w-0 flex-1">
-                <span class="font-display font-semibold text-admin-text-primary">
+                <span class="font-display font-semibold text-admin-fg">
                   {series.title}
                 </span>
               </div>
-              <span class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text">
+              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent">
                 Series
               </span>
             </div>
@@ -910,7 +909,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
       <:footer>
         <span
           :if={@picker_type == :video && @picker_videos != []}
-          class="mr-auto font-mono text-sm text-admin-text-muted"
+          class="mr-auto font-mono text-sm text-admin-muted"
         >
           {@selected_count} selected
         </span>

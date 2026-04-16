@@ -23,7 +23,7 @@ defmodule BobineWeb.Admin.WebhooksLive do
       impersonating={@impersonating}
     >
       <.header>Webhooks</.header>
-      <p class="mt-4 text-admin-text-secondary">Webhook endpoint management coming soon.</p>
+      <p class="mt-4 text-admin-muted">Webhook endpoint management coming soon.</p>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end

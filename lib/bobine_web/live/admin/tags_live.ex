@@ -155,7 +155,7 @@ defmodule BobineWeb.Admin.TagsLive do
             value={@new_tag_name}
             phx-change="update_new_tag"
             placeholder="New tag name…"
-            class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="flex-1 rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="new-tag-input"
           />
           <BobineWeb.Components.AdminUI.admin_button
@@ -177,14 +177,14 @@ defmodule BobineWeb.Admin.TagsLive do
         <div :if={@tags != []} data-test="tags-list" class="space-y-2">
           <div
             :for={tag <- @tags}
-            class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-surface p-3"
+            class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-card p-3"
             data-test={"tag-#{tag.id}"}
           >
             <div :if={@editing_tag_id != tag.id} class="flex items-center gap-3">
-              <span class="rounded-full border border-admin-border bg-admin-elevated px-3 py-1 font-ui text-sm font-medium text-admin-text-primary">
+              <span class="rounded-full border border-admin-border bg-admin-card px-3 py-1 font-ui text-sm font-medium text-admin-fg">
                 {tag.name}
               </span>
-              <span class="font-mono text-xs text-admin-text-muted">{tag.slug}</span>
+              <span class="font-mono text-xs text-admin-muted">{tag.slug}</span>
             </div>
 
             <div :if={@editing_tag_id == tag.id} class="flex flex-1 gap-2 mr-2">
@@ -194,7 +194,7 @@ defmodule BobineWeb.Admin.TagsLive do
                 phx-change="update_editing_name"
                 phx-keyup="update_editing_name"
                 name="name"
-                class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+                class="flex-1 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               />
               <BobineWeb.Components.AdminUI.admin_button
                 size={:sm}

@@ -178,7 +178,7 @@ defmodule BobineWeb.Admin.CouponsLive do
 
         <div
           :if={!@stripe_connected}
-          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-admin-text-primary"
+          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-admin-fg"
           data-test="stripe-required-warning"
         >
           Connect your Stripe account in
@@ -197,22 +197,22 @@ defmodule BobineWeb.Admin.CouponsLive do
           <div
             :for={coupon <- @coupons}
             class={[
-              "rounded-lg border border-admin-border bg-admin-surface p-4 flex items-center justify-between",
+              "rounded-lg border border-admin-border bg-admin-card p-4 flex items-center justify-between",
               !coupon.active && "opacity-60"
             ]}
             data-test={"coupon-row-#{coupon.id}"}
           >
             <div>
               <div class="flex items-center gap-2">
-                <code class="font-mono font-semibold text-admin-text-primary">{coupon.code}</code>
+                <code class="font-mono font-semibold text-admin-fg">{coupon.code}</code>
                 <span
                   :if={!coupon.active}
-                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 >
                   Inactive
                 </span>
               </div>
-              <p class="font-body text-sm text-admin-text-secondary mt-1">
+              <p class="font-body text-sm text-admin-muted mt-1">
                 <span class="font-mono">{format_discount(coupon)}</span>
                 &middot; {coupon.duration}
                 <span :if={coupon.max_redemptions}>
@@ -250,7 +250,7 @@ defmodule BobineWeb.Admin.CouponsLive do
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label
-                class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+                class="block font-ui text-sm font-medium text-admin-fg mb-1"
                 for="coupon_code"
               >
                 Code
@@ -259,7 +259,7 @@ defmodule BobineWeb.Admin.CouponsLive do
                 type="text"
                 id="coupon_code"
                 name="coupon[code]"
-                class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm uppercase text-admin-text-primary focus:border-admin-accent focus:outline-none"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm uppercase text-admin-fg focus:border-admin-accent focus:outline-none"
                 required
                 placeholder="LAUNCH50"
                 data-test="coupon-code-input"
@@ -267,7 +267,7 @@ defmodule BobineWeb.Admin.CouponsLive do
             </div>
             <div>
               <label
-                class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+                class="block font-ui text-sm font-medium text-admin-fg mb-1"
                 for="coupon_name"
               >
                 Name
@@ -276,7 +276,7 @@ defmodule BobineWeb.Admin.CouponsLive do
                 type="text"
                 id="coupon_name"
                 name="coupon[name]"
-                class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
                 placeholder="Launch discount"
                 data-test="coupon-name-input"
               />
@@ -284,7 +284,7 @@ defmodule BobineWeb.Admin.CouponsLive do
           </div>
 
           <div>
-            <label class="block font-ui text-sm font-medium text-admin-text-primary mb-1">
+            <label class="block font-ui text-sm font-medium text-admin-fg mb-1">
               Discount type
             </label>
             <div class="flex gap-2">
@@ -311,7 +311,7 @@ defmodule BobineWeb.Admin.CouponsLive do
 
           <div :if={@discount_type == "percent"}>
             <label
-              class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+              class="block font-ui text-sm font-medium text-admin-fg mb-1"
               for="coupon_percent_off"
             >
               Percent off
@@ -323,7 +323,7 @@ defmodule BobineWeb.Admin.CouponsLive do
               min="1"
               max="100"
               step="1"
-              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               required
               data-test="coupon-percent-off-input"
             />
@@ -331,7 +331,7 @@ defmodule BobineWeb.Admin.CouponsLive do
 
           <div :if={@discount_type == "amount"}>
             <label
-              class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+              class="block font-ui text-sm font-medium text-admin-fg mb-1"
               for="coupon_amount_off"
             >
               Amount off (dollars)
@@ -342,7 +342,7 @@ defmodule BobineWeb.Admin.CouponsLive do
               name="coupon[amount_off_dollars]"
               min="0.01"
               step="0.01"
-              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               required
               data-test="coupon-amount-off-input"
             />
@@ -360,7 +360,7 @@ defmodule BobineWeb.Admin.CouponsLive do
 
           <div>
             <label
-              class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+              class="block font-ui text-sm font-medium text-admin-fg mb-1"
               for="coupon_duration_in_months"
             >
               Duration in months (for repeating)
@@ -370,14 +370,14 @@ defmodule BobineWeb.Admin.CouponsLive do
               id="coupon_duration_in_months"
               name="coupon[duration_in_months]"
               min="1"
-              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="coupon-duration-months-input"
             />
           </div>
 
           <div>
             <label
-              class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+              class="block font-ui text-sm font-medium text-admin-fg mb-1"
               for="coupon_max_redemptions"
             >
               Max redemptions (optional)
@@ -387,7 +387,7 @@ defmodule BobineWeb.Admin.CouponsLive do
               id="coupon_max_redemptions"
               name="coupon[max_redemptions]"
               min="1"
-              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="coupon-max-redemptions-input"
             />
           </div>

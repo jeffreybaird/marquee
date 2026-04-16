@@ -226,7 +226,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
                   :if={@content_performance.results == []}
                   data-test="content-empty-state"
                 >
-                  <td colspan="7" class="text-center py-8 text-admin-text-muted">
+                  <td colspan="7" class="text-center py-8 text-admin-muted">
                     No content data yet.
                   </td>
                 </tr>
@@ -286,7 +286,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
 
           <div class="bg-admin-bg rounded-xl p-5 space-y-3">
             <h2 class="text-lg font-semibold">Top Queued</h2>
-            <div :if={@engagement.most_queued_videos == []} class="text-admin-text-muted text-sm">
+            <div :if={@engagement.most_queued_videos == []} class="text-admin-muted text-sm">
               No queue data yet.
             </div>
             <.metric_row
@@ -327,11 +327,11 @@ defmodule BobineWeb.Admin.AnalyticsLive do
             <.link
               :for={series <- @series_list}
               navigate={~p"/admin/analytics/series/#{series.id}"}
-              class="bg-admin-bg rounded-xl p-5 hover:bg-admin-elevated transition-colors"
+              class="bg-admin-bg rounded-xl p-5 hover:bg-admin-card transition-colors"
               data-test={"series-analytics-link-#{series.id}"}
             >
               <p class="font-semibold">{series.title}</p>
-              <p class="text-sm text-admin-text-muted mt-1">
+              <p class="text-sm text-admin-muted mt-1">
                 View retention &amp; completion stats
               </p>
             </.link>
@@ -353,7 +353,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   defp kpi_card(assigns) do
     ~H"""
     <div class="bg-admin-bg rounded-xl p-5" data-test={@data_test}>
-      <p class="text-sm text-admin-text-muted">{@label}</p>
+      <p class="text-sm text-admin-muted">{@label}</p>
       <p class="text-2xl font-bold mt-1">{@value}</p>
     </div>
     """
@@ -366,7 +366,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   defp metric_row(assigns) do
     ~H"""
     <div class="flex justify-between items-center" data-test={@data_test}>
-      <span class="text-sm text-admin-text-secondary">{@label}</span>
+      <span class="text-sm text-admin-muted">{@label}</span>
       <span class="font-semibold">{@value}</span>
     </div>
     """
@@ -407,18 +407,18 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         phx-click="content_page"
         phx-value-page={@page - 1}
         data-test="content-page-prev"
-        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
         aria-label="Previous page"
       >
         &lsaquo;
       </button>
-      <span class="text-sm text-admin-text-muted">Page {@page} of {@total_pages}</span>
+      <span class="text-sm text-admin-muted">Page {@page} of {@total_pages}</span>
       <button
         :if={@page < @total_pages}
         phx-click="content_page"
         phx-value-page={@page + 1}
         data-test="content-page-next"
-        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
         aria-label="Next page"
       >
         &rsaquo;
@@ -492,11 +492,11 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   end
 
   defp period_btn_class(current, value) when current == value do
-    "inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
+    "inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-on-accent hover:brightness-110"
   end
 
   defp period_btn_class(_current, _value) do
-    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
+    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
   end
 
   defp toggle_dir(:asc), do: :desc

@@ -239,7 +239,7 @@ defmodule BobineWeb.Admin.PlansLive do
 
         <div
           :if={!@stripe_connected}
-          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-admin-text-primary"
+          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-admin-fg"
           data-test="stripe-required-warning"
         >
           Connect your Stripe account in
@@ -258,28 +258,28 @@ defmodule BobineWeb.Admin.PlansLive do
           <div
             :for={plan <- @plans}
             class={[
-              "rounded-lg border border-admin-border bg-admin-surface p-4 flex items-center justify-between",
+              "rounded-lg border border-admin-border bg-admin-card p-4 flex items-center justify-between",
               !plan.active && "opacity-60"
             ]}
             data-test={"plan-row-#{plan.id}"}
           >
             <div>
               <div class="flex items-center gap-2">
-                <span class="font-display font-semibold text-admin-text-primary">{plan.name}</span>
+                <span class="font-display font-semibold text-admin-fg">{plan.name}</span>
                 <span
                   :if={!plan.active}
-                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 >
                   Inactive
                 </span>
                 <span
                   :if={plan.trial_period_days && plan.trial_period_days > 0}
-                  class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+                  class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
                 >
                   {plan.trial_period_days}-day trial
                 </span>
               </div>
-              <p class="font-mono text-sm text-admin-text-secondary mt-1">
+              <p class="font-mono text-sm text-admin-muted mt-1">
                 ${format_dollars(plan.amount)}/{plan.interval}
                 <span :if={plan.currency != "usd"} class="uppercase">{plan.currency}</span>
               </p>
@@ -346,7 +346,7 @@ defmodule BobineWeb.Admin.PlansLive do
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label
-                class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+                class="block font-ui text-sm font-medium text-admin-fg mb-1"
                 for="plan_amount_dollars"
               >
                 Price (dollars)
@@ -358,7 +358,7 @@ defmodule BobineWeb.Admin.PlansLive do
                 step="0.01"
                 min="0"
                 value={if @editing_plan, do: format_dollars(@editing_plan.amount), else: ""}
-                class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
                 required
                 data-test="plan-amount-input"
               />
@@ -389,7 +389,7 @@ defmodule BobineWeb.Admin.PlansLive do
 
           <div>
             <label
-              class="block font-ui text-sm font-medium text-admin-text-primary mb-1"
+              class="block font-ui text-sm font-medium text-admin-fg mb-1"
               for="plan_features_text"
             >
               Features (one per line)
@@ -398,7 +398,7 @@ defmodule BobineWeb.Admin.PlansLive do
               id="plan_features_text"
               name="plan[features_text]"
               rows="4"
-              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="plan-features-input"
             >{if @editing_plan, do: Enum.join(@editing_plan.features, "\n"), else: ""}</textarea>
           </div>

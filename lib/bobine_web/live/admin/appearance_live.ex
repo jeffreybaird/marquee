@@ -516,23 +516,6 @@ defmodule BobineWeb.Admin.AppearanceLive do
               </div>
             </section>
 
-            <section data-test="admin-theme-editor">
-              <h2 class="text-xl font-semibold mb-1">Admin</h2>
-              <p class="text-sm opacity-70 mb-4">
-                Your operator dashboard uses Bobine's readability-optimized
-                palette by default. Only the accent is tenant-tunable —
-                surfaces and text stay pinned to brand so long configuration
-                sessions stay legible. Leave blank to restore the default.
-              </p>
-
-              <.color_input
-                form={@branding_form}
-                field={:admin_accent_color}
-                label="Admin accent"
-                hint="Highlights buttons, links, focus rings, and the active sidebar item inside /admin. Separate from the viewer accent above."
-              />
-            </section>
-
             <div class="pt-4">
               <.button type="submit" data-test="save-branding-btn">
                 Save appearance
@@ -741,7 +724,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
       data-test={"color-input-" <> Atom.to_string(@field)}
     >
       <label
-        class="flex items-center gap-1 text-sm font-medium text-admin-text-primary min-w-[140px]"
+        class="flex items-center gap-1 text-sm font-medium text-admin-fg min-w-[140px]"
         title={@hint}
       >
         {@label}
@@ -766,7 +749,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
         type="text"
         name={@input_name}
         value={@text_value}
-        class="rounded-md border border-admin-border bg-admin-elevated px-2 py-1 text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none w-36"
+        class="rounded-md border border-admin-border bg-admin-card px-2 py-1 text-sm text-admin-fg focus:border-admin-accent focus:outline-none w-36"
         placeholder="#000000"
         title={@hint}
         oninput="var p = this.parentElement.querySelector('input[type=color]'); if (/^#[0-9a-fA-F]{6}$/.test(this.value)) p.value = this.value"
@@ -789,7 +772,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
     cond do
       name == active -> "border-primary ring-2 ring-primary/30"
       name == selected -> "border-accent"
-      true -> "border-admin-border hover:border-admin-border-strong"
+      true -> "border-admin-border hover:border-admin-border"
     end
   end
 

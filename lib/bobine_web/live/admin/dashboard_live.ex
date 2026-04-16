@@ -22,7 +22,7 @@ defmodule BobineWeb.Admin.DashboardLive do
       impersonating={@impersonating}
     >
       <.header>Dashboard</.header>
-      <p class="mt-4 text-admin-text-secondary">Welcome to your dashboard.</p>
+      <p class="mt-4 text-admin-muted">Welcome to your dashboard.</p>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end

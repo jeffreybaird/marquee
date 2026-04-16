@@ -399,10 +399,10 @@ defmodule BobineWeb.Admin.SeriesLive do
       <div
         :if={@series_list != []}
         data-test="series-list"
-        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-card"
       >
-        <table class="w-full font-body text-sm text-admin-text-primary">
-          <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+        <table class="w-full font-body text-sm text-admin-fg">
+          <thead class="border-b border-admin-border bg-admin-card font-ui text-xs uppercase tracking-wide text-admin-muted">
             <tr>
               <th class="px-4 py-3 text-left">Title</th>
               <th class="px-4 py-3 text-left">Visible</th>
@@ -414,18 +414,18 @@ defmodule BobineWeb.Admin.SeriesLive do
             <tr
               :for={series <- @series_list}
               data-test={"series-row-#{series.id}"}
-              class="border-b border-admin-border-subtle last:border-0"
+              class="border-b border-admin-border last:border-0"
             >
               <td class="px-4 py-3">
                 <button
                   phx-click="view_series"
                   phx-value-id={series.id}
-                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
+                  class="font-display font-semibold text-admin-fg hover:text-admin-accent hover:underline"
                   data-test={"view-series-#{series.id}"}
                 >
                   {series.title}
                 </button>
-                <div class="font-mono text-xs text-admin-text-muted">{series.slug}</div>
+                <div class="font-mono text-xs text-admin-muted">{series.slug}</div>
               </td>
               <td class="px-4 py-3">
                 <button
@@ -436,8 +436,8 @@ defmodule BobineWeb.Admin.SeriesLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(series.visible,
-                      do: "border-admin-accent bg-admin-accent-subtle text-admin-accent-text",
-                      else: "border-admin-border text-admin-text-muted"
+                      do: "border-admin-accent bg-admin-accent/10 text-admin-on-accent",
+                      else: "border-admin-border text-admin-muted"
                     )
                   ]}
                 >
@@ -445,7 +445,7 @@ defmodule BobineWeb.Admin.SeriesLive do
                 </button>
                 <span
                   :if={!@can_manage}
-                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 >
                   {if series.visible, do: "Visible", else: "Hidden"}
                 </span>
@@ -457,7 +457,7 @@ defmodule BobineWeb.Admin.SeriesLive do
                 <div class="flex justify-end gap-1">
                   <.link
                     navigate={~p"/admin/analytics/series/#{series.id}"}
-                    class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+                    class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
                     data-test={"analytics-series-#{series.id}"}
                   >
                     Analytics
@@ -510,31 +510,31 @@ defmodule BobineWeb.Admin.SeriesLive do
     ~H"""
     <%= cond do %>
       <% not @active? -> %>
-        <span class="font-mono text-xs text-admin-text-muted">—</span>
+        <span class="font-mono text-xs text-admin-muted">—</span>
       <% is_nil(@days_remaining) -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
           data-test="new-season-permanent"
         >
           On (no expiry)
         </span>
       <% @days_remaining == 0 -> %>
         <span
-          class="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 font-ui text-xs text-admin-text-primary"
+          class="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 font-ui text-xs text-admin-fg"
           data-test="new-season-expiring-today"
         >
           Hides today
         </span>
       <% @days_remaining == 1 -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
           data-test="new-season-days-remaining"
         >
           1 day left
         </span>
       <% true -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
           data-test="new-season-days-remaining"
         >
           {@days_remaining} days left
@@ -568,7 +568,7 @@ defmodule BobineWeb.Admin.SeriesLive do
       >
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="series-title"
           >
             Title
@@ -579,7 +579,7 @@ defmodule BobineWeb.Admin.SeriesLive do
             name="series[title]"
             value={@form[:title].value}
             required
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="series-title-input"
           />
           <.field_error :for={msg <- error_messages(@form[:title])}>
@@ -589,7 +589,7 @@ defmodule BobineWeb.Admin.SeriesLive do
 
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="series-description"
           >
             Description
@@ -598,7 +598,7 @@ defmodule BobineWeb.Admin.SeriesLive do
             id="series-description"
             name="series[description]"
             rows="3"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
           >{@form[:description].value}</textarea>
         </div>
 
@@ -617,14 +617,14 @@ defmodule BobineWeb.Admin.SeriesLive do
         </div>
 
         <div>
-          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary">
+          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-fg">
             <input type="hidden" name="series[visible]" value="false" />
             <input
               type="checkbox"
               name="series[visible]"
               value="true"
               checked={@form[:visible].value != false}
-              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              class="size-4 rounded border-admin-border bg-admin-card accent-admin-accent"
               data-test="series-visible-input"
             /> Visible to viewers
           </label>
@@ -632,7 +632,7 @@ defmodule BobineWeb.Admin.SeriesLive do
 
         <div>
           <label
-            class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary"
+            class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-fg"
             data-test="new-season-toggle"
           >
             <input type="hidden" name="series[new_season]" value="false" />
@@ -641,11 +641,11 @@ defmodule BobineWeb.Admin.SeriesLive do
               name="series[new_season]"
               value="true"
               checked={@form[:new_season].value == true}
-              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              class="size-4 rounded border-admin-border bg-admin-card accent-admin-accent"
               data-test="series-new-season-input"
             /> Show "New Season" badge
           </label>
-          <p class="mt-2 font-body text-xs text-admin-text-muted">
+          <p class="mt-2 font-body text-xs text-admin-muted">
             Optionally pick a date to automatically hide the badge after that day.
             Leave blank to keep it shown until you uncheck the box.
           </p>
@@ -654,7 +654,7 @@ defmodule BobineWeb.Admin.SeriesLive do
             name="series[new_season_expires_at]"
             value={format_date_value(@form[:new_season_expires_at].value)}
             min={Date.utc_today() |> Date.to_iso8601()}
-            class="mt-2 w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="mt-2 w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="series-new-season-expires-input"
           />
         </div>
@@ -664,7 +664,7 @@ defmodule BobineWeb.Admin.SeriesLive do
         <button
           type="button"
           phx-click="cancel_series_form"
-          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
         >
           Cancel
         </button>
@@ -715,10 +715,10 @@ defmodule BobineWeb.Admin.SeriesLive do
       <div
         :if={@seasons != []}
         data-test="seasons-list"
-        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-card"
       >
-        <table class="w-full font-body text-sm text-admin-text-primary">
-          <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+        <table class="w-full font-body text-sm text-admin-fg">
+          <thead class="border-b border-admin-border bg-admin-card font-ui text-xs uppercase tracking-wide text-admin-muted">
             <tr>
               <th class="px-4 py-3 text-left">#</th>
               <th class="px-4 py-3 text-left">Title</th>
@@ -731,18 +731,18 @@ defmodule BobineWeb.Admin.SeriesLive do
             <tr
               :for={season <- @seasons}
               data-test={"season-row-#{season.id}"}
-              class="border-b border-admin-border-subtle last:border-0"
+              class="border-b border-admin-border last:border-0"
             >
               <td class="px-4 py-3 font-mono">{season.season_number}</td>
               <td class="px-4 py-3">
                 <.link
                   navigate={~p"/admin/series/#{@series.id}/seasons/#{season.id}"}
-                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
+                  class="font-display font-semibold text-admin-fg hover:text-admin-accent hover:underline"
                   data-test={"open-season-#{season.id}"}
                 >
                   {season.title}
                 </.link>
-                <div class="font-mono text-xs text-admin-text-muted">{season.slug}</div>
+                <div class="font-mono text-xs text-admin-muted">{season.slug}</div>
               </td>
               <td class="px-4 py-3 font-mono">{season.episode_count}</td>
               <td class="px-4 py-3">
@@ -754,8 +754,8 @@ defmodule BobineWeb.Admin.SeriesLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(season.visible,
-                      do: "border-admin-accent bg-admin-accent-subtle text-admin-accent-text",
-                      else: "border-admin-border text-admin-text-muted"
+                      do: "border-admin-accent bg-admin-accent/10 text-admin-on-accent",
+                      else: "border-admin-border text-admin-muted"
                     )
                   ]}
                 >
@@ -763,7 +763,7 @@ defmodule BobineWeb.Admin.SeriesLive do
                 </button>
                 <span
                   :if={!@can_manage}
-                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-muted"
                 >
                   {if season.visible, do: "Visible", else: "Hidden"}
                 </span>
@@ -832,7 +832,7 @@ defmodule BobineWeb.Admin.SeriesLive do
       >
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="season-title"
           >
             Title (optional)
@@ -843,7 +843,7 @@ defmodule BobineWeb.Admin.SeriesLive do
             name="season[title]"
             value={@form[:title].value}
             placeholder="Leave blank to auto-name (e.g. ‘Season 1’)"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="season-title-input"
           />
           <.field_error :for={msg <- error_messages(@form[:title])}>
@@ -853,7 +853,7 @@ defmodule BobineWeb.Admin.SeriesLive do
 
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="season-number"
           >
             Season Number
@@ -864,10 +864,10 @@ defmodule BobineWeb.Admin.SeriesLive do
             name="season[season_number]"
             value={@form[:season_number].value}
             min="1"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="season-number-input"
           />
-          <p class="mt-1 font-body text-xs text-admin-text-muted">
+          <p class="mt-1 font-body text-xs text-admin-muted">
             Leave blank to auto-assign the next number.
           </p>
           <.field_error :for={msg <- error_messages(@form[:season_number])}>
@@ -877,7 +877,7 @@ defmodule BobineWeb.Admin.SeriesLive do
 
         <div>
           <label
-            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            class="mb-1 block font-ui text-sm font-medium text-admin-fg"
             for="season-description"
           >
             Description
@@ -886,7 +886,7 @@ defmodule BobineWeb.Admin.SeriesLive do
             id="season-description"
             name="season[description]"
             rows="3"
-            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
           >{@form[:description].value}</textarea>
         </div>
 
@@ -905,14 +905,14 @@ defmodule BobineWeb.Admin.SeriesLive do
         </div>
 
         <div>
-          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary">
+          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-fg">
             <input type="hidden" name="season[visible]" value="false" />
             <input
               type="checkbox"
               name="season[visible]"
               value="true"
               checked={@form[:visible].value != false}
-              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              class="size-4 rounded border-admin-border bg-admin-card accent-admin-accent"
               data-test="season-visible-input"
             /> Visible to viewers
           </label>
@@ -923,7 +923,7 @@ defmodule BobineWeb.Admin.SeriesLive do
         <button
           type="button"
           phx-click="cancel_season_form"
-          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-muted transition-colors hover:bg-admin-card hover:text-admin-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
         >
           Cancel
         </button>
