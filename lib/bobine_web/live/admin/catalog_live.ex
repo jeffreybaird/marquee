@@ -77,6 +77,7 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:hero_uploading, false)
      |> assign(:hero_upload_percent, 0)
      |> assign(:hero_pending_video_id, nil)
+     |> assign(:hero_replacing_slide_id, nil)
      |> load_rows()
      |> load_hero_row()}
   end
@@ -395,12 +396,18 @@ defmodule BobineWeb.Admin.CatalogLive do
 
   @impl true
   def handle_event("open_hero_video_picker", _params, socket) do
-    org = socket.assigns.organization
-    %{results: all_videos} = Content.list_videos(org, per_page: 100)
-    hero_video_ids = MapSet.new(socket.assigns.hero_slides, & &1.video_id)
-    available = Enum.reject(all_videos, &MapSet.member?(hero_video_ids, &1.id))
+    {:noreply,
+     socket
+     |> assign(:hero_replacing_slide_id, nil)
+     |> open_hero_picker()}
+  end
 
-    {:noreply, assign(socket, show_hero_video_picker: true, hero_available_videos: available)}
+  @impl true
+  def handle_event("replace_hero_video", %{"slide-id" => slide_id}, socket) do
+    {:noreply,
+     socket
+     |> assign(:hero_replacing_slide_id, slide_id)
+     |> open_hero_picker()}
   end
 
   @impl true
@@ -413,7 +420,8 @@ defmodule BobineWeb.Admin.CatalogLive do
          show_hero_video_picker: false,
          hero_available_videos: [],
          hero_picker_tab: :existing,
-         hero_upload_file: nil
+         hero_upload_file: nil,
+         hero_replacing_slide_id: nil
        )}
     end
   end
@@ -491,41 +499,22 @@ defmodule BobineWeb.Admin.CatalogLive do
 
   @impl true
   def handle_event("upload_complete", %{"video_id" => video_id}, socket) do
-    scope = socket.assigns.current_scope
-    hero_row = socket.assigns.hero_row
+    replacing_id = socket.assigns.hero_replacing_slide_id
+    result = finalize_hero_video(socket, video_id, replacing_id)
 
-    case Catalog.create_hero_slide(scope, hero_row, %{video_id: video_id}) do
-      {:ok, _slide} ->
+    case result do
+      {:ok, message, socket} ->
         {:noreply,
          socket
-         |> assign(
-           show_hero_video_picker: false,
-           hero_available_videos: [],
-           hero_picker_tab: :existing,
-           hero_upload_file: nil,
-           hero_uploading: false,
-           hero_upload_percent: 0,
-           hero_pending_video_id: nil
-         )
-         |> put_flash(:info, "Upload complete. Processing video…")
+         |> reset_hero_picker()
+         |> put_flash(:info, message)
          |> load_hero_slides()}
 
-      {:error, :hero_limit_reached, _} ->
+      {:error, message, socket} ->
         {:noreply,
          socket
-         |> assign(
-           show_hero_video_picker: false,
-           hero_uploading: false,
-           hero_upload_percent: 0,
-           hero_pending_video_id: nil
-         )
-         |> put_flash(:error, "Maximum of 4 hero slides reached.")}
-
-      {:error, :validation, _changeset} ->
-        {:noreply,
-         socket
-         |> assign(hero_uploading: false, hero_upload_percent: 0, hero_pending_video_id: nil)
-         |> put_flash(:error, "Upload succeeded but failed to add hero slide.")}
+         |> reset_hero_picker()
+         |> put_flash(:error, message)}
     end
   end
 
@@ -544,24 +533,20 @@ defmodule BobineWeb.Admin.CatalogLive do
 
   @impl true
   def handle_event("add_hero_slide", %{"video-id" => video_id}, socket) do
-    scope = socket.assigns.current_scope
-    hero_row = socket.assigns.hero_row
+    replacing_id = socket.assigns.hero_replacing_slide_id
 
-    case Catalog.create_hero_slide(scope, hero_row, %{video_id: video_id}) do
-      {:ok, _slide} ->
+    case finalize_hero_video(socket, video_id, replacing_id) do
+      {:ok, _message, socket} ->
         {:noreply,
          socket
-         |> assign(show_hero_video_picker: false, hero_available_videos: [])
+         |> reset_hero_picker()
          |> load_hero_slides()}
 
-      {:error, :hero_limit_reached, _} ->
+      {:error, message, socket} ->
         {:noreply,
          socket
-         |> put_flash(:error, "Maximum of 4 hero slides reached.")
-         |> assign(show_hero_video_picker: false, hero_available_videos: [])}
-
-      {:error, :validation, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Failed to add hero slide.")}
+         |> reset_hero_picker()
+         |> put_flash(:error, message)}
     end
   end
 
@@ -777,4 +762,58 @@ defmodule BobineWeb.Admin.CatalogLive do
   defp normalize_variant(""), do: nil
   defp normalize_variant(nil), do: nil
   defp normalize_variant(variant) when is_binary(variant), do: variant
+
+  defp open_hero_picker(socket) do
+    org = socket.assigns.organization
+    %{results: all_videos} = Content.list_videos(org, per_page: 100)
+    hero_video_ids = MapSet.new(socket.assigns.hero_slides, & &1.video_id)
+    available = Enum.reject(all_videos, &MapSet.member?(hero_video_ids, &1.id))
+
+    assign(socket, show_hero_video_picker: true, hero_available_videos: available)
+  end
+
+  defp reset_hero_picker(socket) do
+    assign(socket,
+      show_hero_video_picker: false,
+      hero_available_videos: [],
+      hero_picker_tab: :existing,
+      hero_upload_file: nil,
+      hero_uploading: false,
+      hero_upload_percent: 0,
+      hero_pending_video_id: nil,
+      hero_replacing_slide_id: nil
+    )
+  end
+
+  # Shared finalizer: new slide if `replacing_id` nil, otherwise update
+  # the target slide's video_id. Returns {:ok, flash_message, socket} or
+  # {:error, flash_message, socket}.
+  defp finalize_hero_video(socket, video_id, nil) do
+    scope = socket.assigns.current_scope
+    hero_row = socket.assigns.hero_row
+
+    case Catalog.create_hero_slide(scope, hero_row, %{video_id: video_id}) do
+      {:ok, slide} ->
+        {:ok, "Slide added. Processing video…", assign(socket, :hero_expanded_slide, slide.id)}
+
+      {:error, :hero_limit_reached, _} ->
+        {:error, "Maximum of 4 hero slides reached.", socket}
+
+      {:error, :validation, _changeset} ->
+        {:error, "Failed to add hero slide.", socket}
+    end
+  end
+
+  defp finalize_hero_video(socket, video_id, slide_id) do
+    org = socket.assigns.organization
+    scope = socket.assigns.current_scope
+
+    with {:ok, slide} <- Catalog.get_hero_slide(org, slide_id),
+         {:ok, _} <- Catalog.update_hero_slide(scope, slide, %{video_id: video_id}) do
+      {:ok, "Video replaced. Processing…", assign(socket, :hero_expanded_slide, slide_id)}
+    else
+      {:error, :not_found} -> {:error, "Slide not found.", socket}
+      {:error, :validation, _} -> {:error, "Failed to replace video.", socket}
+    end
+  end
 end

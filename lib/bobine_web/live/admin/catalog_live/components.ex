@@ -131,6 +131,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   attr :hero_upload_file, :map, default: nil
   attr :hero_uploading, :boolean, default: false
   attr :hero_upload_percent, :integer, default: 0
+  attr :hero_replacing_slide_id, :string, default: nil
 
   def hero_editor(assigns) do
     ~H"""
@@ -270,6 +271,15 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 class="border-t border-admin-border bg-admin-card px-4 py-4"
               >
                 <div :if={@can_manage} class="flex items-center gap-1 mb-4">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:secondary}
+                    size={:sm}
+                    phx-click="replace_hero_video"
+                    phx-value-slide-id={slide.id}
+                    data-test={"hero-replace-video-#{slide.position}"}
+                  >
+                    <.icon name="hero-arrow-path" class="size-4" /> Replace video
+                  </BobineWeb.Components.AdminUI.admin_button>
                   <BobineWeb.Components.AdminUI.admin_button
                     variant={:ghost}
                     size={:sm}
@@ -441,7 +451,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
           <BobineWeb.Components.AdminUI.admin_sheet
             id="hero-video-picker"
             open={@show_hero_video_picker}
-            title="Add Hero Slide"
+            title={if @hero_replacing_slide_id, do: "Replace Slide Video", else: "Add Hero Slide"}
             subtitle="Pick an existing video or upload a new one to Mux."
             on_close="close_hero_video_picker"
           >
@@ -557,7 +567,10 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   />
                 </div>
 
-                <div :if={@hero_upload_file == nil} class="py-4 text-center text-admin-muted font-body text-sm">
+                <div
+                  :if={@hero_upload_file == nil}
+                  class="py-4 text-center text-admin-muted font-body text-sm"
+                >
                   Choose a video file to continue.
                 </div>
 

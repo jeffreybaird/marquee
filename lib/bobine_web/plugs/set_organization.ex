@@ -73,16 +73,12 @@ defmodule BobineWeb.Plugs.SetOrganization do
           scope && scope.user && scope.user.is_super_admin ->
             # Let super admins through without an org — the LiveView
             # will redirect them to /super
-            conn
-            |> assign(:organization, nil)
-            |> put_session(:no_org_resolved, true)
+            clear_org_from_session(conn)
 
           Keyword.get(opts, :optional, false) ->
             # Optional mode: let the request through with nil org.
             # Used for routes that serve both org-scoped and platform content.
-            conn
-            |> assign(:organization, nil)
-            |> put_session(:no_org_resolved, true)
+            clear_org_from_session(conn)
 
           true ->
             conn
@@ -91,6 +87,18 @@ defmodule BobineWeb.Plugs.SetOrganization do
             |> halt()
         end
     end
+  end
+
+  # Clears any stale organization_id/org_slug from the session and marks
+  # the request as having no resolved org. Prevents a previous tenant's
+  # slug from silently pivoting subsequent requests after an explicit
+  # ?org= override fails to resolve.
+  defp clear_org_from_session(conn) do
+    conn
+    |> assign(:organization, nil)
+    |> delete_session(:organization_id)
+    |> delete_session(:org_slug)
+    |> put_session(:no_org_resolved, true)
   end
 
   # Stash the resolved org_id and slug in the session so the LiveView

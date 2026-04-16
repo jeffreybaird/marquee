@@ -278,6 +278,26 @@ defmodule BobineWeb.Plugs.SetOrganizationTest do
       assert conn.status == 404
     end
 
+    test "clears stale session org_slug/organization_id on explicit ?org= failure in optional mode",
+         %{conn: conn} do
+      prior = insert(:organization, slug: "prior-org")
+
+      conn =
+        conn
+        |> Plug.Test.init_test_session(%{
+          organization_id: prior.id,
+          org_slug: prior.slug
+        })
+        |> Map.put(:host, "localhost")
+        |> put_query_params(%{"org" => "ghost-org"})
+        |> SetOrganization.call(optional: true)
+
+      assert conn.assigns[:organization] == nil
+      assert Plug.Conn.get_session(conn, :organization_id) == nil
+      assert Plug.Conn.get_session(conn, :org_slug) == nil
+      assert Plug.Conn.get_session(conn, :no_org_resolved) == true
+    end
+
     test "an unknown explicit `?org=` does not pivot to the viewer-token org in optional mode",
          %{conn: conn} do
       viewer_org = insert(:organization, slug: "viewer-org")
