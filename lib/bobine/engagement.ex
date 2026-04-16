@@ -605,12 +605,21 @@ defmodule Bobine.Engagement do
   @doc """
   Returns a paginated list of watchlist_items, excluding soft-deleted records.
 
+  Accepts `:preload` (keyword list) in `opts` to bound association loads.
+  Defaults to `[]` — no associations — so assigns stay lean. Callers that
+  need video metadata pass `preload: [:video]` explicitly; season and
+  series variants work the same way. The `:preload` key is consumed
+  before `opts` is forwarded to `Pagination.paginate/2`.
+
   Exempt from doctest — hits the database.
   """
   def list_watchlist_items(opts \\ []) do
+    {preload, opts} = Keyword.pop(opts, :preload, [])
+
     WatchlistItem
     |> where([w], is_nil(w.deleted_at))
     |> order_by(desc: :inserted_at)
+    |> preload(^preload)
     |> Pagination.paginate(opts)
   end
 

@@ -97,6 +97,23 @@ defmodule Bobine.EngagementTest do
       watchlist_item = watchlist_item_fixture()
       assert %Ecto.Changeset{} = Engagement.change_watchlist_item(watchlist_item)
     end
+
+    test "list_watchlist_items/1 skips preloads by default" do
+      _item = watchlist_item_fixture()
+
+      %{results: [result]} = Engagement.list_watchlist_items()
+
+      assert %Ecto.Association.NotLoaded{} = result.video
+    end
+
+    test "list_watchlist_items/1 preloads associations when requested" do
+      _item = watchlist_item_fixture()
+
+      %{results: [result]} = Engagement.list_watchlist_items(preload: [:video])
+
+      refute match?(%Ecto.Association.NotLoaded{}, result.video)
+      assert result.video.id
+    end
   end
 
   describe "list_viewer_watchlist_videos/3" do
