@@ -29,7 +29,8 @@ defmodule Bobine.Storage.SpacesClient do
 
     with {:ok, aws_config} <- build_aws_config(cfg) do
       signed_headers = [
-        {"Content-Type", content_type}
+        {"Content-Type", content_type},
+        {"x-amz-acl", "public-read"}
       ]
 
       case ExAws.S3.presigned_url(aws_config, :put, cfg.bucket, key,
@@ -44,7 +45,10 @@ defmodule Bobine.Storage.SpacesClient do
              public_url: public_url(cfg, key),
              key: key,
              expires_at: DateTime.add(DateTime.utc_now(), expires_in, :second),
-             headers: %{"Content-Type" => content_type}
+             headers: %{
+               "Content-Type" => content_type,
+               "x-amz-acl" => "public-read"
+             }
            }}
 
         {:error, reason} ->

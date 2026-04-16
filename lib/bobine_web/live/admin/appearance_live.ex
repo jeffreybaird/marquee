@@ -515,6 +515,23 @@ defmodule BobineWeb.Admin.AppearanceLive do
               </div>
             </section>
 
+            <section data-test="admin-theme-editor">
+              <h2 class="text-xl font-semibold mb-1">Admin</h2>
+              <p class="text-sm opacity-70 mb-4">
+                Your operator dashboard uses Bobine's readability-optimized
+                palette by default. Only the accent is tenant-tunable —
+                surfaces and text stay pinned to brand so long configuration
+                sessions stay legible. Leave blank to restore the default.
+              </p>
+
+              <.color_input
+                form={@branding_form}
+                field={:admin_accent_color}
+                label="Admin accent"
+                hint="Highlights buttons, links, focus rings, and the active sidebar item inside /admin. Separate from the viewer accent above."
+              />
+            </section>
+
             <div class="pt-4">
               <.button type="submit" data-test="save-branding-btn">
                 Save appearance

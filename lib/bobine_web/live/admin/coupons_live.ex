@@ -161,88 +161,160 @@ defmodule BobineWeb.Admin.CouponsLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
-      <div class="flex items-center justify-between mb-6">
-        <.header>Coupons</.header>
-        <button
-          :if={@stripe_connected && !@show_form}
-          phx-click="new_coupon"
-          class="btn btn-primary btn-sm"
-          data-test="new-coupon-btn"
+      <BobineWeb.Components.AdminUI.admin_panel
+        title="Coupons"
+        subtitle="Stripe-backed discount codes for viewer subscriptions."
+      >
+        <:actions>
+          <BobineWeb.Components.AdminUI.admin_button
+            :if={@stripe_connected}
+            phx-click="new_coupon"
+            size={:sm}
+            data-test="new-coupon-btn"
+          >
+            New coupon
+          </BobineWeb.Components.AdminUI.admin_button>
+        </:actions>
+
+        <div
+          :if={!@stripe_connected}
+          class="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 font-body text-sm text-text-primary"
+          data-test="stripe-required-warning"
         >
-          New coupon
-        </button>
-      </div>
-
-      <div :if={!@stripe_connected} class="alert alert-warning" data-test="stripe-required-warning">
-        <p>
-          Connect your Stripe account in <a href="/admin/settings" class="link">Settings</a>
+          Connect your Stripe account in
+          <.link href="/admin/settings" class="text-accent underline">Settings</.link>
           before creating coupons.
-        </p>
-      </div>
+        </div>
 
-      <%!-- Coupon form --%>
-      <div :if={@show_form} class="mb-8 rounded-lg border border-base-300 p-6" data-test="coupon-form">
-        <h3 class="text-lg font-semibold mb-4">New coupon</h3>
+        <BobineWeb.Components.AdminUI.admin_empty
+          :if={@coupons == []}
+          title="No coupons yet"
+          description="Create a coupon to offer viewers a discount on their subscription."
+          data_test="coupons-empty"
+        />
 
+        <div :if={@coupons != []} class="space-y-3" data-test="coupons-list">
+          <div
+            :for={coupon <- @coupons}
+            class={[
+              "rounded-lg border border-border bg-surface p-4 flex items-center justify-between",
+              !coupon.active && "opacity-60"
+            ]}
+            data-test={"coupon-row-#{coupon.id}"}
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <code class="font-mono font-semibold text-text-primary">{coupon.code}</code>
+                <span
+                  :if={!coupon.active}
+                  class="rounded-full border border-border px-2 py-0.5 font-ui text-xs text-text-muted"
+                >
+                  Inactive
+                </span>
+              </div>
+              <p class="font-body text-sm text-text-secondary mt-1">
+                <span class="font-mono">{format_discount(coupon)}</span>
+                &middot; {coupon.duration}
+                <span :if={coupon.max_redemptions}>
+                  &middot; max <span class="font-mono">{coupon.max_redemptions}</span> uses
+                </span>
+              </p>
+            </div>
+
+            <div class="flex gap-1">
+              <BobineWeb.Components.AdminUI.admin_button
+                :if={coupon.active}
+                variant={:ghost}
+                size={:sm}
+                phx-click="deactivate_coupon"
+                phx-value-id={coupon.id}
+                class="text-warning"
+                data-test={"deactivate-coupon-#{coupon.id}"}
+              >
+                Deactivate
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
+          </div>
+        </div>
+      </BobineWeb.Components.AdminUI.admin_panel>
+
+      <BobineWeb.Components.AdminUI.admin_sheet
+        id="coupon-sheet"
+        open={@show_form}
+        title="New coupon"
+        subtitle="Syncs to Stripe on save."
+        on_close="cancel_form"
+        data_test="coupon-form"
+      >
         <.form for={@form} id="coupon-form" phx-submit="save_coupon" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="label" for="coupon_code"><span class="label-text">Code</span></label>
+              <label
+                class="block font-ui text-sm font-medium text-text-primary mb-1"
+                for="coupon_code"
+              >
+                Code
+              </label>
               <input
                 type="text"
                 id="coupon_code"
                 name="coupon[code]"
-                class="input input-bordered w-full uppercase"
+                class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm uppercase text-text-primary focus:border-accent focus:outline-none"
                 required
                 placeholder="LAUNCH50"
                 data-test="coupon-code-input"
               />
             </div>
             <div>
-              <label class="label" for="coupon_name"><span class="label-text">Name</span></label>
+              <label
+                class="block font-ui text-sm font-medium text-text-primary mb-1"
+                for="coupon_name"
+              >
+                Name
+              </label>
               <input
                 type="text"
                 id="coupon_name"
                 name="coupon[name]"
-                class="input input-bordered w-full"
+                class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-body text-sm text-text-primary focus:border-accent focus:outline-none"
                 placeholder="Launch discount"
                 data-test="coupon-name-input"
               />
             </div>
           </div>
 
-          <%!-- Discount type toggle --%>
           <div>
-            <label class="label"><span class="label-text">Discount type</span></label>
+            <label class="block font-ui text-sm font-medium text-text-primary mb-1">
+              Discount type
+            </label>
             <div class="flex gap-2">
-              <button
+              <BobineWeb.Components.AdminUI.admin_button
                 type="button"
+                variant={if @discount_type == "percent", do: :accent, else: :ghost}
+                size={:sm}
                 phx-click="toggle_discount_type"
                 phx-value-type="percent"
-                class={[
-                  "btn btn-sm",
-                  if(@discount_type == "percent", do: "btn-primary", else: "btn-ghost")
-                ]}
               >
                 Percent off
-              </button>
-              <button
+              </BobineWeb.Components.AdminUI.admin_button>
+              <BobineWeb.Components.AdminUI.admin_button
                 type="button"
+                variant={if @discount_type == "amount", do: :accent, else: :ghost}
+                size={:sm}
                 phx-click="toggle_discount_type"
                 phx-value-type="amount"
-                class={[
-                  "btn btn-sm",
-                  if(@discount_type == "amount", do: "btn-primary", else: "btn-ghost")
-                ]}
               >
                 Amount off
-              </button>
+              </BobineWeb.Components.AdminUI.admin_button>
             </div>
           </div>
 
           <div :if={@discount_type == "percent"}>
-            <label class="label" for="coupon_percent_off">
-              <span class="label-text">Percent off</span>
+            <label
+              class="block font-ui text-sm font-medium text-text-primary mb-1"
+              for="coupon_percent_off"
+            >
+              Percent off
             </label>
             <input
               type="number"
@@ -251,15 +323,18 @@ defmodule BobineWeb.Admin.CouponsLive do
               min="1"
               max="100"
               step="1"
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm text-text-primary focus:border-accent focus:outline-none"
               required
               data-test="coupon-percent-off-input"
             />
           </div>
 
           <div :if={@discount_type == "amount"}>
-            <label class="label" for="coupon_amount_off">
-              <span class="label-text">Amount off (dollars)</span>
+            <label
+              class="block font-ui text-sm font-medium text-text-primary mb-1"
+              for="coupon_amount_off"
+            >
+              Amount off (dollars)
             </label>
             <input
               type="number"
@@ -267,7 +342,7 @@ defmodule BobineWeb.Admin.CouponsLive do
               name="coupon[amount_off_dollars]"
               min="0.01"
               step="0.01"
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm text-text-primary focus:border-accent focus:outline-none"
               required
               data-test="coupon-amount-off-input"
             />
@@ -284,84 +359,53 @@ defmodule BobineWeb.Admin.CouponsLive do
           />
 
           <div>
-            <label class="label" for="coupon_duration_in_months">
-              <span class="label-text">Duration in months (for repeating)</span>
+            <label
+              class="block font-ui text-sm font-medium text-text-primary mb-1"
+              for="coupon_duration_in_months"
+            >
+              Duration in months (for repeating)
             </label>
             <input
               type="number"
               id="coupon_duration_in_months"
               name="coupon[duration_in_months]"
               min="1"
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm text-text-primary focus:border-accent focus:outline-none"
               data-test="coupon-duration-months-input"
             />
           </div>
 
           <div>
-            <label class="label" for="coupon_max_redemptions">
-              <span class="label-text">Max redemptions (optional)</span>
+            <label
+              class="block font-ui text-sm font-medium text-text-primary mb-1"
+              for="coupon_max_redemptions"
+            >
+              Max redemptions (optional)
             </label>
             <input
               type="number"
               id="coupon_max_redemptions"
               name="coupon[max_redemptions]"
               min="1"
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm text-text-primary focus:border-accent focus:outline-none"
               data-test="coupon-max-redemptions-input"
             />
           </div>
-
-          <div class="flex gap-2 mt-4">
-            <button type="submit" class="btn btn-primary" data-test="coupon-save-btn">
-              Create coupon
-            </button>
-            <button type="button" phx-click="cancel_form" class="btn btn-ghost">Cancel</button>
-          </div>
         </.form>
-      </div>
 
-      <%!-- Coupons list --%>
-      <div
-        :if={@coupons == [] && !@show_form}
-        class="text-center py-12 text-base-content/60"
-        data-test="coupons-empty"
-      >
-        <p>No coupons yet.</p>
-      </div>
-
-      <div :if={@coupons != []} class="space-y-3" data-test="coupons-list">
-        <div
-          :for={coupon <- @coupons}
-          class={[
-            "rounded-lg border p-4 flex items-center justify-between",
-            if(!coupon.active, do: "opacity-60 border-base-300", else: "border-base-300")
-          ]}
-          data-test={"coupon-row-#{coupon.id}"}
-        >
-          <div>
-            <div class="flex items-center gap-2">
-              <code class="font-bold">{coupon.code}</code>
-              <span :if={!coupon.active} class="badge badge-sm badge-ghost">Inactive</span>
-            </div>
-            <p class="text-sm text-base-content/70 mt-1">
-              {format_discount(coupon)} &middot; {coupon.duration}
-              <span :if={coupon.max_redemptions}>&middot; max {coupon.max_redemptions} uses</span>
-            </p>
-          </div>
-
-          <div class="flex gap-2">
-            <button
-              :if={coupon.active}
-              phx-click="deactivate_coupon"
-              phx-value-id={coupon.id}
-              class="btn btn-sm btn-ghost text-warning"
-              data-test={"deactivate-coupon-#{coupon.id}"}
-            >
-              Deactivate
-            </button>
-          </div>
-        </div>
-      </div>
+        <:footer>
+          <BobineWeb.Components.AdminUI.admin_button variant={:ghost} phx-click="cancel_form">
+            Cancel
+          </BobineWeb.Components.AdminUI.admin_button>
+          <BobineWeb.Components.AdminUI.admin_button
+            type="submit"
+            form="coupon-form"
+            data-test="coupon-save-btn"
+          >
+            Create coupon
+          </BobineWeb.Components.AdminUI.admin_button>
+        </:footer>
+      </BobineWeb.Components.AdminUI.admin_sheet>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end

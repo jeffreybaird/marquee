@@ -40,6 +40,7 @@ defmodule Bobine.Accounts.Organization do
     field :accent_color_subtle, :string
     field :display_font, :string
     field :preset_name, :string
+    field :admin_accent_color, :string
 
     has_many :themes, Bobine.Branding.Theme
     has_many :memberships, Bobine.Accounts.Membership
@@ -94,7 +95,8 @@ defmodule Bobine.Accounts.Organization do
       :accent_color_active,
       :accent_color_subtle,
       :display_font,
-      :preset_name
+      :preset_name,
+      :admin_accent_color
     ])
     |> validate_inclusion(:display_font, @approved_display_fonts,
       message: "must be one of the approved Google Fonts"
@@ -104,6 +106,7 @@ defmodule Bobine.Accounts.Organization do
     |> validate_accent_color(:accent_color_hover)
     |> validate_accent_color(:accent_color_active)
     |> validate_accent_color(:accent_color_subtle)
+    |> validate_accent_color(:admin_accent_color)
   end
 
   # Accept either an oklch() value (preferred) or a hex color (legacy —

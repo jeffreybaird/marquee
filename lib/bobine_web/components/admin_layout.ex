@@ -16,11 +16,14 @@ defmodule BobineWeb.Components.AdminLayout do
   slot :inner_block, required: true
 
   def admin_layout(assigns) do
+    assigns = assign(assigns, :admin_accent_style, admin_accent_style(assigns.organization))
+
     ~H"""
-    <div class="flex flex-col h-screen bg-bg font-body text-text-primary">
+    <style :if={@admin_accent_style}><%= Phoenix.HTML.raw(@admin_accent_style) %></style>
+    <div class="flex flex-col h-screen bg-admin-bg font-body text-admin-text-primary">
       <div
         :if={@impersonating}
-        class="bg-error text-accent-text font-ui text-sm px-4 py-2 flex items-center justify-between"
+        class="bg-error text-admin-accent-text font-ui text-sm px-4 py-2 flex items-center justify-between"
         data-test="impersonation-banner"
       >
         <span>
@@ -37,20 +40,20 @@ defmodule BobineWeb.Components.AdminLayout do
       </div>
 
       <%!-- Mobile header --%>
-      <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border">
+      <div class="lg:hidden flex items-center justify-between px-4 py-3 border-b border-admin-border">
         <p
           :if={!@impersonating}
-          class="font-display font-semibold text-text-primary truncate"
+          class="font-display font-semibold text-admin-text-primary truncate"
           data-test="org-name-mobile"
         >
           {@organization.name}
         </p>
-        <p :if={@impersonating} class="font-display font-semibold text-text-primary truncate text-sm">
+        <p :if={@impersonating} class="font-display font-semibold text-admin-text-primary truncate text-sm">
           Impersonating
         </p>
         <button
           phx-click={show_sidebar()}
-          class="rounded-md p-1.5 text-text-secondary hover:bg-elevated hover:text-text-primary"
+          class="rounded-md p-1.5 text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
           aria-label="Open menu"
         >
           <.icon name="hero-bars-3" class="size-5" />
@@ -62,35 +65,35 @@ defmodule BobineWeb.Components.AdminLayout do
         <div
           id="admin-overlay"
           phx-click={hide_sidebar()}
-          class="fixed inset-0 bg-bg/60 z-30 hidden lg:!hidden"
+          class="fixed inset-0 bg-admin-bg/60 z-30 hidden lg:!hidden"
         >
         </div>
 
         <%!-- Sidebar --%>
         <aside
           id="admin-sidebar"
-          class="fixed inset-y-0 left-0 z-40 w-64 bg-surface flex flex-col border-r border-border -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
+          class="fixed inset-y-0 left-0 z-40 w-64 bg-admin-surface flex flex-col border-r border-admin-border -translate-x-full transition-transform duration-200 ease-in-out lg:static lg:translate-x-0"
         >
-          <div class="p-4 border-b border-border flex items-center justify-between">
+          <div class="p-4 border-b border-admin-border flex items-center justify-between">
             <div class="min-w-0">
               <p
                 :if={!@impersonating}
-                class="font-display font-semibold text-text-primary truncate"
+                class="font-display font-semibold text-admin-text-primary truncate"
                 data-test="org-name"
               >
                 {@organization.name}
               </p>
               <p
                 :if={@impersonating}
-                class="font-display font-semibold text-text-primary truncate text-sm"
+                class="font-display font-semibold text-admin-text-primary truncate text-sm"
               >
                 Impersonating
               </p>
-              <p class="text-xs text-text-muted truncate mt-1">{@current_user.email}</p>
+              <p class="text-xs text-admin-text-muted truncate mt-1">{@current_user.email}</p>
             </div>
             <button
               phx-click={hide_sidebar()}
-              class="rounded-md p-1.5 text-text-secondary hover:bg-elevated hover:text-text-primary lg:hidden"
+              class="rounded-md p-1.5 text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary lg:hidden"
               aria-label="Close menu"
             >
               <.icon name="hero-x-mark" class="size-5" />
@@ -184,11 +187,11 @@ defmodule BobineWeb.Components.AdminLayout do
             />
           </nav>
 
-          <div class="p-3 border-t border-border">
+          <div class="p-3 border-t border-admin-border">
             <.link
               href={~p"/users/log-out"}
               method="delete"
-              class="block px-3 py-2 rounded-md font-ui text-sm font-medium text-text-secondary hover:bg-elevated hover:text-text-primary transition-colors"
+              class="block px-3 py-2 rounded-md font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary transition-colors"
               data-test="admin-nav-logout"
             >
               Log out
@@ -196,11 +199,11 @@ defmodule BobineWeb.Components.AdminLayout do
           </div>
         </aside>
 
-        <div class="flex-1 flex flex-col overflow-hidden bg-bg">
+        <div class="flex-1 flex flex-col overflow-hidden bg-admin-bg">
           <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {render_slot(@inner_block)}
           </main>
-          <div class="flex justify-end px-4 py-2 border-t border-border">
+          <div class="flex justify-end px-4 py-2 border-t border-admin-border">
             <Layouts.theme_toggle />
           </div>
         </div>
@@ -244,13 +247,32 @@ defmodule BobineWeb.Components.AdminLayout do
     """
   end
 
+  # Per-org admin accent override. Only the accent scale is tenant-tunable
+  # for the admin chrome (surface + text tokens stay pinned to Bobine brand
+  # for readability). When set, we emit a scoped `<style>` that overrides
+  # `--color-admin-accent*` for this tenant's admin session. Hover/active
+  # variants are derived in-place via `color-mix` so operators only need
+  # to pick the base color.
+  defp admin_accent_style(%{admin_accent_color: color}) when is_binary(color) and color != "" do
+    """
+    :root {
+      --color-admin-accent: #{color};
+      --color-admin-accent-hover: color-mix(in oklch, #{color} 85%, white);
+      --color-admin-accent-active: color-mix(in oklch, #{color} 85%, black);
+      --color-admin-accent-subtle: color-mix(in oklch, #{color} 20%, var(--color-admin-surface));
+    }
+    """
+  end
+
+  defp admin_accent_style(_), do: nil
+
   defp nav_link_class(current_path, href) do
     base = "block px-3 py-2 rounded-md font-ui text-sm font-medium transition-colors"
 
     if current_path == href do
-      "#{base} bg-accent text-accent-text"
+      "#{base} bg-admin-accent text-admin-accent-text"
     else
-      "#{base} text-text-secondary hover:bg-elevated hover:text-text-primary"
+      "#{base} text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
     end
   end
 end
