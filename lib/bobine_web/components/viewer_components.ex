@@ -23,6 +23,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
+  attr :preview_on_hover, :boolean, default: true
 
   @doc """
   Renders a card for a polymorphic catalog item — a video, series, or season.
@@ -68,6 +69,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       favorited_ids={@favorited_ids}
       watchlisted_ids={@watchlisted_ids}
       queued_ids={@queued_ids}
+      preview_on_hover={@preview_on_hover}
     />
     """
   end
@@ -84,6 +86,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
+  attr :preview_on_hover, :boolean, default: true
 
   @doc """
   Renders a content card for a video with a hover/focus popup.
@@ -111,7 +114,7 @@ defmodule BobineWeb.Components.ViewerComponents do
     <div
       id={@resolved_card_id}
       class={["sv-card-container", "sv-card-container-#{@size}"]}
-      phx-hook="CardFocus"
+      phx-hook={@preview_on_hover && "CardFocus"}
       data-test={"sv-card-#{@video.id}"}
     >
       <div class={["sv-card", "sv-card-#{@size}"]}>
@@ -200,6 +203,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       </div>
 
       <div
+        :if={@preview_on_hover}
         class="sv-card-popup"
         role="dialog"
         aria-label={"More about #{@video.title}"}

@@ -410,6 +410,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             favorited_ids={@favorited_ids}
             watchlisted_ids={@watchlisted_ids}
             queued_ids={@queued_ids}
+            preview_on_hover={@card_variant != "poster_portrait"}
           />
         </div>
         <button
