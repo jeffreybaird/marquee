@@ -274,7 +274,7 @@ defmodule BobineWeb.Admin.PlansLive do
                 </span>
                 <span
                   :if={plan.trial_period_days && plan.trial_period_days > 0}
-                  class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+                  class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
                 >
                   {plan.trial_period_days}-day trial
                 </span>

@@ -150,7 +150,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               :if={@can_manage}
               phx-click="toggle_hero_visibility"
               data-test="hero-visibility-toggle"
-              class={"rounded-full px-2 py-0.5 font-ui text-xs #{if @hero_row.visible, do: "bg-success/20 text-success", else: "bg-admin-card text-admin-muted"}"}
+              class={"rounded-full px-2 py-0.5 font-ui text-xs #{if @hero_row.visible, do: "border border-success/40 bg-success/10 text-success", else: "bg-admin-card text-admin-muted"}"}
             >
               {if @hero_row.visible, do: "Visible", else: "Hidden"}
             </button>
@@ -529,7 +529,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 phx-click="toggle_visibility"
                 phx-value-id={row.id}
                 data-test="row-visibility-toggle"
-                class={"rounded-full px-2 py-0.5 font-ui text-xs #{if row.visible, do: "bg-success/20 text-success", else: "bg-admin-card text-admin-muted"}"}
+                class={"rounded-full px-2 py-0.5 font-ui text-xs #{if row.visible, do: "border border-success/40 bg-success/10 text-success", else: "bg-admin-card text-admin-muted"}"}
               >
                 {if row.visible, do: "Visible", else: "Hidden"}
               </button>

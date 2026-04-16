@@ -504,7 +504,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(collection.visible,
-                      do: "border-transparent bg-admin-accent/10 text-admin-on-accent",
+                      do: "border-transparent bg-admin-accent/10 text-admin-accent",
                       else: "border-admin-border text-admin-muted"
                     )
                   ]}
@@ -728,7 +728,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 </div>
               </div>
               <span
-                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
                 data-test="type-badge"
               >
                 Season
@@ -748,7 +748,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                 </div>
               </div>
               <span
-                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+                class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
                 data-test="type-badge"
               >
                 Series
@@ -875,7 +875,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                   {season.episode_count} episodes
                 </span>
               </div>
-              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent">
+              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent">
                 Season
               </span>
             </div>
@@ -899,7 +899,7 @@ defmodule BobineWeb.Admin.CollectionsLive do
                   {series.title}
                 </span>
               </div>
-              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent">
+              <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent">
                 Series
               </span>
             </div>

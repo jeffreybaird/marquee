@@ -436,7 +436,7 @@ defmodule BobineWeb.Admin.SeriesLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(series.visible,
-                      do: "border-admin-accent bg-admin-accent/10 text-admin-on-accent",
+                      do: "border-admin-accent bg-admin-accent/10 text-admin-accent",
                       else: "border-admin-border text-admin-muted"
                     )
                   ]}
@@ -513,7 +513,7 @@ defmodule BobineWeb.Admin.SeriesLive do
         <span class="font-mono text-xs text-admin-muted">—</span>
       <% is_nil(@days_remaining) -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
           data-test="new-season-permanent"
         >
           On (no expiry)
@@ -527,14 +527,14 @@ defmodule BobineWeb.Admin.SeriesLive do
         </span>
       <% @days_remaining == 1 -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
           data-test="new-season-days-remaining"
         >
           1 day left
         </span>
       <% true -> %>
         <span
-          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-on-accent"
+          class="rounded-full border border-admin-accent bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent"
           data-test="new-season-days-remaining"
         >
           {@days_remaining} days left
@@ -754,7 +754,7 @@ defmodule BobineWeb.Admin.SeriesLive do
                   class={[
                     "rounded-full border px-2 py-0.5 font-ui text-xs",
                     if(season.visible,
-                      do: "border-admin-accent bg-admin-accent/10 text-admin-on-accent",
+                      do: "border-admin-accent bg-admin-accent/10 text-admin-accent",
                       else: "border-admin-border text-admin-muted"
                     )
                   ]}

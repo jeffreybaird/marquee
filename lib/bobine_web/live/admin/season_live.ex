@@ -646,7 +646,7 @@ defmodule BobineWeb.Admin.SeasonLive do
     {label, tone_class} =
       case assigns.status do
         "ready" ->
-          {"Ready", "border-admin-accent bg-admin-accent/10 text-admin-on-accent"}
+          {"Ready", "border-admin-accent bg-admin-accent/10 text-admin-accent"}
 
         "preparing" ->
           {"Processing", "border-warning/50 bg-warning/10 text-admin-fg"}

@@ -315,14 +315,14 @@ defmodule BobineWeb.Admin.MembersLive do
     """
   end
 
-  defp subscription_badge("active"), do: "bg-success/20 text-success"
-  defp subscription_badge("trial"), do: "bg-info/20 text-info"
-  defp subscription_badge("past_due"), do: "bg-warning/20 text-warning"
-  defp subscription_badge("canceled"), do: "bg-error/20 text-error"
+  defp subscription_badge("active"), do: "border border-success/40 bg-success/10 text-success"
+  defp subscription_badge("trial"), do: "border border-info/40 bg-info/10 text-admin-fg"
+  defp subscription_badge("past_due"), do: "border border-warning/40 bg-warning/10 text-warning"
+  defp subscription_badge("canceled"), do: "border border-error/40 bg-error/10 text-error"
   defp subscription_badge(_), do: "bg-admin-card text-admin-muted"
 
-  defp status_badge(:active), do: "bg-success/20 text-success"
-  defp status_badge(:suspended), do: "bg-warning/20 text-warning"
-  defp status_badge(:banned), do: "bg-error/20 text-error"
+  defp status_badge(:active), do: "border border-success/40 bg-success/10 text-success"
+  defp status_badge(:suspended), do: "border border-warning/40 bg-warning/10 text-warning"
+  defp status_badge(:banned), do: "border border-error/40 bg-error/10 text-error"
   defp status_badge(_), do: "bg-admin-card text-admin-muted"
 end

@@ -574,7 +574,7 @@ defmodule BobineWeb.Admin.ContentLive.Components do
   """
   def status_badge(%{status: "ready"} = assigns) do
     ~H"""
-    <span class="inline-flex items-center rounded-full bg-success/20 px-2 py-0.5 font-ui text-xs font-medium text-success">
+    <span class="inline-flex items-center rounded-full border border-success/40 bg-success/10 px-2 py-0.5 font-ui text-xs font-medium text-success">
       Ready
     </span>
     """
@@ -582,7 +582,7 @@ defmodule BobineWeb.Admin.ContentLive.Components do
 
   def status_badge(%{status: "preparing"} = assigns) do
     ~H"""
-    <span class="inline-flex items-center rounded-full bg-warning/20 px-2 py-0.5 font-ui text-xs font-medium text-warning">
+    <span class="inline-flex items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 font-ui text-xs font-medium text-warning">
       Processing
     </span>
     """
@@ -590,7 +590,7 @@ defmodule BobineWeb.Admin.ContentLive.Components do
 
   def status_badge(%{status: "waiting"} = assigns) do
     ~H"""
-    <span class="inline-flex items-center rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs font-medium text-admin-on-accent">
+    <span class="inline-flex items-center rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs font-medium text-admin-accent">
       Uploading
     </span>
     """
@@ -598,7 +598,7 @@ defmodule BobineWeb.Admin.ContentLive.Components do
 
   def status_badge(%{status: "errored"} = assigns) do
     ~H"""
-    <span class="inline-flex items-center rounded-full bg-error/20 px-2 py-0.5 font-ui text-xs font-medium text-error">
+    <span class="inline-flex items-center rounded-full border border-error/40 bg-error/10 px-2 py-0.5 font-ui text-xs font-medium text-error">
       Error
     </span>
     """

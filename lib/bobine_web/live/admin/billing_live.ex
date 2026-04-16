@@ -118,7 +118,7 @@ defmodule BobineWeb.Admin.BillingLive do
             <div class="flex items-center justify-between">
               <div>
                 <span
-                  class="inline-block rounded-full bg-success/20 px-3 py-1 text-xs font-medium text-success"
+                  class="inline-block rounded-full border border-success/40 bg-success/10 px-3 py-1 text-xs font-medium text-success"
                   data-test="current-plan-badge"
                 >
                   Current plan
