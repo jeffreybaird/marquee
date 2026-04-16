@@ -27,6 +27,7 @@ defmodule BobineWeb.Viewer.WatchLive do
   alias Bobine.Content
   alias Bobine.Content.AccessControl
   alias Bobine.Engagement
+  alias Bobine.Events
   alias Bobine.Metrics
   alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
@@ -130,6 +131,7 @@ defmodule BobineWeb.Viewer.WatchLive do
 
     if connected?(socket) do
       Metrics.video_viewed(org.id, video.id)
+      subscribe_to_queue_events(org, viewer)
     end
 
     emit_watch_mount_metric(
@@ -198,6 +200,8 @@ defmodule BobineWeb.Viewer.WatchLive do
     watch_state = build_watch_state(org, viewer, scope, video)
 
     viewer_progress = build_viewer_progress(org, viewer, episodes)
+
+    if connected?(socket), do: subscribe_to_queue_events(org, viewer)
 
     {:ok,
      assign(socket,
@@ -727,6 +731,20 @@ defmodule BobineWeb.Viewer.WatchLive do
   def handle_info(:go_back_expired, socket) do
     {:noreply, assign(socket, go_back_available: false, go_back_timer: nil)}
   end
+
+  def handle_info({:bobine_event, {event, %{viewer: %{id: vid}}}, _scope}, socket)
+      when event in [:queue_item_added, :queue_item_removed, :queue_cleared] do
+    if socket.assigns[:current_viewer] && socket.assigns.current_viewer.id == vid do
+      {:noreply, refresh_queue(socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:bobine_event, _event, _scope}, socket), do: {:noreply, socket}
+
+  defp subscribe_to_queue_events(_org, nil), do: :ok
+  defp subscribe_to_queue_events(org, _viewer), do: Events.subscribe(org.id)
 
   ## -----------------------------------------------------------------------
   ## Private — advance to next in queue

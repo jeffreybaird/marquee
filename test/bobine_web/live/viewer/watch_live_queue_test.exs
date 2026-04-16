@@ -161,6 +161,47 @@ defmodule BobineWeb.Viewer.WatchLiveQueueTest do
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ ~s(data-test="skip-next-btn")
     end
+
+    test "drawer updates live when queue_item_added broadcast for same viewer",
+         %{org: org, viewer: viewer, video: video} do
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
+
+      other =
+        insert(:video,
+          organization: org,
+          title: "Live Added Video",
+          mux_status: "ready",
+          mux_playback_id: "pb_live_add"
+        )
+
+      {:ok, _} = Engagement.add_to_queue(org, viewer, other)
+
+      html = render(view)
+      assert html =~ "Live Added Video"
+      assert html =~ ~s(data-test="queue-item-#{other.id}")
+    end
+
+    test "drawer ignores queue events for other viewers",
+         %{org: org, viewer: viewer, video: video} do
+      other_viewer = insert(:subscribed_viewer, organization: org)
+
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      view |> element(~s([data-test="toggle-queue-btn"])) |> render_click()
+
+      foreign =
+        insert(:video,
+          organization: org,
+          title: "Foreign Viewer Video",
+          mux_status: "ready",
+          mux_playback_id: "pb_foreign"
+        )
+
+      {:ok, _} = Engagement.add_to_queue(org, other_viewer, foreign)
+
+      html = render(view)
+      refute html =~ "Foreign Viewer Video"
+    end
   end
 
   describe "favorites and watchlist toggles" do
