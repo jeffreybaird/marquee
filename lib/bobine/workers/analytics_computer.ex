@@ -9,7 +9,7 @@ defmodule Bobine.Workers.AnalyticsComputer do
   daily_watch_time.
   """
 
-  use Oban.Worker, queue: :analytics, max_attempts: 3
+  use Oban.Worker, queue: :bulk, max_attempts: 3
 
   import Ecto.Query
 
