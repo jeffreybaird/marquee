@@ -891,11 +891,15 @@ defmodule Bobine.Catalog do
     "https://image.mux.com/#{playback_id}/thumbnail.webp?width=1920&height=1080&fit_mode=smartcrop"
   end
 
-  # A hero slide is only surfaced to viewers once Mux has assigned a
-  # playback ID to the underlying video. Before that point clicking the
-  # slide would land on /watch/:id which redirects to home (video isn't
-  # playable yet) and there's no thumbnail to render.
-  defp video_playable?(%{mux_playback_id: pid}) when is_binary(pid) and pid != "", do: true
+  # A hero slide is only surfaced to viewers once Mux has finished
+  # encoding the underlying video. Before then clicking the slide lands
+  # on /watch/:id (subscription guard or playback policy redirects),
+  # and the Mux thumbnail URL returns 404 because the asset isn't
+  # encoded yet. mux_status == "ready" guarantees both.
+  defp video_playable?(%{mux_playback_id: pid, mux_status: "ready"})
+       when is_binary(pid) and pid != "",
+       do: true
+
   defp video_playable?(_), do: false
 
   defp presence(nil), do: nil
