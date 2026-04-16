@@ -4,6 +4,7 @@ defmodule Bobine.Webhooks do
   """
 
   import Ecto.Query, warn: false
+  alias Bobine.Accounts.Organization
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
@@ -11,24 +12,29 @@ defmodule Bobine.Webhooks do
   alias Bobine.Webhooks.Endpoint
 
   @doc """
-  Returns a paginated list of webhook_endpoints, excluding soft-deleted records.
+  Returns a paginated list of webhook_endpoints for an organization,
+  excluding soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_webhook_endpoints(opts \\ []) do
+  def list_webhook_endpoints(%Organization{id: org_id}, opts \\ []) do
     Endpoint
+    |> where([e], e.organization_id == ^org_id)
     |> where([e], is_nil(e.deleted_at))
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)
   end
 
   @doc """
-  Returns the list of webhook_endpoints including soft-deleted records.
+  Returns the list of webhook_endpoints for an organization including
+  soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_webhook_endpoints_including_deleted do
-    Repo.all(Endpoint)
+  def list_webhook_endpoints_including_deleted(%Organization{id: org_id}) do
+    Endpoint
+    |> where([e], e.organization_id == ^org_id)
+    |> Repo.all()
   end
 
   @doc """

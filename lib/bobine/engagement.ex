@@ -603,24 +603,29 @@ defmodule Bobine.Engagement do
   ## -----------------------------------------------------------------------
 
   @doc """
-  Returns a paginated list of watchlist_items, excluding soft-deleted records.
+  Returns a paginated list of watchlist_items for an organization, excluding
+  soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_watchlist_items(opts \\ []) do
+  def list_watchlist_items(%Organization{id: org_id}, opts \\ []) do
     WatchlistItem
+    |> where([w], w.organization_id == ^org_id)
     |> where([w], is_nil(w.deleted_at))
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)
   end
 
   @doc """
-  Returns the list of watchlist_items including soft-deleted records.
+  Returns the list of watchlist_items for an organization including
+  soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_watchlist_items_including_deleted do
-    Repo.all(WatchlistItem)
+  def list_watchlist_items_including_deleted(%Organization{id: org_id}) do
+    WatchlistItem
+    |> where([w], w.organization_id == ^org_id)
+    |> Repo.all()
   end
 
   @doc """

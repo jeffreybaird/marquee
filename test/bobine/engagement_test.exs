@@ -17,9 +17,26 @@ defmodule Bobine.EngagementTest do
       %{org: org, user: user, video: video}
     end
 
-    test "list_watchlist_items/0 returns all watchlist_items" do
-      watchlist_item = watchlist_item_fixture()
-      assert %{results: [^watchlist_item]} = Engagement.list_watchlist_items()
+    test "list_watchlist_items/1 returns all watchlist_items for an org", %{
+      org: org,
+      user: user,
+      video: video
+    } do
+      {:ok, watchlist_item} =
+        Engagement.create_watchlist_item(%{
+          auto_remove_on_watch: true,
+          position: 42,
+          organization_id: org.id,
+          user_id: user.id,
+          video_id: video.id
+        })
+
+      assert %{results: [^watchlist_item]} = Engagement.list_watchlist_items(org)
+    end
+
+    test "list_watchlist_items/1 does not return items for other organizations", %{org: org} do
+      _other = watchlist_item_fixture()
+      assert %{results: []} = Engagement.list_watchlist_items(org)
     end
 
     test "get_watchlist_item!/1 returns the watchlist_item with given id" do
@@ -72,11 +89,23 @@ defmodule Bobine.EngagementTest do
       assert watchlist_item == Engagement.get_watchlist_item!(watchlist_item.id)
     end
 
-    test "delete_watchlist_item/1 soft-deletes the watchlist_item" do
-      watchlist_item = watchlist_item_fixture()
+    test "delete_watchlist_item/1 soft-deletes the watchlist_item", %{
+      org: org,
+      user: user,
+      video: video
+    } do
+      {:ok, watchlist_item} =
+        Engagement.create_watchlist_item(%{
+          auto_remove_on_watch: true,
+          position: 42,
+          organization_id: org.id,
+          user_id: user.id,
+          video_id: video.id
+        })
+
       assert {:ok, %WatchlistItem{} = deleted} = Engagement.delete_watchlist_item(watchlist_item)
       assert deleted.deleted_at != nil
-      assert %{results: []} = Engagement.list_watchlist_items()
+      assert %{results: []} = Engagement.list_watchlist_items(org)
     end
 
     test "restore_watchlist_item/1 restores a soft-deleted watchlist_item" do
@@ -86,10 +115,22 @@ defmodule Bobine.EngagementTest do
       assert restored.deleted_at == nil
     end
 
-    test "list_watchlist_items_including_deleted/0 returns soft-deleted items" do
-      watchlist_item = watchlist_item_fixture()
+    test "list_watchlist_items_including_deleted/1 returns soft-deleted items for an org", %{
+      org: org,
+      user: user,
+      video: video
+    } do
+      {:ok, watchlist_item} =
+        Engagement.create_watchlist_item(%{
+          auto_remove_on_watch: true,
+          position: 42,
+          organization_id: org.id,
+          user_id: user.id,
+          video_id: video.id
+        })
+
       {:ok, _deleted} = Engagement.delete_watchlist_item(watchlist_item)
-      assert [found] = Engagement.list_watchlist_items_including_deleted()
+      assert [found] = Engagement.list_watchlist_items_including_deleted(org)
       assert found.id == watchlist_item.id
     end
 

@@ -14,9 +14,18 @@ defmodule Bobine.WebhooksTest do
       %{org: insert(:organization)}
     end
 
-    test "list_webhook_endpoints/0 returns all webhook_endpoints" do
-      endpoint = endpoint_fixture()
-      assert %{results: [^endpoint]} = Webhooks.list_webhook_endpoints()
+    test "list_webhook_endpoints/1 returns all webhook_endpoints for an organization" do
+      org = insert(:organization)
+      endpoint = endpoint_fixture(organization_id: org.id)
+      assert %{results: [^endpoint]} = Webhooks.list_webhook_endpoints(org)
+    end
+
+    test "list_webhook_endpoints/1 does not return endpoints for other organizations" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+      _endpoint_a = endpoint_fixture(organization_id: org_a.id)
+
+      assert %{results: []} = Webhooks.list_webhook_endpoints(org_b)
     end
 
     test "get_endpoint!/1 returns the endpoint with given id" do
@@ -71,10 +80,11 @@ defmodule Bobine.WebhooksTest do
     end
 
     test "delete_endpoint/1 soft-deletes the endpoint" do
-      endpoint = endpoint_fixture()
+      org = insert(:organization)
+      endpoint = endpoint_fixture(organization_id: org.id)
       assert {:ok, %Endpoint{} = deleted} = Webhooks.delete_endpoint(endpoint)
       assert deleted.deleted_at != nil
-      assert %{results: []} = Webhooks.list_webhook_endpoints()
+      assert %{results: []} = Webhooks.list_webhook_endpoints(org)
     end
 
     test "restore_endpoint/1 restores a soft-deleted endpoint" do
@@ -84,10 +94,11 @@ defmodule Bobine.WebhooksTest do
       assert restored.deleted_at == nil
     end
 
-    test "list_webhook_endpoints_including_deleted/0 returns soft-deleted endpoints" do
-      endpoint = endpoint_fixture()
+    test "list_webhook_endpoints_including_deleted/1 returns soft-deleted endpoints for an org" do
+      org = insert(:organization)
+      endpoint = endpoint_fixture(organization_id: org.id)
       {:ok, _deleted} = Webhooks.delete_endpoint(endpoint)
-      assert [found] = Webhooks.list_webhook_endpoints_including_deleted()
+      assert [found] = Webhooks.list_webhook_endpoints_including_deleted(org)
       assert found.id == endpoint.id
     end
 
