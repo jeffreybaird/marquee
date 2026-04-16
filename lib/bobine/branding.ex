@@ -56,7 +56,7 @@ defmodule Bobine.Branding do
       {:ok, %Theme{}}
 
       iex> create_theme(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def create_theme(attrs) do
@@ -79,7 +79,7 @@ defmodule Bobine.Branding do
       {:ok, %Theme{}}
 
       iex> update_theme(theme, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def update_theme(%Theme{} = theme, attrs) do
@@ -103,7 +103,7 @@ defmodule Bobine.Branding do
       {:ok, %Theme{}}
 
       iex> delete_theme(theme)
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def delete_theme(%Theme{} = theme) do
@@ -112,8 +112,8 @@ defmodule Bobine.Branding do
         invalidate_theme_cache(deleted_theme.organization_id)
         {:ok, deleted_theme}
 
-      other ->
-        other
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, :validation, changeset}
     end
   end
 

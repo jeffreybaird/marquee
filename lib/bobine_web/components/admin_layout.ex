@@ -19,7 +19,9 @@ defmodule BobineWeb.Components.AdminLayout do
     assigns = assign(assigns, :admin_accent_style, admin_accent_style(assigns.organization))
 
     ~H"""
-    <style :if={@admin_accent_style}><%= Phoenix.HTML.raw(@admin_accent_style) %></style>
+    <style :if={@admin_accent_style}>
+      <%= Phoenix.HTML.raw(@admin_accent_style) %>
+    </style>
     <div class="flex flex-col h-screen bg-admin-bg font-body text-admin-text-primary">
       <div
         :if={@impersonating}
@@ -48,7 +50,10 @@ defmodule BobineWeb.Components.AdminLayout do
         >
           {@organization.name}
         </p>
-        <p :if={@impersonating} class="font-display font-semibold text-admin-text-primary truncate text-sm">
+        <p
+          :if={@impersonating}
+          class="font-display font-semibold text-admin-text-primary truncate text-sm"
+        >
           Impersonating
         </p>
         <button

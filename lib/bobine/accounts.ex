@@ -173,7 +173,7 @@ defmodule Bobine.Accounts do
       {:ok, %User{}}
 
       iex> register_user(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def register_user(attrs) do
@@ -412,7 +412,7 @@ defmodule Bobine.Accounts do
       {:ok, {%User{}, [...]}}
 
       iex> update_user_password(user, %{password: "too short"})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def update_user_password(user, attrs) do
