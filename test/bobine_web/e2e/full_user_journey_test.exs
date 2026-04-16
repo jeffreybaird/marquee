@@ -31,7 +31,7 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
       # The active nav link should have a distinct style (bg-primary class)
       content_link = Wallaby.Browser.find(session, Query.css("[data-test='admin-nav-content']"))
       classes = Wallaby.Element.attr(content_link, "class")
-      assert classes =~ "bg-primary"
+      assert classes =~ "bg-admin-accent"
     end
 
     test "all sidebar links navigate to their pages", %{session: session} do
@@ -46,7 +46,7 @@ defmodule BobineWeb.E2E.FullUserJourneyTest do
         {"admin-nav-tags", "Tags"},
         {"admin-nav-catalog", "Catalog"},
         {"admin-nav-analytics", "Analytics"},
-        {"admin-nav-branding", "Branding"},
+        {"admin-nav-appearance", "Appearance"},
         {"admin-nav-members", "Members"},
         {"admin-nav-webhooks", "Webhooks"},
         {"admin-nav-settings", "Settings"}

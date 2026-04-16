@@ -789,11 +789,10 @@ defmodule BobineWeb.Admin.AppearanceLive do
     families =
       (display_fonts ++ body_fonts)
       |> Enum.uniq()
-      |> Enum.map(fn name ->
-        encoded = name |> String.replace(" ", "+")
+      |> Enum.map_join("&", fn name ->
+        encoded = String.replace(name, " ", "+")
         "family=#{encoded}:wght@400;500;600"
       end)
-      |> Enum.join("&")
 
     "https://fonts.googleapis.com/css2?#{families}&display=swap"
   end

@@ -451,7 +451,8 @@ defmodule BobineWeb.Admin.CatalogLive do
               |> update(:hero_save_status, &Map.put(&1, slide_id, :ok))
               |> load_hero_slides()
 
-            {:noreply, if(autosave?, do: socket, else: put_flash(socket, :info, "Slide updated."))}
+            {:noreply,
+             if(autosave?, do: socket, else: put_flash(socket, :info, "Slide updated."))}
 
           {:error, :validation, _changeset} ->
             Process.send_after(self(), {:clear_hero_save_status, slide_id}, 5_000)

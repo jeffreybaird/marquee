@@ -188,8 +188,12 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 <option value="0" selected={hero_auto_advance_ms(@hero_row) == 0}>Off</option>
                 <option value="5000" selected={hero_auto_advance_ms(@hero_row) == 5000}>5s</option>
                 <option value="8000" selected={hero_auto_advance_ms(@hero_row) == 8000}>8s</option>
-                <option value="10000" selected={hero_auto_advance_ms(@hero_row) == 10_000}>10s</option>
-                <option value="15000" selected={hero_auto_advance_ms(@hero_row) == 15_000}>15s</option>
+                <option value="10000" selected={hero_auto_advance_ms(@hero_row) == 10_000}>
+                  10s
+                </option>
+                <option value="15000" selected={hero_auto_advance_ms(@hero_row) == 15_000}>
+                  15s
+                </option>
               </select>
               <BobineWeb.Components.AdminUI.admin_button
                 type="submit"
@@ -247,13 +251,20 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   Error
                 </span>
                 <.icon
-                  name={if @hero_expanded_slide == slide.id, do: "hero-chevron-up", else: "hero-chevron-down"}
+                  name={
+                    if @hero_expanded_slide == slide.id,
+                      do: "hero-chevron-up",
+                      else: "hero-chevron-down"
+                  }
                   class="size-4 shrink-0 text-admin-muted"
                 />
               </button>
 
               <%!-- Accordion body — only when expanded --%>
-              <div :if={@hero_expanded_slide == slide.id} class="border-t border-admin-border bg-admin-card px-4 py-4">
+              <div
+                :if={@hero_expanded_slide == slide.id}
+                class="border-t border-admin-border bg-admin-card px-4 py-4"
+              >
                 <div :if={@can_manage} class="flex items-center gap-1 mb-4">
                   <BobineWeb.Components.AdminUI.admin_button
                     variant={:ghost}
@@ -292,7 +303,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <input type="hidden" name="slide-id" value={slide.id} />
 
                   <div>
-                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Headline</label>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                      Headline
+                    </label>
                     <input
                       type="text"
                       name="headline"
@@ -305,7 +318,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Subheadline</label>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Subheadline
+                      </label>
                       <input
                         type="text"
                         name="subheadline"
@@ -316,7 +331,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                       />
                     </div>
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Brand Tag</label>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Brand Tag
+                      </label>
                       <input
                         type="text"
                         name="brand_tag"
@@ -329,7 +346,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   </div>
 
                   <div>
-                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Description</label>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                      Description
+                    </label>
                     <textarea
                       name="description"
                       placeholder={slide.video_description || "optional"}
@@ -341,7 +360,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
                   <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Primary CTA</label>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Primary CTA
+                      </label>
                       <input
                         type="text"
                         name="primary_cta_label"
@@ -352,7 +373,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                       />
                     </div>
                     <div>
-                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Secondary CTA</label>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Secondary CTA
+                      </label>
                       <input
                         type="text"
                         name="secondary_cta_label"
@@ -365,7 +388,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   </div>
 
                   <div>
-                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Custom Background URL</label>
+                    <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                      Custom Background URL
+                    </label>
                     <input
                       type="text"
                       name="background_image_url"
@@ -424,7 +449,10 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 :for={video <- @hero_available_videos}
                 class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-bg px-3 py-2"
               >
-                <span class="min-w-0 flex-1 truncate font-body text-sm text-admin-fg" data-test={"hero-video-select-#{video.id}"}>
+                <span
+                  class="min-w-0 flex-1 truncate font-body text-sm text-admin-fg"
+                  data-test={"hero-video-select-#{video.id}"}
+                >
                   {video.title}
                 </span>
                 <BobineWeb.Components.AdminUI.admin_button
