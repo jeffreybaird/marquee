@@ -37,6 +37,18 @@ defmodule Bobine.EventsTest do
       assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
       refute_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
     end
+
+    test "routes to org topic via event payload when scope is nil" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+
+      Events.subscribe(org.id)
+      payload = %{organization: org, video: video}
+
+      Events.broadcast(nil, {:queue_item_added, payload})
+
+      assert_receive {:bobine_event, {:queue_item_added, ^payload}, nil}
+    end
   end
 
   describe "AuditSubscriber" do

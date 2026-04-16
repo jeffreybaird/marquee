@@ -14,11 +14,7 @@ defmodule Bobine.Events do
   event is a tuple like `{:video_created, %Video{}}`.
   """
   def broadcast(scope, event) do
-    org_id =
-      case scope do
-        %{organization: %{id: id}} -> id
-        _ -> "global"
-      end
+    org_id = resolve_org_id(scope, event)
 
     message = {:bobine_event, event, scope}
     org_topic = "events:#{org_id}"
@@ -52,4 +48,8 @@ defmodule Bobine.Events do
 
   defp event_name({name, _resource}) when is_atom(name), do: Atom.to_string(name)
   defp event_name(other), do: inspect(other)
+
+  defp resolve_org_id(%{organization: %{id: id}}, _event), do: id
+  defp resolve_org_id(_scope, {_name, %{organization: %{id: id}}}), do: id
+  defp resolve_org_id(_scope, _event), do: "global"
 end
