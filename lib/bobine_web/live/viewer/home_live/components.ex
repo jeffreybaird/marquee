@@ -499,11 +499,31 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   attr :config, :map, required: true
 
   def landing_hero_video(assigns) do
-    assigns = assign(assigns, :video_url, hero_video_url(assigns.config))
+    assigns =
+      assigns
+      |> assign(:playback_id, hero_playback_id(assigns.config))
+      |> assign(:video_url, hero_video_url(assigns.config))
 
     ~H"""
     <div class="sv-hero-video" data-test="hero-video-section">
+      <mux-player
+        :if={@playback_id}
+        stream-type="on-demand"
+        playback-id={@playback_id}
+        autoplay="muted"
+        muted
+        loop
+        preload="auto"
+        disable-cookies
+        disable-tracking
+        poster={@config["fallback_image_url"]}
+        class="sv-hero-video-bg"
+        aria-hidden="true"
+      >
+      </mux-player>
+
       <video
+        :if={!@playback_id && @video_url}
         autoplay
         muted
         loop
@@ -722,11 +742,10 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
   end
 
   defp hero_video_url(%{"video_url" => url}) when is_binary(url) and url != "", do: url
-
-  defp hero_video_url(%{"video_playback_id" => id}) when is_binary(id) and id != "",
-    do: "https://stream.mux.com/#{id}/high.mp4"
-
   defp hero_video_url(_), do: nil
+
+  defp hero_playback_id(%{"video_playback_id" => id}) when is_binary(id) and id != "", do: id
+  defp hero_playback_id(_), do: nil
 
   defp build_marketing_bg_style(config) do
     cond do

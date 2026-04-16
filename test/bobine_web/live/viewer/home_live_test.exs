@@ -812,6 +812,56 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ "Yes you can."
     end
 
+    test "hero_video section renders <mux-player> with playback id", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :hero_video,
+        position: 0,
+        config: %{
+          "video_playback_id" => "pb_hero_123",
+          "headline" => "Welcome",
+          "cta_text" => "Subscribe"
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ ~s(data-test="hero-video-section")
+      assert html =~ "<mux-player"
+      assert html =~ ~s(playback-id="pb_hero_123")
+      assert html =~ ~s(stream-type="on-demand")
+      refute html =~ "stream.mux.com"
+    end
+
+    test "hero_video falls back to <video> for explicit video_url", %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:landing_section,
+        organization: org,
+        section_type: :hero_video,
+        position: 0,
+        config: %{
+          "video_url" => "https://example.com/hero.mp4",
+          "headline" => "Hi"
+        }
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> Phoenix.ConnTest.init_test_session(%{})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      assert html =~ ~s(src="https://example.com/hero.mp4")
+      refute html =~ "<mux-player"
+    end
+
     test "landing page is org-scoped", %{conn: conn} do
       org_a = insert(:organization)
       org_b = insert(:organization)

@@ -2768,6 +2768,13 @@
   object-fit: cover;
 }
 
+mux-player.sv-hero-video-bg {
+  --controls: none;
+  --media-object-fit: cover;
+  --media-object-position: center;
+  pointer-events: none;
+}
+
 .sv-hero-overlay {
   position: absolute;
   inset: 0;
