@@ -840,8 +840,10 @@ defmodule Bobine.Catalog do
             |> then(&list_hero_slides(organization, &1))
             |> Enum.map(fn slide ->
               video = Content.get_video!(slide.video_id)
-              resolve_slide_with_fallbacks(slide, video)
+              {slide, video}
             end)
+            |> Enum.filter(fn {_slide, video} -> video_playable?(video) end)
+            |> Enum.map(fn {slide, video} -> resolve_slide_with_fallbacks(slide, video) end)
 
           auto_advance_ms = get_in(row.filter_config || %{}, ["auto_advance_ms"]) || 8000
 
@@ -889,9 +891,23 @@ defmodule Bobine.Catalog do
     "https://image.mux.com/#{playback_id}/thumbnail.webp?width=1920&height=1080&fit_mode=smartcrop"
   end
 
+  # A hero slide is only surfaced to viewers once Mux has assigned a
+  # playback ID to the underlying video. Before that point clicking the
+  # slide would land on /watch/:id which redirects to home (video isn't
+  # playable yet) and there's no thumbnail to render.
+  defp video_playable?(%{mux_playback_id: pid}) when is_binary(pid) and pid != "", do: true
+  defp video_playable?(_), do: false
+
   defp presence(nil), do: nil
   defp presence(""), do: nil
   defp presence(str) when is_binary(str), do: str
+
+  @doc """
+  Public hook for subscribers (e.g. HeroCacheSubscriber) to invalidate
+  the hero slides cache when external events change slide resolution —
+  most commonly a Mux `video_ready` event unblocking a pending slide.
+  """
+  def invalidate_hero_cache_for_org(org_id), do: invalidate_hero_cache(org_id)
 
   defp invalidate_hero_cache(org_id) do
     Cache.delete("hero:#{org_id}")

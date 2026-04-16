@@ -305,7 +305,10 @@ defmodule BobineWeb.Admin.LandingLive do
      socket
      |> assign(:edit_form, form)
      |> reset_picker()
-     |> put_flash(:info, "Upload complete. Mux is processing the video — playback ID will fill in automatically.")}
+     |> put_flash(
+       :info,
+       "Upload complete. Mux is processing the video — playback ID will fill in automatically."
+     )}
   end
 
   def handle_event("upload_error", %{"error" => error}, socket) do
@@ -920,13 +923,19 @@ defmodule BobineWeb.Admin.LandingLive do
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
             <p class="font-ui text-sm font-medium text-admin-fg">Video source</p>
-            <p :if={hero_video_status(@form) == :playback_set} class="font-mono text-xs text-admin-muted truncate">
+            <p
+              :if={hero_video_status(@form) == :playback_set}
+              class="font-mono text-xs text-admin-muted truncate"
+            >
               Mux playback ID: {@form["video_playback_id"]}
             </p>
             <p :if={hero_video_status(@form) == :pending} class="font-mono text-xs text-admin-muted">
               Upload pending — Mux is processing…
             </p>
-            <p :if={hero_video_status(@form) == :url} class="font-mono text-xs text-admin-muted truncate">
+            <p
+              :if={hero_video_status(@form) == :url}
+              class="font-mono text-xs text-admin-muted truncate"
+            >
               URL: {@form["video_url"]}
             </p>
             <p :if={hero_video_status(@form) == :none} class="font-body text-xs text-admin-muted">
@@ -969,7 +978,6 @@ defmodule BobineWeb.Admin.LandingLive do
     </form>
     """
   end
-
 
   defp section_form(%{section: %{section_type: :hero_image}} = assigns) do
     ~H"""

@@ -28,6 +28,7 @@ defmodule Bobine.Application do
         {Oban, Application.fetch_env!(:bobine, Oban)},
         Bobine.Buffers.ProgressBuffer,
         Bobine.Events.AuditSubscriber,
+        Bobine.Catalog.HeroCacheSubscriber,
         # Start to serve requests, typically the last entry
         BobineWeb.Endpoint
       ]

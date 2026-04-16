@@ -304,7 +304,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             <%!-- CTA group --%>
             <div class="hero-cta-group">
               <.link
-                navigate={slide.primary_cta_path}
+                href={slide.primary_cta_path}
                 class="hero-cta-primary"
                 data-test={"hero-primary-cta-#{index}"}
               >
@@ -312,7 +312,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
               </.link>
               <.link
                 :if={slide.secondary_cta_path}
-                navigate={slide.secondary_cta_path}
+                href={slide.secondary_cta_path}
                 class="hero-cta-secondary"
                 data-test={"hero-secondary-cta-#{index}"}
               >
