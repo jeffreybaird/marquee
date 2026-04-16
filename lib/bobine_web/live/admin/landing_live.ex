@@ -15,8 +15,11 @@ defmodule BobineWeb.Admin.LandingLive do
 
   alias Bobine.Accounts
   alias Bobine.Content
+  alias Bobine.Events
   alias Bobine.LandingPage
   alias Bobine.LandingPage.LandingSection
+
+  require Logger
 
   @section_type_options [
     {"Hero video", "hero_video"},
@@ -36,6 +39,8 @@ defmodule BobineWeb.Admin.LandingLive do
 
     can_manage = Accounts.can_manage_content?(scope)
 
+    if connected?(socket), do: Events.subscribe(org.id)
+
     # Seed defaults on first visit so the operator has something to edit.
     _ = LandingPage.seed_default_landing_page(scope)
 
@@ -48,6 +53,12 @@ defmodule BobineWeb.Admin.LandingLive do
      |> assign(:edit_form, %{})
      |> assign(:edit_error, nil)
      |> assign(:collections, list_collections(org))
+     |> assign(:show_video_picker, false)
+     |> assign(:video_picker_tab, :existing)
+     |> assign(:available_videos, [])
+     |> assign(:upload_file, nil)
+     |> assign(:uploading, false)
+     |> assign(:upload_percent, 0)
      |> load_sections()}
   end
 
@@ -178,7 +189,207 @@ defmodule BobineWeb.Admin.LandingLive do
     end
   end
 
+  # ── Video picker (hero_video section) ─────────────────────────────────
+
+  def handle_event("open_video_picker", _params, socket) do
+    {:noreply, open_picker(socket)}
+  end
+
+  def handle_event("close_video_picker", _params, socket) do
+    if socket.assigns.uploading do
+      {:noreply, socket}
+    else
+      {:noreply, reset_picker(socket)}
+    end
+  end
+
+  def handle_event("video_picker_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :video_picker_tab, String.to_existing_atom(tab))}
+  end
+
+  def handle_event("select_existing_video", %{"video-id" => video_id}, socket) do
+    org = socket.assigns.organization
+
+    case Content.get_video(org, video_id) do
+      {:ok, %{mux_playback_id: pid}} when is_binary(pid) and pid != "" ->
+        form =
+          socket.assigns.edit_form
+          |> Map.put("video_playback_id", pid)
+          |> Map.put("video_url", "")
+          |> Map.delete("pending_video_id")
+
+        {:noreply, socket |> assign(:edit_form, form) |> reset_picker()}
+
+      {:ok, _} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "That video isn't ready yet (no Mux playback ID). Pick a processed one."
+         )}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Video not found.")}
+    end
+  end
+
+  def handle_event("files_selected", %{"files" => [file | _]}, socket) do
+    %{"client_id" => cid, "name" => name} = file
+    title = name |> Path.rootname() |> String.replace(~r/[_\-\.]+/, " ") |> String.trim()
+    {:noreply, assign(socket, :upload_file, %{client_id: cid, name: name, title: title})}
+  end
+
+  def handle_event("submit_upload", params, socket) do
+    scope = socket.assigns.current_scope
+    file = socket.assigns.upload_file
+
+    if is_nil(file) do
+      {:noreply, put_flash(socket, :error, "Select a file first.")}
+    else
+      title =
+        params
+        |> Map.get("title", file.title)
+        |> to_string()
+        |> String.trim()
+
+      title = if title == "", do: file.title, else: title
+
+      case Content.create_upload_url(scope, %{title: title, description: ""},
+             current_origin: socket.assigns.current_origin
+           ) do
+        {:ok, %{video: video, upload_url: url}} ->
+          queue = [
+            %{client_id: file.client_id, video_id: video.id, upload_url: url, title: title}
+          ]
+
+          {:noreply,
+           socket
+           |> assign(uploading: true, upload_percent: 0)
+           |> push_event("start_multi_upload", %{queue: queue})}
+
+        {:error, :mux_error, reason} ->
+          Logger.error("Landing hero upload initiation failed",
+            organization_id: scope.organization.id,
+            user_id: scope.user.id,
+            title: title,
+            reason: inspect(reason)
+          )
+
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
+           )}
+
+        {:error, :validation, _} ->
+          {:noreply, put_flash(socket, :error, "Invalid title for upload.")}
+      end
+    end
+  end
+
+  def handle_event("upload_progress", %{"percent" => pct}, socket) do
+    {:noreply, assign(socket, :upload_percent, pct)}
+  end
+
+  def handle_event("upload_complete", %{"video_id" => video_id}, socket) do
+    # Record pending video id on the section config. When Mux webhook
+    # fires `video_ready`, we'll patch in the playback_id. Viewer
+    # renderer also resolves video_id → mux_playback_id at render time.
+    form =
+      socket.assigns.edit_form
+      |> Map.put("pending_video_id", video_id)
+      |> Map.put("video_url", "")
+
+    {:noreply,
+     socket
+     |> assign(:edit_form, form)
+     |> reset_picker()
+     |> put_flash(:info, "Upload complete. Mux is processing the video — playback ID will fill in automatically.")}
+  end
+
+  def handle_event("upload_error", %{"error" => error}, socket) do
+    {:noreply,
+     socket
+     |> assign(uploading: false, upload_percent: 0, upload_file: nil)
+     |> put_flash(:error, "Upload failed: #{error}")}
+  end
+
+  # Mux webhook fired — if any landing section is waiting on this video,
+  # patch its config with the real playback_id.
+  @impl true
+  def handle_info({:bobine_event, {:video_ready, video}, _scope}, socket) do
+    socket = patch_pending_video(socket, video)
+    {:noreply, socket}
+  end
+
+  def handle_info({:bobine_event, _event, _scope}, socket), do: {:noreply, socket}
+
   ## --- helpers ----------------------------------------------------------
+
+  defp open_picker(socket) do
+    org = socket.assigns.organization
+    %{results: all_videos} = Content.list_videos(org, per_page: 100)
+
+    assign(socket,
+      show_video_picker: true,
+      video_picker_tab: :existing,
+      available_videos: all_videos
+    )
+  end
+
+  defp reset_picker(socket) do
+    assign(socket,
+      show_video_picker: false,
+      video_picker_tab: :existing,
+      available_videos: [],
+      upload_file: nil,
+      uploading: false,
+      upload_percent: 0
+    )
+  end
+
+  defp patch_pending_video(socket, %{id: video_id, mux_playback_id: pid, organization_id: org_id})
+       when is_binary(pid) and pid != "" do
+    if socket.assigns.organization.id != org_id do
+      socket
+    else
+      scope = socket.assigns.current_scope
+
+      socket.assigns.sections
+      |> Enum.filter(fn s ->
+        s.section_type == :hero_video and
+          Map.get(s.config || %{}, "pending_video_id") == video_id
+      end)
+      |> Enum.reduce(socket, fn section, acc ->
+        new_config =
+          section.config
+          |> Map.put("video_playback_id", pid)
+          |> Map.delete("pending_video_id")
+
+        case LandingPage.update_landing_section(scope, section, %{config: new_config}) do
+          {:ok, _} -> load_sections(acc)
+          _ -> acc
+        end
+      end)
+      |> maybe_refresh_edit_form(video_id, pid)
+    end
+  end
+
+  defp patch_pending_video(socket, _), do: socket
+
+  defp maybe_refresh_edit_form(socket, video_id, pid) do
+    if Map.get(socket.assigns.edit_form, "pending_video_id") == video_id do
+      form =
+        socket.assigns.edit_form
+        |> Map.put("video_playback_id", pid)
+        |> Map.delete("pending_video_id")
+
+      assign(socket, :edit_form, form)
+    else
+      socket
+    end
+  end
 
   defp load_sections(socket) do
     org = socket.assigns.organization
@@ -375,6 +586,15 @@ defmodule BobineWeb.Admin.LandingLive do
     end
   end
 
+  defp hero_video_status(form) do
+    cond do
+      is_binary(form["video_playback_id"]) and form["video_playback_id"] != "" -> :playback_set
+      is_binary(form["pending_video_id"]) and form["pending_video_id"] != "" -> :pending
+      is_binary(form["video_url"]) and form["video_url"] != "" -> :url
+      true -> :none
+    end
+  end
+
   defp format_errors(%Ecto.Changeset{} = changeset) do
     changeset
     |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
@@ -418,6 +638,9 @@ defmodule BobineWeb.Admin.LandingLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
+      <%!-- Persistent MuxUploader hook — lives outside the picker sheet --%>
+      <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
+
       <.header>
         Landing Page
         <:subtitle>Build the page visitors see before they sign up.</:subtitle>
@@ -536,6 +759,147 @@ defmodule BobineWeb.Admin.LandingLive do
           />
         </div>
       </div>
+
+      <BobineWeb.Components.AdminUI.admin_sheet
+        id="landing-video-picker"
+        open={@show_video_picker}
+        title="Pick Hero Video"
+        subtitle="Choose a video from your content library or upload a new one to Mux."
+        on_close="close_video_picker"
+      >
+        <div class="mb-4 flex gap-1 rounded-lg bg-admin-bg p-1" role="tablist">
+          <button
+            type="button"
+            phx-click="video_picker_tab"
+            phx-value-tab="existing"
+            role="tab"
+            aria-selected={to_string(@video_picker_tab == :existing)}
+            class={[
+              "flex-1 rounded-md px-3 py-1.5 font-ui text-sm font-medium transition-colors",
+              if(@video_picker_tab == :existing,
+                do: "bg-admin-card text-admin-fg shadow-sm",
+                else: "text-admin-muted hover:text-admin-fg"
+              )
+            ]}
+            data-test="landing-picker-tab-existing"
+          >
+            From Content
+          </button>
+          <button
+            type="button"
+            phx-click="video_picker_tab"
+            phx-value-tab="upload"
+            role="tab"
+            aria-selected={to_string(@video_picker_tab == :upload)}
+            class={[
+              "flex-1 rounded-md px-3 py-1.5 font-ui text-sm font-medium transition-colors",
+              if(@video_picker_tab == :upload,
+                do: "bg-admin-card text-admin-fg shadow-sm",
+                else: "text-admin-muted hover:text-admin-fg"
+              )
+            ]}
+            data-test="landing-picker-tab-upload"
+          >
+            Upload new
+          </button>
+        </div>
+
+        <div :if={@video_picker_tab == :existing}>
+          <div :if={@available_videos == []} class="py-8 text-center text-admin-muted">
+            No videos yet. Switch to <strong>Upload new</strong> to add one.
+          </div>
+          <div :if={@available_videos != []} class="space-y-2">
+            <div
+              :for={video <- @available_videos}
+              class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-bg px-3 py-2"
+            >
+              <div class="min-w-0 flex-1">
+                <p
+                  class="truncate font-body text-sm text-admin-fg"
+                  data-test={"landing-video-select-#{video.id}"}
+                >
+                  {video.title}
+                </p>
+                <p
+                  :if={!video.mux_playback_id || video.mux_playback_id == ""}
+                  class="font-mono text-xs text-admin-muted"
+                >
+                  Processing…
+                </p>
+              </div>
+              <BobineWeb.Components.AdminUI.admin_button
+                size={:sm}
+                phx-click="select_existing_video"
+                phx-value-video-id={video.id}
+                disabled={!video.mux_playback_id || video.mux_playback_id == ""}
+              >
+                Select
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
+          </div>
+        </div>
+
+        <div :if={@video_picker_tab == :upload}>
+          <div :if={@uploading} class="space-y-2" data-test="landing-upload-progress">
+            <p class="font-ui text-sm text-admin-fg">Uploading… {@upload_percent}%</p>
+            <div class="h-2 w-full rounded-full bg-admin-bg">
+              <div
+                class="h-2 rounded-full bg-admin-accent transition-[width] duration-200"
+                style={"width: #{@upload_percent}%"}
+              >
+              </div>
+            </div>
+            <p class="font-body text-xs text-admin-muted">
+              Video bytes go direct to Mux. Don't close this sheet until the upload finishes.
+            </p>
+          </div>
+
+          <form :if={!@uploading} phx-submit="submit_upload" class="space-y-4">
+            <div>
+              <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                Video file
+              </label>
+              <input
+                type="file"
+                accept="video/*"
+                data-test="upload-file"
+                id="landing-upload-file"
+                class="block w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg file:mr-3 file:rounded file:border-0 file:bg-admin-accent file:px-3 file:py-1 file:font-ui file:text-sm file:font-medium file:text-admin-on-accent hover:file:brightness-110"
+              />
+            </div>
+
+            <div :if={@upload_file}>
+              <label class="block font-ui text-xs font-medium text-admin-muted mb-1">Title</label>
+              <input
+                type="text"
+                name="title"
+                value={@upload_file.title}
+                placeholder={@upload_file.name}
+                class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="landing-upload-title"
+              />
+            </div>
+
+            <div
+              :if={@upload_file == nil}
+              class="py-4 text-center text-admin-muted font-body text-sm"
+            >
+              Choose a video file to continue.
+            </div>
+
+            <div :if={@upload_file} class="flex justify-end">
+              <BobineWeb.Components.AdminUI.admin_button
+                type="submit"
+                size={:sm}
+                data-test="landing-upload-submit"
+                phx-disable-with="Starting…"
+              >
+                Upload & use
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
+          </form>
+        </div>
+      </BobineWeb.Components.AdminUI.admin_sheet>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end
@@ -551,12 +915,40 @@ defmodule BobineWeb.Admin.LandingLive do
     <form phx-submit="save_section" class="space-y-3">
       <.text_input name="headline" label="Headline" value={@form["headline"]} />
       <.text_input name="subheadline" label="Subheadline" value={@form["subheadline"]} />
-      <.text_input name="video_url" label="Video URL (.mp4)" value={@form["video_url"]} />
-      <.text_input
-        name="video_playback_id"
-        label="Or Mux playback ID"
-        value={@form["video_playback_id"]}
-      />
+
+      <div class="rounded-md border border-admin-border bg-admin-bg p-3 space-y-2">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-ui text-sm font-medium text-admin-fg">Video source</p>
+            <p :if={hero_video_status(@form) == :playback_set} class="font-mono text-xs text-admin-muted truncate">
+              Mux playback ID: {@form["video_playback_id"]}
+            </p>
+            <p :if={hero_video_status(@form) == :pending} class="font-mono text-xs text-admin-muted">
+              Upload pending — Mux is processing…
+            </p>
+            <p :if={hero_video_status(@form) == :url} class="font-mono text-xs text-admin-muted truncate">
+              URL: {@form["video_url"]}
+            </p>
+            <p :if={hero_video_status(@form) == :none} class="font-body text-xs text-admin-muted">
+              No video chosen.
+            </p>
+          </div>
+          <BobineWeb.Components.AdminUI.admin_button
+            type="button"
+            size={:sm}
+            variant={:secondary}
+            phx-click="open_video_picker"
+            data-test="landing-open-video-picker"
+          >
+            {if hero_video_status(@form) == :none, do: "Pick video", else: "Change"}
+          </BobineWeb.Components.AdminUI.admin_button>
+        </div>
+      </div>
+
+      <input type="hidden" name="video_url" value={@form["video_url"]} />
+      <input type="hidden" name="video_playback_id" value={@form["video_playback_id"]} />
+      <input type="hidden" name="pending_video_id" value={@form["pending_video_id"]} />
+
       <.text_input
         name="fallback_image_url"
         label="Fallback image URL"
@@ -577,6 +969,7 @@ defmodule BobineWeb.Admin.LandingLive do
     </form>
     """
   end
+
 
   defp section_form(%{section: %{section_type: :hero_image}} = assigns) do
     ~H"""
