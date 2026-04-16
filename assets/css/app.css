@@ -207,12 +207,23 @@
     background-color: var(--color-bg);
     color: var(--color-text-primary);
     font-family: var(--font-ui);
+    /* Kill the white rubber-band overscroll flash on macOS / iOS. */
+    overscroll-behavior: none;
   }
 
   body {
+    background-color: var(--color-bg);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  /* On admin pages, surface the admin-bg at the html level so overscroll
+     bounce shows the same color the operator is looking at. */
+  body:has([data-area="admin"]),
+  html:has(body [data-area="admin"]) {
+    background-color: var(--color-admin-bg);
   }
 
   ::selection {

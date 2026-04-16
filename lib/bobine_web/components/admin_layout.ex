@@ -17,7 +17,7 @@ defmodule BobineWeb.Components.AdminLayout do
 
   def admin_layout(assigns) do
     ~H"""
-    <div class="flex flex-col h-screen bg-admin-bg font-body text-admin-fg">
+    <div data-area="admin" class="flex flex-col h-screen bg-admin-bg font-body text-admin-fg">
       <div
         :if={@impersonating}
         class="bg-error text-admin-on-accent font-ui text-sm px-4 py-2 flex items-center justify-between"
