@@ -53,7 +53,8 @@ defmodule Bobine.Workers.DropOffAggregator do
         {"drop_off.discarded", stats.discarded}
       ])
 
-      Logger.info("DropOffAggregator processed #{length(pending)} rows",
+      Logger.info("DropOffAggregator processed rows",
+        pending_count: length(pending),
         counted: stats.counted,
         discarded: stats.discarded
       )

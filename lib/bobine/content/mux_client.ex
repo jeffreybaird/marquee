@@ -16,8 +16,8 @@ defmodule Bobine.Content.MuxClient do
 
   @impl true
   def create_direct_upload(params) do
-    Logger.info(
-      "Mux create_direct_upload requested params=#{inspect(params, pretty: true, limit: :infinity)}"
+    Logger.info("Mux create_direct_upload requested",
+      params: inspect(params, pretty: true, limit: :infinity)
     )
 
     traced_call("create_direct_upload", fn ->
@@ -56,8 +56,8 @@ defmodule Bobine.Content.MuxClient do
         {:error, reason, _} ->
           Tracer.set_status(:error, inspect(reason))
 
-          Logger.error(
-            "Mux delete_asset failed reason=#{inspect(reason, pretty: true, limit: :infinity)}"
+          Logger.error("Mux delete_asset failed",
+            reason: inspect(reason, pretty: true, limit: :infinity)
           )
 
           {:error, :mux_error, reason}
@@ -90,7 +90,9 @@ defmodule Bobine.Content.MuxClient do
       case result do
         {:ok, data, _env} ->
           Tracer.set_attribute("http.status_code", 200)
-          Logger.info("Mux #{operation} succeeded")
+
+          Logger.info("Mux operation succeeded", operation: operation)
+
           {:ok, data}
 
         {:error, type, messages} ->
@@ -102,9 +104,10 @@ defmodule Bobine.Content.MuxClient do
   end
 
   defp log_mux_validation_failure(operation, type, messages) do
-    Logger.error(
-      "Mux #{operation} failed type=#{inspect(type, pretty: true, limit: :infinity)} " <>
-        "messages=#{inspect(messages, pretty: true, limit: :infinity)}"
+    Logger.error("Mux operation failed",
+      operation: operation,
+      type: inspect(type, pretty: true, limit: :infinity),
+      messages: inspect(messages, pretty: true, limit: :infinity)
     )
   end
 

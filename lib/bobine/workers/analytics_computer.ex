@@ -85,7 +85,8 @@ defmodule Bobine.Workers.AnalyticsComputer do
         })
       rescue
         error ->
-          Logger.error("AnalyticsComputer: failed to compute #{metric_type}",
+          Logger.error("AnalyticsComputer: failed to compute metric",
+            metric_type: metric_type,
             organization_id: org_id,
             error: inspect(error)
           )

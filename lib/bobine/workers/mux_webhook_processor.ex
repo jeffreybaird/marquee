@@ -75,9 +75,9 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
         type: get_in(data, ["errors", "type"])
       }
 
-      Logger.error(
-        "Mux asset errored asset_id=#{asset_id} " <>
-          "error_details=#{inspect(error_details, pretty: true, limit: :infinity)}"
+      Logger.error("Mux asset errored",
+        asset_id: asset_id,
+        error_details: inspect(error_details, pretty: true, limit: :infinity)
       )
 
       case Content.mark_video_errored(asset_id, error_details) do

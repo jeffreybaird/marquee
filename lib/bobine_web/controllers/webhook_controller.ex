@@ -21,9 +21,9 @@ defmodule BobineWeb.WebhookController do
         send_resp(conn, 400, "invalid signature")
 
       {:error, reason} ->
-        Logger.error(
-          "Mux webhook error reason=#{inspect(reason, pretty: true, limit: :infinity)} " <>
-            "request_path=#{conn.request_path}"
+        Logger.error("Mux webhook error",
+          reason: inspect(reason, pretty: true, limit: :infinity),
+          request_path: conn.request_path
         )
 
         send_resp(conn, 500, "error")
@@ -60,9 +60,9 @@ defmodule BobineWeb.WebhookController do
 
     case {secret, header} do
       {nil, _} ->
-        Logger.error(
-          "MUX_WEBHOOK_SECRET not configured rejecting_webhook=true " <>
-            "request_path=#{conn.request_path}"
+        Logger.error("MUX_WEBHOOK_SECRET not configured",
+          rejecting_webhook: true,
+          request_path: conn.request_path
         )
 
         {:error, :invalid_signature}
