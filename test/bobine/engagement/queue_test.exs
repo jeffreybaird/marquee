@@ -53,7 +53,7 @@ defmodule Bobine.Engagement.QueueTest do
       assert item.video.id == v1.id
 
       # Verify the source was saved by checking the queue
-      [queue_item] = Engagement.list_queue(org, viewer)
+      %{results: [queue_item]} = Engagement.list_queue(org, viewer)
       assert queue_item.added_from == "search"
     end
   end
@@ -70,7 +70,7 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, item} = Engagement.play_next(org, viewer, v3)
       assert item.video_id == v3.id
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v3.id, v1.id, v2.id]
     end
 
@@ -86,7 +86,7 @@ defmodule Bobine.Engagement.QueueTest do
       # v3 is at position 2, move to front
       {:ok, _} = Engagement.play_next(org, viewer, v3)
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v3.id, v1.id, v2.id]
     end
   end
@@ -97,13 +97,13 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, _} = Engagement.add_to_queue(org, viewer, v2)
       {:ok, _} = Engagement.add_to_queue(org, viewer, v3)
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 3
       assert Enum.map(queue, & &1.video_id) == [v1.id, v2.id, v3.id]
     end
 
     test "returns empty list when queue is empty", %{org: org, viewer: viewer} do
-      assert Engagement.list_queue(org, viewer) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org, viewer)
     end
   end
 
@@ -114,7 +114,7 @@ defmodule Bobine.Engagement.QueueTest do
 
       :ok = Engagement.remove_from_queue(org, viewer, v1)
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 1
       assert hd(queue).video_id == v2.id
     end
@@ -126,7 +126,7 @@ defmodule Bobine.Engagement.QueueTest do
 
       :ok = Engagement.remove_from_queue(org, viewer, v2)
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       positions = Enum.map(queue, & &1.position)
       assert positions == [0, 1]
     end
@@ -139,7 +139,7 @@ defmodule Bobine.Engagement.QueueTest do
 
       :ok = Engagement.clear_queue(org, viewer)
 
-      assert Engagement.list_queue(org, viewer) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org, viewer)
     end
   end
 
@@ -191,7 +191,7 @@ defmodule Bobine.Engagement.QueueTest do
       assert result.previous_video.id == v1.id
 
       # v1 should be removed from the queue
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 1
       assert hd(queue).video_id == v2.id
     end
@@ -235,7 +235,7 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, result} = Engagement.go_back_in_queue(org, viewer)
       assert result.video.id == v1.id
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert hd(queue).video_id == v1.id
     end
 
@@ -313,7 +313,7 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, count} = Engagement.add_collection_to_queue(org, viewer, collection)
       assert count == 3
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v1.id, v2.id, v3.id]
     end
 
@@ -329,7 +329,7 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, count} = Engagement.add_collection_to_queue(org, viewer, collection)
       assert count == 1
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 2
     end
 
@@ -342,7 +342,7 @@ defmodule Bobine.Engagement.QueueTest do
       {:ok, _} = Engagement.add_to_queue(org, viewer, existing)
       {:ok, _} = Engagement.add_collection_to_queue(org, viewer, collection)
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert hd(queue).video_id == existing.id
       assert List.last(queue).video_id == v1.id
     end
@@ -357,7 +357,7 @@ defmodule Bobine.Engagement.QueueTest do
       # Reverse order
       :ok = Engagement.reorder_queue(org, viewer, [v3.id, v2.id, v1.id])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v3.id, v2.id, v1.id]
     end
 
@@ -367,7 +367,7 @@ defmodule Bobine.Engagement.QueueTest do
 
       :ok = Engagement.reorder_queue(org, viewer, [v1.id, v2.id])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v1.id, v2.id]
     end
   end
@@ -382,7 +382,7 @@ defmodule Bobine.Engagement.QueueTest do
 
       {:ok, _} = Engagement.add_to_queue(org, viewer_a, v1)
 
-      assert Engagement.list_queue(org, viewer_b) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org, viewer_b)
     end
 
     test "viewer A's queue on org X is not visible from org Y", %{videos: [_v1 | _]} do
@@ -393,7 +393,7 @@ defmodule Bobine.Engagement.QueueTest do
       video = insert(:video, organization: org_x, mux_status: "ready")
       {:ok, _} = Engagement.add_to_queue(org_x, viewer, video)
 
-      assert Engagement.list_queue(org_y, viewer) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org_y, viewer)
     end
   end
 end

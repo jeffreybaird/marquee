@@ -35,16 +35,22 @@ defmodule Bobine.Engagement do
 
   @doc """
   Gets the viewer's current queue, ordered by position.
-  Returns a list of QueueItems with videos preloaded.
+
+  Returns a pagination struct (`%{results: [QueueItem], page:, per_page:,
+  total:, total_pages:}`) with videos preloaded.
+
+  Accepts standard pagination opts (`:page`, `:per_page`). Default
+  `per_page` is 25 (matches the Pagination helper default); bump it
+  explicitly for single-screen queue renders.
 
   Exempt from doctest — hits the database.
   """
-  def list_queue(%Organization{id: org_id}, %{id: viewer_id}) do
+  def list_queue(%Organization{id: org_id}, %{id: viewer_id}, opts \\ []) do
     QueueItem
     |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
     |> order_by(asc: :position)
     |> preload(:video)
-    |> Repo.all()
+    |> Pagination.paginate(opts)
   end
 
   @doc """

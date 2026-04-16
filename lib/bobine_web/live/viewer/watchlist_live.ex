@@ -31,7 +31,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
 
     %{results: watchlist_items} = Engagement.list_viewer_watchlist(org, viewer.id, per_page: 100)
     %{results: favorites} = Engagement.list_favorites(org, viewer)
-    queue_items = Engagement.list_queue(org, viewer)
+    %{results: queue_items} = Engagement.list_queue(org, viewer, per_page: 100)
 
     {:ok,
      socket
@@ -119,7 +119,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     viewer = socket.assigns.current_viewer
 
     Engagement.reorder_queue(org, viewer, ids)
-    queue_items = Engagement.list_queue(org, viewer)
+    %{results: queue_items} = Engagement.list_queue(org, viewer, per_page: 100)
     {:noreply, assign(socket, :queue_items, queue_items)}
   end
 

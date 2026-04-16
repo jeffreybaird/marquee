@@ -574,7 +574,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     case Engagement.go_back_in_queue(org, viewer) do
       {:ok, %{video: prev_video, resume_position: position}} ->
         watch_state = build_watch_state(org, viewer, socket.assigns.current_scope, prev_video)
-        queue_items = Engagement.list_queue(org, viewer)
+        %{results: queue_items} = Engagement.list_queue(org, viewer, per_page: 100)
 
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
 
@@ -758,7 +758,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     case Engagement.advance_queue(org, viewer, video) do
       {:ok, %{next_video: next_video}} when not is_nil(next_video) ->
         watch_state = build_watch_state(org, viewer, socket.assigns.current_scope, next_video)
-        queue_items = Engagement.list_queue(org, viewer)
+        %{results: queue_items} = Engagement.list_queue(org, viewer, per_page: 100)
 
         if socket.assigns[:go_back_timer], do: Process.cancel_timer(socket.assigns.go_back_timer)
         timer = Process.send_after(self(), :go_back_expired, 60_000)
@@ -1008,7 +1008,7 @@ defmodule BobineWeb.Viewer.WatchLive do
   defp refresh_queue(socket, opts \\ []) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
-    queue_items = Engagement.list_queue(org, viewer)
+    %{results: queue_items} = Engagement.list_queue(org, viewer, per_page: 100)
 
     assign(socket,
       queue_items: queue_items,
