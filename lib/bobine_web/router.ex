@@ -21,10 +21,27 @@ defmodule BobineWeb.Router do
   pipeline :set_organization do
     plug BobineWeb.Plugs.SetOrganization
     plug BobineWeb.Plugs.TelemetryOrgPlug
+
+    plug BobineWeb.Plugs.RateLimit,
+      bucket: :tenant_pages,
+      limit: 300,
+      key: :organization_id
   end
 
   pipeline :optional_organization do
     plug BobineWeb.Plugs.SetOrganization, optional: true
+  end
+
+  pipeline :rate_limit_auth do
+    plug BobineWeb.Plugs.RateLimit, bucket: :auth, limit: 10, key: :ip
+  end
+
+  pipeline :rate_limit_webhook_mux do
+    plug BobineWeb.Plugs.RateLimit, bucket: :webhook_mux, limit: 500, key: :ip
+  end
+
+  pipeline :rate_limit_webhook_stripe do
+    plug BobineWeb.Plugs.RateLimit, bucket: :webhook_stripe, limit: 500, key: :ip
   end
 
   pipeline :require_admin do
@@ -73,7 +90,7 @@ defmodule BobineWeb.Router do
   end
 
   scope "/", BobineWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :rate_limit_auth]
 
     live_session :current_user,
       on_mount: [
@@ -171,9 +188,14 @@ defmodule BobineWeb.Router do
   ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", BobineWeb.Viewer do
-    pipe_through [:browser, :set_organization]
+    pipe_through [:browser, :set_organization, :rate_limit_auth]
 
     get "/magic-link/:token", SessionController, :magic_link
+  end
+
+  scope "/", BobineWeb.Viewer do
+    pipe_through [:browser, :set_organization]
+
     post "/viewer-session", SessionController, :create
     delete "/viewer-session", SessionController, :delete
   end
@@ -299,9 +321,14 @@ defmodule BobineWeb.Router do
   ## ──────────────────────────────────────────────────────────────────────
 
   scope "/webhooks", BobineWeb do
-    pipe_through :api
+    pipe_through [:api, :rate_limit_webhook_mux]
 
     post "/mux", WebhookController, :mux
+  end
+
+  scope "/webhooks", BobineWeb do
+    pipe_through [:api, :rate_limit_webhook_stripe]
+
     post "/stripe", WebhookController, :stripe
   end
 end
