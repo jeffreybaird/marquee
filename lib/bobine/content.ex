@@ -1667,6 +1667,21 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Returns a MapSet of video IDs that are attached as an Episode anywhere
+  within the organization. Useful for filtering a video picker so operators
+  don't double-attach a video to two seasons.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_assigned_episode_video_ids(%Organization{id: org_id}) do
+    Episode
+    |> where(organization_id: ^org_id)
+    |> select([e], e.video_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  @doc """
   Removes an episode from a season. Does NOT delete the video.
   Updates the season's cached episode_count.
 

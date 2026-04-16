@@ -25,15 +25,12 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
   use BobineWeb, :live_view
 
-  import Ecto.Query
-
   alias Bobine.Accounts
   alias Bobine.Accounts.Organization
   alias Bobine.Branding
   alias Bobine.Branding.Theme
   alias Bobine.Catalog
   alias Bobine.Catalog.{Presets, Row}
-  alias Bobine.Repo
 
   @impl true
   def mount(_params, _session, socket) do
@@ -188,12 +185,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
     do: "Preset #{name} selected."
 
   defp assign_catalog_state(socket, org) do
-    row_count =
-      Repo.one(
-        from r in Row,
-          where: r.organization_id == ^org.id and is_nil(r.deleted_at),
-          select: count()
-      ) || 0
+    row_count = Catalog.count_rows(org)
 
     socket
     |> assign(:row_count, row_count)
@@ -205,15 +197,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
   # edits fire on every keystroke and these rows don't change during a
   # form edit.
   defp assign_preview_rows(socket, org) do
-    rows =
-      Row
-      |> where(organization_id: ^org.id)
-      |> where([r], is_nil(r.deleted_at))
-      |> where([r], r.visible == true)
-      |> order_by(asc: :position)
-      |> limit(6)
-      |> Repo.all()
-
+    %{results: rows} = Catalog.list_visible_rows(org, per_page: 6)
     assign(socket, :preview_rows, rows)
   end
 

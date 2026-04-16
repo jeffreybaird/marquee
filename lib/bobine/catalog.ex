@@ -62,6 +62,18 @@ defmodule Bobine.Catalog do
   end
 
   @doc """
+  Returns the count of non-deleted rows for an organization.
+
+  Exempt from doctest — hits the database.
+  """
+  def count_rows(%Organization{id: org_id}) do
+    Row
+    |> where(organization_id: ^org_id)
+    |> where([r], is_nil(r.deleted_at))
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
   Gets a single row within an organization.
 
   Returns `{:ok, row}` or `{:error, :not_found}`.

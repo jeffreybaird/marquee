@@ -19,12 +19,8 @@ defmodule BobineWeb.Admin.SeasonLive do
 
   alias Bobine.Accounts
   alias Bobine.Content
-  alias Bobine.Content.Episode
   alias Bobine.Events
-  alias Bobine.Repo
   alias Bobine.Workers.MuxAssetCleanup
-
-  import Ecto.Query, warn: false
 
   require Logger
 
@@ -721,12 +717,8 @@ defmodule BobineWeb.Admin.SeasonLive do
   end
 
   # Returns the set of video IDs that are already episodes anywhere in the org.
-  defp assigned_video_ids(%{id: org_id}) do
-    Episode
-    |> where(organization_id: ^org_id)
-    |> select([e], e.video_id)
-    |> Repo.all()
-    |> MapSet.new()
+  defp assigned_video_ids(org) do
+    Content.list_assigned_episode_video_ids(org)
   end
 
   defp build_upload_queue(scope, upload_files, titles, current_origin) do
