@@ -19,6 +19,8 @@ defmodule BobineWeb.Admin.CatalogLive do
 
   import BobineWeb.Admin.CatalogLive.Components
 
+  require Logger
+
   @source_types [
     {"Curated", "curated"},
     {"Collection", "collection"},
@@ -70,6 +72,11 @@ defmodule BobineWeb.Admin.CatalogLive do
      |> assign(:hero_save_status, %{})
      |> assign(:hero_collapsed, false)
      |> assign(:hero_expanded_slide, nil)
+     |> assign(:hero_picker_tab, :existing)
+     |> assign(:hero_upload_file, nil)
+     |> assign(:hero_uploading, false)
+     |> assign(:hero_upload_percent, 0)
+     |> assign(:hero_pending_video_id, nil)
      |> load_rows()
      |> load_hero_row()}
   end
@@ -398,7 +405,141 @@ defmodule BobineWeb.Admin.CatalogLive do
 
   @impl true
   def handle_event("close_hero_video_picker", _params, socket) do
-    {:noreply, assign(socket, show_hero_video_picker: false, hero_available_videos: [])}
+    if socket.assigns.hero_uploading do
+      {:noreply, socket}
+    else
+      {:noreply,
+       assign(socket,
+         show_hero_video_picker: false,
+         hero_available_videos: [],
+         hero_picker_tab: :existing,
+         hero_upload_file: nil
+       )}
+    end
+  end
+
+  @impl true
+  def handle_event("hero_picker_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :hero_picker_tab, String.to_existing_atom(tab))}
+  end
+
+  @impl true
+  def handle_event("files_selected", %{"files" => [file | _]}, socket) do
+    %{"client_id" => cid, "name" => name} = file
+    title = name |> Path.rootname() |> String.replace(~r/[_\-\.]+/, " ") |> String.trim()
+    {:noreply, assign(socket, :hero_upload_file, %{client_id: cid, name: name, title: title})}
+  end
+
+  @impl true
+  def handle_event("submit_hero_upload", params, socket) do
+    scope = socket.assigns.current_scope
+    file = socket.assigns.hero_upload_file
+
+    if is_nil(file) do
+      {:noreply, put_flash(socket, :error, "Select a file first.")}
+    else
+      title =
+        params
+        |> Map.get("title", file.title)
+        |> to_string()
+        |> String.trim()
+
+      title = if title == "", do: file.title, else: title
+
+      case Content.create_upload_url(scope, %{title: title, description: ""},
+             current_origin: socket.assigns.current_origin
+           ) do
+        {:ok, %{video: video, upload_url: url}} ->
+          queue = [
+            %{client_id: file.client_id, video_id: video.id, upload_url: url, title: title}
+          ]
+
+          {:noreply,
+           socket
+           |> assign(
+             hero_uploading: true,
+             hero_upload_percent: 0,
+             hero_pending_video_id: video.id
+           )
+           |> push_event("start_multi_upload", %{queue: queue})}
+
+        {:error, :mux_error, reason} ->
+          Logger.error("Hero upload initiation failed",
+            organization_id: scope.organization.id,
+            user_id: scope.user.id,
+            title: title,
+            reason: inspect(reason)
+          )
+
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
+           )}
+
+        {:error, :validation, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Invalid title for upload.")}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("upload_progress", %{"percent" => pct}, socket) do
+    {:noreply, assign(socket, :hero_upload_percent, pct)}
+  end
+
+  @impl true
+  def handle_event("upload_complete", %{"video_id" => video_id}, socket) do
+    scope = socket.assigns.current_scope
+    hero_row = socket.assigns.hero_row
+
+    case Catalog.create_hero_slide(scope, hero_row, %{video_id: video_id}) do
+      {:ok, _slide} ->
+        {:noreply,
+         socket
+         |> assign(
+           show_hero_video_picker: false,
+           hero_available_videos: [],
+           hero_picker_tab: :existing,
+           hero_upload_file: nil,
+           hero_uploading: false,
+           hero_upload_percent: 0,
+           hero_pending_video_id: nil
+         )
+         |> put_flash(:info, "Upload complete. Processing video…")
+         |> load_hero_slides()}
+
+      {:error, :hero_limit_reached, _} ->
+        {:noreply,
+         socket
+         |> assign(
+           show_hero_video_picker: false,
+           hero_uploading: false,
+           hero_upload_percent: 0,
+           hero_pending_video_id: nil
+         )
+         |> put_flash(:error, "Maximum of 4 hero slides reached.")}
+
+      {:error, :validation, _changeset} ->
+        {:noreply,
+         socket
+         |> assign(hero_uploading: false, hero_upload_percent: 0, hero_pending_video_id: nil)
+         |> put_flash(:error, "Upload succeeded but failed to add hero slide.")}
+    end
+  end
+
+  @impl true
+  def handle_event("upload_error", %{"error" => error}, socket) do
+    {:noreply,
+     socket
+     |> assign(
+       hero_uploading: false,
+       hero_upload_percent: 0,
+       hero_pending_video_id: nil,
+       hero_upload_file: nil
+     )
+     |> put_flash(:error, "Upload failed: #{error}")}
   end
 
   @impl true

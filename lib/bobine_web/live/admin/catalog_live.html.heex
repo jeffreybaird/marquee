@@ -4,6 +4,8 @@
   current_user={@current_user}
   impersonating={@impersonating}
 >
+  <%!-- Persistent MuxUploader hook — lives outside picker sheet so it survives re-renders --%>
+  <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
   <.header>Catalog</.header>
   <%= if @selected_row && @row_videos != [] || (@selected_row && @selected_row.source_type == :curated && @preview_videos == []) do %>
     <.row_items_view
@@ -24,6 +26,10 @@
       hero_save_status={@hero_save_status}
       hero_collapsed={@hero_collapsed}
       hero_expanded_slide={@hero_expanded_slide}
+      hero_picker_tab={@hero_picker_tab}
+      hero_upload_file={@hero_upload_file}
+      hero_uploading={@hero_uploading}
+      hero_upload_percent={@hero_upload_percent}
     />
 
     <div class="divider my-8" />

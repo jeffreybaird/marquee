@@ -127,6 +127,10 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   attr :hero_save_status, :map, required: true
   attr :hero_collapsed, :boolean, required: true
   attr :hero_expanded_slide, :string, default: nil
+  attr :hero_picker_tab, :atom, default: :existing
+  attr :hero_upload_file, :map, default: nil
+  attr :hero_uploading, :boolean, default: false
+  attr :hero_upload_percent, :integer, default: 0
 
   def hero_editor(assigns) do
     ~H"""
@@ -437,32 +441,137 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
           <BobineWeb.Components.AdminUI.admin_sheet
             id="hero-video-picker"
             open={@show_hero_video_picker}
-            title="Select a Video"
-            subtitle="Pick a video to feature in the hero carousel."
+            title="Add Hero Slide"
+            subtitle="Pick an existing video or upload a new one to Mux."
             on_close="close_hero_video_picker"
           >
-            <div :if={@hero_available_videos == []} class="py-8 text-center text-admin-muted">
-              No available videos.
-            </div>
-            <div :if={@hero_available_videos != []} class="space-y-2">
-              <div
-                :for={video <- @hero_available_videos}
-                class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-bg px-3 py-2"
+            <div class="mb-4 flex gap-1 rounded-lg bg-admin-bg p-1" role="tablist">
+              <button
+                type="button"
+                phx-click="hero_picker_tab"
+                phx-value-tab="existing"
+                role="tab"
+                aria-selected={to_string(@hero_picker_tab == :existing)}
+                class={[
+                  "flex-1 rounded-md px-3 py-1.5 font-ui text-sm font-medium transition-colors",
+                  if(@hero_picker_tab == :existing,
+                    do: "bg-admin-card text-admin-fg shadow-sm",
+                    else: "text-admin-muted hover:text-admin-fg"
+                  )
+                ]}
+                data-test="hero-picker-tab-existing"
               >
-                <span
-                  class="min-w-0 flex-1 truncate font-body text-sm text-admin-fg"
-                  data-test={"hero-video-select-#{video.id}"}
-                >
-                  {video.title}
-                </span>
-                <BobineWeb.Components.AdminUI.admin_button
-                  size={:sm}
-                  phx-click="add_hero_slide"
-                  phx-value-video-id={video.id}
-                >
-                  Select
-                </BobineWeb.Components.AdminUI.admin_button>
+                From Content
+              </button>
+              <button
+                type="button"
+                phx-click="hero_picker_tab"
+                phx-value-tab="upload"
+                role="tab"
+                aria-selected={to_string(@hero_picker_tab == :upload)}
+                class={[
+                  "flex-1 rounded-md px-3 py-1.5 font-ui text-sm font-medium transition-colors",
+                  if(@hero_picker_tab == :upload,
+                    do: "bg-admin-card text-admin-fg shadow-sm",
+                    else: "text-admin-muted hover:text-admin-fg"
+                  )
+                ]}
+                data-test="hero-picker-tab-upload"
+              >
+                Upload new
+              </button>
+            </div>
+
+            <div :if={@hero_picker_tab == :existing}>
+              <div :if={@hero_available_videos == []} class="py-8 text-center text-admin-muted">
+                No available videos. Switch to <strong>Upload new</strong> to add one.
               </div>
+              <div :if={@hero_available_videos != []} class="space-y-2">
+                <div
+                  :for={video <- @hero_available_videos}
+                  class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-bg px-3 py-2"
+                >
+                  <span
+                    class="min-w-0 flex-1 truncate font-body text-sm text-admin-fg"
+                    data-test={"hero-video-select-#{video.id}"}
+                  >
+                    {video.title}
+                  </span>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    size={:sm}
+                    phx-click="add_hero_slide"
+                    phx-value-video-id={video.id}
+                  >
+                    Select
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </div>
+            </div>
+
+            <div :if={@hero_picker_tab == :upload}>
+              <div :if={@hero_uploading} class="space-y-2" data-test="hero-upload-progress">
+                <p class="font-ui text-sm text-admin-fg">
+                  Uploading… {@hero_upload_percent}%
+                </p>
+                <div class="h-2 w-full rounded-full bg-admin-bg">
+                  <div
+                    class="h-2 rounded-full bg-admin-accent transition-[width] duration-200"
+                    style={"width: #{@hero_upload_percent}%"}
+                  >
+                  </div>
+                </div>
+                <p class="font-body text-xs text-admin-muted">
+                  Video bytes go direct to Mux — don't close this sheet until the upload finishes.
+                </p>
+              </div>
+
+              <form
+                :if={!@hero_uploading}
+                phx-submit="submit_hero_upload"
+                class="space-y-4"
+              >
+                <div>
+                  <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                    Video file
+                  </label>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    data-test="upload-file"
+                    id="hero-upload-file"
+                    class="block w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg file:mr-3 file:rounded file:border-0 file:bg-admin-accent file:px-3 file:py-1 file:font-ui file:text-sm file:font-medium file:text-admin-on-accent hover:file:brightness-110"
+                  />
+                </div>
+
+                <div :if={@hero_upload_file}>
+                  <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={@hero_upload_file.title}
+                    placeholder={@hero_upload_file.name}
+                    class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                    data-test="hero-upload-title"
+                  />
+                </div>
+
+                <div :if={@hero_upload_file == nil} class="py-4 text-center text-admin-muted font-body text-sm">
+                  Choose a video file to continue.
+                </div>
+
+                <div :if={@hero_upload_file} class="flex justify-end">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    type="submit"
+                    size={:sm}
+                    data-test="hero-upload-submit"
+                    phx-disable-with="Starting…"
+                  >
+                    Upload & add slide
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </form>
             </div>
           </BobineWeb.Components.AdminUI.admin_sheet>
         <% end %>
