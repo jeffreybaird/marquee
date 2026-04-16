@@ -142,7 +142,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         <%!-- Subscriber chart --%>
         <section aria-label="Subscriber trend">
           <h2 class="text-lg font-semibold mb-3">Subscribers</h2>
-          <div class="bg-base-200 rounded-xl p-4 h-56">
+          <div class="bg-admin-bg rounded-xl p-4 h-56">
             <canvas
               id="subscriber-chart"
               phx-hook="AnalyticsChart"
@@ -158,7 +158,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         <%!-- Revenue chart --%>
         <section aria-label="Revenue trend">
           <h2 class="text-lg font-semibold mb-3">Revenue</h2>
-          <div class="bg-base-200 rounded-xl p-4 h-56">
+          <div class="bg-admin-bg rounded-xl p-4 h-56">
             <canvas
               id="revenue-chart"
               phx-hook="AnalyticsChart"
@@ -174,7 +174,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         <%!-- Content performance table --%>
         <section aria-label="Content performance">
           <h2 class="text-lg font-semibold mb-3">Content Performance</h2>
-          <div class="overflow-x-auto rounded-xl border border-base-300">
+          <div class="overflow-x-auto rounded-xl border border-admin-border">
             <table class="table w-full">
               <thead>
                 <tr>
@@ -226,7 +226,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
                   :if={@content_performance.results == []}
                   data-test="content-empty-state"
                 >
-                  <td colspan="7" class="text-center py-8 text-base-content/50">
+                  <td colspan="7" class="text-center py-8 text-admin-text-muted">
                     No content data yet.
                   </td>
                 </tr>
@@ -265,7 +265,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
 
         <%!-- Engagement metrics --%>
         <section aria-label="Engagement metrics" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="bg-base-200 rounded-xl p-5 space-y-3">
+          <div class="bg-admin-bg rounded-xl p-5 space-y-3">
             <h2 class="text-lg font-semibold">Engagement</h2>
             <.metric_row
               label="Continue Watching Rate"
@@ -284,9 +284,9 @@ defmodule BobineWeb.Admin.AnalyticsLive do
             />
           </div>
 
-          <div class="bg-base-200 rounded-xl p-5 space-y-3">
+          <div class="bg-admin-bg rounded-xl p-5 space-y-3">
             <h2 class="text-lg font-semibold">Top Queued</h2>
-            <div :if={@engagement.most_queued_videos == []} class="text-base-content/50 text-sm">
+            <div :if={@engagement.most_queued_videos == []} class="text-admin-text-muted text-sm">
               No queue data yet.
             </div>
             <.metric_row
@@ -299,7 +299,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         </section>
 
         <%!-- Churn indicators --%>
-        <section aria-label="Churn indicators" class="bg-base-200 rounded-xl p-5 space-y-3">
+        <section aria-label="Churn indicators" class="bg-admin-bg rounded-xl p-5 space-y-3">
           <h2 class="text-lg font-semibold">Churn Indicators</h2>
           <div class="grid grid-cols-3 gap-4">
             <.kpi_card
@@ -327,11 +327,11 @@ defmodule BobineWeb.Admin.AnalyticsLive do
             <.link
               :for={series <- @series_list}
               navigate={~p"/admin/analytics/series/#{series.id}"}
-              class="bg-base-200 rounded-xl p-5 hover:bg-base-300 transition-colors"
+              class="bg-admin-bg rounded-xl p-5 hover:bg-admin-elevated transition-colors"
               data-test={"series-analytics-link-#{series.id}"}
             >
               <p class="font-semibold">{series.title}</p>
-              <p class="text-sm text-base-content/60 mt-1">
+              <p class="text-sm text-admin-text-muted mt-1">
                 View retention &amp; completion stats
               </p>
             </.link>
@@ -352,8 +352,8 @@ defmodule BobineWeb.Admin.AnalyticsLive do
 
   defp kpi_card(assigns) do
     ~H"""
-    <div class="bg-base-200 rounded-xl p-5" data-test={@data_test}>
-      <p class="text-sm text-base-content/60">{@label}</p>
+    <div class="bg-admin-bg rounded-xl p-5" data-test={@data_test}>
+      <p class="text-sm text-admin-text-muted">{@label}</p>
       <p class="text-2xl font-bold mt-1">{@value}</p>
     </div>
     """
@@ -366,7 +366,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   defp metric_row(assigns) do
     ~H"""
     <div class="flex justify-between items-center" data-test={@data_test}>
-      <span class="text-sm text-base-content/70">{@label}</span>
+      <span class="text-sm text-admin-text-secondary">{@label}</span>
       <span class="font-semibold">{@value}</span>
     </div>
     """
@@ -384,7 +384,7 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         phx-click="sort_content"
         phx-value-col={@col}
         data-test={"sort-col-#{@col}"}
-        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide hover:text-primary transition-colors"
+        class="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide hover:text-admin-accent transition-colors"
         aria-sort={aria_sort(@sort_by, @col, @sort_dir)}
       >
         {@label}
@@ -407,18 +407,18 @@ defmodule BobineWeb.Admin.AnalyticsLive do
         phx-click="content_page"
         phx-value-page={@page - 1}
         data-test="content-page-prev"
-        class="btn btn-sm btn-ghost"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
         aria-label="Previous page"
       >
         &lsaquo;
       </button>
-      <span class="text-sm text-base-content/60">Page {@page} of {@total_pages}</span>
+      <span class="text-sm text-admin-text-muted">Page {@page} of {@total_pages}</span>
       <button
         :if={@page < @total_pages}
         phx-click="content_page"
         phx-value-page={@page + 1}
         data-test="content-page-next"
-        class="btn btn-sm btn-ghost"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
         aria-label="Next page"
       >
         &rsaquo;
@@ -492,11 +492,11 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   end
 
   defp period_btn_class(current, value) when current == value do
-    "btn btn-sm btn-primary"
+    "inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
   end
 
   defp period_btn_class(_current, _value) do
-    "btn btn-sm btn-ghost"
+    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
   end
 
   defp toggle_dir(:asc), do: :desc

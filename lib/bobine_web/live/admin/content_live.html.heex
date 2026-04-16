@@ -5,7 +5,7 @@
   impersonating={@impersonating}
   flash={@flash}
 >
-  <%!-- Persistent MuxUploader hook — lives outside the modal so it survives modal close --%>
+  <%!-- Persistent MuxUploader hook — lives outside the sheet so it survives sheet close --%>
   <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
 
   <%= if @viewing_video do %>

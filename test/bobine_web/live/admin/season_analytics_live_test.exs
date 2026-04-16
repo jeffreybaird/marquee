@@ -139,7 +139,7 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLiveTest do
 
       render_click(view, "set_period", %{"period" => "7"})
       seven_btn = element(view, "[data-test='period-selector-7']")
-      assert render(seven_btn) =~ "btn-primary"
+      assert render(seven_btn) =~ "bg-admin-accent"
     end
   end
 end

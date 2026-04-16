@@ -374,103 +374,124 @@ defmodule BobineWeb.Admin.SeriesLive do
 
   defp series_list_view(assigns) do
     ~H"""
-    <div class="flex items-center justify-between pb-4">
-      <.header>Series</.header>
-      <button
-        :if={@can_manage}
-        phx-click="new_series"
-        class="btn btn-primary"
-        data-test="new-series-btn"
-      >
-        New Series
-      </button>
-    </div>
-
-    <div
-      :if={@series_list == []}
-      class="py-12 text-center text-base-content/60"
-      data-test="empty-state"
+    <BobineWeb.Components.AdminUI.admin_panel
+      title="Series"
+      subtitle="Group seasons and episodes under a shared story."
     >
-      <p class="text-lg">No series yet.</p>
-      <p class="mt-2">Create your first series to organize seasons and episodes.</p>
-    </div>
+      <:actions>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={@can_manage}
+          phx-click="new_series"
+          size={:sm}
+          data-test="new-series-btn"
+        >
+          New Series
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:actions>
 
-    <div :if={@series_list != []} data-test="series-list" class="overflow-x-auto">
-      <table class="table w-full">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Visible</th>
-            <th>New Season</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr :for={series <- @series_list} data-test={"series-row-#{series.id}"}>
-            <td>
-              <button
-                phx-click="view_series"
-                phx-value-id={series.id}
-                class="font-medium hover:text-primary hover:underline"
-                data-test={"view-series-#{series.id}"}
-              >
-                {series.title}
-              </button>
-              <div class="text-xs text-base-content/60 font-mono">{series.slug}</div>
-            </td>
-            <td>
-              <button
-                :if={@can_manage}
-                phx-click="toggle_series_visibility"
-                phx-value-id={series.id}
-                data-test={"series-visibility-#{series.id}"}
-                class={"badge badge-sm #{if series.visible, do: "badge-success", else: "badge-ghost"}"}
-              >
-                {if series.visible, do: "Visible", else: "Hidden"}
-              </button>
-              <span :if={!@can_manage} class="badge badge-sm badge-ghost">
-                {if series.visible, do: "Visible", else: "Hidden"}
-              </span>
-            </td>
-            <td data-test={"series-new-season-status-#{series.id}"}>
-              <.new_season_status series={series} />
-            </td>
-            <td :if={@can_manage}>
-              <div class="flex gap-1">
-                <.link
-                  navigate={~p"/admin/analytics/series/#{series.id}"}
-                  class="btn btn-xs btn-outline"
-                  data-test={"analytics-series-#{series.id}"}
-                >
-                  Analytics
-                </.link>
+      <BobineWeb.Components.AdminUI.admin_empty
+        :if={@series_list == []}
+        title="No series yet"
+        description="Create your first series to organize seasons and episodes."
+        data_test="empty-state"
+      />
+
+      <div
+        :if={@series_list != []}
+        data-test="series-list"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+      >
+        <table class="w-full font-body text-sm text-admin-text-primary">
+          <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+            <tr>
+              <th class="px-4 py-3 text-left">Title</th>
+              <th class="px-4 py-3 text-left">Visible</th>
+              <th class="px-4 py-3 text-left">New Season</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :for={series <- @series_list}
+              data-test={"series-row-#{series.id}"}
+              class="border-b border-admin-border-subtle last:border-0"
+            >
+              <td class="px-4 py-3">
                 <button
-                  phx-click="edit_series"
+                  phx-click="view_series"
                   phx-value-id={series.id}
-                  class="btn btn-xs btn-outline"
-                  data-test={"edit-series-#{series.id}"}
+                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
+                  data-test={"view-series-#{series.id}"}
                 >
-                  Edit
+                  {series.title}
                 </button>
+                <div class="font-mono text-xs text-admin-text-muted">{series.slug}</div>
+              </td>
+              <td class="px-4 py-3">
                 <button
-                  phx-click="delete_series"
+                  :if={@can_manage}
+                  phx-click="toggle_series_visibility"
                   phx-value-id={series.id}
-                  data-confirm="Delete this series and all its seasons?"
-                  class="btn btn-xs btn-outline btn-error"
-                  data-test={"delete-series-#{series.id}"}
+                  data-test={"series-visibility-#{series.id}"}
+                  class={[
+                    "rounded-full border px-2 py-0.5 font-ui text-xs",
+                    if(series.visible,
+                      do: "border-admin-accent bg-admin-accent-subtle text-admin-accent-text",
+                      else: "border-admin-border text-admin-text-muted"
+                    )
+                  ]}
                 >
-                  Delete
+                  {if series.visible, do: "Visible", else: "Hidden"}
                 </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                <span
+                  :if={!@can_manage}
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                >
+                  {if series.visible, do: "Visible", else: "Hidden"}
+                </span>
+              </td>
+              <td class="px-4 py-3" data-test={"series-new-season-status-#{series.id}"}>
+                <.new_season_status series={series} />
+              </td>
+              <td :if={@can_manage} class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <.link
+                    navigate={~p"/admin/analytics/series/#{series.id}"}
+                    class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+                    data-test={"analytics-series-#{series.id}"}
+                  >
+                    Analytics
+                  </.link>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:ghost}
+                    size={:sm}
+                    phx-click="edit_series"
+                    phx-value-id={series.id}
+                    data-test={"edit-series-#{series.id}"}
+                  >
+                    Edit
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:danger}
+                    size={:sm}
+                    phx-click="delete_series"
+                    phx-value-id={series.id}
+                    data-confirm="Delete this series and all its seasons?"
+                    data-test={"delete-series-#{series.id}"}
+                  >
+                    Delete
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </BobineWeb.Components.AdminUI.admin_panel>
 
     <.series_form
-      :if={@show_series_form}
       form={@series_form}
+      open={@show_series_form}
       editing={@editing_series}
       series_cover_target={@series_cover_target}
       series_cover_state={@series_cover_state}
@@ -489,234 +510,296 @@ defmodule BobineWeb.Admin.SeriesLive do
     ~H"""
     <%= cond do %>
       <% not @active? -> %>
-        <span class="text-base-content/40 text-xs">—</span>
+        <span class="font-mono text-xs text-admin-text-muted">—</span>
       <% is_nil(@days_remaining) -> %>
-        <span class="badge badge-sm badge-info" data-test="new-season-permanent">
+        <span
+          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          data-test="new-season-permanent"
+        >
           On (no expiry)
         </span>
       <% @days_remaining == 0 -> %>
-        <span class="badge badge-sm badge-warning" data-test="new-season-expiring-today">
+        <span
+          class="rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 font-ui text-xs text-admin-text-primary"
+          data-test="new-season-expiring-today"
+        >
           Hides today
         </span>
       <% @days_remaining == 1 -> %>
-        <span class="badge badge-sm badge-info" data-test="new-season-days-remaining">
+        <span
+          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          data-test="new-season-days-remaining"
+        >
           1 day left
         </span>
       <% true -> %>
-        <span class="badge badge-sm badge-info" data-test="new-season-days-remaining">
+        <span
+          class="rounded-full border border-admin-accent bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+          data-test="new-season-days-remaining"
+        >
           {@days_remaining} days left
         </span>
     <% end %>
     """
   end
 
+  attr :form, :any, default: nil
+  attr :open, :boolean, required: true
+  attr :editing, :any, default: nil
+  attr :series_cover_target, :string, required: true
+  attr :series_cover_state, :map, required: true
+
   defp series_form(assigns) do
     ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-lg font-semibold mb-4">
-          {if @editing, do: "Edit Series", else: "New Series"}
-        </h3>
-        <.form for={@form} phx-submit="save_series" data-test="series-form">
-          <div class="mb-4">
-            <label class="label" for="series-title">Title</label>
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="series-sheet"
+      open={@open}
+      title={if @editing, do: "Edit Series", else: "New Series"}
+      on_close="cancel_series_form"
+      data_test="series-sheet"
+    >
+      <.form
+        :if={@form}
+        for={@form}
+        id="series-form"
+        phx-submit="save_series"
+        data-test="series-form"
+        class="space-y-4"
+      >
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="series-title"
+          >
+            Title
+          </label>
+          <input
+            type="text"
+            id="series-title"
+            name="series[title]"
+            value={@form[:title].value}
+            required
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="series-title-input"
+          />
+          <.field_error :for={msg <- error_messages(@form[:title])}>
+            {msg}
+          </.field_error>
+        </div>
+
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="series-description"
+          >
+            Description
+          </label>
+          <textarea
+            id="series-description"
+            name="series[description]"
+            rows="3"
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+          >{@form[:description].value}</textarea>
+        </div>
+
+        <div>
+          <BobineWeb.Components.AdminComponents.image_upload_field
+            name="series[cover_image_url]"
+            kind="series_cover"
+            target_id={@series_cover_target}
+            url={@series_cover_state.url}
+            status={@series_cover_state.status}
+            percent={@series_cover_state.percent}
+            error={@series_cover_state.error}
+            label="Cover image"
+            help="JPG, PNG or WebP. Used for cards and hero slides."
+          />
+        </div>
+
+        <div>
+          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary">
+            <input type="hidden" name="series[visible]" value="false" />
             <input
-              type="text"
-              id="series-title"
-              name="series[title]"
-              value={@form[:title].value}
-              required
-              class="input input-bordered w-full"
-              data-test="series-title-input"
-            />
-            <.field_error :for={msg <- error_messages(@form[:title])}>
-              {msg}
-            </.field_error>
-          </div>
-          <div class="mb-4">
-            <label class="label" for="series-description">Description</label>
-            <textarea
-              id="series-description"
-              name="series[description]"
-              class="textarea textarea-bordered w-full"
-              rows="3"
-            >{@form[:description].value}</textarea>
-          </div>
-          <div class="mb-4">
-            <BobineWeb.Components.AdminComponents.image_upload_field
-              name="series[cover_image_url]"
-              kind="series_cover"
-              target_id={@series_cover_target}
-              url={@series_cover_state.url}
-              status={@series_cover_state.status}
-              percent={@series_cover_state.percent}
-              error={@series_cover_state.error}
-              label="Cover image"
-              help="JPG, PNG or WebP. Used for cards and hero slides."
-            />
-          </div>
-          <div class="mb-4">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input
-                type="hidden"
-                name="series[visible]"
-                value="false"
-              />
-              <input
-                type="checkbox"
-                name="series[visible]"
-                value="true"
-                checked={@form[:visible].value != false}
-                class="checkbox"
-                data-test="series-visible-input"
-              /> Visible to viewers
-            </label>
-          </div>
-          <div class="mb-4">
-            <label
-              class="label cursor-pointer justify-start gap-3"
-              data-test="new-season-toggle"
-            >
-              <input type="hidden" name="series[new_season]" value="false" />
-              <input
-                type="checkbox"
-                name="series[new_season]"
-                value="true"
-                checked={@form[:new_season].value == true}
-                class="checkbox"
-                data-test="series-new-season-input"
-              /> Show "New Season" badge
-            </label>
-            <p class="text-xs text-base-content/60 mt-2">
-              Optionally pick a date to automatically hide the badge after that day.
-              Leave blank to keep it shown until you uncheck the box.
-            </p>
+              type="checkbox"
+              name="series[visible]"
+              value="true"
+              checked={@form[:visible].value != false}
+              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              data-test="series-visible-input"
+            /> Visible to viewers
+          </label>
+        </div>
+
+        <div>
+          <label
+            class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary"
+            data-test="new-season-toggle"
+          >
+            <input type="hidden" name="series[new_season]" value="false" />
             <input
-              type="date"
-              name="series[new_season_expires_at]"
-              value={format_date_value(@form[:new_season_expires_at].value)}
-              min={Date.utc_today() |> Date.to_iso8601()}
-              class="input input-bordered w-full mt-2"
-              data-test="series-new-season-expires-input"
-            />
-          </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" phx-click="cancel_series_form" class="btn btn-ghost">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary" data-test="save-series-btn">
-              Save
-            </button>
-          </div>
-        </.form>
-      </div>
-    </div>
+              type="checkbox"
+              name="series[new_season]"
+              value="true"
+              checked={@form[:new_season].value == true}
+              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              data-test="series-new-season-input"
+            /> Show "New Season" badge
+          </label>
+          <p class="mt-2 font-body text-xs text-admin-text-muted">
+            Optionally pick a date to automatically hide the badge after that day.
+            Leave blank to keep it shown until you uncheck the box.
+          </p>
+          <input
+            type="date"
+            name="series[new_season_expires_at]"
+            value={format_date_value(@form[:new_season_expires_at].value)}
+            min={Date.utc_today() |> Date.to_iso8601()}
+            class="mt-2 w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="series-new-season-expires-input"
+          />
+        </div>
+      </.form>
+
+      <:footer>
+        <button
+          type="button"
+          phx-click="cancel_series_form"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+        >
+          Cancel
+        </button>
+        <BobineWeb.Components.AdminUI.admin_button
+          type="submit"
+          form="series-form"
+          data-test="save-series-btn"
+        >
+          Save
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
 
   defp series_detail_view(assigns) do
     ~H"""
-    <div class="flex items-center justify-between pb-4">
-      <div class="flex items-center gap-3">
-        <button
+    <BobineWeb.Components.AdminUI.admin_panel
+      title={@series.title}
+      subtitle={@series.description}
+    >
+      <:actions>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={:ghost}
+          size={:sm}
           phx-click="back_to_series_list"
-          class="btn btn-ghost btn-sm"
           data-test="back-to-series-list"
         >
           ← Back
-        </button>
-        <.header>{@series.title}</.header>
-      </div>
-      <button
-        :if={@can_manage}
-        phx-click="new_season"
-        class="btn btn-primary btn-sm"
-        data-test="new-season-btn"
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={@can_manage}
+          size={:sm}
+          phx-click="new_season"
+          data-test="new-season-btn"
+        >
+          New Season
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:actions>
+
+      <BobineWeb.Components.AdminUI.admin_empty
+        :if={@seasons == []}
+        title="No seasons yet"
+        description="Add the first season to start building out episodes."
+        data_test="seasons-empty"
+      />
+
+      <div
+        :if={@seasons != []}
+        data-test="seasons-list"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
       >
-        New Season
-      </button>
-    </div>
-
-    <div :if={@series.description} class="mb-4 text-base-content/70">
-      {@series.description}
-    </div>
-
-    <div
-      :if={@seasons == []}
-      class="py-8 text-center text-base-content/60"
-      data-test="seasons-empty"
-    >
-      <p>No seasons in this series yet.</p>
-    </div>
-
-    <div :if={@seasons != []} data-test="seasons-list" class="overflow-x-auto">
-      <table class="table w-full">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Title</th>
-            <th>Episodes</th>
-            <th>Visible</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr :for={season <- @seasons} data-test={"season-row-#{season.id}"}>
-            <td class="font-mono">{season.season_number}</td>
-            <td>
-              <.link
-                navigate={~p"/admin/series/#{@series.id}/seasons/#{season.id}"}
-                class="font-medium hover:text-primary hover:underline"
-                data-test={"open-season-#{season.id}"}
-              >
-                {season.title}
-              </.link>
-              <div class="text-xs text-base-content/60 font-mono">{season.slug}</div>
-            </td>
-            <td>{season.episode_count}</td>
-            <td>
-              <button
-                :if={@can_manage}
-                phx-click="toggle_season_visibility"
-                phx-value-id={season.id}
-                data-test={"season-visibility-#{season.id}"}
-                class={"badge badge-sm #{if season.visible, do: "badge-success", else: "badge-ghost"}"}
-              >
-                {if season.visible, do: "Visible", else: "Hidden"}
-              </button>
-              <span :if={!@can_manage} class="badge badge-sm badge-ghost">
-                {if season.visible, do: "Visible", else: "Hidden"}
-              </span>
-            </td>
-            <td :if={@can_manage}>
-              <div class="flex gap-1">
-                <button
-                  phx-click="edit_season"
-                  phx-value-id={season.id}
-                  class="btn btn-xs btn-outline"
-                  data-test={"edit-season-#{season.id}"}
+        <table class="w-full font-body text-sm text-admin-text-primary">
+          <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+            <tr>
+              <th class="px-4 py-3 text-left">#</th>
+              <th class="px-4 py-3 text-left">Title</th>
+              <th class="px-4 py-3 text-left">Episodes</th>
+              <th class="px-4 py-3 text-left">Visible</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :for={season <- @seasons}
+              data-test={"season-row-#{season.id}"}
+              class="border-b border-admin-border-subtle last:border-0"
+            >
+              <td class="px-4 py-3 font-mono">{season.season_number}</td>
+              <td class="px-4 py-3">
+                <.link
+                  navigate={~p"/admin/series/#{@series.id}/seasons/#{season.id}"}
+                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
+                  data-test={"open-season-#{season.id}"}
                 >
-                  Edit
-                </button>
+                  {season.title}
+                </.link>
+                <div class="font-mono text-xs text-admin-text-muted">{season.slug}</div>
+              </td>
+              <td class="px-4 py-3 font-mono">{season.episode_count}</td>
+              <td class="px-4 py-3">
                 <button
-                  phx-click="delete_season"
+                  :if={@can_manage}
+                  phx-click="toggle_season_visibility"
                   phx-value-id={season.id}
-                  data-confirm="Delete this season?"
-                  class="btn btn-xs btn-outline btn-error"
-                  data-test={"delete-season-#{season.id}"}
+                  data-test={"season-visibility-#{season.id}"}
+                  class={[
+                    "rounded-full border px-2 py-0.5 font-ui text-xs",
+                    if(season.visible,
+                      do: "border-admin-accent bg-admin-accent-subtle text-admin-accent-text",
+                      else: "border-admin-border text-admin-text-muted"
+                    )
+                  ]}
                 >
-                  Delete
+                  {if season.visible, do: "Visible", else: "Hidden"}
                 </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+                <span
+                  :if={!@can_manage}
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                >
+                  {if season.visible, do: "Visible", else: "Hidden"}
+                </span>
+              </td>
+              <td :if={@can_manage} class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:ghost}
+                    size={:sm}
+                    phx-click="edit_season"
+                    phx-value-id={season.id}
+                    data-test={"edit-season-#{season.id}"}
+                  >
+                    Edit
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:danger}
+                    size={:sm}
+                    phx-click="delete_season"
+                    phx-value-id={season.id}
+                    data-confirm="Delete this season?"
+                    data-test={"delete-season-#{season.id}"}
+                  >
+                    Delete
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </BobineWeb.Components.AdminUI.admin_panel>
 
     <.season_form
-      :if={@show_season_form}
       form={@season_form}
+      open={@show_season_form}
       editing={@editing_season}
       season_cover_target={@season_cover_target}
       season_cover_state={@season_cover_state}
@@ -724,93 +807,135 @@ defmodule BobineWeb.Admin.SeriesLive do
     """
   end
 
+  attr :form, :any, default: nil
+  attr :open, :boolean, required: true
+  attr :editing, :any, default: nil
+  attr :season_cover_target, :string, required: true
+  attr :season_cover_state, :map, required: true
+
   defp season_form(assigns) do
     ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-lg font-semibold mb-4">
-          {if @editing, do: "Edit Season", else: "New Season"}
-        </h3>
-        <.form for={@form} phx-submit="save_season" data-test="season-form">
-          <div class="mb-4">
-            <label class="label" for="season-title">Title (optional)</label>
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="season-sheet"
+      open={@open}
+      title={if @editing, do: "Edit Season", else: "New Season"}
+      on_close="cancel_season_form"
+      data_test="season-sheet"
+    >
+      <.form
+        :if={@form}
+        for={@form}
+        id="season-form"
+        phx-submit="save_season"
+        data-test="season-form"
+        class="space-y-4"
+      >
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="season-title"
+          >
+            Title (optional)
+          </label>
+          <input
+            type="text"
+            id="season-title"
+            name="season[title]"
+            value={@form[:title].value}
+            placeholder="Leave blank to auto-name (e.g. ‘Season 1’)"
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="season-title-input"
+          />
+          <.field_error :for={msg <- error_messages(@form[:title])}>
+            {msg}
+          </.field_error>
+        </div>
+
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="season-number"
+          >
+            Season Number
+          </label>
+          <input
+            type="number"
+            id="season-number"
+            name="season[season_number]"
+            value={@form[:season_number].value}
+            min="1"
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-mono text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="season-number-input"
+          />
+          <p class="mt-1 font-body text-xs text-admin-text-muted">
+            Leave blank to auto-assign the next number.
+          </p>
+          <.field_error :for={msg <- error_messages(@form[:season_number])}>
+            {msg}
+          </.field_error>
+        </div>
+
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="season-description"
+          >
+            Description
+          </label>
+          <textarea
+            id="season-description"
+            name="season[description]"
+            rows="3"
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+          >{@form[:description].value}</textarea>
+        </div>
+
+        <div>
+          <BobineWeb.Components.AdminComponents.image_upload_field
+            name="season[cover_image_url]"
+            kind="season_cover"
+            target_id={@season_cover_target}
+            url={@season_cover_state.url}
+            status={@season_cover_state.status}
+            percent={@season_cover_state.percent}
+            error={@season_cover_state.error}
+            label="Cover image"
+            help="JPG, PNG or WebP. Optional — falls back to the first episode's thumbnail."
+          />
+        </div>
+
+        <div>
+          <label class="flex cursor-pointer items-center gap-3 font-ui text-sm text-admin-text-primary">
+            <input type="hidden" name="season[visible]" value="false" />
             <input
-              type="text"
-              id="season-title"
-              name="season[title]"
-              value={@form[:title].value}
-              placeholder="Leave blank to auto-name (e.g. ‘Season 1’)"
-              class="input input-bordered w-full"
-              data-test="season-title-input"
-            />
-            <.field_error :for={msg <- error_messages(@form[:title])}>
-              {msg}
-            </.field_error>
-          </div>
-          <div class="mb-4">
-            <label class="label" for="season-number">Season Number</label>
-            <input
-              type="number"
-              id="season-number"
-              name="season[season_number]"
-              value={@form[:season_number].value}
-              min="1"
-              class="input input-bordered w-full"
-              data-test="season-number-input"
-            />
-            <p class="text-xs text-base-content/60 mt-1">
-              Leave blank to auto-assign the next number.
-            </p>
-            <.field_error :for={msg <- error_messages(@form[:season_number])}>
-              {msg}
-            </.field_error>
-          </div>
-          <div class="mb-4">
-            <label class="label" for="season-description">Description</label>
-            <textarea
-              id="season-description"
-              name="season[description]"
-              class="textarea textarea-bordered w-full"
-              rows="3"
-            >{@form[:description].value}</textarea>
-          </div>
-          <div class="mb-4">
-            <BobineWeb.Components.AdminComponents.image_upload_field
-              name="season[cover_image_url]"
-              kind="season_cover"
-              target_id={@season_cover_target}
-              url={@season_cover_state.url}
-              status={@season_cover_state.status}
-              percent={@season_cover_state.percent}
-              error={@season_cover_state.error}
-              label="Cover image"
-              help="JPG, PNG or WebP. Optional — falls back to the first episode's thumbnail."
-            />
-          </div>
-          <div class="mb-4">
-            <label class="label cursor-pointer justify-start gap-3">
-              <input type="hidden" name="season[visible]" value="false" />
-              <input
-                type="checkbox"
-                name="season[visible]"
-                value="true"
-                checked={@form[:visible].value != false}
-                class="checkbox"
-                data-test="season-visible-input"
-              /> Visible to viewers
-            </label>
-          </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" phx-click="cancel_season_form" class="btn btn-ghost">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary" data-test="save-season-btn">
-              Save
-            </button>
-          </div>
-        </.form>
-      </div>
-    </div>
+              type="checkbox"
+              name="season[visible]"
+              value="true"
+              checked={@form[:visible].value != false}
+              class="size-4 rounded border-admin-border bg-admin-elevated accent-admin-accent"
+              data-test="season-visible-input"
+            /> Visible to viewers
+          </label>
+        </div>
+      </.form>
+
+      <:footer>
+        <button
+          type="button"
+          phx-click="cancel_season_form"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+        >
+          Cancel
+        </button>
+        <BobineWeb.Components.AdminUI.admin_button
+          type="submit"
+          form="season-form"
+          data-test="save-season-btn"
+        >
+          Save
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
 

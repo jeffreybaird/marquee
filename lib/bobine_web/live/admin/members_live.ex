@@ -150,18 +150,18 @@ defmodule BobineWeb.Admin.MembersLive do
       <.header>Members</.header>
 
       <%!-- Tabs --%>
-      <div class="mt-4 flex gap-2 border-b border-base-300">
+      <div class="mt-4 flex gap-2 border-b border-admin-border">
         <button
           phx-click="switch_tab"
           phx-value-tab="team"
-          class={"px-4 py-2 text-sm font-medium border-b-2 #{if @tab == "team", do: "border-primary text-primary", else: "border-transparent text-base-content/60 hover:text-base-content"}"}
+          class={"px-4 py-2 text-sm font-medium border-b-2 #{if @tab == "team", do: "border-admin-accent text-admin-accent", else: "border-transparent text-admin-text-muted hover:text-admin-text-primary"}"}
         >
           Team
         </button>
         <button
           phx-click="switch_tab"
           phx-value-tab="viewers"
-          class={"px-4 py-2 text-sm font-medium border-b-2 #{if @tab == "viewers", do: "border-primary text-primary", else: "border-transparent text-base-content/60 hover:text-base-content"}"}
+          class={"px-4 py-2 text-sm font-medium border-b-2 #{if @tab == "viewers", do: "border-admin-accent text-admin-accent", else: "border-transparent text-admin-text-muted hover:text-admin-text-primary"}"}
         >
           Viewers
         </button>
@@ -169,7 +169,7 @@ defmodule BobineWeb.Admin.MembersLive do
 
       <%!-- Team tab --%>
       <div :if={@tab == "team"} class="mt-6">
-        <p class="text-base-content/70">Team member management coming soon.</p>
+        <p class="text-admin-text-secondary">Team member management coming soon.</p>
       </div>
 
       <%!-- Viewers tab --%>
@@ -183,13 +183,13 @@ defmodule BobineWeb.Admin.MembersLive do
             phx-keyup="search"
             phx-key="Enter"
             phx-debounce="300"
-            class="input input-sm input-bordered w-64"
+            class="w-64 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
             data-test="viewer-search"
           />
           <select
             phx-change="filter_status"
             name="status"
-            class="select select-sm select-bordered"
+            class="w-auto rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
             data-test="viewer-status-filter"
           >
             <option value="">All statuses</option>
@@ -200,7 +200,7 @@ defmodule BobineWeb.Admin.MembersLive do
           <select
             phx-change="filter_subscription"
             name="subscription"
-            class="select select-sm select-bordered"
+            class="w-auto rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
             data-test="viewer-subscription-filter"
           >
             <option value="">All subscriptions</option>
@@ -218,12 +218,12 @@ defmodule BobineWeb.Admin.MembersLive do
             <:col :let={viewer} label="Email">{viewer.email}</:col>
             <:col :let={viewer} label="Display Name">{viewer.display_name}</:col>
             <:col :let={viewer} label="Subscription">
-              <span class={"badge badge-sm #{subscription_badge(viewer.subscription_status)}"}>
+              <span class={"rounded-full px-2 py-0.5 font-ui text-xs #{subscription_badge(viewer.subscription_status)}"}>
                 {viewer.subscription_status}
               </span>
             </:col>
             <:col :let={viewer} label="Status">
-              <span class={"badge badge-sm #{status_badge(viewer.status)}"}>
+              <span class={"rounded-full px-2 py-0.5 font-ui text-xs #{status_badge(viewer.status)}"}>
                 {viewer.status}
               </span>
             </:col>
@@ -239,7 +239,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   }
                   method="post"
                   data-test={"impersonate-viewer-#{viewer.id}"}
-                  class="btn btn-xs btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                 >
                   View as
                 </.link>
@@ -247,7 +247,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   :if={@can_manage && viewer.status == :active}
                   phx-click="suspend_viewer"
                   phx-value-id={viewer.id}
-                  class="btn btn-xs btn-warning btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-warning hover:bg-admin-elevated"
                   data-test={"suspend-viewer-#{viewer.id}"}
                 >
                   Suspend
@@ -256,7 +256,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   :if={@can_manage && viewer.status == :active}
                   phx-click="ban_viewer"
                   phx-value-id={viewer.id}
-                  class="btn btn-xs btn-error btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-error hover:bg-admin-elevated"
                   data-test={"ban-viewer-#{viewer.id}"}
                 >
                   Ban
@@ -265,7 +265,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   :if={@can_manage && viewer.status in [:suspended, :banned]}
                   phx-click="reactivate_viewer"
                   phx-value-id={viewer.id}
-                  class="btn btn-xs btn-success btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-success hover:bg-admin-elevated"
                   data-test={"reactivate-viewer-#{viewer.id}"}
                 >
                   Reactivate
@@ -274,7 +274,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   :if={@can_manage && viewer.subscription_status != "active"}
                   phx-click="grant_access"
                   phx-value-id={viewer.id}
-                  class="btn btn-xs btn-info btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-info hover:bg-admin-elevated"
                   data-test={"grant-access-#{viewer.id}"}
                 >
                   Grant
@@ -283,7 +283,7 @@ defmodule BobineWeb.Admin.MembersLive do
                   :if={@can_manage && viewer.subscription_status == "active"}
                   phx-click="revoke_access"
                   phx-value-id={viewer.id}
-                  class="btn btn-xs btn-ghost"
+                  class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                   data-test={"revoke-access-#{viewer.id}"}
                 >
                   Revoke
@@ -294,14 +294,14 @@ defmodule BobineWeb.Admin.MembersLive do
 
           <p
             :if={@viewers_page.results == []}
-            class="text-center text-base-content/60 py-8"
+            class="text-center text-admin-text-muted py-8"
           >
             No viewers found.
           </p>
 
           <div
             :if={@viewers_page.total_pages > 1}
-            class="mt-4 text-sm text-base-content/60 text-center"
+            class="mt-4 text-sm text-admin-text-muted text-center"
           >
             Page {@viewers_page.page} of {@viewers_page.total_pages} ({@viewers_page.total} viewers total)
           </div>
@@ -309,20 +309,20 @@ defmodule BobineWeb.Admin.MembersLive do
       </div>
 
       <div :if={@tab == "viewers" && !@can_view} class="mt-6">
-        <p class="text-base-content/70">You don't have permission to view viewers.</p>
+        <p class="text-admin-text-secondary">You don't have permission to view viewers.</p>
       </div>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end
 
-  defp subscription_badge("active"), do: "badge-success"
-  defp subscription_badge("trial"), do: "badge-info"
-  defp subscription_badge("past_due"), do: "badge-warning"
-  defp subscription_badge("canceled"), do: "badge-error"
-  defp subscription_badge(_), do: "badge-ghost"
+  defp subscription_badge("active"), do: "bg-success/20 text-success"
+  defp subscription_badge("trial"), do: "bg-info/20 text-info"
+  defp subscription_badge("past_due"), do: "bg-warning/20 text-warning"
+  defp subscription_badge("canceled"), do: "bg-error/20 text-error"
+  defp subscription_badge(_), do: "bg-admin-elevated text-admin-text-muted"
 
-  defp status_badge(:active), do: "badge-success"
-  defp status_badge(:suspended), do: "badge-warning"
-  defp status_badge(:banned), do: "badge-error"
-  defp status_badge(_), do: "badge-ghost"
+  defp status_badge(:active), do: "bg-success/20 text-success"
+  defp status_badge(:suspended), do: "bg-warning/20 text-warning"
+  defp status_badge(:banned), do: "bg-error/20 text-error"
+  defp status_badge(_), do: "bg-admin-elevated text-admin-text-muted"
 end

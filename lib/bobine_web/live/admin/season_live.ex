@@ -306,123 +306,129 @@ defmodule BobineWeb.Admin.SeasonLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
-      <%!-- Header / breadcrumbs --%>
-      <div class="flex items-center justify-between pb-4">
-        <div class="flex items-center gap-3">
+      <BobineWeb.Components.AdminUI.admin_panel
+        title={@season.title}
+        subtitle={@season.description}
+      >
+        <:actions>
           <.link
             navigate={~p"/admin/series"}
-            class="btn btn-ghost btn-sm"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
             data-test="back-to-series"
           >
             ← Series
           </.link>
-          <div>
-            <p class="text-xs text-base-content/60 uppercase tracking-wide">
-              {@series.title}
-            </p>
-            <div data-test="season-page-title">
-              <.header>{@season.title}</.header>
-            </div>
-          </div>
-        </div>
-        <div class="flex gap-2">
           <.link
             navigate={~p"/admin/analytics/series/#{@series.id}/seasons/#{@season.id}"}
-            class="btn btn-outline btn-sm"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-ui text-sm font-medium text-admin-text-primary transition-colors hover:border-admin-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
             data-test="view-season-analytics"
           >
             Analytics
           </.link>
-          <button
+          <BobineWeb.Components.AdminUI.admin_button
             :if={@can_manage}
+            variant={:secondary}
+            size={:sm}
             phx-click="open_picker"
-            class="btn btn-outline btn-sm"
             data-test="add-existing-btn"
           >
             Add Existing Video
-          </button>
-          <button
+          </BobineWeb.Components.AdminUI.admin_button>
+          <BobineWeb.Components.AdminUI.admin_button
             :if={@can_manage}
+            size={:sm}
             phx-click="open_upload"
-            class="btn btn-primary btn-sm"
             data-test="upload-episode-btn"
           >
             Upload Episode
-          </button>
-        </div>
-      </div>
+          </BobineWeb.Components.AdminUI.admin_button>
+        </:actions>
 
-      <p :if={@season.description} class="text-base-content/70 mb-4">
-        {@season.description}
-      </p>
+        <p class="font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+          {@series.title}
+        </p>
+        <div data-test="season-page-title" class="sr-only">{@season.title}</div>
 
-      <%!-- Episode list --%>
-      <div
-        :if={@episodes == []}
-        class="py-12 text-center text-base-content/60"
-        data-test="episodes-empty"
-      >
-        <p class="text-lg">No episodes yet.</p>
-        <p class="mt-2">Upload a video or pick from existing videos to get started.</p>
-      </div>
+        <BobineWeb.Components.AdminUI.admin_empty
+          :if={@episodes == []}
+          title="No episodes yet"
+          description="Upload a video or pick from existing videos to get started."
+          data_test="episodes-empty"
+        />
 
-      <div :if={@episodes != []} class="overflow-x-auto" data-test="episodes-list">
-        <table class="table w-full">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Episode</th>
-              <th>Status</th>
-              <th>Duration</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :for={ep <- @episodes} data-test={"episode-row-#{ep.id}"}>
-              <td class="font-mono">{ep.episode_number}</td>
-              <td class="flex items-center gap-3">
-                <div class="w-24 h-14 rounded bg-base-300 overflow-hidden flex-shrink-0">
-                  <img
-                    :if={ep.video && ep.video.mux_playback_id}
-                    src={"https://image.mux.com/#{ep.video.mux_playback_id}/thumbnail.webp?width=192&height=108"}
-                    alt={ep.video.title}
-                    class="w-full h-full object-cover"
-                  />
-                </div>
-                <div>
-                  <div class="font-medium">{ep.title || (ep.video && ep.video.title)}</div>
-                  <div class="text-xs text-base-content/60 font-mono">
-                    {ep.video && ep.video.slug}
+        <div
+          :if={@episodes != []}
+          class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+          data-test="episodes-list"
+        >
+          <table class="w-full font-body text-sm text-admin-text-primary">
+            <thead class="border-b border-admin-border bg-admin-elevated font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+              <tr>
+                <th class="px-4 py-3 text-left">#</th>
+                <th class="px-4 py-3 text-left">Episode</th>
+                <th class="px-4 py-3 text-left">Status</th>
+                <th class="px-4 py-3 text-left">Duration</th>
+                <th class="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                :for={ep <- @episodes}
+                data-test={"episode-row-#{ep.id}"}
+                class="border-b border-admin-border-subtle last:border-0"
+              >
+                <td class="px-4 py-3 font-mono">{ep.episode_number}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+                      <img
+                        :if={ep.video && ep.video.mux_playback_id}
+                        src={"https://image.mux.com/#{ep.video.mux_playback_id}/thumbnail.webp?width=192&height=108"}
+                        alt={ep.video.title}
+                        class="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <div class="font-display font-semibold text-admin-text-primary">
+                        {ep.title || (ep.video && ep.video.title)}
+                      </div>
+                      <div class="font-mono text-xs text-admin-text-muted">
+                        {ep.video && ep.video.slug}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td data-test={"episode-status-#{ep.id}"}>
-                <.status_badge status={ep.video && ep.video.mux_status} />
-              </td>
-              <td class="text-sm text-base-content/70">
-                {format_duration(ep.video && ep.video.duration)}
-              </td>
-              <td :if={@can_manage}>
-                <button
-                  phx-click="remove_episode"
-                  phx-value-video-id={ep.video_id}
-                  data-confirm="Remove this episode? The video will not be deleted."
-                  class="btn btn-xs btn-outline btn-error"
-                  data-test={"remove-episode-#{ep.id}"}
-                >
-                  Remove
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                </td>
+                <td class="px-4 py-3" data-test={"episode-status-#{ep.id}"}>
+                  <.status_badge status={ep.video && ep.video.mux_status} />
+                </td>
+                <td class="px-4 py-3 font-mono text-admin-text-secondary">
+                  {format_duration(ep.video && ep.video.duration)}
+                </td>
+                <td :if={@can_manage} class="px-4 py-3">
+                  <div class="flex justify-end">
+                    <BobineWeb.Components.AdminUI.admin_button
+                      variant={:danger}
+                      size={:sm}
+                      phx-click="remove_episode"
+                      phx-value-video-id={ep.video_id}
+                      data-confirm="Remove this episode? The video will not be deleted."
+                      data-test={"remove-episode-#{ep.id}"}
+                    >
+                      Remove
+                    </BobineWeb.Components.AdminUI.admin_button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </BobineWeb.Components.AdminUI.admin_panel>
 
-      <%!-- Persistent MuxUploader hook (must survive modal re-render) --%>
+      <%!-- Persistent MuxUploader hook (must survive sheet re-render) --%>
       <div id="season-mux-uploader" phx-hook="MuxUploader" phx-update="ignore"></div>
 
-      <.upload_modal
-        :if={@show_upload_modal}
+      <.upload_sheet
+        open={@show_upload_modal}
         upload_files={@upload_files}
         uploading={@uploading}
         upload_total={@upload_total}
@@ -431,7 +437,7 @@ defmodule BobineWeb.Admin.SeasonLive do
       />
 
       <.video_picker
-        :if={@show_picker}
+        open={@show_picker}
         videos={@picker_videos}
         selected_video_ids={@selected_video_ids}
       />
@@ -443,177 +449,227 @@ defmodule BobineWeb.Admin.SeasonLive do
   ## Inline components
   ## -----------------------------------------------------------------------
 
-  defp upload_modal(assigns) do
+  attr :open, :boolean, required: true
+  attr :upload_files, :list, required: true
+  attr :uploading, :boolean, required: true
+  attr :upload_total, :integer, required: true
+  attr :upload_completed, :integer, required: true
+  attr :upload_percent, :integer, required: true
+
+  defp upload_sheet(assigns) do
     ~H"""
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      data-test="episode-upload-modal"
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="episode-upload-sheet"
+      open={@open}
+      title="Upload Episode"
+      on_close="close_upload"
+      data_test="episode-upload-modal"
     >
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
-        <h3 class="text-lg font-semibold mb-4">Upload Episode</h3>
+      <div :if={@uploading} class="space-y-2" data-test="upload-progress-section">
+        <p class="font-body text-sm text-admin-text-secondary">
+          Uploading {@upload_completed + 1} of {@upload_total}… <span class="font-mono">{@upload_percent}%</span>
+        </p>
+        <progress
+          class="w-full"
+          value={@upload_percent}
+          max="100"
+          data-test="upload-progress"
+        >
+        </progress>
+      </div>
 
-        <div :if={@uploading} class="mb-4" data-test="upload-progress-section">
-          <p class="text-sm text-base-content/70 mb-2">
-            Uploading {@upload_completed + 1} of {@upload_total}… {@upload_percent}%
-          </p>
-          <progress
-            class="progress progress-primary w-full"
-            value={@upload_percent}
-            max="100"
-            data-test="upload-progress"
+      <div :if={!@uploading && @upload_files == []} data-test="upload-file-picker" class="space-y-4">
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="episode-upload-file"
           >
-          </progress>
+            Select video files
+          </label>
+          <input
+            type="file"
+            id="episode-upload-file"
+            name="video_file"
+            accept="video/*"
+            multiple
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="upload-file"
+          />
         </div>
+        <div class="flex justify-end">
+          <button
+            type="button"
+            phx-click="close_upload"
+            class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
 
-        <div :if={!@uploading && @upload_files == []} data-test="upload-file-picker">
-          <div class="mb-4">
-            <label class="label" for="episode-upload-file">Select video files</label>
+      <form
+        :if={!@uploading && @upload_files != []}
+        id="upload-form"
+        phx-submit="submit_upload"
+        action="#"
+        data-test="upload-form"
+        class="space-y-4"
+      >
+        <p class="font-body text-sm text-admin-text-muted">
+          {length(@upload_files)} file(s) selected. Each file becomes one episode.
+        </p>
+
+        <div class="space-y-3">
+          <div
+            :for={file <- @upload_files}
+            class="flex items-center gap-3"
+            data-test={"upload-file-row-#{file.client_id}"}
+          >
+            <div
+              class="w-32 flex-shrink-0 truncate font-mono text-xs text-admin-text-muted"
+              title={file.name}
+            >
+              {file.name}
+            </div>
             <input
-              type="file"
-              id="episode-upload-file"
-              name="video_file"
-              accept="video/*"
-              multiple
-              class="file-input file-input-bordered w-full"
-              data-test="upload-file"
+              type="text"
+              name={"titles[#{file.client_id}]"}
+              value={file.title}
+              class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              placeholder="Episode title"
+              data-test={"upload-title-#{file.client_id}"}
             />
           </div>
-          <div class="flex justify-end">
-            <button type="button" phx-click="close_upload" class="btn btn-ghost">
-              Cancel
-            </button>
-          </div>
         </div>
+      </form>
 
-        <form
+      <:footer>
+        <button
           :if={!@uploading && @upload_files != []}
-          phx-submit="submit_upload"
-          action="#"
-          data-test="upload-form"
+          type="button"
+          phx-click="close_upload"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
         >
-          <p class="text-sm text-base-content/60 mb-3">
-            {length(@upload_files)} file(s) selected. Each file becomes one episode.
-          </p>
-
-          <div class="space-y-3 mb-4">
-            <div
-              :for={file <- @upload_files}
-              class="flex items-center gap-3"
-              data-test={"upload-file-row-#{file.client_id}"}
-            >
-              <div class="text-xs text-base-content/50 w-32 truncate flex-shrink-0" title={file.name}>
-                {file.name}
-              </div>
-              <input
-                type="text"
-                name={"titles[#{file.client_id}]"}
-                value={file.title}
-                class="input input-bordered input-sm flex-1"
-                placeholder="Episode title"
-                data-test={"upload-title-#{file.client_id}"}
-              />
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2">
-            <button type="button" phx-click="close_upload" class="btn btn-ghost">Cancel</button>
-            <button type="submit" class="btn btn-primary" data-test="upload-submit">
-              Upload {length(@upload_files)} Episode{if length(@upload_files) > 1, do: "s", else: ""}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          Cancel
+        </button>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={!@uploading && @upload_files != []}
+          type="submit"
+          form="upload-form"
+          data-test="upload-submit"
+        >
+          Upload {length(@upload_files)} Episode{if length(@upload_files) > 1, do: "s", else: ""}
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
+
+  attr :open, :boolean, required: true
+  attr :videos, :list, required: true
+  attr :selected_video_ids, :any, required: true
 
   defp video_picker(assigns) do
     assigns = assign(assigns, :selected_count, MapSet.size(assigns.selected_video_ids))
 
     ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div
-        class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col"
-        data-test="episode-video-picker"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">Add Existing Videos</h3>
-          <button phx-click="close_picker" class="btn btn-ghost btn-sm" aria-label="Close">
-            <.icon name="hero-x-mark" class="size-5" />
-          </button>
-        </div>
-
-        <div :if={@videos == []} class="py-8 text-center text-base-content/60">
-          <p>No unassigned videos available.</p>
-          <p class="mt-2 text-sm">All your videos are already episodes in some season.</p>
-        </div>
-
-        <div :if={@videos != []} class="overflow-y-auto flex-1 space-y-2">
-          <label
-            :for={video <- @videos}
-            class="flex items-center gap-3 p-3 bg-base-200 rounded-lg cursor-pointer hover:bg-base-300"
-            data-test={"picker-video-#{video.id}"}
-          >
-            <input
-              type="checkbox"
-              class="checkbox"
-              checked={MapSet.member?(@selected_video_ids, video.id)}
-              phx-click="toggle_picker_video"
-              phx-value-video-id={video.id}
-              data-test={"picker-video-checkbox-#{video.id}"}
-            />
-            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
-              <img
-                :if={video.mux_playback_id}
-                src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
-                alt={video.title}
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{video.title}</div>
-              <div class="text-xs text-base-content/60">
-                {format_duration(video.duration)}
-              </div>
-            </div>
-          </label>
-        </div>
-
-        <div class="flex justify-between items-center mt-4 pt-4 border-t border-base-300">
-          <span class="text-sm text-base-content/60">
-            {@selected_count} selected
-          </span>
-          <div class="flex gap-2">
-            <button phx-click="close_picker" class="btn btn-ghost btn-sm">Cancel</button>
-            <button
-              phx-click="add_selected_episodes"
-              disabled={@selected_count == 0}
-              class="btn btn-primary btn-sm"
-              data-test="add-selected-episodes-btn"
-            >
-              Add Selected
-            </button>
-          </div>
-        </div>
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="episode-video-picker-sheet"
+      open={@open}
+      title="Add Existing Videos"
+      on_close="close_picker"
+      data_test="episode-video-picker"
+    >
+      <div :if={@videos == []} class="py-8 text-center font-body text-sm text-admin-text-muted">
+        <p>No unassigned videos available.</p>
+        <p class="mt-2">All your videos are already episodes in some season.</p>
       </div>
-    </div>
+
+      <div :if={@videos != []} class="space-y-2">
+        <label
+          :for={video <- @videos}
+          class="flex cursor-pointer items-center gap-3 rounded-lg border border-admin-border bg-admin-elevated p-3 hover:border-admin-border-strong"
+          data-test={"picker-video-#{video.id}"}
+        >
+          <input
+            type="checkbox"
+            class="size-4 rounded border-admin-border bg-admin-surface accent-admin-accent"
+            checked={MapSet.member?(@selected_video_ids, video.id)}
+            phx-click="toggle_picker_video"
+            phx-value-video-id={video.id}
+            data-test={"picker-video-checkbox-#{video.id}"}
+          />
+          <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-bg">
+            <img
+              :if={video.mux_playback_id}
+              src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
+              alt={video.title}
+              class="h-full w-full object-cover"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate font-display font-semibold text-admin-text-primary">
+              {video.title}
+            </div>
+            <div class="font-mono text-xs text-admin-text-muted">
+              {format_duration(video.duration)}
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <:footer>
+        <span class="mr-auto font-ui text-sm text-admin-text-muted">
+          {@selected_count} selected
+        </span>
+        <button
+          type="button"
+          phx-click="close_picker"
+          class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary transition-colors hover:bg-admin-elevated hover:text-admin-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
+        >
+          Cancel
+        </button>
+        <BobineWeb.Components.AdminUI.admin_button
+          phx-click="add_selected_episodes"
+          disabled={@selected_count == 0}
+          data-test="add-selected-episodes-btn"
+        >
+          Add Selected
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
 
   defp status_badge(assigns) do
-    {label, class} =
+    {label, tone_class} =
       case assigns.status do
-        "ready" -> {"Ready", "badge-success"}
-        "preparing" -> {"Processing", "badge-warning"}
-        "waiting" -> {"Waiting", "badge-ghost"}
-        "errored" -> {"Errored", "badge-error"}
-        _ -> {"Unknown", "badge-ghost"}
+        "ready" ->
+          {"Ready",
+           "border-admin-accent bg-admin-accent-subtle text-admin-accent-text"}
+
+        "preparing" ->
+          {"Processing", "border-warning/50 bg-warning/10 text-admin-text-primary"}
+
+        "waiting" ->
+          {"Waiting", "border-admin-border text-admin-text-muted"}
+
+        "errored" ->
+          {"Errored", "border-error/50 bg-error/10 text-admin-text-primary"}
+
+        _ ->
+          {"Unknown", "border-admin-border text-admin-text-muted"}
       end
 
-    assigns = assign(assigns, label: label, class: class)
+    assigns = assign(assigns, label: label, tone_class: tone_class)
 
     ~H"""
-    <span class={"badge badge-sm #{@class}"}>{@label}</span>
+    <span class={[
+      "rounded-full border px-2 py-0.5 font-ui text-xs",
+      @tone_class
+    ]}>
+      {@label}
+    </span>
     """
   end
 

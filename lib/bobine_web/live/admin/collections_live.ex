@@ -443,438 +443,493 @@ defmodule BobineWeb.Admin.CollectionsLive do
 
   defp collections_list_view(assigns) do
     ~H"""
-    <div class="flex items-center justify-between pb-4">
-      <.header>Collections</.header>
-      <button
-        :if={@can_manage}
-        phx-click="new_collection"
-        class="btn btn-primary"
-        data-test="new-collection-btn"
-      >
-        New Collection
-      </button>
-    </div>
-
-    <div
-      :if={@collections == []}
-      class="py-12 text-center text-base-content/60"
-      data-test="empty-state"
+    <BobineWeb.Components.AdminUI.admin_panel
+      title="Collections"
+      subtitle="Group videos, seasons, and series for the viewer catalog."
     >
-      <p class="text-lg">No collections yet.</p>
-      <p class="mt-2">Create your first collection to organize videos.</p>
-    </div>
+      <:actions>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={@can_manage}
+          phx-click="new_collection"
+          size={:sm}
+          data-test="new-collection-btn"
+        >
+          New Collection
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:actions>
 
-    <div :if={@collections != []} data-test="collections-list" class="overflow-x-auto">
-      <table class="table w-full">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Visible</th>
-            <th>Position</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr :for={collection <- @collections} data-test={"collection-row-#{collection.id}"}>
-            <td>
-              <button
-                phx-click="view_collection"
-                phx-value-id={collection.id}
-                class="font-medium hover:text-primary hover:underline"
-              >
-                {collection.title}
-              </button>
-              <div class="text-xs text-base-content/60 font-mono">{collection.slug}</div>
-            </td>
-            <td>
-              <button
-                :if={@can_manage}
-                phx-click="toggle_visibility"
-                phx-value-id={collection.id}
-                data-test="collection-visibility-toggle"
-                class={"badge badge-sm #{if collection.visible, do: "badge-success", else: "badge-ghost"}"}
-              >
-                {if collection.visible, do: "Visible", else: "Hidden"}
-              </button>
-              <span :if={!@can_manage} class="badge badge-sm badge-ghost">
-                {if collection.visible, do: "Visible", else: "Hidden"}
-              </span>
-            </td>
-            <td class="flex gap-1">
-              <button
-                :if={@can_manage}
-                phx-click="move_up"
-                phx-value-id={collection.id}
-                class="btn btn-xs btn-ghost"
-              >
-                ↑
-              </button>
-              <button
-                :if={@can_manage}
-                phx-click="move_down"
-                phx-value-id={collection.id}
-                class="btn btn-xs btn-ghost"
-              >
-                ↓
-              </button>
-            </td>
-            <td :if={@can_manage}>
-              <div class="flex gap-1">
+      <BobineWeb.Components.AdminUI.admin_empty
+        :if={@collections == []}
+        title="No collections yet"
+        description="Create your first collection to organize videos."
+        data_test="empty-state"
+      />
+
+      <div
+        :if={@collections != []}
+        data-test="collections-list"
+        class="overflow-x-auto rounded-lg border border-admin-border bg-admin-surface"
+      >
+        <table class="w-full font-body text-sm text-admin-text-primary">
+          <thead class="border-b border-admin-border bg-admin-elevated">
+            <tr class="text-left font-ui text-xs uppercase tracking-wide text-admin-text-muted">
+              <th class="px-4 py-3">Title</th>
+              <th class="px-4 py-3">Visible</th>
+              <th class="px-4 py-3">Position</th>
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :for={collection <- @collections}
+              class="border-t border-admin-border"
+              data-test={"collection-row-#{collection.id}"}
+            >
+              <td class="px-4 py-3">
                 <button
-                  phx-click="edit_collection"
+                  phx-click="view_collection"
                   phx-value-id={collection.id}
-                  class="btn btn-xs btn-outline"
+                  class="font-display font-semibold text-admin-text-primary hover:text-admin-accent hover:underline"
                 >
-                  Edit
+                  {collection.title}
                 </button>
+                <div class="font-mono text-xs text-admin-text-muted">{collection.slug}</div>
+              </td>
+              <td class="px-4 py-3">
                 <button
-                  phx-click="delete_collection"
+                  :if={@can_manage}
+                  phx-click="toggle_visibility"
                   phx-value-id={collection.id}
-                  data-confirm="Are you sure?"
-                  class="btn btn-xs btn-outline btn-error"
-                  data-test={"delete-collection-#{collection.id}"}
+                  data-test="collection-visibility-toggle"
+                  class={[
+                    "rounded-full border px-2 py-0.5 font-ui text-xs",
+                    if(collection.visible,
+                      do:
+                        "border-transparent bg-admin-accent-subtle text-admin-accent-text",
+                      else: "border-admin-border text-admin-text-muted"
+                    )
+                  ]}
                 >
-                  Delete
+                  {if collection.visible, do: "Visible", else: "Hidden"}
                 </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <.collection_form
-      :if={@show_form}
-      form={@form}
-      editing={@editing_collection}
-      collection_cover_target={@collection_cover_target}
-      collection_cover_state={@collection_cover_state}
-    />
-    """
-  end
-
-  defp collection_form(assigns) do
-    ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-lg font-semibold mb-4">
-          {if @editing, do: "Edit Collection", else: "New Collection"}
-        </h3>
-        <.form for={@form} phx-submit="save_collection" data-test="collection-form">
-          <div class="mb-4">
-            <label class="label" for="collection-title">Title</label>
-            <input
-              type="text"
-              id="collection-title"
-              name="collection[title]"
-              value={@form[:title].value}
-              required
-              class="input input-bordered w-full"
-              data-test="collection-title-input"
-            />
-            <.field_error :for={msg <- error_messages(@form[:title])}>
-              {msg}
-            </.field_error>
-          </div>
-          <div class="mb-4">
-            <label class="label" for="collection-description">Description</label>
-            <textarea
-              id="collection-description"
-              name="collection[description]"
-              class="textarea textarea-bordered w-full"
-              rows="3"
-            >{@form[:description].value}</textarea>
-          </div>
-          <div class="mb-4">
-            <BobineWeb.Components.AdminComponents.image_upload_field
-              name="collection[cover_image_url]"
-              kind="collection_cover"
-              target_id={@collection_cover_target}
-              url={@collection_cover_state.url}
-              status={@collection_cover_state.status}
-              percent={@collection_cover_state.percent}
-              error={@collection_cover_state.error}
-              label="Cover image"
-              help="JPG, PNG or WebP. Optional."
-            />
-          </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" phx-click="cancel_form" class="btn btn-ghost">Cancel</button>
-            <button type="submit" class="btn btn-primary" data-test="save-collection-btn">
-              Save
-            </button>
-          </div>
-        </.form>
+                <span
+                  :if={!@can_manage}
+                  class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                >
+                  {if collection.visible, do: "Visible", else: "Hidden"}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex gap-1">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    :if={@can_manage}
+                    variant={:ghost}
+                    size={:sm}
+                    phx-click="move_up"
+                    phx-value-id={collection.id}
+                  >
+                    ↑
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    :if={@can_manage}
+                    variant={:ghost}
+                    size={:sm}
+                    phx-click="move_down"
+                    phx-value-id={collection.id}
+                  >
+                    ↓
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </td>
+              <td :if={@can_manage} class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:secondary}
+                    size={:sm}
+                    phx-click="edit_collection"
+                    phx-value-id={collection.id}
+                  >
+                    Edit
+                  </BobineWeb.Components.AdminUI.admin_button>
+                  <BobineWeb.Components.AdminUI.admin_button
+                    variant={:danger}
+                    size={:sm}
+                    phx-click="delete_collection"
+                    phx-value-id={collection.id}
+                    data-confirm="Are you sure?"
+                    data-test={"delete-collection-#{collection.id}"}
+                  >
+                    Delete
+                  </BobineWeb.Components.AdminUI.admin_button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
+    </BobineWeb.Components.AdminUI.admin_panel>
+
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="collection-sheet"
+      open={@show_form}
+      title={if @editing_collection, do: "Edit Collection", else: "New Collection"}
+      on_close="cancel_form"
+      data_test="collection-form"
+    >
+      <.form
+        for={@form}
+        id="collection-form"
+        phx-submit="save_collection"
+        class="space-y-4"
+      >
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="collection-title"
+          >
+            Title
+          </label>
+          <input
+            type="text"
+            id="collection-title"
+            name="collection[title]"
+            value={@form[:title].value}
+            required
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+            data-test="collection-title-input"
+          />
+          <.field_error :for={msg <- error_messages(@form[:title])}>
+            {msg}
+          </.field_error>
+        </div>
+
+        <div>
+          <label
+            class="mb-1 block font-ui text-sm font-medium text-admin-text-primary"
+            for="collection-description"
+          >
+            Description
+          </label>
+          <textarea
+            id="collection-description"
+            name="collection[description]"
+            rows="3"
+            class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+          >{@form[:description].value}</textarea>
+        </div>
+
+        <div>
+          <BobineWeb.Components.AdminComponents.image_upload_field
+            name="collection[cover_image_url]"
+            kind="collection_cover"
+            target_id={@collection_cover_target}
+            url={@collection_cover_state.url}
+            status={@collection_cover_state.status}
+            percent={@collection_cover_state.percent}
+            error={@collection_cover_state.error}
+            label="Cover image"
+            help="JPG, PNG or WebP. Optional."
+          />
+        </div>
+      </.form>
+
+      <:footer>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={:ghost}
+          phx-click="cancel_form"
+        >
+          Cancel
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          type="submit"
+          form="collection-form"
+          data-test="save-collection-btn"
+        >
+          Save
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
 
   defp collection_detail_view(assigns) do
-    ~H"""
-    <div class="flex items-center justify-between pb-4">
-      <div class="flex items-center gap-3">
-        <button phx-click="back_to_list" class="btn btn-ghost btn-sm">← Back</button>
-        <.header>{@collection.title}</.header>
-      </div>
-      <button
-        :if={@can_manage}
-        phx-click="open_item_picker"
-        class="btn btn-primary btn-sm"
-        data-test="add-videos-btn"
-      >
-        Add Items
-      </button>
-    </div>
-
-    <div :if={@collection.description} class="mb-4 text-base-content/70">
-      {@collection.description}
-    </div>
-
-    <div :if={@items == []} class="py-8 text-center text-base-content/60">
-      <p>No items in this collection yet.</p>
-    </div>
-
-    <div :if={@items != []} class="space-y-2">
-      <div
-        :for={item <- @items}
-        class="flex items-center gap-3 p-3 bg-base-200 rounded-lg"
-        data-test={item_test_id(item)}
-      >
-        <%= case item.item_type do %>
-          <% :video -> %>
-            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
-              <img
-                :if={item.video && item.video.mux_playback_id}
-                src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
-                alt={item.video && item.video.title}
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{item.video && item.video.title}</div>
-            </div>
-            <span class="badge badge-sm badge-ghost" data-test="type-badge">Video</span>
-          <% :season -> %>
-            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
-              <img
-                :if={item.season && item.season.cover_image_url}
-                src={item.season.cover_image_url}
-                alt={item.season && item.season.title}
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{item.season && item.season.title}</div>
-              <div class="text-xs text-base-content/60">
-                {item.season && item.season.episode_count} episodes
-              </div>
-            </div>
-            <span class="badge badge-sm badge-info" data-test="type-badge">Season</span>
-          <% :series -> %>
-            <div class="w-20 h-12 rounded bg-base-300 overflow-hidden flex-shrink-0">
-              <img
-                :if={item.series && item.series.cover_image_url}
-                src={item.series.cover_image_url}
-                alt={item.series && item.series.title}
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="font-medium truncate">{item.series && item.series.title}</div>
-            </div>
-            <span class="badge badge-sm badge-primary" data-test="type-badge">Series</span>
-        <% end %>
-
-        <div :if={@can_manage} class="flex gap-1">
-          <button
-            phx-click="move_item_up"
-            phx-value-item-id={item.id}
-            class="btn btn-xs btn-ghost"
-          >
-            ↑
-          </button>
-          <button
-            phx-click="move_item_down"
-            phx-value-item-id={item.id}
-            class="btn btn-xs btn-ghost"
-          >
-            ↓
-          </button>
-          <button
-            phx-click="remove_item"
-            phx-value-item-id={item.id}
-            data-confirm="Remove item from collection?"
-            class="btn btn-xs btn-outline btn-error"
-            data-test={remove_test_id(item)}
-          >
-            Remove
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <.item_picker
-      :if={@show_item_picker}
-      picker_type={@picker_type}
-      picker_videos={@picker_videos}
-      picker_seasons={@picker_seasons}
-      picker_series={@picker_series}
-      selected_video_ids={@selected_video_ids}
-    />
-    """
-  end
-
-  defp item_picker(assigns) do
     assigns = assign(assigns, :selected_count, MapSet.size(assigns.selected_video_ids))
 
     ~H"""
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div
-        class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] flex flex-col"
-        data-test="collection-item-picker"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold">Add Items</h3>
-          <button
-            phx-click="close_item_picker"
-            class="btn btn-ghost btn-sm"
-            aria-label="Close item picker"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div class="flex gap-1 mb-4" data-test="picker-type-tabs">
-          <button
-            phx-click="set_picker_type"
-            phx-value-type="video"
-            class={"btn btn-sm #{if @picker_type == :video, do: "btn-primary", else: "btn-ghost"}"}
-            data-test="picker-type-video"
-          >
-            Videos
-          </button>
-          <button
-            phx-click="set_picker_type"
-            phx-value-type="season"
-            class={"btn btn-sm #{if @picker_type == :season, do: "btn-primary", else: "btn-ghost"}"}
-            data-test="picker-type-season"
-          >
-            Seasons
-          </button>
-          <button
-            phx-click="set_picker_type"
-            phx-value-type="series"
-            class={"btn btn-sm #{if @picker_type == :series, do: "btn-primary", else: "btn-ghost"}"}
-            data-test="picker-type-series"
-          >
-            Series
-          </button>
-        </div>
-
-        <div class="space-y-2 overflow-y-auto flex-1" data-test="picker-results">
-          <%= case @picker_type do %>
-            <% :video -> %>
-              <div
-                :if={@picker_videos == []}
-                class="py-4 text-center text-base-content/60"
-              >
-                All videos are already in this collection.
-              </div>
-              <div
-                :for={video <- @picker_videos}
-                class="flex items-center gap-3 p-2 bg-base-200 rounded"
-              >
-                <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
-                  <input
-                    type="checkbox"
-                    class="checkbox checkbox-primary"
-                    checked={MapSet.member?(@selected_video_ids, video.id)}
-                    phx-click="toggle_video_selection"
-                    phx-value-video-id={video.id}
-                    data-test={"select-video-#{video.id}"}
-                  />
-                  <span class="truncate">{video.title}</span>
-                </label>
-              </div>
-            <% :season -> %>
-              <div
-                :if={@picker_seasons == []}
-                class="py-4 text-center text-base-content/60"
-              >
-                No seasons available.
-              </div>
-              <div
-                :for={season <- @picker_seasons}
-                class="flex items-center gap-3 p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300"
-                phx-click="add_item_to_collection"
-                phx-value-type="season"
-                phx-value-id={season.id}
-                data-test={"picker-item-season-#{season.id}"}
-              >
-                <div class="flex-1 min-w-0">
-                  <span class="font-medium">{season.title}</span>
-                  <span class="text-xs text-base-content/60 ml-2">
-                    {season.episode_count} episodes
-                  </span>
-                </div>
-                <span class="badge badge-sm badge-info">Season</span>
-              </div>
-            <% :series -> %>
-              <div
-                :if={@picker_series == []}
-                class="py-4 text-center text-base-content/60"
-              >
-                No series available.
-              </div>
-              <div
-                :for={series <- @picker_series}
-                class="flex items-center gap-3 p-2 bg-base-200 rounded cursor-pointer hover:bg-base-300"
-                phx-click="add_item_to_collection"
-                phx-value-type="series"
-                phx-value-id={series.id}
-                data-test={"picker-item-series-#{series.id}"}
-              >
-                <div class="flex-1 min-w-0">
-                  <span class="font-medium">{series.title}</span>
-                </div>
-                <span class="badge badge-sm badge-primary">Series</span>
-              </div>
-          <% end %>
-        </div>
-
-        <div
-          :if={@picker_type == :video && @picker_videos != []}
-          class="flex items-center justify-between mt-4 pt-4 border-t border-base-300"
+    <BobineWeb.Components.AdminUI.admin_panel
+      title={@collection.title}
+      subtitle={@collection.description}
+    >
+      <:actions>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={:ghost}
+          size={:sm}
+          phx-click="back_to_list"
         >
-          <span class="text-sm text-base-content/60">
-            {@selected_count} selected
-          </span>
-          <div class="flex gap-2">
-            <button phx-click="close_item_picker" class="btn btn-ghost btn-sm">
-              Cancel
-            </button>
-            <button
-              phx-click="add_selected_videos"
-              disabled={@selected_count == 0}
-              class="btn btn-primary btn-sm"
-              data-test="add-selected-videos-btn"
+          ← Back
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={@can_manage}
+          size={:sm}
+          phx-click="open_item_picker"
+          data-test="add-videos-btn"
+        >
+          Add Items
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:actions>
+
+      <BobineWeb.Components.AdminUI.admin_empty
+        :if={@items == []}
+        title="No items yet"
+        description="Add videos, seasons, or series to this collection."
+      />
+
+      <div :if={@items != []} class="space-y-2">
+        <div
+          :for={item <- @items}
+          class="flex items-center gap-3 rounded-lg border border-admin-border bg-admin-surface p-3"
+          data-test={item_test_id(item)}
+        >
+          <%= case item.item_type do %>
+            <% :video -> %>
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+                <img
+                  :if={item.video && item.video.mux_playback_id}
+                  src={"https://image.mux.com/#{item.video.mux_playback_id}/thumbnail.webp?width=160&height=96"}
+                  alt={item.video && item.video.title}
+                  class="h-full w-full object-cover"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-display font-semibold text-admin-text-primary">
+                  {item.video && item.video.title}
+                </div>
+              </div>
+              <span
+                class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-muted"
+                data-test="type-badge"
+              >
+                Video
+              </span>
+            <% :season -> %>
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+                <img
+                  :if={item.season && item.season.cover_image_url}
+                  src={item.season.cover_image_url}
+                  alt={item.season && item.season.title}
+                  class="h-full w-full object-cover"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-display font-semibold text-admin-text-primary">
+                  {item.season && item.season.title}
+                </div>
+                <div class="font-mono text-xs text-admin-text-muted">
+                  {item.season && item.season.episode_count} episodes
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+                data-test="type-badge"
+              >
+                Season
+              </span>
+            <% :series -> %>
+              <div class="h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-admin-elevated">
+                <img
+                  :if={item.series && item.series.cover_image_url}
+                  src={item.series.cover_image_url}
+                  alt={item.series && item.series.title}
+                  class="h-full w-full object-cover"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-display font-semibold text-admin-text-primary">
+                  {item.series && item.series.title}
+                </div>
+              </div>
+              <span
+                class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text"
+                data-test="type-badge"
+              >
+                Series
+              </span>
+          <% end %>
+
+          <div :if={@can_manage} class="flex gap-1">
+            <BobineWeb.Components.AdminUI.admin_button
+              variant={:ghost}
+              size={:sm}
+              phx-click="move_item_up"
+              phx-value-item-id={item.id}
             >
-              Add Selected
-            </button>
+              ↑
+            </BobineWeb.Components.AdminUI.admin_button>
+            <BobineWeb.Components.AdminUI.admin_button
+              variant={:ghost}
+              size={:sm}
+              phx-click="move_item_down"
+              phx-value-item-id={item.id}
+            >
+              ↓
+            </BobineWeb.Components.AdminUI.admin_button>
+            <BobineWeb.Components.AdminUI.admin_button
+              variant={:danger}
+              size={:sm}
+              phx-click="remove_item"
+              phx-value-item-id={item.id}
+              data-confirm="Remove item from collection?"
+              data-test={remove_test_id(item)}
+            >
+              Remove
+            </BobineWeb.Components.AdminUI.admin_button>
           </div>
         </div>
-
-        <div
-          :if={@picker_type != :video}
-          class="flex justify-end mt-4 pt-4 border-t border-base-300"
-        >
-          <button phx-click="close_item_picker" class="btn btn-ghost btn-sm">
-            Close
-          </button>
-        </div>
       </div>
-    </div>
+    </BobineWeb.Components.AdminUI.admin_panel>
+
+    <BobineWeb.Components.AdminUI.admin_sheet
+      id="collection-item-picker"
+      open={@show_item_picker}
+      title="Add Items"
+      subtitle="Pick videos, seasons, or series to include."
+      on_close="close_item_picker"
+      data_test="collection-item-picker"
+    >
+      <div class="mb-4 flex gap-1" data-test="picker-type-tabs">
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={if @picker_type == :video, do: :accent, else: :ghost}
+          size={:sm}
+          phx-click="set_picker_type"
+          phx-value-type="video"
+          data-test="picker-type-video"
+        >
+          Videos
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={if @picker_type == :season, do: :accent, else: :ghost}
+          size={:sm}
+          phx-click="set_picker_type"
+          phx-value-type="season"
+          data-test="picker-type-season"
+        >
+          Seasons
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={if @picker_type == :series, do: :accent, else: :ghost}
+          size={:sm}
+          phx-click="set_picker_type"
+          phx-value-type="series"
+          data-test="picker-type-series"
+        >
+          Series
+        </BobineWeb.Components.AdminUI.admin_button>
+      </div>
+
+      <div class="space-y-2" data-test="picker-results">
+        <%= case @picker_type do %>
+          <% :video -> %>
+            <div
+              :if={@picker_videos == []}
+              class="py-4 text-center font-body text-sm text-admin-text-muted"
+            >
+              All videos are already in this collection.
+            </div>
+            <div
+              :for={video <- @picker_videos}
+              class="flex items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2"
+            >
+              <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  class="size-4 rounded border-admin-border text-admin-accent focus-visible:outline-admin-accent"
+                  checked={MapSet.member?(@selected_video_ids, video.id)}
+                  phx-click="toggle_video_selection"
+                  phx-value-video-id={video.id}
+                  data-test={"select-video-#{video.id}"}
+                />
+                <span class="truncate font-body text-sm text-admin-text-primary">
+                  {video.title}
+                </span>
+              </label>
+            </div>
+          <% :season -> %>
+            <div
+              :if={@picker_seasons == []}
+              class="py-4 text-center font-body text-sm text-admin-text-muted"
+            >
+              No seasons available.
+            </div>
+            <div
+              :for={season <- @picker_seasons}
+              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2 hover:border-admin-border-strong"
+              phx-click="add_item_to_collection"
+              phx-value-type="season"
+              phx-value-id={season.id}
+              data-test={"picker-item-season-#{season.id}"}
+            >
+              <div class="min-w-0 flex-1">
+                <span class="font-display font-semibold text-admin-text-primary">
+                  {season.title}
+                </span>
+                <span class="ml-2 font-mono text-xs text-admin-text-muted">
+                  {season.episode_count} episodes
+                </span>
+              </div>
+              <span class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text">
+                Season
+              </span>
+            </div>
+          <% :series -> %>
+            <div
+              :if={@picker_series == []}
+              class="py-4 text-center font-body text-sm text-admin-text-muted"
+            >
+              No series available.
+            </div>
+            <div
+              :for={series <- @picker_series}
+              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-elevated p-2 hover:border-admin-border-strong"
+              phx-click="add_item_to_collection"
+              phx-value-type="series"
+              phx-value-id={series.id}
+              data-test={"picker-item-series-#{series.id}"}
+            >
+              <div class="min-w-0 flex-1">
+                <span class="font-display font-semibold text-admin-text-primary">
+                  {series.title}
+                </span>
+              </div>
+              <span class="rounded-full bg-admin-accent-subtle px-2 py-0.5 font-ui text-xs text-admin-accent-text">
+                Series
+              </span>
+            </div>
+        <% end %>
+      </div>
+
+      <:footer>
+        <span
+          :if={@picker_type == :video && @picker_videos != []}
+          class="mr-auto font-mono text-sm text-admin-text-muted"
+        >
+          {@selected_count} selected
+        </span>
+        <BobineWeb.Components.AdminUI.admin_button
+          variant={:ghost}
+          phx-click="close_item_picker"
+        >
+          Cancel
+        </BobineWeb.Components.AdminUI.admin_button>
+        <BobineWeb.Components.AdminUI.admin_button
+          :if={@picker_type == :video && @picker_videos != []}
+          phx-click="add_selected_videos"
+          disabled={@selected_count == 0}
+          data-test="add-selected-videos-btn"
+        >
+          Add Selected
+        </BobineWeb.Components.AdminUI.admin_button>
+      </:footer>
+    </BobineWeb.Components.AdminUI.admin_sheet>
     """
   end
 

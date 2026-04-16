@@ -214,10 +214,12 @@ defmodule BobineWeb.Components.AdminUI do
   defp size_class(:md), do: "px-4 py-2 text-sm"
 
   defp variant_class(:accent),
-    do: "bg-admin-accent text-admin-accent-text hover:bg-admin-accent-hover active:bg-admin-accent-active"
+    do:
+      "bg-admin-accent text-admin-accent-text hover:bg-admin-accent-hover active:bg-admin-accent-active"
 
   defp variant_class(:secondary),
-    do: "bg-admin-elevated text-admin-text-primary border border-admin-border hover:border-admin-border-strong"
+    do:
+      "bg-admin-elevated text-admin-text-primary border border-admin-border hover:border-admin-border-strong"
 
   defp variant_class(:ghost),
     do: "text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"

@@ -96,7 +96,7 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLiveTest do
       assert html =~ "Analytics"
 
       seven_btn = element(view, "[data-test='period-selector-7']")
-      assert render(seven_btn) =~ "btn-primary"
+      assert render(seven_btn) =~ "bg-admin-accent"
     end
   end
 end

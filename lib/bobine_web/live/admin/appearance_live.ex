@@ -304,7 +304,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
       </.header>
 
       <details
-        class="mt-6 rounded-lg border border-base-300"
+        class="mt-6 rounded-lg border border-admin-border"
         data-test="preset-drawer"
         open={@catalog_empty?}
       >
@@ -315,7 +315,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
           </span>
         </summary>
 
-        <div class="border-t border-base-300 p-4" data-test="preset-picker">
+        <div class="border-t border-admin-border p-4" data-test="preset-picker">
           <div
             :if={!@catalog_empty?}
             class="mb-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200"
@@ -356,28 +356,29 @@ defmodule BobineWeb.Admin.AppearanceLive do
               Previewing <strong>{@selected_preset}</strong>.
             </span>
 
-            <button
+            <BobineWeb.Components.AdminUI.admin_button
               :if={@catalog_empty?}
               type="button"
               phx-click="apply_preset"
               phx-value-name={@selected_preset}
-              class="btn btn-primary btn-sm"
+              size={:sm}
               data-test="apply-preset-btn"
             >
               Apply preset
-            </button>
+            </BobineWeb.Components.AdminUI.admin_button>
 
-            <button
+            <BobineWeb.Components.AdminUI.admin_button
               :if={!@catalog_empty?}
               type="button"
               phx-click="confirm_overwrite_preset"
               phx-value-name={@selected_preset}
               data-confirm={"This will permanently delete your #{@row_count} existing rows and replace them with the #{@selected_preset} preset. Continue?"}
-              class="btn btn-error btn-sm"
+              variant={:danger}
+              size={:sm}
               data-test="overwrite-preset-btn"
             >
               Overwrite with preset
-            </button>
+            </BobineWeb.Components.AdminUI.admin_button>
           </div>
         </div>
       </details>
@@ -575,7 +576,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
     ~H"""
     <div
-      class="sv-preview-frame rounded-lg overflow-hidden border border-base-300"
+      class="sv-preview-frame rounded-lg overflow-hidden border border-admin-border"
       data-test="preview-frame"
     >
       <div class="sv-root" style={@style}>
@@ -740,13 +741,13 @@ defmodule BobineWeb.Admin.AppearanceLive do
       data-test={"color-input-" <> Atom.to_string(@field)}
     >
       <label
-        class="flex items-center gap-1 text-sm font-medium text-base-content min-w-[140px]"
+        class="flex items-center gap-1 text-sm font-medium text-admin-text-primary min-w-[140px]"
         title={@hint}
       >
         {@label}
         <span
           :if={@hint}
-          class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-base-content/30 text-[10px] font-semibold opacity-70 cursor-help"
+          class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-admin-border text-[10px] font-semibold opacity-70 cursor-help"
           title={@hint}
           aria-label={@hint}
         >
@@ -757,7 +758,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
         type="color"
         name={@input_name}
         value={@picker_value}
-        class="h-8 w-8 cursor-pointer rounded border border-base-300"
+        class="h-8 w-8 cursor-pointer rounded border border-admin-border"
         title={@hint}
         oninput="this.parentElement.querySelector('input[type=text]').value = this.value"
       />
@@ -765,7 +766,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
         type="text"
         name={@input_name}
         value={@text_value}
-        class="input input-bordered input-sm w-36"
+        class="rounded-md border border-admin-border bg-admin-elevated px-2 py-1 text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none w-36"
         placeholder="#000000"
         title={@hint}
         oninput="var p = this.parentElement.querySelector('input[type=color]'); if (/^#[0-9a-fA-F]{6}$/.test(this.value)) p.value = this.value"
@@ -788,7 +789,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
     cond do
       name == active -> "border-primary ring-2 ring-primary/30"
       name == selected -> "border-accent"
-      true -> "border-base-300 hover:border-base-content/40"
+      true -> "border-admin-border hover:border-admin-border-strong"
     end
   end
 

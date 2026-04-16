@@ -53,32 +53,32 @@ defmodule BobineWeb.Admin.VideoAnalyticsLive do
     >
       <div class="space-y-8">
         <div class="flex flex-col gap-2">
-          <.link navigate={~p"/admin/analytics"} class="text-sm text-base-content/60 hover:underline">
+          <.link navigate={~p"/admin/analytics"} class="text-sm text-admin-text-muted hover:underline">
             &larr; Back to analytics
           </.link>
           <.header>{@video.title}</.header>
         </div>
 
         <section aria-label="Drop-off overview" class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-total-drop-offs">
-            <p class="text-sm text-base-content/60">Total drop-offs</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-drop-offs">
+            <p class="text-sm text-admin-text-muted">Total drop-offs</p>
             <p class="text-2xl font-bold mt-1">{@distribution.total}</p>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-worst-bucket">
-            <p class="text-sm text-base-content/60">Worst bucket</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-worst-bucket">
+            <p class="text-sm text-admin-text-muted">Worst bucket</p>
             <p class="text-2xl font-bold mt-1">{worst_bucket_label(@distribution)}</p>
           </div>
 
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-buckets-with-drops">
-            <p class="text-sm text-base-content/60">Buckets with drops</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-buckets-with-drops">
+            <p class="text-sm text-admin-text-muted">Buckets with drops</p>
             <p class="text-2xl font-bold mt-1">{length(@distribution.buckets)}</p>
           </div>
         </section>
 
         <section aria-label="Drop-off distribution">
           <h2 class="text-lg font-semibold mb-3">Drop-off distribution</h2>
-          <div class="bg-base-200 rounded-xl p-4 h-72">
+          <div class="bg-admin-bg rounded-xl p-4 h-72">
             <canvas
               :if={@distribution.buckets != []}
               id="drop-off-chart"
@@ -92,7 +92,7 @@ defmodule BobineWeb.Admin.VideoAnalyticsLive do
             <p
               :if={@distribution.buckets == []}
               data-test="drop-off-empty-state"
-              class="text-base-content/50 text-sm text-center py-12"
+              class="text-admin-text-muted text-sm text-center py-12"
             >
               No drop-off data yet for this video.
             </p>

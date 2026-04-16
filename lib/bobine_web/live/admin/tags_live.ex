@@ -144,85 +144,98 @@ defmodule BobineWeb.Admin.TagsLive do
       current_user={@current_user}
       impersonating={@impersonating}
     >
-      <.header>Tags</.header>
-
-      <div :if={@can_manage} class="mt-4 mb-6">
-        <form phx-submit="create_tag" class="flex gap-2">
+      <BobineWeb.Components.AdminUI.admin_panel
+        title="Tags"
+        subtitle="Organize videos with reusable labels."
+      >
+        <form :if={@can_manage} phx-submit="create_tag" class="flex gap-2">
           <input
             type="text"
             name="name"
             value={@new_tag_name}
             phx-change="update_new_tag"
             placeholder="New tag name…"
-            class="input input-bordered flex-1"
+            class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
             data-test="new-tag-input"
           />
-          <button type="submit" class="btn btn-primary" data-test="create-tag-btn">
+          <BobineWeb.Components.AdminUI.admin_button
+            type="submit"
+            size={:sm}
+            data-test="create-tag-btn"
+          >
             Add Tag
-          </button>
+          </BobineWeb.Components.AdminUI.admin_button>
         </form>
-      </div>
 
-      <div
-        :if={@tags == []}
-        class="py-12 text-center text-base-content/60"
-        data-test="empty-state"
-      >
-        <p class="text-lg">No tags yet.</p>
-        <p class="mt-2">Create your first tag to organize videos.</p>
-      </div>
+        <BobineWeb.Components.AdminUI.admin_empty
+          :if={@tags == []}
+          title="No tags yet"
+          description="Create your first tag to organize videos."
+          data_test="empty-state"
+        />
 
-      <div :if={@tags != []} data-test="tags-list" class="space-y-2">
-        <div
-          :for={tag <- @tags}
-          class="flex items-center justify-between p-3 bg-base-200 rounded-lg"
-          data-test={"tag-#{tag.id}"}
-        >
-          <div :if={@editing_tag_id != tag.id} class="flex items-center gap-2">
-            <span class="badge badge-lg">{tag.name}</span>
-            <span class="text-xs text-base-content/50 font-mono">{tag.slug}</span>
-          </div>
+        <div :if={@tags != []} data-test="tags-list" class="space-y-2">
+          <div
+            :for={tag <- @tags}
+            class="flex items-center justify-between rounded-lg border border-admin-border bg-admin-surface p-3"
+            data-test={"tag-#{tag.id}"}
+          >
+            <div :if={@editing_tag_id != tag.id} class="flex items-center gap-3">
+              <span class="rounded-full border border-admin-border bg-admin-elevated px-3 py-1 font-ui text-sm font-medium text-admin-text-primary">
+                {tag.name}
+              </span>
+              <span class="font-mono text-xs text-admin-text-muted">{tag.slug}</span>
+            </div>
 
-          <div :if={@editing_tag_id == tag.id} class="flex-1 flex gap-2 mr-2">
-            <input
-              type="text"
-              value={@editing_tag_name}
-              phx-change="update_editing_name"
-              phx-keyup="update_editing_name"
-              name="name"
-              class="input input-bordered input-sm flex-1"
-            />
-            <button
-              phx-click="save_edit"
-              phx-value-id={tag.id}
-              class="btn btn-xs btn-primary"
-            >
-              Save
-            </button>
-            <button phx-click="cancel_edit" class="btn btn-xs btn-ghost">Cancel</button>
-          </div>
+            <div :if={@editing_tag_id == tag.id} class="flex flex-1 gap-2 mr-2">
+              <input
+                type="text"
+                value={@editing_tag_name}
+                phx-change="update_editing_name"
+                phx-keyup="update_editing_name"
+                name="name"
+                class="flex-1 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
+              />
+              <BobineWeb.Components.AdminUI.admin_button
+                size={:sm}
+                phx-click="save_edit"
+                phx-value-id={tag.id}
+              >
+                Save
+              </BobineWeb.Components.AdminUI.admin_button>
+              <BobineWeb.Components.AdminUI.admin_button
+                variant={:ghost}
+                size={:sm}
+                phx-click="cancel_edit"
+              >
+                Cancel
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
 
-          <div :if={@can_manage && @editing_tag_id != tag.id} class="flex gap-1">
-            <button
-              phx-click="start_edit"
-              phx-value-id={tag.id}
-              phx-value-name={tag.name}
-              class="btn btn-xs btn-outline"
-            >
-              Edit
-            </button>
-            <button
-              phx-click="delete_tag"
-              phx-value-id={tag.id}
-              data-confirm="Delete this tag? It will be removed from all videos."
-              class="btn btn-xs btn-outline btn-error"
-              data-test={"delete-tag-#{tag.id}"}
-            >
-              Delete
-            </button>
+            <div :if={@can_manage && @editing_tag_id != tag.id} class="flex gap-1">
+              <BobineWeb.Components.AdminUI.admin_button
+                variant={:ghost}
+                size={:sm}
+                phx-click="start_edit"
+                phx-value-id={tag.id}
+                phx-value-name={tag.name}
+              >
+                Edit
+              </BobineWeb.Components.AdminUI.admin_button>
+              <BobineWeb.Components.AdminUI.admin_button
+                variant={:danger}
+                size={:sm}
+                phx-click="delete_tag"
+                phx-value-id={tag.id}
+                data-confirm="Delete this tag? It will be removed from all videos."
+                data-test={"delete-tag-#{tag.id}"}
+              >
+                Delete
+              </BobineWeb.Components.AdminUI.admin_button>
+            </div>
           </div>
         </div>
-      </div>
+      </BobineWeb.Components.AdminUI.admin_panel>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
   end

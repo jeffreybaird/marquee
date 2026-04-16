@@ -63,7 +63,7 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
     >
       <div class="space-y-8">
         <div class="flex flex-col gap-2">
-          <.link navigate={~p"/admin/analytics"} class="text-sm text-base-content/60 hover:underline">
+          <.link navigate={~p"/admin/analytics"} class="text-sm text-admin-text-muted hover:underline">
             &larr; Back to analytics
           </.link>
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -85,20 +85,20 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
         </div>
 
         <section aria-label="Season overview" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-total-seasons">
-            <p class="text-sm text-base-content/60">Seasons</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-seasons">
+            <p class="text-sm text-admin-text-muted">Seasons</p>
             <p class="text-2xl font-bold mt-1">{length(@season_stats)}</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-total-starters">
-            <p class="text-sm text-base-content/60">Starters</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-starters">
+            <p class="text-sm text-admin-text-muted">Starters</p>
             <p class="text-2xl font-bold mt-1">{total_starters(@season_stats)}</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-total-finishers">
-            <p class="text-sm text-base-content/60">Finishers</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-finishers">
+            <p class="text-sm text-admin-text-muted">Finishers</p>
             <p class="text-2xl font-bold mt-1">{total_finishers(@season_stats)}</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-overall-completion">
-            <p class="text-sm text-base-content/60">Overall completion</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-overall-completion">
+            <p class="text-sm text-admin-text-muted">Overall completion</p>
             <p class="text-2xl font-bold mt-1">{overall_rate(@season_stats)}%</p>
           </div>
         </section>
@@ -106,7 +106,7 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
         <section aria-label="Per-season stats">
           <h2 class="text-lg font-semibold mb-3">Seasons</h2>
 
-          <div class="overflow-x-auto rounded-xl border border-base-300">
+          <div class="overflow-x-auto rounded-xl border border-admin-border">
             <table class="table w-full">
               <thead>
                 <tr>
@@ -121,7 +121,7 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
               </thead>
               <tbody>
                 <tr :if={@season_stats == []} data-test="season-empty-state">
-                  <td colspan="7" class="text-center py-8 text-base-content/50">
+                  <td colspan="7" class="text-center py-8 text-admin-text-muted">
                     No seasons yet.
                   </td>
                 </tr>
@@ -138,7 +138,7 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
                   <td>
                     <.link
                       navigate={~p"/admin/analytics/series/#{@series.id}/seasons/#{row.season_id}"}
-                      class="text-sm text-primary hover:underline"
+                      class="text-sm text-admin-accent hover:underline"
                       data-test={"season-drill-#{row.season_id}"}
                     >
                       View
@@ -169,10 +169,10 @@ defmodule BobineWeb.Admin.SeriesAnalyticsLive do
   end
 
   defp period_btn_class(current, value) when current == value do
-    "btn btn-sm btn-primary"
+    "inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
   end
 
   defp period_btn_class(_current, _value) do
-    "btn btn-sm btn-ghost"
+    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
   end
 end

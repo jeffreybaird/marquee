@@ -50,31 +50,31 @@ defmodule BobineWeb.Admin.PlanSuccessLive do
           >
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
-          <h2 class="text-lg font-semibold text-base-content">
+          <h2 class="text-lg font-semibold text-admin-text-primary">
             Your plan has been successfully updated.
           </h2>
         </div>
       </div>
 
       <%= if @current_plan do %>
-        <div class="mt-6 rounded-lg border border-base-300 bg-base-200 p-6" data-test="plan-details">
+        <div class="mt-6 rounded-lg border border-admin-border bg-admin-bg p-6" data-test="plan-details">
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-sm text-base-content/60">Plan</span>
-              <span class="font-semibold text-base-content" data-test="plan-name">
+              <span class="text-sm text-admin-text-muted">Plan</span>
+              <span class="font-semibold text-admin-text-primary" data-test="plan-name">
                 {@current_plan.name}
               </span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-sm text-base-content/60">Monthly price</span>
-              <span class="font-semibold text-base-content" data-test="plan-amount">
+              <span class="text-sm text-admin-text-muted">Monthly price</span>
+              <span class="font-semibold text-admin-text-primary" data-test="plan-amount">
                 ${format_amount(@current_plan.amount)}/mo
               </span>
             </div>
             <%= if @subscription do %>
               <div class="flex items-center justify-between">
-                <span class="text-sm text-base-content/60">Next billing date</span>
-                <span class="font-semibold text-base-content" data-test="next-billing-date">
+                <span class="text-sm text-admin-text-muted">Next billing date</span>
+                <span class="font-semibold text-admin-text-primary" data-test="next-billing-date">
                   {format_date(@subscription.current_period_end)}
                 </span>
               </div>
@@ -86,7 +86,7 @@ defmodule BobineWeb.Admin.PlanSuccessLive do
       <div class="mt-6">
         <.link
           navigate={~p"/admin/settings/billing"}
-          class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-content hover:bg-primary/90"
+          class="rounded-lg bg-admin-accent px-4 py-2 text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
           data-test="back-to-billing-link"
         >
           Back to billing

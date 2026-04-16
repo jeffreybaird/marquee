@@ -150,7 +150,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               :if={@can_manage}
               phx-click="toggle_hero_visibility"
               data-test="hero-visibility-toggle"
-              class={"badge badge-sm #{if @hero_row.visible, do: "badge-success", else: "badge-ghost"}"}
+              class={"rounded-full px-2 py-0.5 font-ui text-xs #{if @hero_row.visible, do: "bg-success/20 text-success", else: "bg-admin-elevated text-admin-text-muted"}"}
             >
               {if @hero_row.visible, do: "Visible", else: "Hidden"}
             </button>
@@ -160,14 +160,14 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
       <div :if={!@hero_collapsed} id="hero-editor-body">
         <%= if is_nil(@hero_row) do %>
-          <div class="py-8 text-center bg-base-200 rounded-lg">
-            <p class="text-base-content/60 mb-4">
+          <div class="py-8 text-center bg-admin-bg rounded-lg">
+            <p class="text-admin-text-muted mb-4">
               Create a hero carousel to feature up to 4 items at the top of your homepage.
             </p>
             <button
               :if={@can_manage}
               phx-click="create_hero"
-              class="btn btn-primary"
+              class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
               data-test="create-hero-btn"
             >
               Create hero carousel
@@ -175,13 +175,13 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
           </div>
         <% else %>
           <%!-- Auto-advance config --%>
-          <div :if={@can_manage} class="flex items-center gap-4 mb-4 p-3 bg-base-200 rounded-lg">
+          <div :if={@can_manage} class="flex items-center gap-4 mb-4 p-3 bg-admin-bg rounded-lg">
             <label for="hero-auto-advance" class="text-sm font-medium">Auto-rotate:</label>
             <form phx-submit="save_hero_auto_advance" class="flex items-center gap-2">
               <select
                 id="hero-auto-advance"
                 name="auto_advance_ms"
-                class="select select-bordered select-sm"
+                class="w-auto rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                 data-test="hero-auto-advance-select"
               >
                 <option value="0" selected={hero_auto_advance_ms(@hero_row) == 0}>
@@ -202,7 +202,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               </select>
               <button
                 type="submit"
-                class="btn btn-sm btn-primary"
+                class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
                 phx-disable-with="Saving..."
                 data-test="hero-auto-advance-save-btn"
               >
@@ -223,13 +223,13 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <%!-- Existing slides --%>
             <div
               :for={slide <- @hero_slides}
-              class="p-4 bg-base-200 rounded-lg"
+              class="p-4 bg-admin-bg rounded-lg"
               data-test={"hero-slide-editor-#{slide.position}"}
             >
               <div class="flex items-start justify-between mb-3">
                 <div class="flex items-center gap-2">
-                  <span class="badge badge-sm">Slide {slide.position + 1}</span>
-                  <span class="text-sm text-base-content/60">
+                  <span class="rounded-full bg-admin-elevated px-2 py-0.5 font-ui text-xs text-admin-text-secondary">Slide {slide.position + 1}</span>
+                  <span class="text-sm text-admin-text-muted">
                     Video: {slide.video_title}
                   </span>
                 </div>
@@ -237,7 +237,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <button
                     phx-click="move_hero_slide_up"
                     phx-value-slide-id={slide.id}
-                    class="btn btn-xs btn-ghost"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                     aria-label="Move slide up"
                   >
                     ↑
@@ -245,7 +245,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <button
                     phx-click="move_hero_slide_down"
                     phx-value-slide-id={slide.id}
-                    class="btn btn-xs btn-ghost"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                     aria-label="Move slide down"
                   >
                     ↓
@@ -253,7 +253,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <button
                     phx-click="remove_hero_slide"
                     phx-value-slide-id={slide.id}
-                    class="btn btn-xs btn-outline btn-error"
+                    class="inline-flex items-center gap-1.5 rounded-md border border-error px-2 py-1 font-ui text-xs font-medium text-error hover:bg-error hover:text-admin-accent-text"
                     data-test={"hero-remove-slide-#{slide.position}"}
                   >
                     Remove
@@ -270,7 +270,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="headline"
                     value={slide.headline}
                     placeholder={slide.video_title}
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-headline-input-#{slide.position}"}
                   />
                 </div>
@@ -281,7 +281,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="subheadline"
                     value={slide.subheadline}
                     placeholder="optional"
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-subheadline-input-#{slide.position}"}
                   />
                 </div>
@@ -292,7 +292,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="brand_tag"
                     value={slide.brand_tag}
                     placeholder="optional"
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-brand-tag-input-#{slide.position}"}
                   />
                 </div>
@@ -303,7 +303,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="primary_cta_label"
                     value={slide.primary_cta_label}
                     placeholder="Watch now"
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-primary-cta-input-#{slide.position}"}
                   />
                 </div>
@@ -314,7 +314,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="secondary_cta_label"
                     value={slide.secondary_cta_label}
                     placeholder="More info"
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-secondary-cta-input-#{slide.position}"}
                   />
                 </div>
@@ -325,7 +325,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="background_image_url"
                     value={slide.background_image_url}
                     placeholder="Uses video thumbnail if empty"
-                    class="input input-bordered input-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-bg-url-input-#{slide.position}"}
                   />
                 </div>
@@ -335,7 +335,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     name="description"
                     placeholder={slide.video_description || "optional"}
                     rows="2"
-                    class="textarea textarea-bordered textarea-sm w-full"
+                    class="w-full rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
                     data-test={"hero-description-input-#{slide.position}"}
                   >{slide.description}</textarea>
                 </div>
@@ -359,7 +359,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <button
                     :if={@can_manage}
                     type="submit"
-                    class="btn btn-sm btn-primary"
+                    class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
                     phx-disable-with="Saving..."
                     data-test={"hero-slide-save-btn-#{slide.position}"}
                   >
@@ -373,7 +373,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <div :if={@can_manage && length(@hero_slides) < 4}>
               <button
                 phx-click="open_hero_video_picker"
-                class="btn btn-outline btn-sm w-full"
+                class="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-admin-border px-3 py-1.5 font-ui text-sm font-medium text-admin-text-primary hover:border-admin-border-strong"
                 data-test="hero-add-slide-btn"
               >
                 + Add slide ({length(@hero_slides)}/4)
@@ -382,7 +382,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
             <div
               :if={@can_manage && length(@hero_slides) >= 4}
-              class="text-center text-sm text-base-content/50"
+              class="text-center text-sm text-admin-text-muted"
             >
               Maximum of 4 slides reached.
             </div>
@@ -393,12 +393,12 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             :if={@show_hero_video_picker}
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           >
-            <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
+            <div class="bg-admin-surface rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold">Select a Video for Hero Slide</h3>
                 <button
                   phx-click="close_hero_video_picker"
-                  class="btn btn-ghost btn-sm"
+                  class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                   aria-label="Close"
                 >
                   ✕
@@ -406,14 +406,14 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               </div>
               <div
                 :if={@hero_available_videos == []}
-                class="py-4 text-center text-base-content/60"
+                class="py-4 text-center text-admin-text-muted"
               >
                 No available videos.
               </div>
               <div :if={@hero_available_videos != []} class="space-y-2">
                 <div
                   :for={video <- @hero_available_videos}
-                  class="flex items-center justify-between p-2 bg-base-200 rounded"
+                  class="flex items-center justify-between p-2 bg-admin-bg rounded"
                 >
                   <span class="truncate" data-test={"hero-video-select-#{video.id}"}>
                     {video.title}
@@ -421,7 +421,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   <button
                     phx-click="add_hero_slide"
                     phx-value-video-id={video.id}
-                    class="btn btn-xs btn-primary"
+                    class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-2 py-1 font-ui text-xs font-medium text-admin-accent-text hover:bg-admin-accent-hover"
                   >
                     Select
                   </button>
@@ -457,7 +457,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
       <button
         :if={@can_manage}
         phx-click="new_row"
-        class="btn btn-primary"
+        class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
         data-test="new-row-btn"
       >
         New Row
@@ -466,7 +466,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
     <div
       :if={@rows == []}
-      class="py-12 text-center text-base-content/60"
+      class="py-12 text-center text-admin-text-muted"
       data-test="empty-state"
     >
       <p class="text-lg">No catalog rows yet.</p>
@@ -489,7 +489,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
           <tr :for={row <- @rows} data-test={"row-#{row.id}"}>
             <td class="font-medium">{row.title}</td>
             <td>
-              <span class="badge badge-sm badge-outline">
+              <span class="rounded-full border border-admin-border px-2 py-0.5 font-ui text-xs text-admin-text-secondary">
                 {source_type_label(row.source_type)}
               </span>
             </td>
@@ -502,7 +502,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 <input type="hidden" name="row_id" value={row.id} />
                 <select
                   name="variant"
-                  class="select select-xs select-bordered"
+                  class="w-auto rounded-md border border-admin-border bg-admin-elevated px-2 py-1 font-body text-xs text-admin-text-primary focus:border-admin-accent focus:outline-none"
                   data-test={"row-variant-#{row.id}"}
                 >
                   <option
@@ -516,7 +516,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               </form>
               <span
                 :if={!@can_manage}
-                class="text-xs text-base-content/60"
+                class="text-xs text-admin-text-muted"
               >
                 {card_variant_label(row.card_variant || :default)}
               </span>
@@ -527,7 +527,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 phx-click="toggle_visibility"
                 phx-value-id={row.id}
                 data-test="row-visibility-toggle"
-                class={"badge badge-sm #{if row.visible, do: "badge-success", else: "badge-ghost"}"}
+                class={"rounded-full px-2 py-0.5 font-ui text-xs #{if row.visible, do: "bg-success/20 text-success", else: "bg-admin-elevated text-admin-text-muted"}"}
               >
                 {if row.visible, do: "Visible", else: "Hidden"}
               </button>
@@ -537,7 +537,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 :if={@can_manage}
                 phx-click="move_up"
                 phx-value-id={row.id}
-                class="btn btn-xs btn-ghost"
+                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                 aria-label="Move row up"
               >
                 ↑
@@ -546,7 +546,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 :if={@can_manage}
                 phx-click="move_down"
                 phx-value-id={row.id}
-                class="btn btn-xs btn-ghost"
+                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
                 aria-label="Move row down"
               >
                 ↓
@@ -557,7 +557,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 <button
                   phx-click="preview_row"
                   phx-value-id={row.id}
-                  class="btn btn-xs btn-outline"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-admin-border px-2 py-1 font-ui text-xs font-medium text-admin-text-primary hover:border-admin-border-strong"
                   data-test="row-preview"
                 >
                   Preview
@@ -566,14 +566,14 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   :if={row.source_type == :curated}
                   phx-click="manage_items"
                   phx-value-id={row.id}
-                  class="btn btn-xs btn-outline"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-admin-border px-2 py-1 font-ui text-xs font-medium text-admin-text-primary hover:border-admin-border-strong"
                 >
                   Items
                 </button>
                 <button
                   phx-click="edit_row"
                   phx-value-id={row.id}
-                  class="btn btn-xs btn-outline"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-admin-border px-2 py-1 font-ui text-xs font-medium text-admin-text-primary hover:border-admin-border-strong"
                 >
                   Edit
                 </button>
@@ -581,7 +581,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                   phx-click="delete_row"
                   phx-value-id={row.id}
                   data-confirm="Are you sure?"
-                  class="btn btn-xs btn-outline btn-error"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-error px-2 py-1 font-ui text-xs font-medium text-error hover:bg-error hover:text-admin-accent-text"
                   data-test={"delete-row-#{row.id}"}
                 >
                   Delete
@@ -621,7 +621,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   def row_form(assigns) do
     ~H"""
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div class="bg-admin-surface rounded-lg p-6 w-full max-w-md shadow-xl">
         <h3 class="text-lg font-semibold mb-4">
           {if @editing, do: "Edit Row", else: "New Row"}
         </h3>
@@ -634,7 +634,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               name="row[title]"
               value={@form[:title].value}
               required
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
               data-test="row-title-input"
             />
           </div>
@@ -643,7 +643,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <select
               id="row-source-type"
               name="row[source_type]"
-              class="select select-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
               data-test="row-source-type-select"
             >
               <option
@@ -660,7 +660,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <select
               id="row-collection-select"
               name="row[source_id]"
-              class="select select-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
               data-test="row-source-id-select"
             >
               <option value="">Select a collection...</option>
@@ -678,7 +678,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <select
               id="row-tag-select"
               name="row[source_id]"
-              class="select select-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
               data-test="row-source-id-select"
             >
               <option value="">Select a tag...</option>
@@ -696,7 +696,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <select
               id="row-card-variant"
               name="row[card_variant]"
-              class="select select-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
               data-test="row-card-variant-select"
             >
               <option
@@ -707,7 +707,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                 {label}
               </option>
             </select>
-            <p class="text-xs text-base-content/60 mt-1">
+            <p class="text-xs text-admin-text-muted mt-1">
               Only variants compatible with the selected source type appear. Leave
               as Default to use the system default for that row.
             </p>
@@ -721,12 +721,12 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               value={@form[:max_items].value || 20}
               min="5"
               max="50"
-              class="input input-bordered w-full"
+              class="w-full rounded-md border border-admin-border bg-admin-elevated px-3 py-2 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
             />
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" phx-click="cancel_form" class="btn btn-ghost">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" phx-click="cancel_form" class="inline-flex items-center gap-1.5 rounded-md px-4 py-2 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary">Cancel</button>
+            <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-4 py-2 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover">Save</button>
           </div>
         </.form>
       </div>
@@ -743,14 +743,14 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   def row_preview(assigns) do
     ~H"""
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-2xl shadow-xl" data-test="row-preview">
+      <div class="bg-admin-surface rounded-lg p-6 w-full max-w-2xl shadow-xl" data-test="row-preview">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">Preview: {@row.title}</h3>
-          <button phx-click="close_preview" class="btn btn-ghost btn-sm" aria-label="Close">✕</button>
+          <button phx-click="close_preview" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary" aria-label="Close">✕</button>
         </div>
         <div class="flex gap-3 overflow-x-auto pb-2">
           <div :for={video <- @videos} class="flex-shrink-0 w-40">
-            <div class="w-40 h-24 rounded bg-base-300 overflow-hidden">
+            <div class="w-40 h-24 rounded bg-admin-elevated overflow-hidden">
               <img
                 :if={video.mux_playback_id}
                 src={"https://image.mux.com/#{video.mux_playback_id}/thumbnail.webp?width=320&height=192"}
@@ -761,7 +761,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
             <p class="text-sm mt-1 truncate">{video.title}</p>
           </div>
         </div>
-        <div :if={@videos == []} class="py-4 text-center text-base-content/60">
+        <div :if={@videos == []} class="py-4 text-center text-admin-text-muted">
           No videos to preview.
         </div>
       </div>
@@ -782,34 +782,34 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
     ~H"""
     <div class="flex items-center justify-between pb-4">
       <div class="flex items-center gap-3">
-        <button phx-click="back_from_manage" class="btn btn-ghost btn-sm">← Back</button>
+        <button phx-click="back_from_manage" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary">← Back</button>
         <.header>{@row.title} — Items</.header>
       </div>
       <button
         :if={@can_manage}
         phx-click="open_video_picker"
-        class="btn btn-primary btn-sm"
+        class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
         data-test="add-videos-btn"
       >
         Add Videos
       </button>
     </div>
 
-    <div :if={@videos == []} class="py-8 text-center text-base-content/60">
+    <div :if={@videos == []} class="py-8 text-center text-admin-text-muted">
       <p>No items in this row yet.</p>
     </div>
 
     <div :if={@videos != []} class="space-y-2">
       <div
         :for={video <- @videos}
-        class="flex items-center gap-3 p-3 bg-base-200 rounded-lg"
+        class="flex items-center gap-3 p-3 bg-admin-bg rounded-lg"
       >
         <div class="flex-1 font-medium truncate">{video.title}</div>
         <div :if={@can_manage} class="flex gap-1">
           <button
             phx-click="remove_video_from_row"
             phx-value-video-id={video.id}
-            class="btn btn-xs btn-outline btn-error"
+            class="inline-flex items-center gap-1.5 rounded-md border border-error px-2 py-1 font-ui text-xs font-medium text-error hover:bg-error hover:text-admin-accent-text"
           >
             Remove
           </button>
@@ -821,26 +821,26 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
       :if={@show_video_picker}
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
-      <div class="bg-base-100 rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
+      <div class="bg-admin-surface rounded-lg p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">Add Videos</h3>
-          <button phx-click="close_video_picker" class="btn btn-ghost btn-sm" aria-label="Close">
+          <button phx-click="close_video_picker" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary" aria-label="Close">
             ✕
           </button>
         </div>
-        <div :if={@available_videos == []} class="py-4 text-center text-base-content/60">
+        <div :if={@available_videos == []} class="py-4 text-center text-admin-text-muted">
           All videos are already in this row.
         </div>
         <div :if={@available_videos != []} class="space-y-2">
           <div
             :for={video <- @available_videos}
-            class="flex items-center justify-between p-2 bg-base-200 rounded"
+            class="flex items-center justify-between p-2 bg-admin-bg rounded"
           >
             <span class="truncate">{video.title}</span>
             <button
               phx-click="add_video_to_row"
               phx-value-video-id={video.id}
-              class="btn btn-xs btn-primary"
+              class="inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-2 py-1 font-ui text-xs font-medium text-admin-accent-text hover:bg-admin-accent-hover"
             >
               Add
             </button>

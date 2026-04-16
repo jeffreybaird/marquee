@@ -86,7 +86,7 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
         <div class="flex flex-col gap-2">
           <.link
             navigate={~p"/admin/analytics/series/#{@series.id}"}
-            class="text-sm text-base-content/60 hover:underline"
+            class="text-sm text-admin-text-muted hover:underline"
           >
             &larr; Back to {@series.title}
           </.link>
@@ -112,27 +112,27 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
         </div>
 
         <section aria-label="Season overview" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-starters">
-            <p class="text-sm text-base-content/60">Starters</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-starters">
+            <p class="text-sm text-admin-text-muted">Starters</p>
             <p class="text-2xl font-bold mt-1">{@completion.starters}</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-finishers">
-            <p class="text-sm text-base-content/60">Finishers</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-finishers">
+            <p class="text-sm text-admin-text-muted">Finishers</p>
             <p class="text-2xl font-bold mt-1">{@completion.finishers}</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-completion-rate">
-            <p class="text-sm text-base-content/60">Completion rate</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-completion-rate">
+            <p class="text-sm text-admin-text-muted">Completion rate</p>
             <p class="text-2xl font-bold mt-1">{@completion.completion_rate}%</p>
           </div>
-          <div class="bg-base-200 rounded-xl p-5" data-test="kpi-drop-off-episode">
-            <p class="text-sm text-base-content/60">Drop-off episode</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-drop-off-episode">
+            <p class="text-sm text-admin-text-muted">Drop-off episode</p>
             <p class="text-2xl font-bold mt-1">{drop_off_label(@drop_off_episode)}</p>
           </div>
         </section>
 
         <section aria-label="Episode funnel">
           <h2 class="text-lg font-semibold mb-3">Episode funnel</h2>
-          <div class="bg-base-200 rounded-xl p-4 h-72">
+          <div class="bg-admin-bg rounded-xl p-4 h-72">
             <canvas
               :if={@funnel != []}
               id="episode-funnel-chart"
@@ -146,7 +146,7 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
             <p
               :if={@funnel == []}
               data-test="funnel-empty-state"
-              class="text-base-content/50 text-sm text-center py-12"
+              class="text-admin-text-muted text-sm text-center py-12"
             >
               This season has no episodes yet.
             </p>
@@ -155,9 +155,9 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
 
         <section aria-label="Next season">
           <h2 class="text-lg font-semibold mb-3">Continuation to next season</h2>
-          <div class="bg-base-200 rounded-xl p-5">
+          <div class="bg-admin-bg rounded-xl p-5">
             <div :if={@next_season.next_season_id} class="space-y-2">
-              <p class="text-sm text-base-content/60">
+              <p class="text-sm text-admin-text-muted">
                 {@next_season.next_season_starters} of {@next_season.eligible} viewers who completed this season reached 25% of the next season's first episode.
               </p>
               <p class="text-3xl font-bold" data-test="next-season-rate">
@@ -167,7 +167,7 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
             <p
               :if={is_nil(@next_season.next_season_id)}
               data-test="next-season-none"
-              class="text-base-content/60 text-sm"
+              class="text-admin-text-muted text-sm"
             >
               No next season in this series yet.
             </p>
@@ -185,10 +185,10 @@ defmodule BobineWeb.Admin.SeasonAnalyticsLive do
   end
 
   defp period_btn_class(current, value) when current == value do
-    "btn btn-sm btn-primary"
+    "inline-flex items-center gap-1.5 rounded-md bg-admin-accent px-3 py-1.5 font-ui text-sm font-medium text-admin-accent-text hover:bg-admin-accent-hover"
   end
 
   defp period_btn_class(_current, _value) do
-    "btn btn-sm btn-ghost"
+    "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
   end
 end

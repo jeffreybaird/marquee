@@ -152,7 +152,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
         <:actions>
           <button
             phx-click="export_csv"
-            class="btn btn-sm btn-outline"
+            class="inline-flex items-center gap-1.5 rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-ui text-sm font-medium text-admin-text-primary hover:border-admin-border-strong"
             data-test="export-csv-btn"
           >
             Export CSV
@@ -166,10 +166,10 @@ defmodule BobineWeb.Admin.AuditLogLive do
           filters={@filters}
         />
 
-        <div class="overflow-x-auto rounded-lg border border-base-300">
+        <div class="overflow-x-auto rounded-lg border border-admin-border">
           <table class="table w-full text-sm" data-test="audit-log-table">
             <thead>
-              <tr class="border-b border-base-300 bg-base-200">
+              <tr class="border-b border-admin-border bg-admin-bg">
                 <th class="px-4 py-3 text-left font-medium">Timestamp</th>
                 <th class="px-4 py-3 text-left font-medium">Actor</th>
                 <th class="px-4 py-3 text-left font-medium">Action</th>
@@ -186,7 +186,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
               <tr :if={@logs == []}>
                 <td
                   colspan="5"
-                  class="px-4 py-8 text-center text-base-content/50"
+                  class="px-4 py-8 text-center text-admin-text-muted"
                   data-test="empty-state"
                 >
                   No audit events found.
@@ -199,7 +199,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
         <div :if={@next_cursor} class="flex justify-center mt-4">
           <button
             phx-click="load_more"
-            class="btn btn-sm btn-ghost"
+            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
             data-test="load-more-btn"
           >
             Load more
@@ -217,13 +217,13 @@ defmodule BobineWeb.Admin.AuditLogLive do
     ~H"""
     <form phx-change="filter" phx-submit="filter" class="flex flex-wrap gap-3 items-end">
       <div>
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-action">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-action">
           Action
         </label>
         <select
           id="filter-action"
           name="action"
-          class="select select-sm select-bordered"
+          class="w-auto rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
           data-test="filter-action"
         >
           <option value="">All actions</option>
@@ -234,13 +234,13 @@ defmodule BobineWeb.Admin.AuditLogLive do
       </div>
 
       <div>
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-actor">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-actor">
           Actor
         </label>
         <select
           id="filter-actor"
           name="user_id"
-          class="select select-sm select-bordered"
+          class="w-auto rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
           data-test="filter-actor"
         >
           <option value="">All actors</option>
@@ -255,13 +255,13 @@ defmodule BobineWeb.Admin.AuditLogLive do
       </div>
 
       <div>
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-resource-type">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-resource-type">
           Resource Type
         </label>
         <select
           id="filter-resource-type"
           name="resource_type"
-          class="select select-sm select-bordered"
+          class="w-auto rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
           data-test="filter-resource-type"
         >
           <option value="">All types</option>
@@ -276,42 +276,42 @@ defmodule BobineWeb.Admin.AuditLogLive do
       </div>
 
       <div>
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-from">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-from">
           From
         </label>
         <input
           id="filter-from"
           type="date"
           name="from"
-          class="input input-sm input-bordered"
+          class="rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
           value={@filters[:from]}
           data-test="filter-from"
         />
       </div>
 
       <div>
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-to">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-to">
           To
         </label>
         <input
           id="filter-to"
           type="date"
           name="to"
-          class="input input-sm input-bordered"
+          class="rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none"
           value={@filters[:to]}
           data-test="filter-to"
         />
       </div>
 
       <div class="flex-1 min-w-40">
-        <label class="text-xs font-medium text-base-content/60 block mb-1" for="filter-search">
+        <label class="text-xs font-medium text-admin-text-muted block mb-1" for="filter-search">
           Search
         </label>
         <input
           id="filter-search"
           type="text"
           name="search"
-          class="input input-sm input-bordered w-full"
+          class="rounded-md border border-admin-border bg-admin-elevated px-3 py-1.5 font-body text-sm text-admin-text-primary focus:border-admin-accent focus:outline-none w-full"
           placeholder="Search actions or resource ID..."
           value={@filters[:search]}
           data-test="filter-search"
@@ -327,10 +327,10 @@ defmodule BobineWeb.Admin.AuditLogLive do
   defp log_row(assigns) do
     ~H"""
     <tr
-      class="border-b border-base-300 hover:bg-base-200/50"
+      class="border-b border-admin-border hover:bg-admin-elevated/50"
       data-test={"audit-log-row-#{@log.id}"}
     >
-      <td class="px-4 py-3 whitespace-nowrap text-xs text-base-content/60">
+      <td class="px-4 py-3 whitespace-nowrap text-xs text-admin-text-muted">
         {format_timestamp(@log.inserted_at)}
       </td>
       <td class="px-4 py-3">
@@ -338,19 +338,19 @@ defmodule BobineWeb.Admin.AuditLogLive do
           <button
             phx-click="filter_by_actor"
             phx-value-user_id={@log.user_id}
-            class="text-primary hover:underline text-sm"
+            class="text-admin-accent hover:underline text-sm"
             data-test={"actor-link-#{@log.id}"}
           >
             {@log.user.email}
           </button>
         </span>
-        <span :if={!@log.user} class="text-base-content/40 text-xs">system</span>
+        <span :if={!@log.user} class="text-admin-text-muted text-xs">system</span>
       </td>
       <td class="px-4 py-3">
         <button
           phx-click="filter_by_action"
           phx-value-action={@log.action}
-          class="font-mono text-xs bg-base-300 px-2 py-0.5 rounded hover:bg-base-300/80"
+          class="font-mono text-xs bg-admin-elevated px-2 py-0.5 rounded hover:opacity-80"
           data-test={"action-link-#{@log.id}"}
         >
           {@log.action}
@@ -358,7 +358,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
       </td>
       <td class="px-4 py-3 text-xs">
         <span class="font-medium">{@log.resource_type}</span>
-        <span :if={@log.resource_id} class="text-base-content/50 ml-1">
+        <span :if={@log.resource_id} class="text-admin-text-muted ml-1">
           {short_id(@log.resource_id)}
         </span>
       </td>
@@ -366,7 +366,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
         <button
           phx-click="toggle_expand"
           phx-value-id={@log.id}
-          class="btn btn-xs btn-ghost"
+          class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-ui text-xs font-medium text-admin-text-secondary hover:bg-admin-elevated hover:text-admin-text-primary"
           aria-label={if @expanded, do: "Collapse metadata", else: "Expand metadata"}
           data-test={"expand-btn-#{@log.id}"}
         >
@@ -375,7 +375,7 @@ defmodule BobineWeb.Admin.AuditLogLive do
       </td>
     </tr>
     <tr :if={@expanded} data-test={"metadata-row-#{@log.id}"}>
-      <td colspan="5" class="px-4 py-3 bg-base-200">
+      <td colspan="5" class="px-4 py-3 bg-admin-bg">
         <pre class="text-xs overflow-x-auto whitespace-pre-wrap break-all">
           {Jason.encode!(@log.metadata, pretty: true)}
         </pre>

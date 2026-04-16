@@ -122,7 +122,7 @@ defmodule BobineWeb.Admin.AnalyticsLiveTest do
       membership = insert(:membership, role: :admin)
       {:ok, _view, html} = live(conn_for(membership), ~p"/admin/analytics")
 
-      assert html =~ "btn-primary"
+      assert html =~ "bg-admin-accent"
     end
 
     test "selecting 90-day period updates active button" do
