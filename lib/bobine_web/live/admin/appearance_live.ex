@@ -396,22 +396,12 @@ defmodule BobineWeb.Admin.AppearanceLive do
             <section>
               <h2 class="text-xl font-semibold mb-4">Brand</h2>
               <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                  <.input
-                    field={@branding_form[:accent_color_base]}
-                    type="text"
-                    label="Accent color (oklch or hex)"
-                    placeholder="oklch(0.72 0.14 68)"
-                  />
-                  <div
-                    class="w-10 h-10 rounded-full border border-base-300"
-                    style={"background-color: " <> (@accent_preview || "transparent")}
-                    data-test="accent-swatch"
-                    aria-hidden="true"
-                    title="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
-                  >
-                  </div>
-                </div>
+                <.color_input
+                  form={@branding_form}
+                  field={:accent_color_base}
+                  label="Accent color"
+                  hint="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
+                />
 
                 <div style={display_font_style(@display_font_preview)}>
                   <.input
@@ -711,6 +701,21 @@ defmodule BobineWeb.Admin.AppearanceLive do
   attr :hint, :string, default: nil
 
   defp color_input(assigns) do
+    field = assigns.form[assigns.field]
+    raw_value = field.value
+
+    errors =
+      if Phoenix.Component.used_input?(field),
+        do: Enum.map(field.errors, &BobineWeb.CoreComponents.translate_error/1),
+        else: []
+
+    assigns =
+      assigns
+      |> assign(:input_name, field.name)
+      |> assign(:text_value, raw_value)
+      |> assign(:picker_value, to_hex_picker_value(raw_value))
+      |> assign(:errors, errors)
+
     ~H"""
     <div
       class="flex items-center gap-3"
@@ -733,22 +738,34 @@ defmodule BobineWeb.Admin.AppearanceLive do
       </label>
       <input
         type="color"
-        name={"theme[#{@field}]"}
-        value={Phoenix.HTML.Form.input_value(@form, @field) || "#000000"}
+        name={@input_name}
+        value={@picker_value}
         class="h-8 w-8 cursor-pointer rounded border border-base-300"
         title={@hint}
+        oninput="this.parentElement.querySelector('input[type=text]').value = this.value"
       />
       <input
         type="text"
-        name={"theme[#{@field}]"}
-        value={Phoenix.HTML.Form.input_value(@form, @field)}
+        name={@input_name}
+        value={@text_value}
         class="input input-bordered input-sm w-36"
         placeholder="#000000"
         title={@hint}
+        oninput="var p = this.parentElement.querySelector('input[type=color]'); if (/^#[0-9a-fA-F]{6}$/.test(this.value)) p.value = this.value"
       />
+      <p :for={msg <- @errors} class="text-sm text-red-500">{msg}</p>
     </div>
     """
   end
+
+  defp to_hex_picker_value(v) when is_binary(v) do
+    case Regex.run(~r/^#[0-9a-fA-F]{6}$/, v) do
+      [match] -> String.downcase(match)
+      _ -> "#000000"
+    end
+  end
+
+  defp to_hex_picker_value(_), do: "#000000"
 
   defp preset_card_class(name, selected, active) do
     cond do
