@@ -15,12 +15,11 @@
 import Chart from "../../vendor/chart.js"
 
 const AnalyticsChart = {
-  chart: null as InstanceType<typeof Chart> | null,
-  eventName: "",
-  handler: null as ((payload: ChartPayload) => void) | null,
-
   mounted() {
+    this.chart = null as InstanceType<typeof Chart> | null
     this.eventName = this.el.dataset.chartEvent || ""
+    this.handler = null as ((payload: ChartPayload) => void) | null
+
     if (!this.eventName) return
 
     this.handler = (payload: ChartPayload) => {
@@ -86,6 +85,8 @@ const AnalyticsChart = {
       this.chart.destroy()
       this.chart = null
     }
+    this.handler = null
+    this.eventName = ""
   },
 }
 
