@@ -241,7 +241,7 @@ defmodule Bobine.Accounts do
           |> Map.put(:organization_id, org.id)
           |> Branding.create_theme()
 
-        Bobine.Events.broadcast(nil, {:organization_created, org})
+        Bobine.Events.broadcast_platform(nil, {:organization_created, org})
         {:ok, org}
 
       {:error, changeset} ->

@@ -125,7 +125,7 @@ defmodule Bobine.Admin do
 
               seed_catalog_defaults(org, preset_name)
 
-              Events.broadcast(nil, {:organization_created, org})
+              Events.broadcast_platform(nil, {:organization_created, org})
               org
 
             {:error, changeset} ->
@@ -287,7 +287,7 @@ defmodule Bobine.Admin do
   """
   def grant_super_admin(%User{} = user) do
     with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: true}) |> Repo.update() do
-      Events.broadcast(nil, {:super_admin_granted, user})
+      Events.broadcast_platform(nil, {:super_admin_granted, user})
       {:ok, user}
     end
   end
@@ -301,7 +301,7 @@ defmodule Bobine.Admin do
   """
   def revoke_super_admin(%User{} = user) do
     with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: false}) |> Repo.update() do
-      Events.broadcast(nil, {:super_admin_revoked, user})
+      Events.broadcast_platform(nil, {:super_admin_revoked, user})
       {:ok, user}
     end
   end

@@ -15,13 +15,20 @@ defmodule BobineWeb.Viewer.BrowseLive do
   alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
 
+  # Default page size for the browse grid. Overridable via
+  # `config :bobine, :browse_per_page, <n>`. User-facing pagination UI is
+  # out of scope for this module — callers that need more results should
+  # raise the config, not bypass it.
+  @default_per_page 24
+
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns[:organization]
+    per_page = Application.get_env(:bobine, :browse_per_page, @default_per_page)
 
     if org do
-      %{results: videos} = Content.list_videos(org, per_page: 100)
-      %{results: tags} = Content.list_tags(org, per_page: 100)
+      %{results: videos} = Content.list_videos(org, per_page: per_page)
+      %{results: tags} = Content.list_tags(org, per_page: per_page)
 
       {:ok,
        socket

@@ -85,7 +85,7 @@ defmodule Bobine.PlatformBilling do
     Bobine.Otel.with_span "bobine.platform_billing.create_platform_plan" do
       with {:ok, plan} <- insert_platform_plan(attrs),
            {:ok, plan} <- sync_plan_to_stripe(plan) do
-        Events.broadcast(nil, {:platform_plan_created, plan})
+        Events.broadcast_platform(nil, {:platform_plan_created, plan})
         {:ok, plan}
       end
     end
@@ -248,7 +248,7 @@ defmodule Bobine.PlatformBilling do
       end)
       |> case do
         {:ok, updated} ->
-          Events.broadcast(nil, {:platform_plan_updated, updated})
+          Events.broadcast_platform(nil, {:platform_plan_updated, updated})
           {:ok, updated}
 
         {:error, {:validation, changeset}} ->
@@ -274,7 +274,7 @@ defmodule Bobine.PlatformBilling do
     Bobine.Otel.with_span "bobine.platform_billing.deactivate_platform_plan" do
       case plan |> PlatformPlan.changeset(%{active: false}) |> Repo.update() do
         {:ok, plan} ->
-          Events.broadcast(nil, {:platform_plan_deactivated, plan})
+          Events.broadcast_platform(nil, {:platform_plan_deactivated, plan})
           {:ok, plan}
 
         {:error, changeset} ->
@@ -411,7 +411,7 @@ defmodule Bobine.PlatformBilling do
       case %PlatformSubscription{} |> PlatformSubscription.changeset(attrs) |> Repo.insert() do
         {:ok, sub} ->
           Audit.log(nil, "platform_subscription.created", sub)
-          Events.broadcast(nil, {:platform_subscription_created, sub})
+          Events.broadcast_platform(nil, {:platform_subscription_created, sub})
           Bobine.Metrics.platform_subscription_created(organization.id, plan.slug)
           {:ok, sub}
 
@@ -469,7 +469,7 @@ defmodule Bobine.PlatformBilling do
       case sub |> PlatformSubscription.changeset(attrs) |> Repo.update() do
         {:ok, sub} ->
           Audit.log(nil, "platform_subscription.canceled", sub)
-          Events.broadcast(nil, {:platform_subscription_canceled, sub})
+          Events.broadcast_platform(nil, {:platform_subscription_canceled, sub})
           Bobine.Metrics.platform_subscription_canceled(sub.organization_id)
           {:ok, sub}
 
@@ -489,7 +489,7 @@ defmodule Bobine.PlatformBilling do
       case sub |> PlatformSubscription.changeset(%{status: :past_due}) |> Repo.update() do
         {:ok, sub} ->
           Audit.log(nil, "platform_subscription.payment_failed", sub)
-          Events.broadcast(nil, {:platform_payment_failed, sub})
+          Events.broadcast_platform(nil, {:platform_payment_failed, sub})
           {:ok, sub}
 
         {:error, changeset} ->

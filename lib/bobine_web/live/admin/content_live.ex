@@ -34,7 +34,6 @@ defmodule BobineWeb.Admin.ContentLive do
 
     if connected?(socket) do
       Events.subscribe(org.id)
-      Events.subscribe_global()
     end
 
     can_manage = Accounts.can_manage_content?(scope)

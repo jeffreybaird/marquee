@@ -141,7 +141,7 @@ config :bobine, Oban,
        {"*/15 * * * *", Bobine.Workers.DropOffAggregator}
      ]}
   ],
-  queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3, bulk: 5]
+  queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3]
 
 # OpenTelemetry
 config :opentelemetry,

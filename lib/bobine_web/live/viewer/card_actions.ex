@@ -131,7 +131,7 @@ defmodule BobineWeb.Viewer.CardActions do
     socket = Phoenix.Component.assign(socket, :favorited_ids, new_favorited)
 
     with {:ok, video} <- Content.get_video(org, video_id),
-         {:ok, _action} <- Engagement.toggle_favorite(org, viewer, video) do
+         {:ok, _id, _action} <- Engagement.toggle_favorite(org, viewer, video) do
       {:noreply, socket}
     else
       {:error, :not_found} ->
