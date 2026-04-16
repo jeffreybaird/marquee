@@ -95,7 +95,7 @@ defmodule BobineWeb.Viewer.WatchlistLive do
     video = %{id: video_id}
 
     case Engagement.toggle_favorite(org, viewer, video) do
-      {:ok, :removed} ->
+      {:ok, _id, :removed} ->
         favorites = Enum.reject(socket.assigns.favorites, &(&1.video_id == video_id))
         {:noreply, assign(socket, :favorites, favorites)}
 

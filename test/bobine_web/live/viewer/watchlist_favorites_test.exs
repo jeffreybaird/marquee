@@ -15,7 +15,7 @@ defmodule BobineWeb.Viewer.WatchlistFavoritesTest do
   describe "favorites tab" do
     test "shows favorited videos when tab is clicked", %{org: org, viewer: viewer} do
       video = insert(:video, organization: org, title: "Fav Video", mux_status: "ready")
-      {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
+      {:ok, _id, :added} = Engagement.toggle_favorite(org, viewer, video)
 
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watchlist")
       view |> element(~s([data-test="favorites-tab"])) |> render_click()
@@ -26,7 +26,7 @@ defmodule BobineWeb.Viewer.WatchlistFavoritesTest do
 
     test "unfavorite removes from favorites tab", %{org: org, viewer: viewer} do
       video = insert(:video, organization: org, title: "To Unfav", mux_status: "ready")
-      {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
+      {:ok, _id, :added} = Engagement.toggle_favorite(org, viewer, video)
 
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watchlist")
       view |> element(~s([data-test="favorites-tab"])) |> render_click()

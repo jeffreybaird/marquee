@@ -1058,60 +1058,71 @@ defmodule Bobine.Engagement do
 
   @doc """
   Toggles a favorite — adds if not favorited, removes if favorited.
-  Returns `{:ok, :added}` or `{:ok, :removed}`.
+
+  Returns `{:ok, favorite_id, :added | :removed}`. Callers that need the
+  loaded `%Favorite{}` struct call `get_favorite_for_viewer/3` separately;
+  keeping the read and write paths separable leaves replica routing
+  viable for the read side later.
 
   Exempt from doctest — hits the database.
   """
   def toggle_favorite(%Organization{id: org_id} = org, %{id: viewer_id} = viewer, video) do
     Bobine.Otel.with_span "bobine.engagement.toggle_favorite",
                           %{"bobine.org.id" => org_id} do
-      existing =
-        Favorite
-        |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
-        |> Repo.one()
+      existing = get_favorite_for_viewer(org, viewer, video)
+      {favorite_id, action} = apply_favorite_toggle(existing, org_id, viewer_id, video.id)
 
-      case existing do
-        %Favorite{deleted_at: nil} = fav ->
-          fav
-          |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-          |> Repo.update!()
+      Events.broadcast(
+        nil,
+        {favorite_event(action), %{organization: org, viewer: viewer, video: video}}
+      )
 
-          Events.broadcast(
-            nil,
-            {:favorite_removed, %{organization: org, viewer: viewer, video: video}}
-          )
-
-          {:ok, :removed}
-
-        %Favorite{deleted_at: _} = fav ->
-          fav
-          |> Ecto.Changeset.change(deleted_at: nil)
-          |> Repo.update!()
-
-          Events.broadcast(
-            nil,
-            {:favorite_added, %{organization: org, viewer: viewer, video: video}}
-          )
-
-          {:ok, :added}
-
-        nil ->
-          %Favorite{
-            organization_id: org_id,
-            viewer_id: viewer_id,
-            video_id: video.id
-          }
-          |> Repo.insert!()
-
-          Events.broadcast(
-            nil,
-            {:favorite_added, %{organization: org, viewer: viewer, video: video}}
-          )
-
-          {:ok, :added}
-      end
+      {:ok, favorite_id, action}
     end
   end
+
+  @doc """
+  Returns the `%Favorite{}` record for this viewer + video (including
+  soft-deleted rows), or `nil`. Pure read — safe to route to a replica.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_favorite_for_viewer(%Organization{id: org_id}, %{id: viewer_id}, video) do
+    Favorite
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id, video_id: ^video.id)
+    |> Repo.one()
+  end
+
+  defp apply_favorite_toggle(%Favorite{deleted_at: nil} = fav, _org_id, _viewer_id, _video_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    updated =
+      fav
+      |> Ecto.Changeset.change(deleted_at: now)
+      |> Repo.update!()
+
+    {updated.id, :removed}
+  end
+
+  defp apply_favorite_toggle(%Favorite{} = fav, _org_id, _viewer_id, _video_id) do
+    updated =
+      fav
+      |> Ecto.Changeset.change(deleted_at: nil)
+      |> Repo.update!()
+
+    {updated.id, :added}
+  end
+
+  defp apply_favorite_toggle(nil, org_id, viewer_id, video_id) do
+    inserted =
+      %Favorite{organization_id: org_id, viewer_id: viewer_id, video_id: video_id}
+      |> Repo.insert!()
+
+    {inserted.id, :added}
+  end
+
+  defp favorite_event(:added), do: :favorite_added
+  defp favorite_event(:removed), do: :favorite_removed
 
   @doc """
   Checks if a video is favorited by a viewer.

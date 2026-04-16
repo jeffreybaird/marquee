@@ -263,7 +263,7 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
       viewer: viewer,
       video: video
     } do
-      {:ok, :added} = Engagement.toggle_favorite(org, viewer, video)
+      {:ok, _id, :added} = Engagement.toggle_favorite(org, viewer, video)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ "hero-heart-solid"

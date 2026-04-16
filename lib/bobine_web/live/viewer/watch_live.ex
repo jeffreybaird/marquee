@@ -703,8 +703,8 @@ defmodule BobineWeb.Viewer.WatchLive do
     video = socket.assigns.video
 
     case Engagement.toggle_favorite(org, viewer, video) do
-      {:ok, :added} -> {:noreply, assign(socket, is_favorited: true)}
-      {:ok, :removed} -> {:noreply, assign(socket, is_favorited: false)}
+      {:ok, _id, :added} -> {:noreply, assign(socket, is_favorited: true)}
+      {:ok, _id, :removed} -> {:noreply, assign(socket, is_favorited: false)}
     end
   end
 
