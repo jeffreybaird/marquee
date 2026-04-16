@@ -11,7 +11,7 @@ defmodule Bobine.Events.AuditSubscriber do
 
   @impl true
   def init(:ok) do
-    Bobine.Events.subscribe_global()
+    Bobine.Events.subscribe_audit()
     {:ok, %{}}
   end
 

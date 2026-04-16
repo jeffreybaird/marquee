@@ -11,7 +11,7 @@ defmodule Bobine.EventsTest do
   alias Ecto.Adapters.SQL.Sandbox
 
   describe "broadcast/2" do
-    test "sends to org-specific and global PubSub topics" do
+    test "org-scoped events publish only to the org topic and the audit mirror" do
       org = insert(:organization)
       user = insert(:user)
       membership = insert(:membership, organization: org, user: user, role: :owner)
@@ -20,25 +20,19 @@ defmodule Bobine.EventsTest do
 
       Events.subscribe(org.id)
       Events.subscribe_global()
+      Events.subscribe_audit()
 
       Events.broadcast(scope, {:video_created, video})
 
-      # Should receive on org-specific topic
+      # Should land on the org-specific topic.
       assert_receive {:bobine_event, {:video_created, ^video}, ^scope}
-      # Should also receive on global topic
+      # Should land on the audit mirror topic.
       assert_receive {:bobine_event, {:video_created, ^video}, ^scope}
+      # Must NOT fan out to the platform topic.
+      refute_receive {:bobine_event, {:video_created, ^video}, ^scope}
     end
 
-    test "sends to global topic when scope has no org" do
-      Events.subscribe_global()
-
-      Events.broadcast(nil, {:system_action, %{id: "test"}})
-
-      assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
-      refute_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
-    end
-
-    test "routes to org topic via event payload when scope is nil" do
+    test "routes to org topic when scope is nil but the event payload names an org" do
       org = insert(:organization)
       video = insert(:video, organization: org)
 
@@ -48,6 +42,35 @@ defmodule Bobine.EventsTest do
       Events.broadcast(nil, {:queue_item_added, payload})
 
       assert_receive {:bobine_event, {:queue_item_added, ^payload}, nil}
+    end
+
+    test "falls through to broadcast_platform/2 when no org can be resolved" do
+      Events.subscribe_global()
+
+      Events.broadcast(nil, {:system_action, %{id: "test"}})
+
+      assert_receive {:bobine_event, {:system_action, %{id: "test"}}, nil}
+    end
+  end
+
+  describe "broadcast_platform/2" do
+    test "publishes to the global topic and to the audit mirror" do
+      Events.subscribe_global()
+      Events.subscribe_audit()
+
+      Events.broadcast_platform(nil, {:organization_created, %{id: "org-1"}})
+
+      assert_receive {:bobine_event, {:organization_created, %{id: "org-1"}}, nil}
+      assert_receive {:bobine_event, {:organization_created, %{id: "org-1"}}, nil}
+    end
+
+    test "does not reach org-specific topics" do
+      org = insert(:organization)
+      Events.subscribe(org.id)
+
+      Events.broadcast_platform(nil, {:super_admin_granted, %{id: "user-1"}})
+
+      refute_receive {:bobine_event, {:super_admin_granted, _}, _}
     end
   end
 
