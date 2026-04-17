@@ -69,6 +69,24 @@ defmodule Bobine.Accounts do
   end
 
   @doc """
+  Returns the `organization_id` for the given Stripe Connect account id,
+  or `nil` when no organization matches.
+
+  Intended for webhook routing before the tenant context is established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_stripe_connect_account_id(stripe_account_id)
+      when is_binary(stripe_account_id) do
+    Organization
+    |> where([o], o.stripe_connect_account_id == ^stripe_account_id)
+    |> select([o], o.id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_stripe_connect_account_id(_), do: nil
+
+  @doc """
   Gets the membership for a user in an organization.
 
   Returns `%Membership{}` if the user is a member, nil otherwise.

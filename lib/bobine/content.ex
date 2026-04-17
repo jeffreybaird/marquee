@@ -93,6 +93,42 @@ defmodule Bobine.Content do
   def get_video!(id), do: Repo.get!(Video, id)
 
   @doc """
+  Returns the `organization_id` for the video identified by its
+  Mux asset id, or `nil` when no video matches.
+
+  Cross-tenant lookup — intended for webhook routing when the tenant
+  context has not yet been established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_mux_asset_id(mux_asset_id) when is_binary(mux_asset_id) do
+    Video
+    |> where([v], v.mux_asset_id == ^mux_asset_id)
+    |> select([v], v.organization_id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_mux_asset_id(_), do: nil
+
+  @doc """
+  Returns the `organization_id` for the video identified by its
+  Mux upload id, or `nil` when no video matches.
+
+  Cross-tenant lookup — intended for webhook routing when the tenant
+  context has not yet been established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_mux_upload_id(mux_upload_id) when is_binary(mux_upload_id) do
+    Video
+    |> where([v], v.mux_upload_id == ^mux_upload_id)
+    |> select([v], v.organization_id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_mux_upload_id(_), do: nil
+
+  @doc """
   Returns a small related-video set for the watch page without running the
   paginator's extra count query. Results are cached briefly because the watch
   page reads this on both the initial HTTP render and the LiveView connect.
