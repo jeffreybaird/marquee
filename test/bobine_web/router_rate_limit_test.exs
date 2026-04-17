@@ -17,6 +17,7 @@ defmodule BobineWeb.RouterRateLimitTest do
   end
 
   describe "webhook rate limiting" do
+    @describetag :capture_log
     test "blocks /webhooks/mux after the per-IP limit is hit", %{conn: conn} do
       Application.put_env(:bobine, :mux_webhook_secret, "test-secret")
       on_exit(fn -> Application.delete_env(:bobine, :mux_webhook_secret) end)
