@@ -29,6 +29,7 @@ defmodule Bobine.Application do
         Bobine.Buffers.ProgressBuffer,
         Bobine.Events.AuditSubscriber,
         Bobine.Catalog.HeroCacheSubscriber,
+        Bobine.Branding.CacheSubscriber,
         # Start to serve requests, typically the last entry
         BobineWeb.Endpoint
       ]

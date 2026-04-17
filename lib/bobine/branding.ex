@@ -65,7 +65,6 @@ defmodule Bobine.Branding do
     Bobine.Otel.with_span "bobine.branding.create_theme", otel_scope_attrs(scope) do
       case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
         {:ok, theme} ->
-          invalidate_theme_cache(theme.organization_id)
           Events.broadcast(scope, {:theme_created, theme})
           {:ok, theme}
 
@@ -98,7 +97,6 @@ defmodule Bobine.Branding do
                           } do
       case theme |> Theme.changeset(attrs) |> Repo.update() do
         {:ok, theme} ->
-          invalidate_theme_cache(theme.organization_id)
           Events.broadcast(scope, {:theme_updated, theme})
           {:ok, theme}
 
@@ -128,7 +126,6 @@ defmodule Bobine.Branding do
                           } do
       case Repo.delete(theme) do
         {:ok, deleted_theme} ->
-          invalidate_theme_cache(deleted_theme.organization_id)
           Events.broadcast(scope, {:theme_deleted, deleted_theme})
           {:ok, deleted_theme}
 
@@ -272,10 +269,6 @@ defmodule Bobine.Branding do
        orgs: Enum.reverse(created),
        failed: Enum.reverse(failed)
      }}
-  end
-
-  defp invalidate_theme_cache(org_id) do
-    Cache.delete("theme:#{org_id}")
   end
 
   defp otel_scope_attrs(%{organization: %{id: id}}), do: %{"bobine.org.id" => id}
