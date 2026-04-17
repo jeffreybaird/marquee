@@ -76,6 +76,13 @@ defmodule Bobine.Release do
     IO.puts("")
   end
 
+  @doc """
+  Rolls the given repo back to the specified migration version.
+
+  Intended for use as a release command (`bin/bobine eval "Bobine.Release.rollback(Bobine.Repo, 20260101000000)"`).
+
+  Exempt from doctest — runs Ecto migrations.
+  """
   def rollback(repo, version) do
     load_app()
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
