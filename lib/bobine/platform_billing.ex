@@ -127,13 +127,50 @@ defmodule Bobine.PlatformBilling do
     original.name != updated.name || original.description != updated.description
   end
 
-  defp create_stripe_price(%PlatformPlan{} = plan, product_id) do
+  @doc """
+  Creates a Stripe Product from a platform plan's product attributes.
+
+  Returns `{:ok, stripe_product}` or `{:error, :stripe_error, reason}`.
+
+  Exempt from doctest — calls Stripe API.
+  """
+  def create_stripe_product(%PlatformPlan{} = plan) do
+    stripe_client().create_product(product_attributes(plan))
+  end
+
+  @doc """
+  Creates a Stripe Price on the given product for a platform plan.
+
+  Returns `{:ok, stripe_price}` or `{:error, :stripe_error, reason}`.
+
+  Exempt from doctest — calls Stripe API.
+  """
+  def create_stripe_price(%PlatformPlan{} = plan, product_id) do
     stripe_client().create_price(%{
       product: product_id,
       unit_amount: plan.amount,
       currency: plan.currency,
       recurring: %{interval: stripe_interval(plan.interval)}
     })
+  end
+
+  @doc """
+  Persists Stripe product + price IDs on a platform plan.
+
+  Returns `{:ok, plan}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def record_stripe_ids(%PlatformPlan{} = plan, %{product_id: product_id, price_id: price_id}) do
+    case plan
+         |> PlatformPlan.changeset(%{
+           stripe_product_id: product_id,
+           stripe_price_id: price_id
+         })
+         |> Repo.update() do
+      {:ok, updated} -> {:ok, updated}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   defp insert_platform_plan(attrs) do
@@ -143,16 +180,19 @@ defmodule Bobine.PlatformBilling do
     end
   end
 
-  defp sync_plan_to_stripe(%PlatformPlan{} = plan) do
-    with {:ok, product} <-
-           stripe_client().create_product(product_attributes(plan)),
+  @doc """
+  Composes the three-step Stripe sync flow: create product → create
+  price on that product → persist the returned IDs on the plan.
+
+  Returns `{:ok, plan}` on success or a tagged error tuple from the
+  failing step.
+
+  Exempt from doctest — calls Stripe API.
+  """
+  def sync_plan_to_stripe(%PlatformPlan{} = plan) do
+    with {:ok, product} <- create_stripe_product(plan),
          {:ok, price} <- create_stripe_price(plan, product.id) do
-      plan
-      |> PlatformPlan.changeset(%{
-        stripe_product_id: product.id,
-        stripe_price_id: price.id
-      })
-      |> Repo.update()
+      record_stripe_ids(plan, %{product_id: product.id, price_id: price.id})
     else
       {:error, :stripe_error, reason} ->
         Logger.error("Failed to sync plan to Stripe",
