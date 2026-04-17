@@ -36,10 +36,11 @@ defmodule Bobine.BrandingTest do
       %{org: insert(:organization)}
     end
 
-    test "list_themes/1 returns themes for the given organization" do
+    test "list_themes/2 returns paginated themes for the organization" do
       theme = theme_fixture()
       org = Bobine.Repo.get!(Bobine.Accounts.Organization, theme.organization_id)
-      assert Branding.list_themes(org) == [theme]
+      assert %{results: [found], total: 1} = Branding.list_themes(org)
+      assert found.id == theme.id
     end
 
     test "get_theme!/1 returns the theme with given id" do

@@ -34,7 +34,7 @@ defmodule BobineWeb.Admin.SettingsLive do
         {:noreply, redirect(socket, external: url)}
 
       {:error, :stripe_error, reason} ->
-        Logger.error("Stripe Connect onboarding failed reason=#{inspect(reason)}")
+        Logger.error("Stripe Connect onboarding failed", reason: inspect(reason))
 
         {:noreply,
          put_flash(socket, :error, "Could not start Stripe onboarding. Please try again.")}

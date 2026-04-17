@@ -12,14 +12,14 @@ defmodule Bobine.Branding do
   alias Bobine.Branding.Theme
 
   @doc """
-  Returns the list of themes for a given organization.
+  Returns a paginated list of themes for a given organization.
 
   Exempt from doctest — hits the database.
   """
-  def list_themes(%Bobine.Accounts.Organization{id: org_id}) do
+  def list_themes(%Bobine.Accounts.Organization{id: org_id}, opts \\ []) do
     Theme
     |> where([t], t.organization_id == ^org_id)
-    |> Repo.all()
+    |> Bobine.Pagination.paginate(opts)
   end
 
   @doc """

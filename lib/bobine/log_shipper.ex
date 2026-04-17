@@ -134,10 +134,10 @@ defmodule Bobine.LogShipper do
           :ok
 
         {:ok, %{status: status, body: body}} ->
-          Logger.warning("Loki push failed: #{status} #{inspect(body)}")
+          Logger.warning("Loki push failed", status: status, body: inspect(body))
 
         {:error, reason} ->
-          Logger.warning("Loki push error: #{inspect(reason)}")
+          Logger.warning("Loki push error", reason: inspect(reason))
       end
     end)
   end
