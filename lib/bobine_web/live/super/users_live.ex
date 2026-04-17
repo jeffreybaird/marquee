@@ -25,8 +25,9 @@ defmodule BobineWeb.Super.UsersLive do
   @impl true
   def handle_event("grant_super_admin", %{"id" => id}, socket) do
     user = find_user!(socket.assigns.users, id)
+    scope = socket.assigns.current_scope
 
-    case Admin.grant_super_admin(user) do
+    case Admin.grant_super_admin(scope, user) do
       {:ok, _} ->
         {:noreply,
          socket
@@ -59,8 +60,9 @@ defmodule BobineWeb.Super.UsersLive do
        |> assign(:confirm_revoke_id, nil)}
     else
       user = find_user!(socket.assigns.users, id)
+      scope = socket.assigns.current_scope
 
-      case Admin.revoke_super_admin(user) do
+      case Admin.revoke_super_admin(scope, user) do
         {:ok, _} ->
           {:noreply,
            socket

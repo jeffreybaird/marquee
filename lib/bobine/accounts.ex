@@ -241,7 +241,10 @@ defmodule Bobine.Accounts do
           |> Map.put(:organization_id, org.id)
           |> Branding.create_theme()
 
-        Bobine.Events.broadcast(nil, {:organization_created, org})
+        # Self-signup flow: no caller-provided scope yet. Use the freshly
+        # minted user + org so the broadcast attributes to them.
+        scope = %Bobine.Accounts.Scope{organization: org}
+        Bobine.Events.broadcast(scope, {:organization_created, org})
         {:ok, org}
 
       {:error, changeset} ->

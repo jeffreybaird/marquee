@@ -73,6 +73,9 @@ defmodule Bobine.Branding do
   @doc """
   Updates a theme.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   ## Examples
 
       iex> update_theme(theme, %{field: new_value})
@@ -82,11 +85,11 @@ defmodule Bobine.Branding do
       {:error, :validation, %Ecto.Changeset{}}
 
   """
-  def update_theme(%Theme{} = theme, attrs) do
+  def update_theme(scope \\ nil, %Theme{} = theme, attrs) do
     case theme |> Theme.changeset(attrs) |> Repo.update() do
       {:ok, theme} ->
         invalidate_theme_cache(theme.organization_id)
-        Events.broadcast(nil, {:theme_updated, theme})
+        Events.broadcast(scope, {:theme_updated, theme})
         {:ok, theme}
 
       {:error, changeset} ->

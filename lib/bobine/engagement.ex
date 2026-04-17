@@ -471,9 +471,12 @@ defmodule Bobine.Engagement do
   @doc """
   Clears the entire queue for a viewer.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def clear_queue(%Organization{id: org_id} = org, %{id: viewer_id} = viewer) do
+  def clear_queue(scope \\ nil, %Organization{id: org_id} = org, %{id: viewer_id} = viewer) do
     Bobine.Otel.with_span "bobine.engagement.clear_queue",
                           %{"bobine.org.id" => org_id} do
       from(q in QueueItem,
@@ -482,7 +485,11 @@ defmodule Bobine.Engagement do
       )
       |> Repo.delete_all()
 
-      Events.broadcast(nil, {:queue_cleared, %{organization: org, viewer: viewer}})
+      Events.broadcast(
+        scope || %{organization: org},
+        {:queue_cleared, %{organization: org, viewer: viewer}}
+      )
+
       :ok
     end
   end
@@ -642,12 +649,15 @@ defmodule Bobine.Engagement do
   @doc """
   Creates a watchlist_item.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_watchlist_item(attrs) do
+  def create_watchlist_item(scope \\ nil, attrs) do
     case %WatchlistItem{} |> WatchlistItem.changeset(attrs) |> Repo.insert() do
       {:ok, item} ->
-        Events.broadcast(nil, {:watchlist_item_added, item})
+        Events.broadcast(scope, {:watchlist_item_added, item})
         {:ok, item}
 
       {:error, changeset} ->
@@ -670,14 +680,17 @@ defmodule Bobine.Engagement do
   @doc """
   Soft-deletes a watchlist_item by setting `deleted_at`.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def delete_watchlist_item(%WatchlistItem{} = watchlist_item) do
+  def delete_watchlist_item(scope \\ nil, %WatchlistItem{} = watchlist_item) do
     with {:ok, item} <-
            watchlist_item
            |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
            |> Repo.update() do
-      Events.broadcast(nil, {:watchlist_item_removed, item})
+      Events.broadcast(scope, {:watchlist_item_removed, item})
       {:ok, item}
     end
   end

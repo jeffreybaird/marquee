@@ -722,7 +722,7 @@ defmodule BobineWeb.Admin.SeasonLive do
 
     with {:ok, video} <- Content.get_video(org, video_id) do
       _ = Content.remove_episode(scope, season, video)
-      _ = Content.delete_video(video)
+      _ = Content.delete_video(scope, video)
 
       if video.mux_asset_id do
         %{mux_asset_id: video.mux_asset_id, organization_id: org.id}

@@ -342,13 +342,16 @@ defmodule Bobine.Content do
   @doc """
   Creates a video.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_video(attrs) do
+  def create_video(scope \\ nil, attrs) do
     Bobine.Otel.with_span "bobine.content.create_video" do
       case %Video{} |> Video.changeset(attrs) |> Repo.insert() do
         {:ok, video} ->
-          Events.broadcast(nil, {:video_created, video})
+          Events.broadcast(scope, {:video_created, video})
           {:ok, video}
 
         {:error, changeset} ->
@@ -360,13 +363,16 @@ defmodule Bobine.Content do
   @doc """
   Updates a video.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def update_video(%Video{} = video, attrs) do
+  def update_video(scope \\ nil, %Video{} = video, attrs) do
     Bobine.Otel.with_span "bobine.content.update_video" do
       case video |> Video.changeset(attrs) |> Repo.update() do
         {:ok, video} ->
-          Events.broadcast(nil, {:video_updated, video})
+          Events.broadcast(scope, {:video_updated, video})
           {:ok, video}
 
         {:error, changeset} ->
@@ -378,9 +384,12 @@ defmodule Bobine.Content do
   @doc """
   Soft-deletes a video by setting `deleted_at`.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def delete_video(%Video{} = video) do
+  def delete_video(scope \\ nil, %Video{} = video) do
     Bobine.Otel.with_span "bobine.content.delete_video" do
       with {:ok, video} <-
              video
@@ -388,7 +397,7 @@ defmodule Bobine.Content do
                deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
              )
              |> Repo.update() do
-        Events.broadcast(nil, {:video_deleted, video})
+        Events.broadcast(scope, {:video_deleted, video})
         {:ok, video}
       end
     end

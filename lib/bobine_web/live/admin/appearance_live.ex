@@ -109,6 +109,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
   @impl true
   def handle_event("save_appearance", params, socket) do
     org = socket.assigns.organization
+    scope = socket.assigns.current_scope
     theme = socket.assigns.theme
 
     org_params = params |> Map.get("organization", %{}) |> maybe_derive_accent_variants()
@@ -116,7 +117,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
 
     with {:branding, {:ok, updated_org}} <-
            {:branding, Accounts.update_organization_branding(org, org_params)},
-         {:theme, {:ok, updated_theme}} <- {:theme, save_theme(theme, theme_params, org)} do
+         {:theme, {:ok, updated_theme}} <- {:theme, save_theme(scope, theme, theme_params, org)} do
       {:noreply,
        socket
        |> assign(:organization, updated_org)
@@ -137,11 +138,12 @@ defmodule BobineWeb.Admin.AppearanceLive do
     end
   end
 
-  defp save_theme(%Theme{id: nil}, params, %{id: org_id}) do
+  defp save_theme(_scope, %Theme{id: nil}, params, %{id: org_id}) do
     Branding.create_theme(Map.put(params, "organization_id", org_id))
   end
 
-  defp save_theme(%Theme{} = theme, params, _org), do: Branding.update_theme(theme, params)
+  defp save_theme(scope, %Theme{} = theme, params, _org),
+    do: Branding.update_theme(scope, theme, params)
 
   defp apply_preset(socket, scope, name, destructive: destructive) do
     seed_result =

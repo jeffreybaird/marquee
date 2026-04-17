@@ -90,13 +90,17 @@ defmodule Bobine.Admin do
   @doc """
   Creates a new organization and a default theme for it.
 
-  Returns `{:ok, organization}` or `{:error, changeset}`.
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
+  Returns `{:ok, organization}` or `{:error, :validation, changeset}`.
 
   Cross-tenant write — intentional.
 
   Exempt from doctest — hits the database.
   """
-  def create_organization(attrs) do
+  def create_organization(scope \\ nil, attrs) do
     Bobine.Otel.with_span "bobine.admin.create_organization" do
       preset_name =
         Map.get(attrs, "preset_name") || Map.get(attrs, :preset_name) || "catalog_cinema"
@@ -125,7 +129,7 @@ defmodule Bobine.Admin do
 
               seed_catalog_defaults(org, preset_name)
 
-              Events.broadcast(nil, {:organization_created, org})
+              Events.broadcast(scope, {:organization_created, org})
               org
 
             {:error, changeset} ->
@@ -281,13 +285,17 @@ defmodule Bobine.Admin do
   @doc """
   Grants super admin status to a user.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
   Returns `{:ok, user}` or `{:error, changeset}`.
 
   Exempt from doctest — hits the database.
   """
-  def grant_super_admin(%User{} = user) do
+  def grant_super_admin(scope \\ nil, %User{} = user) do
     with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: true}) |> Repo.update() do
-      Events.broadcast(nil, {:super_admin_granted, user})
+      Events.broadcast(scope, {:super_admin_granted, user})
       {:ok, user}
     end
   end
@@ -295,13 +303,17 @@ defmodule Bobine.Admin do
   @doc """
   Revokes super admin status from a user.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
   Returns `{:ok, user}` or `{:error, changeset}`.
 
   Exempt from doctest — hits the database.
   """
-  def revoke_super_admin(%User{} = user) do
+  def revoke_super_admin(scope \\ nil, %User{} = user) do
     with {:ok, user} <- user |> User.admin_changeset(%{is_super_admin: false}) |> Repo.update() do
-      Events.broadcast(nil, {:super_admin_revoked, user})
+      Events.broadcast(scope, {:super_admin_revoked, user})
       {:ok, user}
     end
   end

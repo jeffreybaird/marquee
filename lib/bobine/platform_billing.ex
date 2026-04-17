@@ -79,13 +79,17 @@ defmodule Bobine.PlatformBilling do
   @doc """
   Creates a platform plan.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
   Exempt from doctest — hits the database.
   """
-  def create_platform_plan(attrs) do
+  def create_platform_plan(scope \\ nil, attrs) do
     Bobine.Otel.with_span "bobine.platform_billing.create_platform_plan" do
       with {:ok, plan} <- insert_platform_plan(attrs),
            {:ok, plan} <- sync_plan_to_stripe(plan) do
-        Events.broadcast(nil, {:platform_plan_created, plan})
+        Events.broadcast(scope, {:platform_plan_created, plan})
         {:ok, plan}
       end
     end
@@ -233,9 +237,13 @@ defmodule Bobine.PlatformBilling do
   @doc """
   Updates a platform plan.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
   Exempt from doctest — hits the database.
   """
-  def update_platform_plan(%PlatformPlan{} = plan, attrs) do
+  def update_platform_plan(scope \\ nil, %PlatformPlan{} = plan, attrs) do
     Bobine.Otel.with_span "bobine.platform_billing.update_platform_plan" do
       Repo.transaction(fn ->
         with {:ok, updated} <- do_update_platform_plan(plan, attrs),
@@ -248,7 +256,7 @@ defmodule Bobine.PlatformBilling do
       end)
       |> case do
         {:ok, updated} ->
-          Events.broadcast(nil, {:platform_plan_updated, updated})
+          Events.broadcast(scope, {:platform_plan_updated, updated})
           {:ok, updated}
 
         {:error, {:validation, changeset}} ->
@@ -268,13 +276,17 @@ defmodule Bobine.PlatformBilling do
   @doc """
   Deactivates a platform plan, hiding it from plan selection.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting super admin. Platform-level
+  mutation: the scope has no organization.
+
   Exempt from doctest — hits the database.
   """
-  def deactivate_platform_plan(%PlatformPlan{} = plan) do
+  def deactivate_platform_plan(scope \\ nil, %PlatformPlan{} = plan) do
     Bobine.Otel.with_span "bobine.platform_billing.deactivate_platform_plan" do
       case plan |> PlatformPlan.changeset(%{active: false}) |> Repo.update() do
         {:ok, plan} ->
-          Events.broadcast(nil, {:platform_plan_deactivated, plan})
+          Events.broadcast(scope, {:platform_plan_deactivated, plan})
           {:ok, plan}
 
         {:error, changeset} ->
@@ -408,10 +420,12 @@ defmodule Bobine.PlatformBilling do
           DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
       }
 
+      scope = %Bobine.Accounts.Scope{organization: organization}
+
       case %PlatformSubscription{} |> PlatformSubscription.changeset(attrs) |> Repo.insert() do
         {:ok, sub} ->
-          Audit.log(nil, "platform_subscription.created", sub)
-          Events.broadcast(nil, {:platform_subscription_created, sub})
+          Audit.log(scope, "platform_subscription.created", sub)
+          Events.broadcast(scope, {:platform_subscription_created, sub})
           Bobine.Metrics.platform_subscription_created(organization.id, plan.slug)
           {:ok, sub}
 
@@ -468,8 +482,9 @@ defmodule Bobine.PlatformBilling do
 
       case sub |> PlatformSubscription.changeset(attrs) |> Repo.update() do
         {:ok, sub} ->
-          Audit.log(nil, "platform_subscription.canceled", sub)
-          Events.broadcast(nil, {:platform_subscription_canceled, sub})
+          scope = scope_for_subscription(sub)
+          Audit.log(scope, "platform_subscription.canceled", sub)
+          Events.broadcast(scope, {:platform_subscription_canceled, sub})
           Bobine.Metrics.platform_subscription_canceled(sub.organization_id)
           {:ok, sub}
 
@@ -488,8 +503,9 @@ defmodule Bobine.PlatformBilling do
     Bobine.Otel.with_span "bobine.platform_billing.mark_payment_failed" do
       case sub |> PlatformSubscription.changeset(%{status: :past_due}) |> Repo.update() do
         {:ok, sub} ->
-          Audit.log(nil, "platform_subscription.payment_failed", sub)
-          Events.broadcast(nil, {:platform_payment_failed, sub})
+          scope = scope_for_subscription(sub)
+          Audit.log(scope, "platform_subscription.payment_failed", sub)
+          Events.broadcast(scope, {:platform_payment_failed, sub})
           {:ok, sub}
 
         {:error, changeset} ->
@@ -507,12 +523,20 @@ defmodule Bobine.PlatformBilling do
     Bobine.Otel.with_span "bobine.platform_billing.mark_payment_succeeded" do
       case sub |> PlatformSubscription.changeset(%{status: :active}) |> Repo.update() do
         {:ok, sub} ->
-          Audit.log(nil, "platform_subscription.payment_succeeded", sub)
+          scope = scope_for_subscription(sub)
+          Audit.log(scope, "platform_subscription.payment_succeeded", sub)
           {:ok, sub}
 
         {:error, changeset} ->
           {:error, :validation, changeset}
       end
+    end
+  end
+
+  defp scope_for_subscription(%PlatformSubscription{organization_id: org_id}) do
+    case Repo.get(Organization, org_id) do
+      nil -> nil
+      org -> %Bobine.Accounts.Scope{organization: org}
     end
   end
 
