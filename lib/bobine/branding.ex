@@ -59,10 +59,11 @@ defmodule Bobine.Branding do
       {:error, :validation, %Ecto.Changeset{}}
 
   """
-  def create_theme(attrs) do
+  def create_theme(scope \\ nil, attrs) do
     case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
       {:ok, theme} ->
         invalidate_theme_cache(theme.organization_id)
+        Events.broadcast(scope, {:theme_created, theme})
         {:ok, theme}
 
       {:error, changeset} ->
@@ -109,10 +110,11 @@ defmodule Bobine.Branding do
       {:error, :validation, %Ecto.Changeset{}}
 
   """
-  def delete_theme(%Theme{} = theme) do
+  def delete_theme(scope \\ nil, %Theme{} = theme) do
     case Repo.delete(theme) do
       {:ok, deleted_theme} ->
         invalidate_theme_cache(deleted_theme.organization_id)
+        Events.broadcast(scope, {:theme_deleted, deleted_theme})
         {:ok, deleted_theme}
 
       {:error, %Ecto.Changeset{} = changeset} ->

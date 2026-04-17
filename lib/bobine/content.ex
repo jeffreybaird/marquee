@@ -453,12 +453,19 @@ defmodule Bobine.Content do
   @doc """
   Restores a soft-deleted video by clearing `deleted_at`.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def restore_video(%Video{} = video) do
+  def restore_video(scope \\ nil, %Video{} = video) do
     case video |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
-      {:ok, video} -> {:ok, video}
-      {:error, changeset} -> {:error, :validation, changeset}
+      {:ok, video} ->
+        Events.broadcast(scope, {:video_restored, video})
+        {:ok, video}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
   end
 
