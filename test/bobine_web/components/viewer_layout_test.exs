@@ -61,12 +61,24 @@ defmodule BobineWeb.Components.ViewerLayoutTest do
       refute html =~ ">Bobine<"
     end
 
-    test "navigation shows Sign In when no viewer session", %{conn: _conn} do
+    test "navigation shows Sign In for an unauthenticated visitor on the org landing page",
+         %{conn: _conn} do
       org = insert(:organization)
-      user = insert(:user)
-      membership = insert(:membership, organization: org, user: user)
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/")
+      # Seed a landing section so HomeLive renders the viewer_layout wrapper
+      # (empty landing sections render a minimal header without the viewer nav).
+      insert(:landing_section,
+        organization: org,
+        section_type: :header_text,
+        config: %{"headline" => "Welcome"},
+        visible: true
+      )
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "#{org.slug}.localhost")
+
+      {:ok, _view, html} = live(conn, ~p"/")
       assert html =~ ~s(data-test="sign-in-link")
     end
 
