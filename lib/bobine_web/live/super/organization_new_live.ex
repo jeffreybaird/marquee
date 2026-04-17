@@ -49,7 +49,9 @@ defmodule BobineWeb.Super.OrganizationNewLive do
 
   @impl true
   def handle_event("save", %{"org" => org_params, "owner_email" => owner_email}, socket) do
-    with {:ok, org} <- Admin.create_organization(org_params),
+    scope = socket.assigns.current_scope
+
+    with {:ok, org} <- Admin.create_organization(scope, org_params),
          {:ok, user} <- find_or_create_user(owner_email),
          {:ok, _membership} <- Admin.create_owner_membership(org, user) do
       {:noreply,

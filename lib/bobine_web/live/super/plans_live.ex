@@ -39,8 +39,9 @@ defmodule BobineWeb.Super.PlansLive do
 
   def handle_event("save_plan", %{"platform_plan" => plan_params}, socket) do
     plan = socket.assigns.editing_plan
+    scope = socket.assigns.current_scope
 
-    case PlatformBilling.update_platform_plan(plan, plan_params) do
+    case PlatformBilling.update_platform_plan(scope, plan, plan_params) do
       {:ok, _plan} ->
         {:noreply,
          socket
@@ -62,8 +63,9 @@ defmodule BobineWeb.Super.PlansLive do
 
   def handle_event("deactivate_plan", %{"id" => id}, socket) do
     plan = PlatformBilling.get_platform_plan!(id)
+    scope = socket.assigns.current_scope
 
-    case PlatformBilling.deactivate_platform_plan(plan) do
+    case PlatformBilling.deactivate_platform_plan(scope, plan) do
       {:ok, _plan} ->
         {:noreply,
          socket
@@ -81,7 +83,9 @@ defmodule BobineWeb.Super.PlansLive do
   end
 
   def handle_event("create_plan", %{"platform_plan" => plan_params}, socket) do
-    case PlatformBilling.create_platform_plan(plan_params) do
+    scope = socket.assigns.current_scope
+
+    case PlatformBilling.create_platform_plan(scope, plan_params) do
       {:ok, _plan} ->
         {:noreply,
          socket

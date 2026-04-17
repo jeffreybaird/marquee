@@ -76,12 +76,15 @@ defmodule Bobine.Billing do
   @doc """
   Creates a plan.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_plan(attrs) do
+  def create_plan(scope \\ nil, attrs) do
     case %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
       {:ok, plan} ->
-        Events.broadcast(nil, {:plan_created, plan})
+        Events.broadcast(scope, {:plan_created, plan})
         {:ok, plan}
 
       {:error, changeset} ->
@@ -92,12 +95,15 @@ defmodule Bobine.Billing do
   @doc """
   Updates a plan.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def update_plan(%Plan{} = plan, attrs) do
+  def update_plan(scope \\ nil, %Plan{} = plan, attrs) do
     case plan |> Plan.changeset(attrs) |> Repo.update() do
       {:ok, plan} ->
-        Events.broadcast(nil, {:plan_updated, plan})
+        Events.broadcast(scope, {:plan_updated, plan})
         {:ok, plan}
 
       {:error, changeset} ->
@@ -172,13 +178,16 @@ defmodule Bobine.Billing do
   @doc """
   Creates a subscription.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_subscription(attrs) do
+  def create_subscription(scope \\ nil, attrs) do
     Bobine.Otel.with_span "bobine.billing.create_subscription" do
       case %Subscription{} |> Subscription.changeset(attrs) |> Repo.insert() do
         {:ok, sub} ->
-          Events.broadcast(nil, {:subscription_created, sub})
+          Events.broadcast(scope, {:subscription_created, sub})
           {:ok, sub}
 
         {:error, changeset} ->
@@ -202,10 +211,18 @@ defmodule Bobine.Billing do
   @doc """
   Deletes a subscription.
 
+  Hard-deletes the subscription row and broadcasts a
+  `{:subscription_deleted, sub}` event so the audit subscriber can
+  record the action. Accepts an optional scope so the audit entry
+  attributes the action.
+
   Exempt from doctest — hits the database.
   """
-  def delete_subscription(%Subscription{} = subscription) do
-    Repo.delete(subscription)
+  def delete_subscription(scope \\ nil, %Subscription{} = subscription) do
+    with {:ok, deleted} <- Repo.delete(subscription) do
+      Events.broadcast(scope, {:subscription_deleted, deleted})
+      {:ok, deleted}
+    end
   end
 
   @doc """
@@ -247,9 +264,15 @@ defmodule Bobine.Billing do
             "active" => true
           })
 
-        case create_plan(plan_attrs) do
+        scope = %Bobine.Accounts.Scope{organization: org}
+
+        case create_plan(scope, plan_attrs) do
           {:ok, plan} ->
-            Audit.log(nil, "plan.created", plan, %{amount: plan.amount, interval: plan.interval})
+            Audit.log(scope, "plan.created", plan, %{
+              amount: plan.amount,
+              interval: plan.interval
+            })
+
             {:ok, plan}
 
           error ->
@@ -268,13 +291,15 @@ defmodule Bobine.Billing do
   def update_plan_with_stripe(%Organization{} = org, %Plan{} = plan, attrs) do
     Bobine.Otel.with_span "bobine.billing.update_plan",
                           %{"bobine.org.id" => org.id} do
+      scope = %Bobine.Accounts.Scope{organization: org}
+
       if price_changed?(plan, attrs) do
         with :ok <- ensure_stripe_connected(org),
              {:ok, new_price} <- create_connected_price(org, plan, attrs) do
-          update_plan(plan, Map.put(attrs, :stripe_price_id, new_price.id))
+          update_plan(scope, plan, Map.put(attrs, :stripe_price_id, new_price.id))
         end
       else
-        update_plan(plan, attrs)
+        update_plan(scope, plan, attrs)
       end
     end
   end

@@ -69,6 +69,24 @@ defmodule Bobine.Accounts do
   end
 
   @doc """
+  Returns the `organization_id` for the given Stripe Connect account id,
+  or `nil` when no organization matches.
+
+  Intended for webhook routing before the tenant context is established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_stripe_connect_account_id(stripe_account_id)
+      when is_binary(stripe_account_id) do
+    Organization
+    |> where([o], o.stripe_connect_account_id == ^stripe_account_id)
+    |> select([o], o.id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_stripe_connect_account_id(_), do: nil
+
+  @doc """
   Gets the membership for a user in an organization.
 
   Returns `%Membership{}` if the user is a member, nil otherwise.
@@ -173,7 +191,7 @@ defmodule Bobine.Accounts do
       {:ok, %User{}}
 
       iex> register_user(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def register_user(attrs) do
@@ -241,7 +259,11 @@ defmodule Bobine.Accounts do
           |> Map.put(:organization_id, org.id)
           |> Branding.create_theme()
 
-        Bobine.Events.broadcast_platform(nil, {:organization_created, org})
+        # Self-signup flow: no caller-provided scope yet. Use the freshly
+        # minted org so the broadcast attributes to it; routed platform-wide
+        # so super admin listeners receive the event.
+        scope = %Bobine.Accounts.Scope{organization: org}
+        Bobine.Events.broadcast_platform(scope, {:organization_created, org})
         {:ok, org}
 
       {:error, changeset} ->
@@ -412,7 +434,7 @@ defmodule Bobine.Accounts do
       {:ok, {%User{}, [...]}}
 
       iex> update_user_password(user, %{password: "too short"})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def update_user_password(user, attrs) do

@@ -56,7 +56,7 @@ defmodule Bobine.Branding do
       {:ok, %Theme{}}
 
       iex> create_theme(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def create_theme(attrs) do
@@ -73,20 +73,23 @@ defmodule Bobine.Branding do
   @doc """
   Updates a theme.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   ## Examples
 
       iex> update_theme(theme, %{field: new_value})
       {:ok, %Theme{}}
 
       iex> update_theme(theme, %{field: bad_value})
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
-  def update_theme(%Theme{} = theme, attrs) do
+  def update_theme(scope \\ nil, %Theme{} = theme, attrs) do
     case theme |> Theme.changeset(attrs) |> Repo.update() do
       {:ok, theme} ->
         invalidate_theme_cache(theme.organization_id)
-        Events.broadcast(nil, {:theme_updated, theme})
+        Events.broadcast(scope, {:theme_updated, theme})
         {:ok, theme}
 
       {:error, changeset} ->
@@ -103,7 +106,7 @@ defmodule Bobine.Branding do
       {:ok, %Theme{}}
 
       iex> delete_theme(theme)
-      {:error, %Ecto.Changeset{}}
+      {:error, :validation, %Ecto.Changeset{}}
 
   """
   def delete_theme(%Theme{} = theme) do
@@ -112,8 +115,8 @@ defmodule Bobine.Branding do
         invalidate_theme_cache(deleted_theme.organization_id)
         {:ok, deleted_theme}
 
-      other ->
-        other
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:error, :validation, changeset}
     end
   end
 

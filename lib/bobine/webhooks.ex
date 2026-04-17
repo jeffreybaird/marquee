@@ -56,12 +56,15 @@ defmodule Bobine.Webhooks do
   @doc """
   Creates a endpoint.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_endpoint(attrs) do
+  def create_endpoint(scope \\ nil, attrs) do
     case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
       {:ok, endpoint} ->
-        Events.broadcast(nil, {:endpoint_created, endpoint})
+        Events.broadcast(scope, {:endpoint_created, endpoint})
         {:ok, endpoint}
 
       {:error, changeset} ->
@@ -72,12 +75,15 @@ defmodule Bobine.Webhooks do
   @doc """
   Updates a endpoint.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def update_endpoint(%Endpoint{} = endpoint, attrs) do
+  def update_endpoint(scope \\ nil, %Endpoint{} = endpoint, attrs) do
     case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
       {:ok, endpoint} ->
-        Events.broadcast(nil, {:endpoint_updated, endpoint})
+        Events.broadcast(scope, {:endpoint_updated, endpoint})
         {:ok, endpoint}
 
       {:error, changeset} ->
@@ -88,14 +94,17 @@ defmodule Bobine.Webhooks do
   @doc """
   Soft-deletes an endpoint by setting `deleted_at`.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def delete_endpoint(%Endpoint{} = endpoint) do
+  def delete_endpoint(scope \\ nil, %Endpoint{} = endpoint) do
     with {:ok, endpoint} <-
            endpoint
            |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
            |> Repo.update() do
-      Events.broadcast(nil, {:endpoint_deleted, endpoint})
+      Events.broadcast(scope, {:endpoint_deleted, endpoint})
       {:ok, endpoint}
     end
   end

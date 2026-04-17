@@ -109,8 +109,12 @@ defmodule BobineWeb.Super.AuditLogLive do
     current_user = socket.assigns.current_user
     filters = socket.assigns.filters
 
+    # platform_job_reason: super-admin audit export crosses every tenant
+    # by design. `organization_id` is nil because this is a cross-tenant
+    # export; `platform_level: true` makes the queue audit explicit.
     %{}
     |> Map.put("organization_id", nil)
+    |> Map.put("platform_level", true)
     |> Map.put("scope", "platform")
     |> Map.put("filters", stringify_filters(filters))
     |> Map.put("user_id", current_user.id)

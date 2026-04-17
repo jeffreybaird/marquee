@@ -228,10 +228,11 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def handle_event("delete_video", %{"id" => id}, socket) do
     org = socket.assigns.organization
+    scope = socket.assigns.current_scope
 
     case Content.get_video(org, id) do
       {:ok, video} ->
-        {:ok, _} = Content.delete_video(video)
+        {:ok, _} = Content.delete_video(scope, video)
 
         if video.mux_asset_id do
           %{mux_asset_id: video.mux_asset_id, organization_id: org.id}
@@ -295,13 +296,14 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def handle_event("save_video", %{"video" => params}, socket) do
     video = socket.assigns.viewing_video
+    scope = socket.assigns.current_scope
 
     uploaded_thumbnail =
       ImageUploadHandlers.upload_url(socket, "video_thumbnail", video.id)
 
     params = maybe_put_custom_thumbnail_url(params, uploaded_thumbnail)
 
-    case Content.update_video(video, params) do
+    case Content.update_video(scope, video, params) do
       {:ok, updated} ->
         {:noreply,
          socket

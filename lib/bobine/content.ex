@@ -93,6 +93,42 @@ defmodule Bobine.Content do
   def get_video!(id), do: Repo.get!(Video, id)
 
   @doc """
+  Returns the `organization_id` for the video identified by its
+  Mux asset id, or `nil` when no video matches.
+
+  Cross-tenant lookup — intended for webhook routing when the tenant
+  context has not yet been established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_mux_asset_id(mux_asset_id) when is_binary(mux_asset_id) do
+    Video
+    |> where([v], v.mux_asset_id == ^mux_asset_id)
+    |> select([v], v.organization_id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_mux_asset_id(_), do: nil
+
+  @doc """
+  Returns the `organization_id` for the video identified by its
+  Mux upload id, or `nil` when no video matches.
+
+  Cross-tenant lookup — intended for webhook routing when the tenant
+  context has not yet been established.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization_id_by_mux_upload_id(mux_upload_id) when is_binary(mux_upload_id) do
+    Video
+    |> where([v], v.mux_upload_id == ^mux_upload_id)
+    |> select([v], v.organization_id)
+    |> Repo.one()
+  end
+
+  def get_organization_id_by_mux_upload_id(_), do: nil
+
+  @doc """
   Returns a small related-video set for the watch page without running the
   paginator's extra count query. Results are cached briefly because the watch
   page reads this on both the initial HTTP render and the LiveView connect.
@@ -342,13 +378,16 @@ defmodule Bobine.Content do
   @doc """
   Creates a video.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def create_video(attrs) do
+  def create_video(scope \\ nil, attrs) do
     Bobine.Otel.with_span "bobine.content.create_video" do
       case %Video{} |> Video.changeset(attrs) |> Repo.insert() do
         {:ok, video} ->
-          Events.broadcast(nil, {:video_created, video})
+          Events.broadcast(scope, {:video_created, video})
           {:ok, video}
 
         {:error, changeset} ->
@@ -360,13 +399,16 @@ defmodule Bobine.Content do
   @doc """
   Updates a video.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def update_video(%Video{} = video, attrs) do
+  def update_video(scope \\ nil, %Video{} = video, attrs) do
     Bobine.Otel.with_span "bobine.content.update_video" do
       case video |> Video.changeset(attrs) |> Repo.update() do
         {:ok, video} ->
-          Events.broadcast(nil, {:video_updated, video})
+          Events.broadcast(scope, {:video_updated, video})
           {:ok, video}
 
         {:error, changeset} ->
@@ -378,9 +420,12 @@ defmodule Bobine.Content do
   @doc """
   Soft-deletes a video by setting `deleted_at`.
 
+  Accepts an optional scope so the broadcast + audit subscriber can
+  attribute the action to the acting user/org.
+
   Exempt from doctest — hits the database.
   """
-  def delete_video(%Video{} = video) do
+  def delete_video(scope \\ nil, %Video{} = video) do
     Bobine.Otel.with_span "bobine.content.delete_video" do
       with {:ok, video} <-
              video
@@ -388,7 +433,7 @@ defmodule Bobine.Content do
                deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
              )
              |> Repo.update() do
-        Events.broadcast(nil, {:video_deleted, video})
+        Events.broadcast(scope, {:video_deleted, video})
         {:ok, video}
       end
     end

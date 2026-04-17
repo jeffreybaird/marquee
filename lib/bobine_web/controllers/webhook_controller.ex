@@ -118,16 +118,97 @@ defmodule BobineWeb.WebhookController do
   defp deep_destruct(other), do: other
 
   defp enqueue_mux_webhook(payload) do
-    %{payload: payload}
+    payload
+    |> mux_job_args()
     |> MuxWebhookProcessor.new()
     |> Oban.insert()
   end
 
   defp enqueue_stripe_webhook(event) do
-    %{event: event, event_id: event["id"]}
+    event
+    |> stripe_job_args()
     |> StripeWebhookProcessor.new()
     |> Oban.insert()
   end
+
+  # Resolve org_id from payload data. Mux passthrough carries our org_id
+  # when we set it on the upload. If not present, fall back to looking
+  # up the existing Video by asset id. When neither resolves, we tag the
+  # job as platform-level so the audit trail is explicit.
+  defp mux_job_args(payload) do
+    case resolve_mux_org_id(payload) do
+      nil ->
+        # platform_job_reason: Mux signed webhook before the asset was
+        # linked to a Bobine Video — e.g. upload.created events fire
+        # before we've inserted the video record. Processor will resolve
+        # org_id as soon as the asset/upload is linked.
+        %{payload: payload, platform_level: true}
+
+      org_id ->
+        %{payload: payload, organization_id: org_id}
+    end
+  end
+
+  defp stripe_job_args(event) do
+    case resolve_stripe_org_id(event) do
+      nil ->
+        # platform_job_reason: Stripe event for an unknown Connect
+        # account or a platform-level Bobine subscription event that
+        # does not map to a single tenant. Processor routes based on
+        # event type.
+        %{event: event, event_id: event["id"], platform_level: true}
+
+      org_id ->
+        %{event: event, event_id: event["id"], organization_id: org_id}
+    end
+  end
+
+  defp resolve_mux_org_id(payload) do
+    passthrough_org_id(payload) ||
+      asset_lookup_org_id(payload) ||
+      upload_lookup_org_id(payload)
+  end
+
+  defp passthrough_org_id(%{"data" => %{"passthrough" => pt}}) when is_binary(pt) do
+    decode_passthrough(pt)
+  end
+
+  defp passthrough_org_id(_), do: nil
+
+  defp decode_passthrough(pt) do
+    case Jason.decode(pt) do
+      {:ok, %{"organization_id" => id}} when is_binary(id) -> id
+      _ -> nil
+    end
+  end
+
+  defp asset_lookup_org_id(%{"data" => %{"id" => asset_id}}) when is_binary(asset_id) do
+    Bobine.Content.get_organization_id_by_mux_asset_id(asset_id)
+  end
+
+  defp asset_lookup_org_id(_), do: nil
+
+  defp upload_lookup_org_id(%{"data" => %{"upload_id" => upload_id}}) when is_binary(upload_id) do
+    Bobine.Content.get_organization_id_by_mux_upload_id(upload_id)
+  end
+
+  defp upload_lookup_org_id(_), do: nil
+
+  defp resolve_stripe_org_id(event) do
+    metadata_org_id(event) || connect_account_org_id(event)
+  end
+
+  defp metadata_org_id(%{"data" => %{"object" => %{"metadata" => %{"organization_id" => id}}}})
+       when is_binary(id),
+       do: id
+
+  defp metadata_org_id(_), do: nil
+
+  defp connect_account_org_id(%{"account" => acct}) when is_binary(acct) do
+    Bobine.Accounts.get_organization_id_by_stripe_connect_account_id(acct)
+  end
+
+  defp connect_account_org_id(_), do: nil
 
   defp req_header(conn, header), do: Plug.Conn.get_req_header(conn, header) |> List.first()
 
