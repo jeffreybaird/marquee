@@ -118,13 +118,15 @@ defmodule BobineWeb.WebhookController do
   defp deep_destruct(other), do: other
 
   defp enqueue_mux_webhook(payload) do
-    %{payload: payload}
+    %{"payload" => payload}
+    |> Bobine.Otel.put_trace_context()
     |> MuxWebhookProcessor.new()
     |> Oban.insert()
   end
 
   defp enqueue_stripe_webhook(event) do
-    %{event: event, event_id: event["id"]}
+    %{"event" => event, "event_id" => event["id"]}
+    |> Bobine.Otel.put_trace_context()
     |> StripeWebhookProcessor.new()
     |> Oban.insert()
   end

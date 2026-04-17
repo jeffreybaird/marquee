@@ -31,9 +31,14 @@ defmodule Bobine.Workers.DropOffAggregator do
   @return_window_minutes 60
 
   @impl true
-  def perform(%Oban.Job{attempt: attempt}) do
+  def perform(%Oban.Job{args: args, attempt: attempt}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
     Logger.metadata(worker: "DropOffAggregator")
-    Tracer.set_attributes([{"oban.attempt", attempt}])
+    # Cross-org batch aggregator — no single organization_id applies.
+    Tracer.set_attributes([
+      {"oban.attempt", attempt},
+      {"bobine.worker.platform_level", true}
+    ])
 
     Tracer.with_span "bobine.worker.drop_off_aggregator" do
       cutoff = DateTime.add(DateTime.utc_now(), -@return_window_minutes * 60, :second)

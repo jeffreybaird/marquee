@@ -20,7 +20,9 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   alias Bobine.Viewers
 
   @impl true
-  def perform(%Oban.Job{args: %{"event" => event}, attempt: attempt}) do
+  def perform(%Oban.Job{args: %{"event" => event} = args, attempt: attempt}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
+
     event_type = event["type"]
     data = event["data"]["object"]
     connect_account_id = event["account"]

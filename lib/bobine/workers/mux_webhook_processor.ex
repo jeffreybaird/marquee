@@ -15,8 +15,9 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
   alias Bobine.Content
 
   @impl true
-  def perform(%Oban.Job{args: %{"payload" => payload}}) do
-    Logger.metadata(event_type: payload["type"])
+  def perform(%Oban.Job{args: %{"payload" => payload} = args}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
+    Logger.metadata(event_type: payload["type"], worker: "MuxWebhookProcessor")
 
     Tracer.with_span "bobine.worker.mux_webhook_processor" do
       Tracer.set_attribute("mux.event_type", payload["type"])

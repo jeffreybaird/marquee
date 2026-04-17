@@ -23,9 +23,14 @@ defmodule Bobine.Workers.AnalyticsComputer do
   alias Bobine.Repo
 
   @impl true
-  def perform(%Oban.Job{args: %{"dispatch" => true}, attempt: attempt}) do
+  def perform(%Oban.Job{args: %{"dispatch" => true} = args, attempt: attempt}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
     Logger.metadata(worker: "AnalyticsComputer")
-    Tracer.set_attributes([{"oban.attempt", attempt}])
+    # Dispatcher is platform-level — it fans out to per-org jobs.
+    Tracer.set_attributes([
+      {"oban.attempt", attempt},
+      {"bobine.worker.platform_level", true}
+    ])
 
     Tracer.with_span "bobine.worker.analytics_computer.dispatch" do
       Organization
@@ -34,6 +39,7 @@ defmodule Bobine.Workers.AnalyticsComputer do
       |> Repo.all()
       |> Enum.each(fn org_id ->
         %{"organization_id" => org_id}
+        |> Bobine.Otel.put_trace_context()
         |> new()
         |> Oban.insert()
       end)
@@ -43,7 +49,8 @@ defmodule Bobine.Workers.AnalyticsComputer do
   end
 
   @impl true
-  def perform(%Oban.Job{args: %{"organization_id" => org_id}, attempt: attempt}) do
+  def perform(%Oban.Job{args: %{"organization_id" => org_id} = args, attempt: attempt}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
     Logger.metadata(org_id: org_id, worker: "AnalyticsComputer")
     Tracer.set_attributes([{"bobine.org.id", org_id}, {"oban.attempt", attempt}])
 

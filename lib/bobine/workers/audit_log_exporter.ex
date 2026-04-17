@@ -28,6 +28,8 @@ defmodule Bobine.Workers.AuditLogExporter do
         args: %{"user_id" => user_id} = args,
         attempt: attempt
       }) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
+
     org_id = args["organization_id"]
     scope = args["scope"] || "org"
     filters = parse_filters(args["filters"] || %{})
