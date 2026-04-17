@@ -140,7 +140,8 @@ defmodule Bobine.LandingPageTest do
           config: %{"headline" => "Second"}
         })
 
-      headlines = org |> LandingPage.list_landing_sections() |> Enum.map(& &1.config["headline"])
+      %{results: results} = LandingPage.list_landing_sections(org)
+      headlines = Enum.map(results, & &1.config["headline"])
       assert headlines == ["First", "Second", "Third"]
     end
 
@@ -158,7 +159,8 @@ defmodule Bobine.LandingPageTest do
           config: %{"headline" => "Hidden"}
         })
 
-      ids = org |> LandingPage.list_landing_sections() |> Enum.map(& &1.id)
+      %{results: results} = LandingPage.list_landing_sections(org)
+      ids = Enum.map(results, & &1.id)
       assert visible.id in ids
       refute hidden.id in ids
     end
@@ -171,8 +173,8 @@ defmodule Bobine.LandingPageTest do
         })
 
       other_org = insert(:organization)
-      assert LandingPage.list_landing_sections(other_org) == []
-      assert length(LandingPage.list_landing_sections(org)) == 1
+      assert %{results: []} = LandingPage.list_landing_sections(other_org)
+      assert %{results: [_only]} = LandingPage.list_landing_sections(org)
     end
   end
 
@@ -185,7 +187,7 @@ defmodule Bobine.LandingPageTest do
           config: %{"headline" => "Hidden"}
         })
 
-      assert [%{visible: false}] = LandingPage.list_landing_sections_admin(org)
+      assert %{results: [%{visible: false}]} = LandingPage.list_landing_sections_admin(org)
     end
 
     test "excludes soft-deleted sections", %{scope: scope, org: org} do
@@ -196,7 +198,7 @@ defmodule Bobine.LandingPageTest do
         })
 
       {:ok, _} = LandingPage.delete_landing_section(scope, section)
-      assert LandingPage.list_landing_sections_admin(org) == []
+      assert %{results: []} = LandingPage.list_landing_sections_admin(org)
     end
   end
 
@@ -267,7 +269,8 @@ defmodule Bobine.LandingPageTest do
 
       assert :ok = LandingPage.reorder_landing_sections(scope, [c.id, a.id, b.id])
 
-      headlines = org |> LandingPage.list_landing_sections() |> Enum.map(& &1.config["headline"])
+      %{results: results} = LandingPage.list_landing_sections(org)
+      headlines = Enum.map(results, & &1.config["headline"])
       assert headlines == ["C", "A", "B"]
     end
   end
@@ -379,8 +382,8 @@ defmodule Bobine.LandingPageTest do
     test "creates the default sections in order", %{scope: scope, org: org} do
       assert :ok = LandingPage.seed_default_landing_page(scope)
 
-      sections = LandingPage.list_landing_sections_admin(org)
-      assert length(sections) == 5
+      %{results: sections, total: total} = LandingPage.list_landing_sections_admin(org)
+      assert total == 5
       assert Enum.all?(sections, & &1.visible)
 
       types = Enum.map(sections, & &1.section_type)

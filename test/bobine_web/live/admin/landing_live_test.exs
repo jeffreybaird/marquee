@@ -39,8 +39,8 @@ defmodule BobineWeb.Admin.LandingLiveTest do
       membership = insert(:membership, role: :admin)
       {:ok, _view, _html} = live(conn_for(membership), ~p"/admin/landing")
 
-      sections = LandingPage.list_landing_sections_admin(membership.organization)
-      assert length(sections) == 5
+      %{total: total} = LandingPage.list_landing_sections_admin(membership.organization)
+      assert total == 5
     end
 
     test "does not re-seed if sections already exist" do
@@ -54,8 +54,8 @@ defmodule BobineWeb.Admin.LandingLiveTest do
         })
 
       {:ok, _view, _html} = live(conn_for(membership), ~p"/admin/landing")
-      sections = LandingPage.list_landing_sections_admin(membership.organization)
-      assert length(sections) == 1
+      %{total: total} = LandingPage.list_landing_sections_admin(membership.organization)
+      assert total == 1
     end
   end
 
@@ -105,7 +105,7 @@ defmodule BobineWeb.Admin.LandingLiveTest do
       |> element("#add-section-form")
       |> render_change(%{"section_type" => "marketing_copy"})
 
-      sections = LandingPage.list_landing_sections_admin(membership.organization)
+      %{results: sections} = LandingPage.list_landing_sections_admin(membership.organization)
       assert Enum.any?(sections, &(&1.section_type == :marketing_copy))
       assert has_element?(view, "[data-test=section-editor]")
     end
@@ -131,7 +131,7 @@ defmodule BobineWeb.Admin.LandingLiveTest do
 
         type = String.to_existing_atom(unquote(type_str))
 
-        sections = LandingPage.list_landing_sections_admin(membership.organization)
+        %{results: sections} = LandingPage.list_landing_sections_admin(membership.organization)
 
         assert Enum.any?(sections, &(&1.section_type == type)),
                "expected a #{unquote(type_str)} section to be created"
@@ -248,7 +248,7 @@ defmodule BobineWeb.Admin.LandingLiveTest do
       |> element("[data-test=section-item-#{first.id}] button[phx-click=move_down]")
       |> render_click()
 
-      sections = LandingPage.list_landing_sections_admin(membership.organization)
+      %{results: sections} = LandingPage.list_landing_sections_admin(membership.organization)
 
       headlines =
         sections

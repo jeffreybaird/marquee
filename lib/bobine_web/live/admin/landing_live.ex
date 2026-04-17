@@ -396,7 +396,7 @@ defmodule BobineWeb.Admin.LandingLive do
 
   defp load_sections(socket) do
     org = socket.assigns.organization
-    sections = LandingPage.list_landing_sections_admin(org)
+    %{results: sections} = LandingPage.list_landing_sections_admin(org, per_page: 100)
     assign(socket, sections: sections)
   end
 

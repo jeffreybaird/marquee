@@ -19,6 +19,7 @@ defmodule Bobine.LandingPage do
   alias Bobine.Content
   alias Bobine.Events
   alias Bobine.LandingPage.LandingSection
+  alias Bobine.Pagination
   alias Bobine.Repo
 
   require Bobine.Otel
@@ -28,31 +29,32 @@ defmodule Bobine.LandingPage do
   ## -----------------------------------------------------------------------
 
   @doc """
-  Lists visible, non-deleted landing sections for an organization, ordered by position.
+  Paginated list of visible, non-deleted landing sections for an organization,
+  ordered by position.
 
   Exempt from doctest — hits the database.
   """
-  def list_landing_sections(%Organization{id: org_id}) do
+  def list_landing_sections(%Organization{id: org_id}, opts \\ []) do
     LandingSection
     |> where(organization_id: ^org_id)
     |> where([s], is_nil(s.deleted_at))
     |> where([s], s.visible == true)
     |> order_by(asc: :position)
-    |> Repo.all()
+    |> Pagination.paginate(opts)
   end
 
   @doc """
-  Lists ALL landing sections (including hidden) for admin editing, ordered by position.
-  Excludes soft-deleted records.
+  Paginated list of ALL landing sections (including hidden) for admin editing,
+  ordered by position. Excludes soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_landing_sections_admin(%Organization{id: org_id}) do
+  def list_landing_sections_admin(%Organization{id: org_id}, opts \\ []) do
     LandingSection
     |> where(organization_id: ^org_id)
     |> where([s], is_nil(s.deleted_at))
     |> order_by(asc: :position)
-    |> Repo.all()
+    |> Pagination.paginate(opts)
   end
 
   @doc """
@@ -315,7 +317,7 @@ defmodule Bobine.LandingPage do
     %Organization{} = org = scope.organization
 
     case list_landing_sections_admin(org) do
-      [] ->
+      %{results: []} ->
         @default_sections
         |> Enum.with_index()
         |> Enum.each(fn {section, index} ->
