@@ -67,7 +67,9 @@ config :logger, :default_handler,
        :filename,
        :size,
        :spaces_key,
-       :raw_params
+       :raw_params,
+       :rejecting_webhook,
+       :body
      ]}
 
 # Production uploads should request Mux plus quality.

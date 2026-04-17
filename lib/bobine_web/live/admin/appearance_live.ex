@@ -252,7 +252,6 @@ defmodule BobineWeb.Admin.AppearanceLive do
   defp clamp(v, lo, hi), do: v |> max(lo) |> min(hi)
 
   defp format_number(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 3)
-  defp format_number(n), do: to_string(n)
 
   defp apply_theme_preview(%Theme{} = base, params) do
     Enum.reduce(params, base, fn {key, value}, acc ->

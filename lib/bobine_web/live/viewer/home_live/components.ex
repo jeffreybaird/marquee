@@ -11,6 +11,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
 
   use BobineWeb, :html
 
+  alias Bobine.Catalog.Row
   alias BobineWeb.Components.ViewerComponents
 
   attr :organization, :map, required: true
@@ -470,7 +471,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
     do: variant
 
   defp resolve_card_variant(%{source_type: source_type}) when not is_nil(source_type) do
-    row_type = Bobine.Catalog.Row.compat_row_type(source_type)
+    row_type = Row.compat_row_type(source_type)
     Map.get(@default_variant_by_row_type, row_type, "landscape_episode")
   end
 

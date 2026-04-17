@@ -17,7 +17,7 @@ defmodule Bobine.Catalog.SeedFromPresetTest do
       assert {:ok, :seeded, rows} =
                Catalog.seed_rows_from_preset_if_empty(scope, "catalog_cinema")
 
-      assert length(rows) > 0
+      assert rows != []
 
       %{results: stored} = Catalog.list_rows(org)
       source_types = stored |> Enum.map(& &1.source_type) |> Enum.sort()

@@ -364,17 +364,7 @@ defmodule BobineWeb.Admin.LandingLive do
         s.section_type == :hero_video and
           Map.get(s.config || %{}, "pending_video_id") == video_id
       end)
-      |> Enum.reduce(socket, fn section, acc ->
-        new_config =
-          section.config
-          |> Map.put("video_playback_id", pid)
-          |> Map.delete("pending_video_id")
-
-        case LandingPage.update_landing_section(scope, section, %{config: new_config}) do
-          {:ok, _} -> load_sections(acc)
-          _ -> acc
-        end
-      end)
+      |> Enum.reduce(socket, &apply_pending_video_update(&1, &2, scope, pid))
       |> maybe_refresh_edit_form(video_id, pid)
     end
   end
@@ -391,6 +381,18 @@ defmodule BobineWeb.Admin.LandingLive do
       assign(socket, :edit_form, form)
     else
       socket
+    end
+  end
+
+  defp apply_pending_video_update(section, acc, scope, pid) do
+    new_config =
+      section.config
+      |> Map.put("video_playback_id", pid)
+      |> Map.delete("pending_video_id")
+
+    case LandingPage.update_landing_section(scope, section, %{config: new_config}) do
+      {:ok, _} -> load_sections(acc)
+      _ -> acc
     end
   end
 

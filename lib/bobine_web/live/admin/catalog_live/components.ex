@@ -8,6 +8,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
 
   use BobineWeb, :html
 
+  alias Bobine.Catalog.Presets
+  alias Bobine.Catalog.Row
+
   @doc """
   Renders a label for a given source type atom.
 
@@ -45,9 +48,9 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   option so operators can clear the variant and fall back to default.
   """
   def card_variant_options(source_type) when is_atom(source_type) and not is_nil(source_type) do
-    row_type = Bobine.Catalog.Row.compat_row_type(source_type)
+    row_type = Row.compat_row_type(source_type)
 
-    variants = Bobine.Catalog.Presets.variants_for_row(row_type)
+    variants = Presets.variants_for_row(row_type)
 
     [{"Default", ""} | Enum.map(variants, &{card_variant_label(&1), Atom.to_string(&1)})]
   end

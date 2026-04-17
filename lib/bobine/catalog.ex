@@ -1054,7 +1054,7 @@ defmodule Bobine.Catalog do
         |> Enum.map(fn attrs -> create_row(scope, attrs) end)
 
       case Enum.split_with(inserted, &match?({:ok, _}, &1)) do
-        {oks, []} -> {:ok, :seeded, Enum.map(oks, fn {:ok, r} -> r end)}
+        {oks, []} -> {:ok, :seeded, Enum.map(oks, &unwrap_ok/1)}
         {_, [{:error, kind, cs} | _]} -> {:error, kind, cs}
       end
     else
@@ -1119,6 +1119,8 @@ defmodule Bobine.Catalog do
   defp preset_row_title(:creator_showcase), do: "Creators"
   defp preset_row_title(:editorial_spotlight), do: "Editor's picks"
   defp preset_row_title(other), do: other |> to_string() |> String.capitalize()
+
+  defp unwrap_ok({:ok, r}), do: r
 
   @doc """
   Subscribes the calling process to layout updates for an organization.

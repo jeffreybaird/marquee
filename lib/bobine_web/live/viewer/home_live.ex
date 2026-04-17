@@ -114,7 +114,7 @@ defmodule BobineWeb.Viewer.HomeLive do
 
   defp host_subdomain(host) do
     case String.split(host, ".") do
-      [first | rest] when length(rest) >= 1 ->
+      [first | rest] when rest != [] ->
         if Regex.match?(~r/^\d+$/, first), do: nil, else: first
 
       _ ->

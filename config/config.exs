@@ -142,7 +142,9 @@ config :logger, :default_formatter,
     :pending_count,
     :error_details,
     :messages,
-    :mux_upload_params
+    :mux_upload_params,
+    :rejecting_webhook,
+    :body
   ]
 
 # Configure Oban

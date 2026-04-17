@@ -203,11 +203,7 @@ defmodule BobineWeb.Admin.CatalogLive do
             {:noreply, socket |> load_rows() |> put_flash(:info, "Card variant updated.")}
 
           {:error, :validation, changeset} ->
-            msg =
-              changeset.errors
-              |> Enum.map_join("; ", fn {f, {m, _}} -> "#{f}: #{m}" end)
-
-            {:noreply, put_flash(socket, :error, msg)}
+            {:noreply, put_flash(socket, :error, format_changeset_errors(changeset))}
         end
 
       {:error, :not_found} ->
@@ -791,6 +787,10 @@ defmodule BobineWeb.Admin.CatalogLive do
   defp normalize_variant(""), do: nil
   defp normalize_variant(nil), do: nil
   defp normalize_variant(variant) when is_binary(variant), do: variant
+
+  defp format_changeset_errors(changeset) do
+    Enum.map_join(changeset.errors, "; ", fn {f, {m, _}} -> "#{f}: #{m}" end)
+  end
 
   defp open_hero_picker(socket) do
     org = socket.assigns.organization

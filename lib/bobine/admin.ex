@@ -28,7 +28,9 @@ defmodule Bobine.Admin do
 
   alias Bobine.Branding
   alias Bobine.Branding.Theme
+  alias Bobine.Catalog
   alias Bobine.Catalog.HeroSlide
+  alias Bobine.Catalog.Presets
   alias Bobine.Catalog.Row
   alias Bobine.Content.{Collection, CollectionItem, Episode, Season, Series, Tag, Video}
   alias Bobine.Engagement.{Favorite, Progress, WatchHistory, WatchlistItem}
@@ -150,15 +152,15 @@ defmodule Bobine.Admin do
   # bad preset can't roll back the org create.
   defp seed_catalog_defaults(org, preset_name) do
     name =
-      case Bobine.Catalog.Presets.get(preset_name) do
+      case Presets.get(preset_name) do
         {:ok, _} -> preset_name
         {:error, :not_found} -> "catalog_cinema"
       end
 
-    {:ok, _layout} = Bobine.Catalog.get_or_create_layout(%{org | preset_name: name})
+    {:ok, _layout} = Catalog.get_or_create_layout(%{org | preset_name: name})
 
     scope = %Bobine.Accounts.Scope{organization: org}
-    _ = Bobine.Catalog.seed_rows_from_preset_if_empty(scope, name)
+    _ = Catalog.seed_rows_from_preset_if_empty(scope, name)
 
     :ok
   end
