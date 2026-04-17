@@ -46,7 +46,7 @@ defmodule Bobine.Engagement.QueueSeasonTest do
 
       assert {:ok, 2} = Engagement.add_videos_to_queue_end(org, viewer, [v2, v3])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v1.id, v2.id, v3.id]
       assert Enum.map(queue, & &1.position) == [0, 1, 2]
     end
@@ -57,7 +57,7 @@ defmodule Bobine.Engagement.QueueSeasonTest do
 
       assert {:ok, 1} = Engagement.add_videos_to_queue_end(org, viewer, [v1, v2])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 2
     end
 
@@ -80,7 +80,7 @@ defmodule Bobine.Engagement.QueueSeasonTest do
 
       assert {:ok, 2} = Engagement.add_videos_to_queue_beginning(org, viewer, [v3, v4])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert Enum.map(queue, & &1.video_id) == [v3.id, v4.id, v1.id, v2.id]
       assert Enum.map(queue, & &1.position) == [0, 1, 2, 3]
     end
@@ -91,7 +91,7 @@ defmodule Bobine.Engagement.QueueSeasonTest do
 
       assert {:ok, 2} = Engagement.add_videos_to_queue_beginning(org, viewer, [v2, v3, v1])
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 3
       # v1 should still appear, originally last; the two new ones lead.
       assert Enum.map(queue, & &1.video_id) == [v2.id, v3.id, v1.id]

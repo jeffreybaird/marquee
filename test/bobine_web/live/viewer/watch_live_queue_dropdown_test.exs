@@ -101,7 +101,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
       |> element(~s([data-test="queue-add-end-#{season.id}"]))
       |> render_click()
 
-      queue = Engagement.list_queue(org, viewer)
+      %{results: queue} = Engagement.list_queue(org, viewer)
       assert length(queue) == 3
       assert Enum.map(queue, & &1.video_id) == Enum.map(vs, & &1.id)
     end
@@ -121,7 +121,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
       |> element(~s([data-test="queue-add-beginning-#{season.id}"]))
       |> render_click()
 
-      queue_ids = Engagement.list_queue(org, viewer) |> Enum.map(& &1.video_id)
+      queue_ids = Engagement.list_queue(org, viewer).results |> Enum.map(& &1.video_id)
       assert queue_ids == [v1.id, v2.id, v3.id, existing.id]
     end
   end
@@ -159,7 +159,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
       assert html =~ ~s(data-test="confirm-cancel")
 
       # Nothing should be queued yet — confirmation pending
-      assert Engagement.list_queue(org, viewer) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org, viewer)
     end
 
     test "'all episodes' adds every episode", %{conn: _conn} do
@@ -181,7 +181,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
       view |> element(~s([data-test="queue-add-end-#{season.id}"])) |> render_click()
       view |> element(~s([data-test="confirm-add-all"])) |> render_click()
 
-      queue_ids = Engagement.list_queue(org, viewer) |> Enum.map(& &1.video_id)
+      queue_ids = Engagement.list_queue(org, viewer).results |> Enum.map(& &1.video_id)
       assert v1.id in queue_ids
       assert v2.id in queue_ids
       assert v3.id in queue_ids
@@ -206,7 +206,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
       view |> element(~s([data-test="queue-add-end-#{season.id}"])) |> render_click()
       view |> element(~s([data-test="confirm-add-unwatched"])) |> render_click()
 
-      queue_ids = Engagement.list_queue(org, viewer) |> Enum.map(& &1.video_id)
+      queue_ids = Engagement.list_queue(org, viewer).results |> Enum.map(& &1.video_id)
       refute v1.id in queue_ids
       assert v2.id in queue_ids
       assert v3.id in queue_ids
@@ -236,7 +236,7 @@ defmodule BobineWeb.Viewer.WatchLiveQueueDropdownTest do
         |> render_click()
 
       refute html =~ ~s(data-test="queue-season-dialog")
-      assert Engagement.list_queue(org, viewer) == []
+      assert %{results: [], total: 0} = Engagement.list_queue(org, viewer)
     end
   end
 end

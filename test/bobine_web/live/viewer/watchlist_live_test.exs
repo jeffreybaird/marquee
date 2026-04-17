@@ -113,7 +113,7 @@ defmodule BobineWeb.Viewer.WatchlistLiveTest do
       render_hook(view, "reorder_queue", %{"ordered_ids" => [v2.id, v1.id]})
 
       # Verify reorder persisted
-      items = Bobine.Engagement.list_queue(org, viewer)
+      %{results: items} = Bobine.Engagement.list_queue(org, viewer)
       assert [first | _] = items
       assert first.video_id == v2.id
     end

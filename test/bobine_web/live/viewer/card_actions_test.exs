@@ -184,7 +184,7 @@ defmodule BobineWeb.Viewer.CardActionsTest do
 
       assert html =~ ~s(hero-queue-list-solid)
 
-      queue = Bobine.Engagement.list_queue(org, viewer)
+      %{results: queue} = Bobine.Engagement.list_queue(org, viewer)
       assert Enum.any?(queue, &(&1.video_id == video.id))
     end
 
