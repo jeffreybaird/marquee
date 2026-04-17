@@ -127,7 +127,22 @@ config :logger, :default_formatter,
     :filename,
     :size,
     :spaces_key,
-    :raw_params
+    :raw_params,
+    :count,
+    :kind,
+    :subject_id,
+    :video_id,
+    :key,
+    :entry,
+    :mux_asset_id,
+    :mux_upload_id,
+    :params,
+    :operation,
+    :metric_type,
+    :pending_count,
+    :error_details,
+    :messages,
+    :mux_upload_params
   ]
 
 # Configure Oban

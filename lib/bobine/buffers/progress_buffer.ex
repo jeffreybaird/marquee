@@ -121,7 +121,7 @@ defmodule Bobine.Buffers.ProgressBuffer do
     entries = :ets.tab2list(@table)
 
     if entries != [] do
-      Logger.debug("Flushing #{length(entries)} progress entries")
+      Logger.debug("Flushing progress entries", count: length(entries))
 
       Enum.each(entries, fn {key, entry, _ts} ->
         flush_entry_safely(key, entry)
@@ -175,9 +175,11 @@ defmodule Bobine.Buffers.ProgressBuffer do
   end
 
   defp do_flush_entry({kind, org_id, subject_id, video_id}, _entry) do
-    Logger.warning(
-      "Skipping unknown progress buffer entry kind=#{inspect(kind)} " <>
-        "org_id=#{org_id} subject_id=#{subject_id} video_id=#{video_id}"
+    Logger.warning("Skipping unknown progress buffer entry",
+      kind: inspect(kind),
+      org_id: org_id,
+      subject_id: subject_id,
+      video_id: video_id
     )
   end
 
@@ -198,10 +200,14 @@ defmodule Bobine.Buffers.ProgressBuffer do
     do_flush_entry(key, entry)
   rescue
     error ->
-      Logger.error(
-        "Failed to flush progress buffer key=#{inspect(key)} " <>
-          "entry=#{inspect(entry, pretty: true, limit: :infinity)} " <>
-          "error=#{inspect(error, pretty: true, limit: :infinity)}"
+      Logger.error("Failed to flush progress buffer",
+        org_id: org_id_from_key(key),
+        key: inspect(key),
+        entry: inspect(entry, pretty: true, limit: :infinity),
+        error: inspect(error, pretty: true, limit: :infinity)
       )
   end
+
+  defp org_id_from_key({_kind, org_id, _subject_id, _video_id}), do: org_id
+  defp org_id_from_key(_), do: nil
 end

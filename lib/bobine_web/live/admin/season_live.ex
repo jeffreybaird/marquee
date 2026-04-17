@@ -773,7 +773,8 @@ defmodule BobineWeb.Admin.SeasonLive do
       _ = Content.delete_video(scope, video)
 
       if video.mux_asset_id do
-        %{mux_asset_id: video.mux_asset_id, organization_id: org.id}
+        %{"mux_asset_id" => video.mux_asset_id, "organization_id" => org.id}
+        |> Bobine.Otel.put_trace_context()
         |> MuxAssetCleanup.new()
         |> Oban.insert()
       end

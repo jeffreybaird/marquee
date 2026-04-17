@@ -119,6 +119,7 @@ defmodule BobineWeb.Super.AuditLogLive do
     |> Map.put("filters", stringify_filters(filters))
     |> Map.put("user_id", current_user.id)
     |> Map.put("format", "csv")
+    |> Bobine.Otel.put_trace_context()
     |> AuditLogExporter.new()
     |> Oban.insert()
 

@@ -192,11 +192,11 @@ defmodule Bobine.Content do
 
     Bobine.Otel.with_span "bobine.content.create_upload_url",
                           %{"bobine.org.id" => scope.organization.id} do
-      Logger.info(
-        "Creating Mux direct upload organization_id=#{scope.organization.id} " <>
-          "user_id=#{scope.user.id} " <>
-          "title=#{inspect(attrs[:title] || attrs["title"])} " <>
-          "mux_upload_params=#{inspect(mux_upload_params, pretty: true, limit: :infinity)}"
+      Logger.info("Creating Mux direct upload",
+        org_id: scope.organization.id,
+        user_id: scope.user.id,
+        title: inspect(attrs[:title] || attrs["title"]),
+        mux_upload_params: inspect(mux_upload_params, pretty: true, limit: :infinity)
       )
 
       with {:ok, upload} <- mux_client().create_direct_upload(mux_upload_params),
@@ -206,12 +206,12 @@ defmodule Bobine.Content do
         {:ok, %{video: video, upload_url: upload_url_from(upload)}}
       else
         {:error, :mux_error, reason} = error ->
-          Logger.error(
-            "Failed to create Mux direct upload organization_id=#{scope.organization.id} " <>
-              "user_id=#{scope.user.id} " <>
-              "title=#{inspect(attrs[:title] || attrs["title"])} " <>
-              "reason=#{inspect(reason, pretty: true, limit: :infinity)} " <>
-              "mux_upload_params=#{inspect(mux_upload_params, pretty: true, limit: :infinity)}"
+          Logger.error("Failed to create Mux direct upload",
+            org_id: scope.organization.id,
+            user_id: scope.user.id,
+            title: inspect(attrs[:title] || attrs["title"]),
+            reason: inspect(reason, pretty: true, limit: :infinity),
+            mux_upload_params: inspect(mux_upload_params, pretty: true, limit: :infinity)
           )
 
           error
@@ -301,7 +301,7 @@ defmodule Bobine.Content do
     Bobine.Otel.with_span "bobine.content.link_upload_to_asset" do
       case Repo.get_by(Video, mux_upload_id: mux_upload_id) do
         nil ->
-          Logger.warning("No video found for mux_upload_id=#{mux_upload_id}")
+          Logger.warning("No video found for mux upload", mux_upload_id: mux_upload_id)
           {:error, :not_found}
 
         video ->
@@ -321,7 +321,10 @@ defmodule Bobine.Content do
     Bobine.Otel.with_span "bobine.content.mark_video_ready" do
       case Repo.get_by(Video, mux_asset_id: mux_asset_id) do
         nil ->
-          Logger.warning("No video found for mux_asset_id=#{mux_asset_id}")
+          Logger.warning("No video found for mux asset on ready",
+            mux_asset_id: mux_asset_id
+          )
+
           {:error, :not_found}
 
         video ->
@@ -354,7 +357,10 @@ defmodule Bobine.Content do
     Bobine.Otel.with_span "bobine.content.mark_video_errored" do
       case Repo.get_by(Video, mux_asset_id: mux_asset_id) do
         nil ->
-          Logger.warning("No video found for mux_asset_id=#{mux_asset_id}")
+          Logger.warning("No video found for mux asset on error",
+            mux_asset_id: mux_asset_id
+          )
+
           {:error, :not_found}
 
         video ->

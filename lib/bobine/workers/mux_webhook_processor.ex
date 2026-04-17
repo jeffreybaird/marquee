@@ -15,8 +15,9 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
   alias Bobine.Content
 
   @impl true
-  def perform(%Oban.Job{args: %{"payload" => payload}}) do
-    Logger.metadata(event_type: payload["type"])
+  def perform(%Oban.Job{args: %{"payload" => payload} = args}) do
+    Bobine.Otel.extract_trace_context(args["trace_context"])
+    Logger.metadata(event_type: payload["type"], worker: "MuxWebhookProcessor")
 
     Tracer.with_span "bobine.worker.mux_webhook_processor" do
       Tracer.set_attribute("mux.event_type", payload["type"])
@@ -31,8 +32,12 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
 
     if upload_id && asset_id do
       case Content.link_upload_to_asset(upload_id, asset_id) do
-        {:ok, _video} -> :ok
-        {:error, reason} -> {:error, reason}
+        {:ok, video} ->
+          attribute_to_org(video)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
       end
     else
       Logger.warning("Missing upload_id or asset_id in video.upload.asset_created",
@@ -57,8 +62,12 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
       }
 
       case Content.mark_video_ready(asset_id, metadata) do
-        {:ok, _video} -> :ok
-        {:error, reason} -> {:error, reason}
+        {:ok, video} ->
+          attribute_to_org(video)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
       end
     else
       Logger.warning("Missing asset_id in video.asset.ready", data: inspect(data))
@@ -75,14 +84,18 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
         type: get_in(data, ["errors", "type"])
       }
 
-      Logger.error(
-        "Mux asset errored asset_id=#{asset_id} " <>
-          "error_details=#{inspect(error_details, pretty: true, limit: :infinity)}"
+      Logger.error("Mux asset errored",
+        asset_id: asset_id,
+        error_details: inspect(error_details, pretty: true, limit: :infinity)
       )
 
       case Content.mark_video_errored(asset_id, error_details) do
-        {:ok, _video} -> :ok
-        {:error, reason} -> {:error, reason}
+        {:ok, video} ->
+          attribute_to_org(video)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
       end
     else
       :ok
@@ -93,4 +106,11 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     Logger.debug("Unhandled Mux webhook event", type: type)
     :ok
   end
+
+  defp attribute_to_org(%{organization_id: org_id}) when not is_nil(org_id) do
+    Logger.metadata(org_id: org_id)
+    Tracer.set_attributes([{"bobine.org.id", org_id}])
+  end
+
+  defp attribute_to_org(_), do: :ok
 end

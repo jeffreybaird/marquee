@@ -93,6 +93,37 @@ defmodule Bobine.Otel do
 
   def set_user_attributes(_), do: :ok
 
+  @doc """
+  Injects the current OpenTelemetry trace context into an Oban job args map
+  under the `"trace_context"` key so the worker can re-attach to the parent
+  trace.
+
+  Safe to call when OpenTelemetry is unavailable — returns the args map
+  unchanged.
+  """
+  def put_trace_context(args) when is_map(args) do
+    carrier = :otel_propagator_text_map.inject([])
+    Map.put(args, "trace_context", Map.new(carrier))
+  rescue
+    UndefinedFunctionError -> args
+  end
+
+  @doc """
+  Restores an OpenTelemetry trace context previously injected into Oban job
+  args by `put_trace_context/1`. Safe to call if the key is absent or
+  OpenTelemetry is unavailable.
+  """
+  def extract_trace_context(nil), do: :ok
+
+  def extract_trace_context(ctx) when is_map(ctx) do
+    :otel_propagator_text_map.extract(Enum.into(ctx, []))
+    :ok
+  rescue
+    UndefinedFunctionError -> :ok
+  end
+
+  def extract_trace_context(_), do: :ok
+
   defp safe_set_attribute(key, value) do
     Tracer.set_attribute(key, value)
   rescue
