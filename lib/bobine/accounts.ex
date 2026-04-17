@@ -314,7 +314,7 @@ defmodule Bobine.Accounts do
         {:ok, org}
 
       {:error, changeset} ->
-        {:error, changeset}
+        {:error, :validation, changeset}
     end
   end
 

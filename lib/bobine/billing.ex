@@ -104,9 +104,12 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def delete_plan(%Plan{} = plan) do
-    plan
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    case plan |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+      {:ok, plan} -> {:ok, plan}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -115,9 +118,10 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def restore_plan(%Plan{} = plan) do
-    plan
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case plan |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, plan} -> {:ok, plan}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -292,9 +296,10 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def deactivate_plan(%Plan{} = plan) do
-    plan
-    |> Ecto.Changeset.change(active: false)
-    |> Repo.update()
+    case plan |> Ecto.Changeset.change(active: false) |> Repo.update() do
+      {:ok, plan} -> {:ok, plan}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -303,9 +308,10 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def reactivate_plan(%Plan{} = plan) do
-    plan
-    |> Ecto.Changeset.change(active: true)
-    |> Repo.update()
+    case plan |> Ecto.Changeset.change(active: true) |> Repo.update() do
+      {:ok, plan} -> {:ok, plan}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -450,9 +456,10 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def deactivate_coupon(%Coupon{} = coupon) do
-    coupon
-    |> Ecto.Changeset.change(active: false)
-    |> Repo.update()
+    case coupon |> Ecto.Changeset.change(active: false) |> Repo.update() do
+      {:ok, coupon} -> {:ok, coupon}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -461,9 +468,12 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def delete_coupon(%Coupon{} = coupon) do
-    coupon
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    case coupon |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+      {:ok, coupon} -> {:ok, coupon}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """

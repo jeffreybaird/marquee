@@ -456,9 +456,10 @@ defmodule Bobine.Content do
   Exempt from doctest — hits the database.
   """
   def restore_video(%Video{} = video) do
-    video
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case video |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, video} -> {:ok, video}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """

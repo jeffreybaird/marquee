@@ -96,7 +96,7 @@ defmodule BobineWeb.Admin.PlansLive do
          |> assign(:plans, load_plans(org))
          |> put_flash(:info, "Plan deactivated.")}
 
-      {:error, _} ->
+      {:error, :validation, _} ->
         {:noreply, put_flash(socket, :error, "Could not deactivate plan.")}
     end
   end
@@ -113,7 +113,7 @@ defmodule BobineWeb.Admin.PlansLive do
          |> assign(:plans, load_plans(org))
          |> put_flash(:info, "Plan reactivated.")}
 
-      {:error, _} ->
+      {:error, :validation, _} ->
         {:noreply, put_flash(socket, :error, "Could not reactivate plan.")}
     end
   end

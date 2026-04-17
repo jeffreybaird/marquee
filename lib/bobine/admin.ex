@@ -191,9 +191,12 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def delete_organization(%Organization{} = organization) do
-    organization
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    case organization |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+      {:ok, org} -> {:ok, org}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
@@ -206,9 +209,10 @@ defmodule Bobine.Admin do
   Exempt from doctest — hits the database.
   """
   def restore_organization(%Organization{} = organization) do
-    organization
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case organization |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, org} -> {:ok, org}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   ## Memberships

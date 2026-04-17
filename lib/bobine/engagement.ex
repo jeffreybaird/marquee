@@ -721,9 +721,10 @@ defmodule Bobine.Engagement do
   Exempt from doctest — hits the database.
   """
   def restore_watchlist_item(%WatchlistItem{} = watchlist_item) do
-    watchlist_item
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case watchlist_item |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, item} -> {:ok, item}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """

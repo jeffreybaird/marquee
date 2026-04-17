@@ -115,9 +115,10 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def restore_endpoint(%Endpoint{} = endpoint) do
-    endpoint
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case endpoint |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, endpoint} -> {:ok, endpoint}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """

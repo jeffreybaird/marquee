@@ -87,7 +87,7 @@ defmodule BobineWeb.Admin.CouponsLive do
            |> assign(:coupons, load_coupons(org))
            |> put_flash(:info, "Coupon deactivated.")}
 
-        {:error, _} ->
+        {:error, :validation, _} ->
           {:noreply, put_flash(socket, :error, "Could not deactivate coupon.")}
       end
     else

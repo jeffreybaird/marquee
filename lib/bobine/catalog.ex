@@ -170,9 +170,10 @@ defmodule Bobine.Catalog do
   Exempt from doctest — hits the database.
   """
   def restore_row(%Row{} = row) do
-    row
-    |> Ecto.Changeset.change(deleted_at: nil)
-    |> Repo.update()
+    case row |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+      {:ok, row} -> {:ok, row}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   @doc """
