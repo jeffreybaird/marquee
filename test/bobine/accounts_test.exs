@@ -538,15 +538,21 @@ defmodule Bobine.AccountsTest do
   end
 
   describe "fetch_any_organization/0" do
+    test "returns {:error, :not_found} when no organizations exist" do
+      assert {:error, :not_found} = Accounts.fetch_any_organization()
+    end
+
     test "returns {:ok, org} when at least one organization exists" do
-      assert {:ok, %Bobine.Accounts.Organization{}} = Accounts.fetch_any_organization()
+      org = insert(:organization)
+      assert {:ok, found} = Accounts.fetch_any_organization()
+      assert found.id == org.id
     end
 
     test "returns the oldest organization" do
-      {:ok, oldest_before} = Accounts.fetch_any_organization()
+      oldest = insert(:organization)
       _newer = insert(:organization)
-      assert {:ok, oldest_after} = Accounts.fetch_any_organization()
-      assert oldest_after.id == oldest_before.id
+      assert {:ok, found} = Accounts.fetch_any_organization()
+      assert found.id == oldest.id
     end
   end
 
