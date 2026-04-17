@@ -388,6 +388,28 @@ defmodule Bobine.Catalog.CatalogTest do
       %{results: videos} = Catalog.list_row_items(org, row)
       assert videos == []
     end
+
+    test "removed item is soft-deleted, not hard-deleted", %{
+      scope: scope,
+      row: row,
+      video: video
+    } do
+      :ok = Catalog.remove_item_from_row(scope, row, video)
+
+      item =
+        Bobine.Repo.get_by!(Bobine.Catalog.RowItem, row_id: row.id, video_id: video.id)
+
+      assert item.deleted_at != nil
+    end
+
+    test "removing an already-removed item returns {:error, :not_found}", %{
+      scope: scope,
+      row: row,
+      video: video
+    } do
+      assert :ok = Catalog.remove_item_from_row(scope, row, video)
+      assert {:error, :not_found} = Catalog.remove_item_from_row(scope, row, video)
+    end
   end
 
   describe "list_row_items/3" do

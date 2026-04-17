@@ -277,8 +277,16 @@ defmodule Bobine.Catalog do
         nil ->
           {:error, :not_found}
 
+        %RowItem{deleted_at: %DateTime{}} ->
+          {:error, :not_found}
+
         item ->
-          case Repo.delete(item) do
+          now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+          item
+          |> Ecto.Changeset.change(deleted_at: now)
+          |> Repo.update()
+          |> case do
             {:ok, _} ->
               Events.broadcast(scope, {:row_item_removed, %{row: row, video: video}})
               Audit.log(scope, "row.item_removed", item)
