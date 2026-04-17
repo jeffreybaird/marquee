@@ -5,6 +5,11 @@ defmodule BobineWeb.RouterRateLimitTest do
   alias BobineWeb.Plugs.RateLimit
 
   setup do
+    # Global `rate_limit_disabled: true` in config/test.exs keeps the
+    # plug quiet for the broader suite. These tests exercise router
+    # wiring of the plug, so re-enable it for the duration.
+    Application.put_env(:bobine, :rate_limit_disabled, false)
+    on_exit(fn -> Application.put_env(:bobine, :rate_limit_disabled, true) end)
     # Ensure the plug's ETS table is clean so counters don't bleed between
     # cases (e.g. webhook tests that run in the same file).
     RateLimit.reset()

@@ -47,6 +47,11 @@ config :bobine, Oban, testing: :inline
 config :bobine, :mux_client, Bobine.Content.MockMuxClient
 config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
 
+# Disable the RateLimit plug globally in tests. The suite's shared
+# 127.0.0.1 counter otherwise breaches mid-run and yields flaky 429s.
+# The plug's own test file opts back in via Application.put_env/3.
+config :bobine, :rate_limit_disabled, true
+
 # Route Bobine.Storage through a Mox-backed stub in tests so no real
 # requests hit DigitalOcean Spaces.
 config :bobine, Bobine.Storage,

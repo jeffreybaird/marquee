@@ -47,6 +47,14 @@ defmodule BobineWeb.Plugs.RateLimit do
   Exempt from doctest — mutates ETS and the Plug.Conn.
   """
   def call(conn, opts) do
+    if Application.get_env(:bobine, :rate_limit_disabled, false) do
+      conn
+    else
+      do_call(conn, opts)
+    end
+  end
+
+  defp do_call(conn, opts) do
     bucket = Keyword.fetch!(opts, :bucket)
     limit = Keyword.get(opts, :limit, @default_limit)
     period = Keyword.get(opts, :period, @default_period)

@@ -7,6 +7,11 @@ defmodule BobineWeb.Plugs.RateLimitTest do
   doctest BobineWeb.Plugs.RateLimit
 
   setup do
+    # Global `rate_limit_disabled: true` in config/test.exs keeps the
+    # plug quiet for the broader suite. These tests exercise the plug
+    # directly, so re-enable it for the duration.
+    Application.put_env(:bobine, :rate_limit_disabled, false)
+    on_exit(fn -> Application.put_env(:bobine, :rate_limit_disabled, true) end)
     RateLimit.reset()
     :ok
   end
