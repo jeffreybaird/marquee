@@ -44,6 +44,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event("checkout.session.completed", session, nil) do
     org_id = get_in(session, ["metadata", "organization_id"])
     plan_id = get_in(session, ["metadata", "platform_plan_id"])
+    attribute_to_org(org_id)
 
     if is_nil(org_id) or is_nil(plan_id) do
       Logger.warning("Platform checkout missing metadata",
@@ -74,6 +75,8 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event("customer.subscription.updated", subscription_data, nil) do
     case PlatformBilling.get_subscription_by_stripe_id(subscription_data["id"]) do
       {:ok, sub} ->
+        attribute_to_org(sub.organization_id)
+
         {:ok, updated_sub} =
           PlatformBilling.update_subscription_from_stripe(sub, subscription_data)
 
@@ -98,6 +101,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event("customer.subscription.deleted", subscription_data, nil) do
     case PlatformBilling.get_subscription_by_stripe_id(subscription_data["id"]) do
       {:ok, sub} ->
+        attribute_to_org(sub.organization_id)
         org = Admin.get_organization!(sub.organization_id)
         PlatformBilling.cancel_subscription_from_stripe(sub)
         PlatformBilling.sync_features_to_plan(org, PlatformBilling.default_free_plan())
@@ -112,6 +116,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event("invoice.payment_failed", invoice, nil) do
     case PlatformBilling.get_subscription_by_stripe_id(invoice["subscription"]) do
       {:ok, sub} ->
+        attribute_to_org(sub.organization_id)
         PlatformBilling.mark_platform_payment_failed(sub)
         Bobine.Metrics.platform_payment_failed(sub.organization_id)
         Logger.warning("Platform payment failed", org_id: sub.organization_id)
@@ -125,6 +130,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event("invoice.payment_succeeded", invoice, nil) do
     case PlatformBilling.get_subscription_by_stripe_id(invoice["subscription"]) do
       {:ok, sub} ->
+        attribute_to_org(sub.organization_id)
         PlatformBilling.mark_platform_payment_succeeded(sub)
         :ok
 
@@ -140,7 +146,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
 
   defp handle_event("checkout.session.completed", session, connect_account_id)
        when not is_nil(connect_account_id) do
-    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+    with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, viewer} <- find_or_create_viewer_from_checkout(org, session),
          {:ok, subscription} <- Billing.create_subscription_from_checkout(org, viewer, session) do
       Billing.activate_viewer_subscription(org, viewer, subscription)
@@ -180,7 +186,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
 
   defp handle_event("customer.subscription.updated", data, connect_account_id)
        when not is_nil(connect_account_id) do
-    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+    with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, subscription} <- Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
       {:ok, updated} = Billing.update_subscription_from_stripe(org, subscription, data)
       viewer = Viewers.get_viewer!(org, updated.viewer_id)
@@ -199,7 +205,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
 
   defp handle_event("invoice.payment_failed", invoice, connect_account_id)
        when not is_nil(connect_account_id) do
-    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+    with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, subscription} <-
            Billing.get_viewer_subscription_by_stripe_id(org, invoice["subscription"]) do
       viewer = Viewers.get_viewer!(org, subscription.viewer_id)
@@ -219,7 +225,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
 
   defp handle_event("invoice.payment_succeeded", invoice, connect_account_id)
        when not is_nil(connect_account_id) do
-    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+    with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, subscription} <-
            Billing.get_viewer_subscription_by_stripe_id(org, invoice["subscription"]) do
       viewer = Viewers.get_viewer!(org, subscription.viewer_id)
@@ -232,7 +238,7 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
 
   defp handle_event("customer.subscription.deleted", data, connect_account_id)
        when not is_nil(connect_account_id) do
-    with {:ok, org} <- Accounts.get_organization_by_stripe_connect_id(connect_account_id),
+    with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, subscription} <- Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
       viewer = Viewers.get_viewer!(org, subscription.viewer_id)
       Billing.cancel_subscription_from_stripe(org, viewer, subscription)
@@ -304,4 +310,23 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   rescue
     Ecto.NoResultsError -> {:error, :not_found}
   end
+
+  defp resolve_connected_org(connect_account_id) do
+    case Accounts.get_organization_by_stripe_connect_id(connect_account_id) do
+      {:ok, org} ->
+        attribute_to_org(org.id)
+        {:ok, org}
+
+      error ->
+        error
+    end
+  end
+
+  defp attribute_to_org(org_id) when is_binary(org_id) do
+    Logger.metadata(org_id: org_id)
+    Tracer.set_attributes([{"bobine.org.id", org_id}])
+    :ok
+  end
+
+  defp attribute_to_org(_), do: :ok
 end
