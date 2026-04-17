@@ -69,13 +69,15 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def create_plan(scope \\ nil, attrs) do
-    case %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
-      {:ok, plan} ->
-        Events.broadcast(scope, {:plan_created, plan})
-        {:ok, plan}
+    Bobine.Otel.with_span "bobine.billing.create_plan", otel_attrs(scope) do
+      case %Plan{} |> Plan.changeset(attrs) |> Repo.insert() do
+        {:ok, plan} ->
+          Events.broadcast(scope, {:plan_created, plan})
+          {:ok, plan}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -88,13 +90,16 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def update_plan(scope \\ nil, %Plan{} = plan, attrs) do
-    case plan |> Plan.changeset(attrs) |> Repo.update() do
-      {:ok, plan} ->
-        Events.broadcast(scope, {:plan_updated, plan})
-        {:ok, plan}
+    Bobine.Otel.with_span "bobine.billing.update_plan",
+                          plan |> otel_attrs_for_plan(scope) do
+      case plan |> Plan.changeset(attrs) |> Repo.update() do
+        {:ok, plan} ->
+          Events.broadcast(scope, {:plan_updated, plan})
+          {:ok, plan}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -104,11 +109,13 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def delete_plan(%Plan{} = plan) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    Bobine.Otel.with_span "bobine.billing.delete_plan", otel_attrs_for_plan(plan, nil) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    case plan |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
-      {:ok, plan} -> {:ok, plan}
-      {:error, changeset} -> {:error, :validation, changeset}
+      case plan |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+        {:ok, plan} -> {:ok, plan}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -118,9 +125,11 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def restore_plan(%Plan{} = plan) do
-    case plan |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
-      {:ok, plan} -> {:ok, plan}
-      {:error, changeset} -> {:error, :validation, changeset}
+    Bobine.Otel.with_span "bobine.billing.restore_plan", otel_attrs_for_plan(plan, nil) do
+      case plan |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+        {:ok, plan} -> {:ok, plan}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -187,9 +196,12 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def update_subscription(%Subscription{} = subscription, attrs) do
-    case subscription |> Subscription.changeset(attrs) |> Repo.update() do
-      {:ok, sub} -> {:ok, sub}
-      {:error, changeset} -> {:error, :validation, changeset}
+    Bobine.Otel.with_span "bobine.billing.update_subscription",
+                          %{"bobine.org.id" => subscription.organization_id} do
+      case subscription |> Subscription.changeset(attrs) |> Repo.update() do
+        {:ok, sub} -> {:ok, sub}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -204,9 +216,16 @@ defmodule Bobine.Billing do
   Exempt from doctest — hits the database.
   """
   def delete_subscription(scope \\ nil, %Subscription{} = subscription) do
-    with {:ok, deleted} <- Repo.delete(subscription) do
-      Events.broadcast(scope, {:subscription_deleted, deleted})
-      {:ok, deleted}
+    Bobine.Otel.with_span "bobine.billing.delete_subscription",
+                          %{"bobine.org.id" => subscription.organization_id} do
+      case Repo.delete(subscription) do
+        {:ok, deleted} ->
+          Events.broadcast(scope, {:subscription_deleted, deleted})
+          {:ok, deleted}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -958,6 +977,12 @@ defmodule Bobine.Billing do
         {:error, :stripe_error, reason}
     end
   end
+
+  defp otel_attrs(%{organization: %{id: id}}), do: %{"bobine.org.id" => id}
+  defp otel_attrs(_), do: %{}
+
+  defp otel_attrs_for_plan(%Plan{organization_id: id, id: plan_id}, _scope),
+    do: %{"bobine.org.id" => id, "bobine.plan.id" => plan_id}
 
   defp stripe_client,
     do: Application.get_env(:bobine, :stripe_client, Bobine.Billing.StripeClient)

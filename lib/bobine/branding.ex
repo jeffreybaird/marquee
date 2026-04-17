@@ -11,6 +11,8 @@ defmodule Bobine.Branding do
 
   alias Bobine.Branding.Theme
 
+  require Bobine.Otel
+
   @doc """
   Returns a paginated list of themes for a given organization.
 
@@ -60,14 +62,16 @@ defmodule Bobine.Branding do
 
   """
   def create_theme(scope \\ nil, attrs) do
-    case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
-      {:ok, theme} ->
-        invalidate_theme_cache(theme.organization_id)
-        Events.broadcast(scope, {:theme_created, theme})
-        {:ok, theme}
+    Bobine.Otel.with_span "bobine.branding.create_theme", otel_scope_attrs(scope) do
+      case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
+        {:ok, theme} ->
+          invalidate_theme_cache(theme.organization_id)
+          Events.broadcast(scope, {:theme_created, theme})
+          {:ok, theme}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -87,14 +91,20 @@ defmodule Bobine.Branding do
 
   """
   def update_theme(scope \\ nil, %Theme{} = theme, attrs) do
-    case theme |> Theme.changeset(attrs) |> Repo.update() do
-      {:ok, theme} ->
-        invalidate_theme_cache(theme.organization_id)
-        Events.broadcast(scope, {:theme_updated, theme})
-        {:ok, theme}
+    Bobine.Otel.with_span "bobine.branding.update_theme",
+                          %{
+                            "bobine.org.id" => theme.organization_id,
+                            "bobine.theme.id" => theme.id
+                          } do
+      case theme |> Theme.changeset(attrs) |> Repo.update() do
+        {:ok, theme} ->
+          invalidate_theme_cache(theme.organization_id)
+          Events.broadcast(scope, {:theme_updated, theme})
+          {:ok, theme}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -111,14 +121,20 @@ defmodule Bobine.Branding do
 
   """
   def delete_theme(scope \\ nil, %Theme{} = theme) do
-    case Repo.delete(theme) do
-      {:ok, deleted_theme} ->
-        invalidate_theme_cache(deleted_theme.organization_id)
-        Events.broadcast(scope, {:theme_deleted, deleted_theme})
-        {:ok, deleted_theme}
+    Bobine.Otel.with_span "bobine.branding.delete_theme",
+                          %{
+                            "bobine.org.id" => theme.organization_id,
+                            "bobine.theme.id" => theme.id
+                          } do
+      case Repo.delete(theme) do
+        {:ok, deleted_theme} ->
+          invalidate_theme_cache(deleted_theme.organization_id)
+          Events.broadcast(scope, {:theme_deleted, deleted_theme})
+          {:ok, deleted_theme}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:error, :validation, changeset}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -261,4 +277,7 @@ defmodule Bobine.Branding do
   defp invalidate_theme_cache(org_id) do
     Cache.delete("theme:#{org_id}")
   end
+
+  defp otel_scope_attrs(%{organization: %{id: id}}), do: %{"bobine.org.id" => id}
+  defp otel_scope_attrs(_), do: %{}
 end

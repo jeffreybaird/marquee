@@ -11,6 +11,8 @@ defmodule Bobine.Webhooks do
 
   alias Bobine.Webhooks.Endpoint
 
+  require Bobine.Otel
+
   @doc """
   Returns a paginated list of webhook_endpoints for an organization,
   excluding soft-deleted records.
@@ -62,13 +64,15 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def create_endpoint(scope \\ nil, attrs) do
-    case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
-      {:ok, endpoint} ->
-        Events.broadcast(scope, {:endpoint_created, endpoint})
-        {:ok, endpoint}
+    Bobine.Otel.with_span "bobine.webhooks.create_endpoint", otel_scope_attrs(scope) do
+      case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
+        {:ok, endpoint} ->
+          Events.broadcast(scope, {:endpoint_created, endpoint})
+          {:ok, endpoint}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -81,13 +85,19 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def update_endpoint(scope \\ nil, %Endpoint{} = endpoint, attrs) do
-    case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
-      {:ok, endpoint} ->
-        Events.broadcast(scope, {:endpoint_updated, endpoint})
-        {:ok, endpoint}
+    Bobine.Otel.with_span "bobine.webhooks.update_endpoint",
+                          %{
+                            "bobine.org.id" => endpoint.organization_id,
+                            "bobine.endpoint.id" => endpoint.id
+                          } do
+      case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
+        {:ok, endpoint} ->
+          Events.broadcast(scope, {:endpoint_updated, endpoint})
+          {:ok, endpoint}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -100,12 +110,21 @@ defmodule Bobine.Webhooks do
   Exempt from doctest — hits the database.
   """
   def delete_endpoint(scope \\ nil, %Endpoint{} = endpoint) do
-    with {:ok, endpoint} <-
-           endpoint
-           |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-           |> Repo.update() do
-      Events.broadcast(scope, {:endpoint_deleted, endpoint})
-      {:ok, endpoint}
+    Bobine.Otel.with_span "bobine.webhooks.delete_endpoint",
+                          %{
+                            "bobine.org.id" => endpoint.organization_id,
+                            "bobine.endpoint.id" => endpoint.id
+                          } do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      case endpoint |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+        {:ok, endpoint} ->
+          Events.broadcast(scope, {:endpoint_deleted, endpoint})
+          {:ok, endpoint}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -133,4 +152,7 @@ defmodule Bobine.Webhooks do
   def change_endpoint(%Endpoint{} = endpoint, attrs \\ %{}) do
     Endpoint.changeset(endpoint, attrs)
   end
+
+  defp otel_scope_attrs(%{organization: %{id: id}}), do: %{"bobine.org.id" => id}
+  defp otel_scope_attrs(_), do: %{}
 end
