@@ -34,7 +34,8 @@ defmodule BobineWeb.Admin.CatalogLive do
     {"Preferences (preset row type)", "preferences"},
     {"Series (preset row type)", "series"},
     {"Creator showcase", "creator_showcase"},
-    {"Editorial spotlight", "editorial_spotlight"}
+    {"Editorial spotlight", "editorial_spotlight"},
+    {"Welcome text block", "welcome_text"}
   ]
 
   @impl true
@@ -126,6 +127,19 @@ defmodule BobineWeb.Admin.CatalogLive do
       {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, "Row not found.")}
     end
+  end
+
+  @impl true
+  def handle_event("change_row", %{"row" => params}, socket) do
+    base = socket.assigns.editing_row || %Bobine.Catalog.Row{}
+
+    form =
+      base
+      |> Catalog.change_row(params)
+      |> Map.put(:action, :validate)
+      |> to_form()
+
+    {:noreply, assign(socket, form: form)}
   end
 
   @impl true

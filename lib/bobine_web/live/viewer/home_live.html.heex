@@ -36,10 +36,8 @@
         auto_advance_ms={@hero_auto_advance_ms}
       />
 
-      <.welcome_state :if={@new_viewer?} organization={@organization} />
-
       <div
-        :if={@hero_slides == [] && @rows == [] && !@new_viewer?}
+        :if={@hero_slides == [] && @rows == []}
         class="py-12 text-center text-base-content/60"
       >
         <p class="text-lg">No videos available yet.</p>
@@ -47,16 +45,21 @@
 
       <%!-- Catalog rows --%>
       <section :if={@rows != []} class="catalog-rows" data-test="catalog-rows">
-        <.content_row
-          :for={%{row: row, items: items, view_all_path: view_all_path} <- @rows}
-          row={row}
-          items={items}
-          view_all_path={view_all_path}
-          current_viewer={@current_viewer}
-          favorited_ids={@favorited_ids}
-          watchlisted_ids={@watchlisted_ids}
-          queued_ids={@queued_ids}
-        />
+        <%= for %{row: row, items: items, view_all_path: view_all_path} <- @rows do %>
+          <%= if row.source_type == :welcome_text do %>
+            <.welcome_text_row row={row} />
+          <% else %>
+            <.content_row
+              row={row}
+              items={items}
+              view_all_path={view_all_path}
+              current_viewer={@current_viewer}
+              favorited_ids={@favorited_ids}
+              watchlisted_ids={@watchlisted_ids}
+              queued_ids={@queued_ids}
+            />
+          <% end %>
+        <% end %>
       </section>
     </ViewerLayout.viewer_layout>
 <% end %>

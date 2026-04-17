@@ -27,7 +27,11 @@ defmodule Bobine.Catalog.Row do
         :preferences,
         :series,
         :creator_showcase,
-        :editorial_spotlight
+        :editorial_spotlight,
+        # Static text block rendered inline in the catalog. No items; content
+        # lives in `filter_config` keys: eyebrow, headline, body, cta_label,
+        # cta_href.
+        :welcome_text
       ]
 
     field :source_id, :binary_id
@@ -101,6 +105,9 @@ defmodule Bobine.Catalog.Row do
     source_type = get_field(changeset, :source_type)
 
     cond do
+      source_type == :welcome_text ->
+        changeset
+
       is_nil(variant) or variant == "" ->
         changeset
 

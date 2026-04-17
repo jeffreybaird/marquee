@@ -21,7 +21,6 @@ defmodule BobineWeb.Viewer.HomeLive do
   alias Bobine.Accounts
   alias Bobine.Catalog
   alias Bobine.Content
-  alias Bobine.Engagement
   alias Bobine.LandingPage
   alias BobineWeb.Components.ViewerLayout
 
@@ -31,6 +30,7 @@ defmodule BobineWeb.Viewer.HomeLive do
     scope = socket.assigns.current_scope
     org = socket.assigns[:organization]
     viewer = socket.assigns[:current_viewer]
+    impersonating_viewer = socket.assigns[:impersonating_viewer] == true
     user = scope && scope.user
     org_param = params["org"]
 
@@ -38,13 +38,16 @@ defmodule BobineWeb.Viewer.HomeLive do
 
     cond do
       # Super admin -> always route to the super dashboard regardless of
-      # whether a tenant was resolved in the request.
-      user && user.is_super_admin ->
+      # whether a tenant was resolved in the request. Skip when the user is
+      # actively impersonating a viewer — the viewer home is the point.
+      user && user.is_super_admin && not impersonating_viewer ->
         {:ok, redirect(socket, to: ~p"/super")}
 
       # Operator with at least one membership -> route to that org's admin
       # with the explicit ?org=<slug> param so dev tenant resolution works.
-      primary_org ->
+      # Bypassed during viewer impersonation so the operator lands on the
+      # viewer home they requested.
+      primary_org && not impersonating_viewer ->
         {:ok, redirect(socket, to: admin_path_for_org(primary_org))}
 
       # Viewer signed in but reached / without any tenant context in the
@@ -143,7 +146,6 @@ defmodule BobineWeb.Viewer.HomeLive do
     |> assign(:hero_slides, hero_slides)
     |> assign(:hero_auto_advance_ms, auto_advance_ms)
     |> assign(:rows, rows)
-    |> assign(:new_viewer?, new_viewer?(org, viewer))
   end
 
   @impl true
@@ -153,25 +155,9 @@ defmodule BobineWeb.Viewer.HomeLive do
 
     if org do
       rows = load_catalog_rows(org, viewer)
-
-      {:noreply,
-       socket
-       |> assign(:rows, rows)
-       |> assign(:new_viewer?, new_viewer?(org, viewer))}
+      {:noreply, assign(socket, :rows, rows)}
     else
       {:noreply, socket}
-    end
-  end
-
-  # A new viewer is a logged-in viewer with no in-progress items in any
-  # series/video. Anonymous visitors and operator-authenticated users
-  # without a viewer session do not see the welcome state.
-  defp new_viewer?(_org, nil), do: false
-
-  defp new_viewer?(org, viewer) do
-    case Engagement.list_continue_watching(org, viewer, per_page: 1) do
-      %{results: []} -> true
-      _ -> false
     end
   end
 

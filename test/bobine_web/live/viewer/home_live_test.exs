@@ -24,6 +24,42 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert {:error, {:redirect, %{to: "/super"}}} = live(conn, ~p"/")
     end
 
+    test "super admin impersonating a viewer lands on viewer home (no /super bounce)", %{
+      conn: _conn
+    } do
+      org = insert(:organization)
+      super_admin = insert(:super_admin)
+      viewer = insert(:viewer, organization: org)
+
+      conn =
+        Phoenix.ConnTest.build_conn()
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> log_in_user(super_admin)
+        |> Plug.Conn.put_session(:impersonated_org_id, org.id)
+        |> Plug.Conn.put_session(:impersonating_viewer_id, viewer.id)
+        |> Plug.Conn.put_session(:impersonating_admin_user_id, super_admin.id)
+        |> Plug.Conn.put_session(:impersonating_return_path, "/admin/members")
+        |> Plug.Conn.put_session(:impersonation_started_at, System.system_time(:second))
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      refute html =~ "platform-marketing"
+      assert html =~ org.name
+    end
+
+    test "operator impersonating a viewer lands on viewer home (no /admin bounce)", %{
+      conn: _conn
+    } do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      viewer = insert(:viewer, organization: org)
+
+      conn = conn_for_impersonating_viewer(membership, viewer)
+
+      {:ok, _view, html} = live(conn, ~p"/")
+      refute html =~ "platform-marketing"
+      assert html =~ org.name
+    end
+
     test "viewer hitting / without an org resolved is redirected to their org home", %{conn: conn} do
       org = insert(:organization, slug: "viewer-org")
       viewer = insert(:viewer, organization: org)
@@ -106,6 +142,90 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ "Resume Me"
     end
 
+    test "welcome_text row renders configured eyebrow, headline, body, and CTA", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Welcome Title Fallback",
+          source_type: :welcome_text,
+          visible: true,
+          position: 0,
+          filter_config: %{
+            "eyebrow" => "Welcome aboard",
+            "headline" => "Meet your library",
+            "body" => "Browse the catalog to get started.",
+            "cta_label" => "Start browsing",
+            "cta_href" => "/browse"
+          }
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="welcome-text-row-#{row.id}")
+      assert html =~ "Welcome aboard"
+      assert html =~ "Meet your library"
+      assert html =~ "Browse the catalog to get started."
+      assert html =~ ~s(data-test="welcome-text-cta-#{row.id}")
+      assert html =~ "Start browsing"
+      refute html =~ "Welcome Title Fallback"
+    end
+
+    test "welcome_text row falls back to row title when headline blank", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "Plain Title",
+          source_type: :welcome_text,
+          visible: true,
+          position: 0,
+          filter_config: %{}
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ ~s(data-test="welcome-text-row-#{row.id}")
+      assert html =~ "Plain Title"
+    end
+
+    test "welcome_text row omits CTA when label or href missing", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      row =
+        insert(:row,
+          organization: org,
+          title: "No CTA",
+          source_type: :welcome_text,
+          visible: true,
+          position: 0,
+          filter_config: %{"headline" => "Hello"}
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ ~s(data-test="welcome-text-cta-#{row.id}")
+    end
+
+    test "hidden welcome_text row is not rendered", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      insert(:row,
+        organization: org,
+        title: "Hidden Welcome",
+        source_type: :welcome_text,
+        visible: false,
+        position: 0,
+        filter_config: %{"headline" => "Should not appear"}
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+      refute html =~ "Should not appear"
+    end
+
     test "does not render hidden rows", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
@@ -134,33 +254,14 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       refute html =~ "Secret Row"
     end
 
-    test "shows the welcome state when no rows exist (Stage 5 replaces the old empty banner)",
+    test "viewer with no rows and no history sees only the empty-catalog fallback",
          %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
-
-      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ "Find your first favorite"
-    end
-
-    test "hides the welcome state when the viewer has in-progress content",
-         %{conn: _conn} do
-      org = insert(:organization)
-      viewer = insert(:viewer, organization: org)
-      video = insert(:video, organization: org, mux_status: "ready", duration: 600)
-
-      # Seed a Progress record so list_continue_watching returns a result.
-      insert(:progress,
-        organization: org,
-        viewer: viewer,
-        video: video,
-        position: 120,
-        duration: 600,
-        completed: false
-      )
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
       refute html =~ "Find your first favorite"
+      assert html =~ "No videos available yet."
     end
   end
 
@@ -960,12 +1061,12 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
   describe "GET / as an authenticated viewer" do
     alias Bobine.Catalog
 
-    test "shows the welcome state when the viewer has no watch history" do
+    test "renders the org name and no default welcome banner" do
       org = insert(:organization, name: "Indie House")
       viewer = insert(:viewer, organization: org)
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
-      assert html =~ "Find your first favorite"
+      refute html =~ "Find your first favorite"
       assert html =~ "Indie House"
     end
 

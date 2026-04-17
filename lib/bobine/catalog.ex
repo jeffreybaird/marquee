@@ -589,14 +589,20 @@ defmodule Bobine.Catalog do
     rows
     |> Enum.reject(&(&1.source_type == :hero))
     |> Enum.map(fn row ->
-      row_opts = opts |> Keyword.put(:per_page, row.max_items)
+      if row.source_type == :welcome_text do
+        %{row: row, items: []}
+      else
+        row_opts = opts |> Keyword.put(:per_page, row.max_items)
 
-      %{results: results} = resolve_row_content_cached(organization, row, row_opts)
+        %{results: results} = resolve_row_content_cached(organization, row, row_opts)
 
-      items = Enum.map(results, &unwrap_row_item/1)
-      %{row: row, items: items}
+        items = Enum.map(results, &unwrap_row_item/1)
+        %{row: row, items: items}
+      end
     end)
-    |> Enum.reject(fn %{items: items} -> Enum.empty?(items) end)
+    |> Enum.reject(fn %{row: row, items: items} ->
+      row.source_type != :welcome_text and Enum.empty?(items)
+    end)
   end
 
   defp unwrap_row_item(%CollectionItem{item_type: :video, video: video}), do: video

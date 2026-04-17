@@ -200,6 +200,122 @@ defmodule BobineWeb.Admin.CatalogLiveTest do
       refute html =~ "Deletable"
     end
 
+    test "create welcome_text row persists filter_config fields", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+      render_click(view, "new_row", %{})
+
+      view
+      |> form("[data-test=\"row-form\"]", %{
+        row: %{title: "Greeting", source_type: "welcome_text"}
+      })
+      |> render_change()
+
+      view
+      |> form("[data-test=\"row-form\"]", %{
+        row: %{
+          title: "Greeting",
+          source_type: "welcome_text",
+          filter_config: %{
+            eyebrow: "Hello there",
+            headline: "Jump back in",
+            body: "Pick up where you left off.",
+            cta_label: "Browse",
+            cta_href: "/browse"
+          }
+        }
+      })
+      |> render_submit()
+
+      %{results: [row]} = Catalog.list_rows(org, per_page: 10)
+      assert row.source_type == :welcome_text
+      assert row.title == "Greeting"
+      assert row.filter_config["eyebrow"] == "Hello there"
+      assert row.filter_config["headline"] == "Jump back in"
+      assert row.filter_config["body"] == "Pick up where you left off."
+      assert row.filter_config["cta_label"] == "Browse"
+      assert row.filter_config["cta_href"] == "/browse"
+    end
+
+    test "welcome_text edit form shows the configured text fields", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = build_scope(membership)
+
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Greet",
+          source_type: :welcome_text,
+          filter_config: %{
+            "eyebrow" => "EYE",
+            "headline" => "HEAD",
+            "body" => "BODY",
+            "cta_label" => "GO",
+            "cta_href" => "/go"
+          }
+        })
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+      html = render_click(view, "edit_row", %{id: row.id})
+
+      assert html =~ ~s(data-test="welcome-text-fields")
+      assert html =~ ~s(value="EYE")
+      assert html =~ ~s(value="HEAD")
+      assert html =~ "BODY"
+      assert html =~ ~s(value="GO")
+      assert html =~ ~s(value="/go")
+    end
+
+    test "selecting welcome_text via change event reveals text inputs", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+      render_click(view, "new_row", %{})
+
+      refute render(view) =~ ~s(data-test="welcome-text-fields")
+
+      html =
+        view
+        |> form("[data-test=\"row-form\"]", %{
+          row: %{title: "New Welcome", source_type: "welcome_text"}
+        })
+        |> render_change()
+
+      assert html =~ ~s(data-test="welcome-text-fields")
+      refute html =~ ~s(id="row-card-variant")
+      refute html =~ ~s(id="row-max-items")
+    end
+
+    test "toggling visibility on a welcome_text row hides it from viewer home", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = build_scope(membership)
+
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Greet",
+          source_type: :welcome_text,
+          visible: true,
+          filter_config: %{"headline" => "Look at me"}
+        })
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/catalog")
+
+      view
+      |> element(~s([data-test="row-#{row.id}"] [data-test="row-visibility-toggle"]))
+      |> render_click()
+
+      {:ok, updated} = Catalog.get_row(org, row.id)
+      refute updated.visible
+    end
+
     test "edit row title and source type", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)

@@ -36,6 +36,7 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   def source_type_label(:series), do: "Series"
   def source_type_label(:creator_showcase), do: "Creator showcase"
   def source_type_label(:editorial_spotlight), do: "Editorial spotlight"
+  def source_type_label(:welcome_text), do: "Welcome text block"
   def source_type_label(other), do: to_string(other)
 
   @doc """
@@ -91,6 +92,45 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   """
   def show_source_select?(current, target) do
     to_string(current) == to_string(target)
+  end
+
+  @doc """
+  Returns true when the row's current source_type is `welcome_text`.
+
+  ## Examples
+
+      iex> BobineWeb.Admin.CatalogLive.Components.welcome_text?(:welcome_text)
+      true
+
+      iex> BobineWeb.Admin.CatalogLive.Components.welcome_text?("welcome_text")
+      true
+
+      iex> BobineWeb.Admin.CatalogLive.Components.welcome_text?(:curated)
+      false
+  """
+  def welcome_text?(value), do: to_string(value) == "welcome_text"
+
+  @doc """
+  Pulls a string value from the row form's `filter_config` map for the
+  welcome-text editor. Returns an empty string when the key is missing.
+
+  ## Examples
+
+      iex> import Phoenix.Component, only: [to_form: 1]
+      iex> form = to_form(%{"filter_config" => %{"headline" => "Hello"}}, as: :row)
+      iex> BobineWeb.Admin.CatalogLive.Components.welcome_config_value(form, "headline")
+      "Hello"
+
+      iex> import Phoenix.Component, only: [to_form: 1]
+      iex> form = to_form(%{"filter_config" => %{}}, as: :row)
+      iex> BobineWeb.Admin.CatalogLive.Components.welcome_config_value(form, "headline")
+      ""
+  """
+  def welcome_config_value(form, key) do
+    case form[:filter_config].value do
+      %{} = map -> to_string(Map.get(map, key) || Map.get(map, String.to_atom(key)) || "")
+      _ -> ""
+    end
   end
 
   @doc """
@@ -825,7 +865,12 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
         <h3 class="text-lg font-semibold mb-4">
           {if @editing, do: "Edit Row", else: "New Row"}
         </h3>
-        <.form for={@form} phx-submit="save_row" data-test="row-form">
+        <.form
+          for={@form}
+          phx-submit="save_row"
+          phx-change="change_row"
+          data-test="row-form"
+        >
           <div class="mb-4">
             <label class="label" for="row-title">Title</label>
             <input
@@ -891,7 +936,76 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               </option>
             </select>
           </div>
-          <div class="mb-4">
+          <div
+            :if={show_source_select?(@form[:source_type].value, :welcome_text)}
+            data-test="welcome-text-fields"
+          >
+            <div class="mb-4">
+              <label class="label" for="row-welcome-eyebrow">Eyebrow</label>
+              <input
+                type="text"
+                id="row-welcome-eyebrow"
+                name="row[filter_config][eyebrow]"
+                value={welcome_config_value(@form, "eyebrow")}
+                placeholder="Welcome to the show"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="row-welcome-eyebrow"
+              />
+            </div>
+            <div class="mb-4">
+              <label class="label" for="row-welcome-headline">Headline</label>
+              <input
+                type="text"
+                id="row-welcome-headline"
+                name="row[filter_config][headline]"
+                value={welcome_config_value(@form, "headline")}
+                placeholder="Defaults to the row title when blank"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="row-welcome-headline"
+              />
+            </div>
+            <div class="mb-4">
+              <label class="label" for="row-welcome-body">Body</label>
+              <textarea
+                id="row-welcome-body"
+                name="row[filter_config][body]"
+                rows="3"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="row-welcome-body"
+              >{welcome_config_value(@form, "body")}</textarea>
+            </div>
+            <div class="mb-4">
+              <label class="label" for="row-welcome-cta-label">CTA label</label>
+              <input
+                type="text"
+                id="row-welcome-cta-label"
+                name="row[filter_config][cta_label]"
+                value={welcome_config_value(@form, "cta_label")}
+                placeholder="Browse the catalog"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="row-welcome-cta-label"
+              />
+            </div>
+            <div class="mb-4">
+              <label class="label" for="row-welcome-cta-href">CTA link</label>
+              <input
+                type="text"
+                id="row-welcome-cta-href"
+                name="row[filter_config][cta_href]"
+                value={welcome_config_value(@form, "cta_href")}
+                placeholder="/browse"
+                class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                data-test="row-welcome-cta-href"
+              />
+            </div>
+            <p class="mb-4 text-xs text-admin-muted">
+              CTA button is only rendered when both label and link are filled in.
+            </p>
+          </div>
+          <div
+            :if={not welcome_text?(@form[:source_type].value)}
+            class="mb-4"
+          >
             <label class="label" for="row-card-variant">Card variant</label>
             <select
               id="row-card-variant"
@@ -912,7 +1026,10 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               as Default to use the system default for that row.
             </p>
           </div>
-          <div class="mb-4">
+          <div
+            :if={not welcome_text?(@form[:source_type].value)}
+            class="mb-4"
+          >
             <label class="label" for="row-max-items">Max Items</label>
             <input
               type="number"
