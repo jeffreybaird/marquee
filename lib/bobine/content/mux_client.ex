@@ -17,6 +17,7 @@ defmodule Bobine.Content.MuxClient do
   @impl true
   def create_direct_upload(params) do
     Logger.info("Mux create_direct_upload requested",
+      org_id: logger_org_id(),
       params: inspect(params, pretty: true, limit: :infinity)
     )
 
@@ -57,6 +58,7 @@ defmodule Bobine.Content.MuxClient do
           Tracer.set_status(:error, inspect(reason))
 
           Logger.error("Mux delete_asset failed",
+            org_id: logger_org_id(),
             reason: inspect(reason, pretty: true, limit: :infinity)
           )
 
@@ -91,7 +93,7 @@ defmodule Bobine.Content.MuxClient do
         {:ok, data, _env} ->
           Tracer.set_attribute("http.status_code", 200)
 
-          Logger.info("Mux operation succeeded", operation: operation)
+          Logger.info("Mux operation succeeded", org_id: logger_org_id(), operation: operation)
 
           {:ok, data}
 
@@ -105,14 +107,17 @@ defmodule Bobine.Content.MuxClient do
 
   defp log_mux_validation_failure(operation, type, messages) do
     Logger.error("Mux operation failed",
+      org_id: logger_org_id(),
       operation: operation,
       type: inspect(type, pretty: true, limit: :infinity),
       messages: inspect(messages, pretty: true, limit: :infinity)
     )
   end
 
+  defp logger_org_id, do: Logger.metadata()[:org_id]
+
   defp org_attributes_from_logger do
-    case Logger.metadata()[:org_id] do
+    case logger_org_id() do
       nil -> []
       org_id -> [{"bobine.org.id", org_id}]
     end

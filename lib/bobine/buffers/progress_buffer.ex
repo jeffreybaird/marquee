@@ -201,9 +201,13 @@ defmodule Bobine.Buffers.ProgressBuffer do
   rescue
     error ->
       Logger.error("Failed to flush progress buffer",
+        org_id: org_id_from_key(key),
         key: inspect(key),
         entry: inspect(entry, pretty: true, limit: :infinity),
         error: inspect(error, pretty: true, limit: :infinity)
       )
   end
+
+  defp org_id_from_key({_kind, org_id, _subject_id, _video_id}), do: org_id
+  defp org_id_from_key(_), do: nil
 end
