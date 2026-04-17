@@ -92,7 +92,10 @@ defmodule BobineWeb.Viewer.HomeLive do
   defp home_path_for_org(_), do: "/"
 
   defp fetch_viewer_org(%{organization_id: org_id}) when is_binary(org_id) do
-    Bobine.Repo.get(Bobine.Accounts.Organization, org_id)
+    case Bobine.Accounts.get_organization(org_id) do
+      {:ok, org} -> org
+      {:error, :not_found} -> nil
+    end
   end
 
   defp fetch_viewer_org(_), do: nil

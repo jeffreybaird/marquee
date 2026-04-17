@@ -1405,6 +1405,21 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Returns the non-deleted season count for a series.
+
+  Scoped by the series's `organization_id`. Useful for display badges
+  where preloading the full seasons list would be wasteful.
+
+  Exempt from doctest — hits the database.
+  """
+  def count_seasons_for_series(%Series{id: series_id, organization_id: org_id}) do
+    Season
+    |> where(series_id: ^series_id, organization_id: ^org_id)
+    |> where([s], is_nil(s.deleted_at))
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
   Gets a season by ID, scoped to org.
 
   Returns `{:ok, season}` or `{:error, :not_found}`.

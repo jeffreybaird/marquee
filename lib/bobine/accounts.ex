@@ -44,6 +44,53 @@ defmodule Bobine.Accounts do
   end
 
   @doc """
+  Gets an organization by its primary key.
+
+  Returns `{:ok, organization}` if found, `{:error, :not_found}` otherwise.
+  Returns `{:error, :not_found}` for any non-binary id.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_organization(id) when is_binary(id) do
+    case Repo.get(Organization, id) do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  def get_organization(_), do: {:error, :not_found}
+
+  @doc """
+  Returns the first organization in the system.
+
+  Intended only for dev-mode fallbacks where the request carries no
+  tenant signal. Callers MUST gate this to `Mix.env() == :dev` — the
+  production plug pipeline never invokes it.
+
+  Exempt from doctest — hits the database.
+  """
+  def fetch_any_organization do
+    case Organization |> order_by(asc: :inserted_at) |> limit(1) |> Repo.one() do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
+  Tuple-returning variant of `get_user_primary_organization/1`.
+
+  Returns `{:ok, org}` or `{:error, :not_found}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def fetch_user_primary_organization(user) do
+    case get_user_primary_organization(user) do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
   Gets an organization by its Stripe Connect account ID.
 
   Returns `{:ok, organization}` if found, `{:error, :not_found}` otherwise.

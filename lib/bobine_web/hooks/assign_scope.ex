@@ -199,7 +199,7 @@ defmodule BobineWeb.Hooks.AssignScope do
   defp resolve_impersonated_org(session) do
     case session["impersonated_org_id"] do
       nil -> {:error, :not_found}
-      org_id -> Bobine.Repo.get(Bobine.Accounts.Organization, org_id) |> wrap_org()
+      org_id -> Accounts.get_organization(org_id)
     end
   end
 
@@ -208,12 +208,9 @@ defmodule BobineWeb.Hooks.AssignScope do
   defp resolve_org_from_session(session) do
     case session["organization_id"] do
       nil -> {:error, :not_found}
-      org_id -> Bobine.Repo.get(Bobine.Accounts.Organization, org_id) |> wrap_org()
+      org_id -> Accounts.get_organization(org_id)
     end
   end
-
-  defp wrap_org(nil), do: {:error, :not_found}
-  defp wrap_org(org), do: {:ok, org}
 
   defp resolve_by_subdomain(host) do
     case extract_subdomain(host) do
@@ -232,12 +229,7 @@ defmodule BobineWeb.Hooks.AssignScope do
   end
 
   if Mix.env() == :dev do
-    defp resolve_dev_fallback do
-      case Bobine.Repo.all(Bobine.Accounts.Organization) do
-        [org | _] -> {:ok, org}
-        [] -> {:error, :not_found}
-      end
-    end
+    defp resolve_dev_fallback, do: Accounts.fetch_any_organization()
   else
     defp resolve_dev_fallback, do: {:error, :not_found}
   end

@@ -524,15 +524,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   end
 
   defp series_season_count(%Series{seasons: seasons}) when is_list(seasons), do: length(seasons)
-
-  defp series_season_count(%Series{id: id}) do
-    import Ecto.Query, warn: false
-
-    Bobine.Content.Season
-    |> where(series_id: ^id)
-    |> where([s], is_nil(s.deleted_at))
-    |> Bobine.Repo.aggregate(:count)
-  end
+  defp series_season_count(%Series{} = series), do: Content.count_seasons_for_series(series)
 
   # ---------------------------------------------------------------------------
   # Content Row

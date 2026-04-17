@@ -516,6 +516,64 @@ defmodule Bobine.AccountsTest do
     end
   end
 
+  describe "get_organization/1" do
+    test "returns {:ok, org} when id matches" do
+      org = insert(:organization)
+      assert {:ok, found} = Accounts.get_organization(org.id)
+      assert found.id == org.id
+    end
+
+    test "returns {:error, :not_found} when id does not match" do
+      assert {:error, :not_found} =
+               Accounts.get_organization("00000000-0000-0000-0000-000000000000")
+    end
+
+    test "returns {:error, :not_found} for nil id" do
+      assert {:error, :not_found} = Accounts.get_organization(nil)
+    end
+
+    test "returns {:error, :not_found} for non-binary id" do
+      assert {:error, :not_found} = Accounts.get_organization(123)
+    end
+  end
+
+  describe "fetch_any_organization/0" do
+    test "returns {:ok, org} when at least one organization exists" do
+      assert {:ok, %Bobine.Accounts.Organization{}} = Accounts.fetch_any_organization()
+    end
+
+    test "returns the oldest organization" do
+      {:ok, oldest_before} = Accounts.fetch_any_organization()
+      _newer = insert(:organization)
+      assert {:ok, oldest_after} = Accounts.fetch_any_organization()
+      assert oldest_after.id == oldest_before.id
+    end
+  end
+
+  describe "fetch_user_primary_organization/1" do
+    test "returns {:ok, org} when user has a non-deleted membership" do
+      org = insert(:organization)
+      user = insert(:user)
+      insert(:membership, organization: org, user: user)
+
+      assert {:ok, found} = Accounts.fetch_user_primary_organization(user)
+      assert found.id == org.id
+    end
+
+    test "returns {:error, :not_found} when user has no memberships" do
+      user = insert(:user)
+      assert {:error, :not_found} = Accounts.fetch_user_primary_organization(user)
+    end
+
+    test "skips soft-deleted organizations" do
+      org = insert(:organization, deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+      user = insert(:user)
+      insert(:membership, organization: org, user: user)
+
+      assert {:error, :not_found} = Accounts.fetch_user_primary_organization(user)
+    end
+  end
+
   describe "get_membership/2" do
     test "returns the membership when user is a member of the org" do
       org = insert(:organization)

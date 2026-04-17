@@ -273,6 +273,36 @@ defmodule Bobine.Content.SeriesContextTest do
     end
   end
 
+  describe "count_seasons_for_series/1" do
+    test "returns non-deleted season count", %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Series"})
+      {:ok, _} = Content.create_season(scope, series, %{title: "S1", season_number: 1})
+      {:ok, _} = Content.create_season(scope, series, %{title: "S2", season_number: 2})
+
+      assert Content.count_seasons_for_series(series) == 2
+    end
+
+    test "excludes soft-deleted seasons", %{scope: scope} do
+      {:ok, series} = Content.create_series(scope, %{title: "Series"})
+      {:ok, s1} = Content.create_season(scope, series, %{title: "S1", season_number: 1})
+      {:ok, _s2} = Content.create_season(scope, series, %{title: "S2", season_number: 2})
+      {:ok, _} = Content.delete_season(scope, s1)
+
+      assert Content.count_seasons_for_series(series) == 1
+    end
+
+    test "scoped to series + org", %{scope: scope} do
+      {:ok, series_a} = Content.create_series(scope, %{title: "A"})
+      {:ok, series_b} = Content.create_series(scope, %{title: "B"})
+      {:ok, _} = Content.create_season(scope, series_a, %{title: "S1", season_number: 1})
+      {:ok, _} = Content.create_season(scope, series_b, %{title: "S1", season_number: 1})
+      {:ok, _} = Content.create_season(scope, series_b, %{title: "S2", season_number: 2})
+
+      assert Content.count_seasons_for_series(series_a) == 1
+      assert Content.count_seasons_for_series(series_b) == 2
+    end
+  end
+
   describe "next_season/2" do
     test "returns the next season by season_number", %{org: org, scope: scope} do
       {:ok, series} = Content.create_series(scope, %{title: "Series"})

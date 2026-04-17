@@ -25,7 +25,6 @@ defmodule BobineWeb.Plugs.SetOrganization do
   """
 
   import Plug.Conn
-  import Ecto.Query, only: [from: 2]
 
   alias Bobine.Accounts
   alias Bobine.Accounts.Scope
@@ -216,11 +215,8 @@ defmodule BobineWeb.Plugs.SetOrganization do
 
       token ->
         case Bobine.Viewers.get_viewer_by_session_token(token) do
-          %{organization_id: org_id} ->
-            Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
-
-          nil ->
-            {:error, :not_found}
+          %{organization_id: org_id} -> Accounts.get_organization(org_id)
+          nil -> {:error, :not_found}
         end
     end
   end
@@ -228,41 +224,24 @@ defmodule BobineWeb.Plugs.SetOrganization do
   defp resolve_from_session(conn) do
     case get_session(conn, :organization_id) do
       nil -> {:error, :not_found}
-      org_id -> Bobine.Repo.get(Accounts.Organization, org_id) |> wrap_org()
+      org_id -> Accounts.get_organization(org_id)
     end
   end
 
   defp resolve_from_user_membership(conn) do
-    scope = conn.assigns[:current_scope]
-
-    if scope && scope.user do
-      case Bobine.Repo.one(
-             from m in Bobine.Accounts.Membership,
-               where: m.user_id == ^scope.user.id,
-               join: o in assoc(m, :organization),
-               where: is_nil(o.deleted_at),
-               select: o,
-               limit: 1
-           ) do
-        nil -> {:error, :not_found}
-        org -> {:ok, org}
-      end
-    else
-      {:error, :not_found}
+    case conn.assigns[:current_scope] do
+      %{user: user} when not is_nil(user) -> Accounts.fetch_user_primary_organization(user)
+      _ -> {:error, :not_found}
     end
   end
-
-  defp wrap_org(nil), do: {:error, :not_found}
-  defp wrap_org(org), do: {:ok, org}
 
   # When a super admin is impersonating, use the impersonated org regardless of host.
   defp resolve_impersonated_org(conn) do
     scope = conn.assigns[:current_scope]
 
     with true <- scope != nil and scope.user != nil and scope.user.is_super_admin,
-         org_id when is_binary(org_id) <- get_session(conn, :impersonated_org_id),
-         org when org != nil <- Bobine.Repo.get(Bobine.Accounts.Organization, org_id) do
-      {:ok, org}
+         org_id when is_binary(org_id) <- get_session(conn, :impersonated_org_id) do
+      Accounts.get_organization(org_id)
     else
       _ -> {:error, :not_found}
     end
@@ -288,13 +267,7 @@ defmodule BobineWeb.Plugs.SetOrganization do
     # In dev, fall back to the first org when no slug is provided.
     # Skipped in optional mode so the marketing page can render.
     defp resolve_env_fallback(true = _optional), do: {:error, :not_found}
-
-    defp resolve_env_fallback(false) do
-      case Bobine.Repo.all(Bobine.Accounts.Organization) do
-        [org | _] -> {:ok, org}
-        [] -> {:error, :not_found}
-      end
-    end
+    defp resolve_env_fallback(false), do: Accounts.fetch_any_organization()
   else
     defp resolve_env_fallback(_optional), do: {:error, :not_found}
   end
