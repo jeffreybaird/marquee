@@ -211,10 +211,18 @@ defmodule Bobine.Billing do
   @doc """
   Deletes a subscription.
 
+  Hard-deletes the subscription row and broadcasts a
+  `{:subscription_deleted, sub}` event so the audit subscriber can
+  record the action. Accepts an optional scope so the audit entry
+  attributes the action.
+
   Exempt from doctest — hits the database.
   """
-  def delete_subscription(%Subscription{} = subscription) do
-    Repo.delete(subscription)
+  def delete_subscription(scope \\ nil, %Subscription{} = subscription) do
+    with {:ok, deleted} <- Repo.delete(subscription) do
+      Events.broadcast(scope, {:subscription_deleted, deleted})
+      {:ok, deleted}
+    end
   end
 
   @doc """
