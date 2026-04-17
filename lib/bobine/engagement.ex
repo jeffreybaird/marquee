@@ -437,7 +437,7 @@ defmodule Bobine.Engagement do
           clear_go_back_state(org, viewer)
           {:error, :go_back_expired}
         else
-          video = Content.get_video!(state.video_id)
+          video = Content.get_video!(org, state.video_id)
           play_next(org, viewer, video, "go_back")
           clear_go_back_state(org, viewer)
 

@@ -993,7 +993,7 @@ defmodule BobineWeb.Viewer.WatchLive do
     if socket.assigns.video.id == video_id do
       socket.assigns.video
     else
-      Content.get_video!(video_id)
+      Content.get_video!(socket.assigns.organization, video_id)
     end
   end
 

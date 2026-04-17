@@ -49,29 +49,16 @@ defmodule Bobine.Billing do
   end
 
   @doc """
-  Returns the list of plans including soft-deleted records.
+  Returns the list of plans for an organization, including soft-deleted
+  records.
 
   Exempt from doctest — hits the database.
   """
-  def list_plans_including_deleted do
-    Repo.all(Plan)
+  def list_plans_including_deleted(%Organization{id: org_id}) do
+    Plan
+    |> where(organization_id: ^org_id)
+    |> Repo.all()
   end
-
-  @doc """
-  Gets a single plan.
-
-  Raises `Ecto.NoResultsError` if the Plan does not exist.
-
-  ## Examples
-
-      iex> get_plan!(123)
-      %Plan{}
-
-      iex> get_plan!(456)
-      ** (Ecto.NoResultsError)
-
-  """
-  def get_plan!(id), do: Repo.get!(Plan, id)
 
   @doc """
   Creates a plan.
@@ -149,31 +136,25 @@ defmodule Bobine.Billing do
   alias Bobine.Billing.Subscription
 
   @doc """
-  Returns a paginated list of subscriptions.
+  Returns a paginated list of subscriptions for an organization.
 
   Exempt from doctest — hits the database.
   """
-  def list_subscriptions(opts \\ []) do
+  def list_subscriptions(%Organization{id: org_id}, opts \\ []) do
     Subscription
+    |> where(organization_id: ^org_id)
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)
   end
 
   @doc """
-  Gets a single subscription.
+  Gets a subscription by ID scoped to an organization. Raises on not found.
 
-  Raises `Ecto.NoResultsError` if the Subscription does not exist.
-
-  ## Examples
-
-      iex> get_subscription!(123)
-      %Subscription{}
-
-      iex> get_subscription!(456)
-      ** (Ecto.NoResultsError)
-
+  Exempt from doctest — hits the database.
   """
-  def get_subscription!(id), do: Repo.get!(Subscription, id)
+  def get_subscription!(%Organization{id: org_id}, id) do
+    Repo.get_by!(Subscription, id: id, organization_id: org_id)
+  end
 
   @doc """
   Creates a subscription.

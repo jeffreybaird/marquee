@@ -51,11 +51,20 @@ defmodule Bobine.ContentTest do
       assert {:error, :not_found} = Content.get_video(org, video.id)
     end
 
-    test "get_video!/1 returns the video with given id", %{org: org} do
+    test "get_video!/2 returns the video with given id", %{org: org} do
       video = insert(:video, organization: org)
-      found = Content.get_video!(video.id)
+      found = Content.get_video!(org, video.id)
       assert found.id == video.id
       assert found.title == video.title
+    end
+
+    test "get_video!/2 raises for another org's video", %{org: org} do
+      other_org = insert(:organization)
+      video = insert(:video, organization: other_org)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Content.get_video!(org, video.id)
+      end
     end
 
     test "create_video/1 with valid data creates a video", %{org: org} do
@@ -103,14 +112,14 @@ defmodule Bobine.ContentTest do
       assert {:error, :validation, %Ecto.Changeset{}} =
                Content.update_video(video, @invalid_attrs)
 
-      assert Content.get_video!(video.id).title == video.title
+      assert Content.get_video!(org, video.id).title == video.title
     end
 
     test "delete_video/1 soft-deletes the video", %{org: org} do
       video = insert(:video, organization: org)
       assert {:ok, %Video{} = deleted} = Content.delete_video(video)
       assert deleted.deleted_at != nil
-      assert Content.get_video!(video.id).deleted_at != nil
+      assert Content.get_video!(org, video.id).deleted_at != nil
       assert %{results: []} = Content.list_videos(org)
     end
 
@@ -123,12 +132,21 @@ defmodule Bobine.ContentTest do
       assert found.id == restored.id
     end
 
-    test "list_videos_including_deleted/0 returns soft-deleted videos", %{org: org} do
+    test "list_videos_including_deleted/1 returns soft-deleted videos", %{org: org} do
       video = insert(:video, organization: org)
       {:ok, _deleted} = Content.delete_video(video)
-      assert [found] = Content.list_videos_including_deleted()
+      assert [found] = Content.list_videos_including_deleted(org)
       assert found.id == video.id
       assert found.deleted_at != nil
+    end
+
+    test "list_videos_including_deleted/1 scopes to org", %{org: org} do
+      other_org = insert(:organization)
+      _foreign = insert(:video, organization: other_org)
+      mine = insert(:video, organization: org)
+
+      results = Content.list_videos_including_deleted(org)
+      assert Enum.map(results, & &1.id) == [mine.id]
     end
 
     test "change_video/1 returns a video changeset", %{org: org} do
@@ -455,10 +473,13 @@ defmodule Bobine.ContentTest do
       assert restored.deleted_at == nil
     end
 
-    test "list_collections_including_deleted/0 returns soft-deleted collections", %{scope: scope} do
+    test "list_collections_including_deleted/1 returns soft-deleted collections", %{
+      org: org,
+      scope: scope
+    } do
       {:ok, collection} = Content.create_collection(scope, %{title: "Deletable", position: 0})
       {:ok, _deleted} = Content.delete_collection(scope, collection)
-      assert [found] = Content.list_collections_including_deleted()
+      assert [found] = Content.list_collections_including_deleted(org)
       assert found.id == collection.id
       assert found.deleted_at != nil
     end

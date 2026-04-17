@@ -24,7 +24,7 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
 
       assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
 
-      updated = Content.get_video!(video.id)
+      updated = Content.get_video!(org, video.id)
       assert updated.mux_asset_id == "asset_abc"
       assert updated.mux_status == "preparing"
     end
@@ -53,7 +53,7 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
 
       assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
 
-      updated = Content.get_video!(video.id)
+      updated = Content.get_video!(org, video.id)
       assert updated.mux_status == "ready"
       assert updated.duration == 125.5
       assert updated.max_resolution == "1080p"
@@ -82,7 +82,7 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
 
       assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
 
-      updated = Content.get_video!(video.id)
+      updated = Content.get_video!(org, video.id)
       assert updated.mux_status == "errored"
     end
   end

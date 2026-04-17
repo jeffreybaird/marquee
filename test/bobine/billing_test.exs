@@ -27,9 +27,10 @@ defmodule Bobine.BillingTest do
       assert %{results: [^plan]} = Billing.list_plans(org)
     end
 
-    test "get_plan!/1 returns the plan with given id" do
+    test "get_plan!/2 returns the plan with given id" do
       plan = plan_fixture()
-      assert Billing.get_plan!(plan.id) == plan
+      org = Bobine.Repo.preload(plan, :organization).organization
+      assert Billing.get_plan!(org, plan.id).id == plan.id
     end
 
     test "create_plan/1 with valid data creates a plan", %{org: org} do
@@ -79,8 +80,9 @@ defmodule Bobine.BillingTest do
 
     test "update_plan/2 with invalid data returns error changeset" do
       plan = plan_fixture()
+      org = Bobine.Repo.preload(plan, :organization).organization
       assert {:error, :validation, %Ecto.Changeset{}} = Billing.update_plan(plan, @invalid_attrs)
-      assert plan == Billing.get_plan!(plan.id)
+      assert plan.id == Billing.get_plan!(org, plan.id).id
     end
 
     test "delete_plan/1 soft-deletes the plan" do
@@ -98,11 +100,21 @@ defmodule Bobine.BillingTest do
       assert restored.deleted_at == nil
     end
 
-    test "list_plans_including_deleted/0 returns soft-deleted plans" do
+    test "list_plans_including_deleted/1 returns soft-deleted plans" do
       plan = plan_fixture()
+      org = Bobine.Repo.preload(plan, :organization).organization
       {:ok, _deleted} = Billing.delete_plan(plan)
-      assert [found] = Billing.list_plans_including_deleted()
+      assert [found] = Billing.list_plans_including_deleted(org)
       assert found.id == plan.id
+    end
+
+    test "list_plans_including_deleted/1 scopes to org" do
+      plan_a = plan_fixture()
+      org_a = Bobine.Repo.preload(plan_a, :organization).organization
+      _plan_b = plan_fixture()
+
+      assert [found] = Billing.list_plans_including_deleted(org_a)
+      assert found.id == plan_a.id
     end
 
     test "change_plan/1 returns a plan changeset" do
@@ -164,14 +176,35 @@ defmodule Bobine.BillingTest do
       %{org: org, user: user, plan: plan}
     end
 
-    test "list_subscriptions/0 returns all subscriptions" do
+    test "list_subscriptions/2 returns subscriptions for the org" do
       subscription = subscription_fixture()
-      assert %{results: [^subscription]} = Billing.list_subscriptions()
+      org = Bobine.Repo.preload(subscription, :organization).organization
+      assert %{results: [found]} = Billing.list_subscriptions(org)
+      assert found.id == subscription.id
     end
 
-    test "get_subscription!/1 returns the subscription with given id" do
+    test "list_subscriptions/2 excludes other orgs" do
+      sub_a = subscription_fixture()
+      org_a = Bobine.Repo.preload(sub_a, :organization).organization
+      _sub_b = subscription_fixture()
+
+      assert %{results: [found]} = Billing.list_subscriptions(org_a)
+      assert found.id == sub_a.id
+    end
+
+    test "get_subscription!/2 returns the subscription with given id" do
       subscription = subscription_fixture()
-      assert Billing.get_subscription!(subscription.id) == subscription
+      org = Bobine.Repo.preload(subscription, :organization).organization
+      assert Billing.get_subscription!(org, subscription.id).id == subscription.id
+    end
+
+    test "get_subscription!/2 raises for another org's subscription" do
+      sub_a = subscription_fixture()
+      org_b = insert(:organization)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Billing.get_subscription!(org_b, sub_a.id)
+      end
     end
 
     test "create_subscription/1 with valid data creates a subscription", %{
@@ -218,17 +251,19 @@ defmodule Bobine.BillingTest do
 
     test "update_subscription/2 with invalid data returns error changeset" do
       subscription = subscription_fixture()
+      org = Bobine.Repo.preload(subscription, :organization).organization
 
       assert {:error, :validation, %Ecto.Changeset{}} =
                Billing.update_subscription(subscription, @invalid_attrs)
 
-      assert subscription == Billing.get_subscription!(subscription.id)
+      assert subscription.id == Billing.get_subscription!(org, subscription.id).id
     end
 
     test "delete_subscription/1 deletes the subscription" do
       subscription = subscription_fixture()
+      org = Bobine.Repo.preload(subscription, :organization).organization
       assert {:ok, %Subscription{}} = Billing.delete_subscription(subscription)
-      assert_raise Ecto.NoResultsError, fn -> Billing.get_subscription!(subscription.id) end
+      assert_raise Ecto.NoResultsError, fn -> Billing.get_subscription!(org, subscription.id) end
     end
 
     test "change_subscription/1 returns a subscription changeset" do

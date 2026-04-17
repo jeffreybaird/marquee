@@ -63,12 +63,15 @@ defmodule Bobine.Content do
   defp apply_video_order_legacy(query, _newest), do: order_by(query, desc: :inserted_at)
 
   @doc """
-  Returns the list of videos including soft-deleted records.
+  Returns the list of videos for an organization, including soft-deleted
+  records.
 
   Exempt from doctest — hits the database.
   """
-  def list_videos_including_deleted do
-    Repo.all(Video)
+  def list_videos_including_deleted(%Organization{id: org_id}) do
+    Video
+    |> where(organization_id: ^org_id)
+    |> Repo.all()
   end
 
   @doc """
@@ -86,11 +89,13 @@ defmodule Bobine.Content do
   end
 
   @doc """
-  Gets a single video. Raises on not found.
+  Gets a single video in an organization. Raises on not found.
 
   Exempt from doctest — hits the database.
   """
-  def get_video!(id), do: Repo.get!(Video, id)
+  def get_video!(%Organization{id: org_id}, id) do
+    Repo.get_by!(Video, id: id, organization_id: org_id)
+  end
 
   @doc """
   Returns the `organization_id` for the video identified by its
@@ -487,12 +492,15 @@ defmodule Bobine.Content do
   end
 
   @doc """
-  Returns the list of collections including soft-deleted records.
+  Returns the list of collections for an organization, including
+  soft-deleted records.
 
   Exempt from doctest — hits the database.
   """
-  def list_collections_including_deleted do
-    Repo.all(Collection)
+  def list_collections_including_deleted(%Organization{id: org_id}) do
+    Collection
+    |> where(organization_id: ^org_id)
+    |> Repo.all()
   end
 
   @doc """

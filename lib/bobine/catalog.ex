@@ -608,7 +608,7 @@ defmodule Bobine.Catalog do
     organization
     |> list_hero_slides(hero_row)
     |> Enum.map(fn slide ->
-      video = Content.get_video!(slide.video_id)
+      video = Content.get_video!(organization, slide.video_id)
 
       %{
         id: slide.id,
@@ -857,7 +857,7 @@ defmodule Bobine.Catalog do
             row
             |> then(&list_hero_slides(organization, &1))
             |> Enum.map(fn slide ->
-              video = Content.get_video!(slide.video_id)
+              video = Content.get_video!(organization, slide.video_id)
               {slide, video}
             end)
             |> Enum.filter(fn {_slide, video} -> video_playable?(video) end)
