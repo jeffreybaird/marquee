@@ -133,6 +133,12 @@ defmodule BobineWeb.Admin.ContentLive.Components do
           </tbody>
         </table>
       </div>
+
+      <.pagination
+        :if={@total_pages > 1}
+        page={@page}
+        total_pages={@total_pages}
+      />
     </AdminUI.admin_panel>
 
     <AdminUI.admin_sheet
@@ -696,5 +702,38 @@ defmodule BobineWeb.Admin.ContentLive.Components do
   defp filter_tags_by_search(tags, search) do
     normalized = String.downcase(String.trim(search))
     Enum.filter(tags, fn tag -> String.contains?(String.downcase(tag.name), normalized) end)
+  end
+
+  attr :page, :integer, required: true
+  attr :total_pages, :integer, required: true
+
+  defp pagination(assigns) do
+    ~H"""
+    <nav class="flex items-center justify-center gap-2 mt-4" aria-label="Pagination">
+      <button
+        :if={@page > 1}
+        phx-click="page"
+        phx-value-page={@page - 1}
+        data-test="page-prev"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
+        aria-label="Previous page"
+      >
+        &lsaquo; Previous
+      </button>
+      <span class="font-ui text-sm text-admin-muted">
+        Page {@page} of {@total_pages}
+      </span>
+      <button
+        :if={@page < @total_pages}
+        phx-click="page"
+        phx-value-page={@page + 1}
+        data-test="page-next"
+        class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg"
+        aria-label="Next page"
+      >
+        Next &rsaquo;
+      </button>
+    </nav>
+    """
   end
 end

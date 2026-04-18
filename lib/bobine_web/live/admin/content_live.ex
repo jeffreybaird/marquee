@@ -56,12 +56,18 @@ defmodule BobineWeb.Admin.ContentLive do
      |> assign(:show_tag_picker, false)
      |> assign(:tag_search, "")
      |> assign(:row_tag_picker_video_id, nil)
+     |> assign(:page, 1)
      |> load_videos()}
   end
 
   @impl true
   def handle_event("search", %{"search" => term}, socket) do
-    {:noreply, socket |> assign(:search, term) |> load_videos()}
+    {:noreply, socket |> assign(:search, term) |> assign(:page, 1) |> load_videos()}
+  end
+
+  @impl true
+  def handle_event("page", %{"page" => page}, socket) do
+    {:noreply, socket |> assign(:page, String.to_integer(page)) |> load_videos()}
   end
 
   @impl true
@@ -585,15 +591,22 @@ defmodule BobineWeb.Admin.ContentLive do
     {:noreply, socket}
   end
 
+  @per_page 24
+
   defp load_videos(socket) do
     org = socket.assigns.organization
     search = socket.assigns.search
-    %{results: videos} = Content.list_videos(org, search: search)
+    page = socket.assigns.page
+
+    %{results: videos, total_pages: total_pages} =
+      Content.list_videos(org, search: search, page: page, per_page: @per_page)
+
     video_ids = Enum.map(videos, & &1.id)
     videos_tags_map = Content.list_tags_for_videos(org, video_ids)
 
     socket
     |> assign(:videos, videos)
+    |> assign(:total_pages, total_pages)
     |> assign(:videos_tags_map, videos_tags_map)
   end
 
