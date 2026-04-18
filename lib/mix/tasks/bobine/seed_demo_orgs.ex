@@ -115,7 +115,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
   defp purge_org_content(org_id) do
     Enum.each(@purge_tables, fn table ->
-      {count, _} =
+      %{num_rows: count} =
         EctoSQL.query!(Repo, "DELETE FROM #{table} WHERE organization_id = $1", [
           Ecto.UUID.dump!(org_id)
         ])
