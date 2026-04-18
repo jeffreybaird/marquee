@@ -20,6 +20,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   alias Bobine.Accounts.{Organization, Scope}
   alias Bobine.{Admin, Billing, Branding, Catalog, Content, LandingPage, Repo}
   alias Bobine.Billing.Coupon
+  alias Bobine.Content.{Collection, Series, Video}
   alias Mux.Video.Assets, as: MuxAssets
 
   @pexels_delay_ms 500
@@ -62,17 +63,26 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         do_seed(org_def, pexels_key)
 
       existing ->
-        IO.puts("\n=== Skipping #{org_def.name} (exists, use --force to recreate) ===")
+        IO.puts("\n=== Resuming #{org_def.name} (exists, seeding missing content) ===")
+        do_seed(org_def, pexels_key, existing)
 
       true ->
         do_seed(org_def, pexels_key)
     end
   end
 
-  defp do_seed(org_def, pexels_key) do
-    IO.puts("\n=== Creating #{org_def.name} ===")
+  defp do_seed(org_def, pexels_key, existing_org \\ nil) do
+    org =
+      case existing_org do
+        nil ->
+          IO.puts("\n=== Creating #{org_def.name} ===")
+          {:ok, org} = Admin.create_organization(nil, %{name: org_def.name, slug: org_def.slug})
+          org
 
-    {:ok, org} = Admin.create_organization(nil, %{name: org_def.name, slug: org_def.slug})
+        org ->
+          org
+      end
+
     scope = %Scope{organization: org}
 
     apply_theme(org, org_def.theme)
@@ -133,28 +143,51 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     video_defs
     |> Enum.zip(pexels_videos)
     |> Enum.map(fn {vdef, pexels_url} ->
-      IO.puts("    Ingesting: #{vdef.title}")
-
-      {:ok, video} =
-        Content.create_video(scope, %{
-          title: vdef.title,
-          slug: slugify(vdef.title),
-          description: vdef.description,
-          organization_id: org.id,
-          mux_asset_id: "pending",
-          mux_playback_id: "pending",
-          mux_status: "preparing",
-          published: true,
-          visibility: vdef[:visibility] || "public"
-        })
-
-      Task.async(fn -> ingest_to_mux(video, pexels_url) end)
-      |> then(fn task ->
-        Task.await(task, 30_000)
-      end)
-
-      video
+      find_or_create_video(scope, org, vdef.title, vdef.description, pexels_url,
+        visibility: vdef[:visibility] || "public",
+        indent: "    "
+      )
     end)
+  end
+
+  defp maybe_reingest(%Video{mux_asset_id: "pending"} = video, pexels_url) do
+    IO.puts("    Re-ingesting: #{video.title} (pending Mux)")
+    Task.async(fn -> ingest_to_mux(video, pexels_url) end) |> Task.await(30_000)
+  end
+
+  defp maybe_reingest(_video, _url), do: :ok
+
+  defp find_or_create_video(scope, org, title, description, pexels_url, opts) do
+    slug = slugify(title)
+    indent = Keyword.get(opts, :indent, "    ")
+
+    case Repo.get_by(Video, slug: slug, organization_id: org.id) do
+      %Video{} = existing ->
+        IO.puts("#{indent}Exists: #{title}")
+        maybe_reingest(existing, pexels_url)
+        existing
+
+      nil ->
+        IO.puts("#{indent}Ingesting: #{title}")
+
+        {:ok, video} =
+          Content.create_video(scope, %{
+            title: title,
+            slug: slug,
+            description: description,
+            organization_id: org.id,
+            mux_asset_id: "pending",
+            mux_playback_id: "pending",
+            mux_status: "preparing",
+            published: true,
+            visibility: Keyword.get(opts, :visibility, "public")
+          })
+
+        Task.async(fn -> ingest_to_mux(video, pexels_url) end)
+        |> Task.await(30_000)
+
+        video
+    end
   end
 
   defp fetch_pexels_videos(video_defs, pexels_key) do
@@ -246,14 +279,26 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   defp create_all_series(scope, org, series_defs, pexels_key) do
     series_defs
     |> Enum.reduce(%{}, fn sdef, acc ->
-      IO.puts("  Creating series: #{sdef.title}")
+      slug = slugify(sdef.title)
 
-      {:ok, series} =
-        Content.create_series(scope, %{
-          title: sdef.title,
-          description: sdef.description,
-          new_season: sdef[:new_season] || false
-        })
+      series =
+        case Repo.get_by(Series, slug: slug, organization_id: org.id) do
+          %Series{} = existing ->
+            IO.puts("  Series exists: #{sdef.title}")
+            existing
+
+          nil ->
+            IO.puts("  Creating series: #{sdef.title}")
+
+            {:ok, s} =
+              Content.create_series(scope, %{
+                title: sdef.title,
+                description: sdef.description,
+                new_season: sdef[:new_season] || false
+              })
+
+            s
+        end
 
       seasons =
         sdef.seasons
@@ -265,16 +310,36 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   end
 
   defp create_season_with_episodes(scope, org, series, sdef, {season_def, season_num}, pexels_key) do
-    IO.puts(
-      "    Season #{season_num}: #{season_def.title} (#{season_def.episode_count} episodes)"
-    )
+    import Ecto.Query, only: [where: 3]
 
-    {:ok, season} =
-      Content.create_season(scope, series, %{
-        title: season_def.title,
-        description: season_def[:description] || sdef.description,
-        season_number: season_num
-      })
+    series_id = series.id
+
+    existing_season =
+      Bobine.Content.Season
+      |> where([s], s.series_id == ^series_id and s.season_number == ^season_num)
+      |> where([s], is_nil(s.deleted_at))
+      |> Repo.one()
+
+    season =
+      case existing_season do
+        nil ->
+          IO.puts(
+            "    Season #{season_num}: #{season_def.title} (#{season_def.episode_count} episodes)"
+          )
+
+          {:ok, s} =
+            Content.create_season(scope, series, %{
+              title: season_def.title,
+              description: season_def[:description] || sdef.description,
+              season_number: season_num
+            })
+
+          s
+
+        s ->
+          IO.puts("    Season #{season_num} exists: #{s.title}")
+          s
+      end
 
     scope
     |> fetch_and_create_episode_videos(org, season_def, pexels_key)
@@ -282,8 +347,10 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     |> Enum.each(fn {video, ep_num} ->
       title = Enum.at(season_def.episode_titles, ep_num - 1)
 
-      {:ok, _} =
-        Content.add_episode(scope, season, video, %{episode_number: ep_num, title: title})
+      case Content.add_episode(scope, season, video, %{episode_number: ep_num, title: title}) do
+        {:ok, _} -> :ok
+        {:error, :already_exists} -> :ok
+      end
     end)
 
     season
@@ -295,25 +362,8 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     season_def.episode_titles
     |> Enum.zip(urls)
     |> Enum.map(fn {title, pexels_url} ->
-      IO.puts("      Ingesting: #{title}")
-
-      {:ok, video} =
-        Content.create_video(scope, %{
-          title: title,
-          slug: slugify(title),
-          description: season_def[:description] || "Episode: #{title}",
-          organization_id: org.id,
-          mux_asset_id: "pending",
-          mux_playback_id: "pending",
-          mux_status: "preparing",
-          published: true,
-          visibility: "public"
-        })
-
-      Task.async(fn -> ingest_to_mux(video, pexels_url) end)
-      |> Task.await(30_000)
-
-      video
+      description = season_def[:description] || "Episode: #{title}"
+      find_or_create_video(scope, org, title, description, pexels_url, indent: "      ")
     end)
   end
 
@@ -322,13 +372,27 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   # -------------------------------------------------------------------
 
   defp create_collections(scope, collection_defs, standalones, series_map) do
+    org = scope.organization
+
     collection_defs
     |> Enum.reduce(%{}, fn cdef, acc ->
-      {:ok, collection} =
-        Content.create_collection(scope, %{
-          title: cdef.title,
-          description: cdef[:description]
-        })
+      slug = slugify(cdef.title)
+
+      collection =
+        case Repo.get_by(Collection, slug: slug, organization_id: org.id) do
+          %Collection{} = existing ->
+            IO.puts("    Collection exists: #{cdef.title}")
+            existing
+
+          nil ->
+            {:ok, c} =
+              Content.create_collection(scope, %{
+                title: cdef.title,
+                description: cdef[:description]
+              })
+
+            c
+        end
 
       add_collection_items(scope, collection, cdef, standalones, series_map)
       Map.put(acc, cdef.key, collection)
@@ -384,49 +448,63 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   # -------------------------------------------------------------------
 
   defp create_plans(scope, org, plan_defs) do
-    plan_defs
-    |> Enum.with_index()
-    |> Enum.each(fn {pdef, idx} ->
-      {:ok, _} =
-        Billing.create_plan(scope, %{
-          name: pdef.name,
-          description: pdef[:description],
-          stripe_price_id: "demo_price_#{org.slug}_#{idx}",
-          stripe_product_id: "demo_prod_#{org.slug}_#{idx}",
-          amount: pdef.amount,
-          currency: "usd",
-          interval: pdef.interval,
-          trial_period_days: pdef[:trial_days] || 0,
-          active: true,
-          position: idx,
-          features: pdef[:features] || [],
-          organization_id: org.id
-        })
-    end)
+    existing = Billing.list_plans(org)
+
+    if existing.total > 0 do
+      IO.puts("    Plans exist (#{existing.total}), skipping")
+    else
+      plan_defs
+      |> Enum.with_index()
+      |> Enum.each(fn {pdef, idx} ->
+        {:ok, _} =
+          Billing.create_plan(scope, %{
+            name: pdef.name,
+            description: pdef[:description],
+            stripe_price_id: "demo_price_#{org.slug}_#{idx}",
+            stripe_product_id: "demo_prod_#{org.slug}_#{idx}",
+            amount: pdef.amount,
+            currency: "usd",
+            interval: pdef.interval,
+            trial_period_days: pdef[:trial_days] || 0,
+            active: true,
+            position: idx,
+            features: pdef[:features] || [],
+            organization_id: org.id
+          })
+      end)
+    end
   end
 
   defp create_coupons(org, coupon_defs) do
     IO.puts("  Creating coupons...")
 
     Enum.each(coupon_defs, fn cdef ->
-      attrs =
-        %{
-          organization_id: org.id,
-          code: cdef.code,
-          name: cdef[:name] || cdef.code,
-          duration: cdef.duration,
-          active: true,
-          stripe_coupon_id: "demo_coupon_#{org.slug}_#{cdef.code}",
-          stripe_promotion_code_id: "demo_promo_#{org.slug}_#{cdef.code}"
-        }
-        |> maybe_put(
-          :percent_off,
-          cdef[:percent_off] && Decimal.new(to_string(cdef[:percent_off]))
-        )
-        |> maybe_put(:amount_off, cdef[:amount_off])
-        |> maybe_put(:duration_in_months, cdef[:duration_in_months])
+      code = String.upcase(cdef.code)
 
-      %Coupon{} |> Coupon.changeset(attrs) |> Repo.insert!()
+      case Repo.get_by(Coupon, code: code, organization_id: org.id) do
+        %Coupon{} ->
+          IO.puts("    Coupon exists: #{code}")
+
+        nil ->
+          attrs =
+            %{
+              organization_id: org.id,
+              code: code,
+              name: cdef[:name] || code,
+              duration: cdef.duration,
+              active: true,
+              stripe_coupon_id: "demo_coupon_#{org.slug}_#{code}",
+              stripe_promotion_code_id: "demo_promo_#{org.slug}_#{code}"
+            }
+            |> maybe_put(
+              :percent_off,
+              cdef[:percent_off] && Decimal.new(to_string(cdef[:percent_off]))
+            )
+            |> maybe_put(:amount_off, cdef[:amount_off])
+            |> maybe_put(:duration_in_months, cdef[:duration_in_months])
+
+          %Coupon{} |> Coupon.changeset(attrs) |> Repo.insert!()
+      end
     end)
   end
 
@@ -435,19 +513,25 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   # -------------------------------------------------------------------
 
   defp create_landing_sections(scope, section_defs, collections) do
-    section_defs
-    |> Enum.with_index()
-    |> Enum.each(fn {sdef, idx} ->
-      config = resolve_landing_config(sdef.config, collections)
+    existing = LandingPage.list_landing_sections_admin(scope.organization)
 
-      {:ok, _} =
-        LandingPage.create_landing_section(scope, %{
-          "section_type" => to_string(sdef.type),
-          "position" => idx,
-          "visible" => true,
-          "config" => config
-        })
-    end)
+    if existing.total > 0 do
+      IO.puts("    Landing sections exist (#{existing.total}), skipping")
+    else
+      section_defs
+      |> Enum.with_index()
+      |> Enum.each(fn {sdef, idx} ->
+        config = resolve_landing_config(sdef.config, collections)
+
+        {:ok, _} =
+          LandingPage.create_landing_section(scope, %{
+            "section_type" => to_string(sdef.type),
+            "position" => idx,
+            "visible" => true,
+            "config" => config
+          })
+      end)
+    end
   end
 
   defp resolve_landing_config(config, collections) do
@@ -476,22 +560,30 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         {:error, :not_found} -> Catalog.create_hero_row(scope, %{title: "Hero"})
       end
 
-    slide_defs
-    |> Enum.with_index()
-    |> Enum.each(fn {sdef, idx} ->
-      video = Enum.at(standalones, sdef.video_index)
+    existing_slides = Catalog.list_hero_slides(org, hero_row)
 
-      if video do
-        {:ok, _} =
-          Catalog.create_hero_slide(scope, hero_row, %{
-            video_id: video.id,
-            position: idx,
-            headline: sdef[:headline],
-            subheadline: sdef[:subheadline],
-            description: sdef[:description]
-          })
-      end
-    end)
+    if existing_slides != [] do
+      IO.puts("    Hero slides exist (#{length(existing_slides)}), skipping")
+    else
+      Enum.each(Enum.with_index(slide_defs), fn {sdef, idx} ->
+        create_single_hero_slide(scope, hero_row, standalones, sdef, idx)
+      end)
+    end
+  end
+
+  defp create_single_hero_slide(scope, hero_row, standalones, sdef, idx) do
+    video = Enum.at(standalones, sdef.video_index)
+
+    if video do
+      {:ok, _} =
+        Catalog.create_hero_slide(scope, hero_row, %{
+          video_id: video.id,
+          position: idx,
+          headline: sdef[:headline],
+          subheadline: sdef[:subheadline],
+          description: sdef[:description]
+        })
+    end
   end
 
   # -------------------------------------------------------------------
@@ -499,12 +591,18 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   # -------------------------------------------------------------------
 
   defp create_catalog_rows(scope, row_defs, collections, _series_map) do
-    row_defs
-    |> Enum.with_index()
-    |> Enum.each(fn {rdef, idx} ->
-      attrs = build_row_attrs(rdef, idx, collections)
-      {:ok, _} = Catalog.create_row(scope, attrs)
-    end)
+    existing = Catalog.list_rows(scope.organization, per_page: 1)
+
+    if existing.total > 1 do
+      IO.puts("    Catalog rows exist (#{existing.total}), skipping")
+    else
+      row_defs
+      |> Enum.with_index()
+      |> Enum.each(fn {rdef, idx} ->
+        attrs = build_row_attrs(rdef, idx, collections)
+        {:ok, _} = Catalog.create_row(scope, attrs)
+      end)
+    end
   end
 
   defp build_row_attrs(rdef, idx, collections) do
@@ -544,10 +642,6 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     |> String.replace(~r/[^a-z0-9\s-]/, "")
     |> String.replace(~r/\s+/, "-")
     |> String.trim("-")
-    |> then(fn slug ->
-      suffix = :rand.uniform(99_999) |> Integer.to_string()
-      "#{slug}-#{suffix}"
-    end)
   end
 
   defp stringify_keys(map) when is_map(map) do
