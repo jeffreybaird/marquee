@@ -244,5 +244,80 @@ defmodule BobineWeb.Components.ContentCardTest do
       assert html =~ ~s(data-test="season-card-#{season.id}")
       assert html =~ "Disp Season"
     end
+
+    test "unwraps CollectionItem with video and dispatches to video card", %{org: org} do
+      video =
+        insert(:video, organization: org, title: "Wrapped Video", mux_playback_id: "wp")
+
+      collection = insert(:collection, organization: org)
+
+      ci =
+        insert(:collection_item,
+          organization: org,
+          collection: collection,
+          video: video,
+          item_type: :video
+        )
+
+      html = render_component(&ViewerComponents.content_item_card/1, %{item: ci})
+
+      assert html =~ ~s(data-test="sv-card-#{video.id}")
+      assert html =~ "Wrapped Video"
+    end
+
+    test "unwraps CollectionItem with series and dispatches to series card", %{
+      org: org,
+      scope: scope
+    } do
+      {:ok, series} =
+        Content.create_series(scope, %{title: "Wrapped Series", cover_image_url: "x.jpg"})
+
+      collection = insert(:collection, organization: org)
+
+      ci =
+        insert(:collection_item,
+          organization: org,
+          collection: collection,
+          video: nil,
+          series: series,
+          item_type: :series
+        )
+
+      html = render_component(&ViewerComponents.content_item_card/1, %{item: ci})
+
+      assert html =~ ~s(data-test="series-card-#{series.id}")
+      assert html =~ "Wrapped Series"
+    end
+
+    test "unwraps CollectionItem with season and dispatches to season card", %{
+      org: org,
+      scope: scope
+    } do
+      {:ok, series} =
+        Content.create_series(scope, %{title: "Show", cover_image_url: "x.jpg"})
+
+      {:ok, season} =
+        Content.create_season(scope, series, %{
+          title: "Wrapped Season",
+          cover_image_url: "s.jpg"
+        })
+
+      season = Bobine.Repo.preload(season, :series)
+      collection = insert(:collection, organization: org)
+
+      ci =
+        insert(:collection_item,
+          organization: org,
+          collection: collection,
+          video: nil,
+          season: season,
+          item_type: :season
+        )
+
+      html = render_component(&ViewerComponents.content_item_card/1, %{item: ci})
+
+      assert html =~ ~s(data-test="season-card-#{season.id}")
+      assert html =~ "Wrapped Season"
+    end
   end
 end

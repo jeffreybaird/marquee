@@ -9,7 +9,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   use BobineWeb, :html
 
   alias Bobine.Content
-  alias Bobine.Content.{Season, Series, Video}
+  alias Bobine.Content.{CollectionItem, Season, Series, Video}
 
   # ---------------------------------------------------------------------------
   # Polymorphic Item Card — dispatches based on item type
@@ -56,6 +56,21 @@ defmodule BobineWeb.Components.ViewerComponents do
     ~H"""
     <.continue_watching_card item={@item} card_id={@card_id} />
     """
+  end
+
+  def content_item_card(%{item: %CollectionItem{video: %Video{}} = ci} = assigns) do
+    assigns = assign(assigns, :item, ci.video)
+    content_item_card(assigns)
+  end
+
+  def content_item_card(%{item: %CollectionItem{series: %Series{}} = ci} = assigns) do
+    assigns = assign(assigns, :item, ci.series)
+    content_item_card(assigns)
+  end
+
+  def content_item_card(%{item: %CollectionItem{season: %Season{}} = ci} = assigns) do
+    assigns = assign(assigns, :item, ci.season)
+    content_item_card(assigns)
   end
 
   def content_item_card(%{item: %Video{}} = assigns) do
