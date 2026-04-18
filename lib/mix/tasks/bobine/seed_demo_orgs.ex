@@ -20,7 +20,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   alias Bobine.{Accounts, Admin, Billing, Branding, Catalog, Content, LandingPage, Repo, Viewers}
   alias Bobine.Accounts.{Membership, Organization, Scope, User}
   alias Bobine.Billing.Coupon
-  alias Bobine.Content.{Collection, Series, Video}
+  alias Bobine.Content.{Collection, Series, Tag, Video}
   alias Bobine.Viewers.Viewer
   alias Ecto.Adapters.SQL, as: EctoSQL
   alias Mux.Video.Assets, as: MuxAssets
@@ -151,6 +151,9 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     standalones = create_standalones(scope, org, org_def.standalones, pexels_key)
 
     series_map = create_all_series(scope, org, org_def.series_defs, pexels_key)
+
+    IO.puts("  Applying tags...")
+    apply_tags(scope, org, standalones, org_def.standalones, series_map, org_def.series_defs)
 
     IO.puts("  Creating collections...")
     collections = create_collections(scope, org_def.collections, standalones, series_map)
@@ -518,6 +521,98 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   end
 
   # -------------------------------------------------------------------
+  # Tags
+  # -------------------------------------------------------------------
+
+  defp apply_tags(scope, org, standalones, standalone_defs, series_map, series_defs) do
+    tag_cache = ensure_tags(scope, org, standalone_defs, series_defs)
+
+    standalone_defs
+    |> Enum.zip(standalones)
+    |> Enum.each(fn {vdef, video} ->
+      apply_video_tags(scope, video, vdef[:tags] || [], tag_cache)
+    end)
+
+    Enum.each(series_defs, fn sdef ->
+      case series_map[sdef.key] do
+        nil -> :ok
+        %{seasons: seasons} -> tag_series_episodes(scope, org, sdef, seasons, tag_cache)
+      end
+    end)
+  end
+
+  defp apply_video_tags(scope, video, tag_names, tag_cache) do
+    Enum.each(tag_names, fn name ->
+      tag = tag_cache[String.downcase(name)]
+      if tag, do: tag_video_idempotent(scope, video, tag)
+    end)
+  end
+
+  defp ensure_tags(scope, org, standalone_defs, series_defs) do
+    all_tag_names =
+      (collect_tag_names(standalone_defs) ++ collect_series_tag_names(series_defs))
+      |> Enum.uniq()
+
+    Map.new(all_tag_names, fn name ->
+      {String.downcase(name), find_or_create_tag(scope, org, name)}
+    end)
+  end
+
+  defp collect_tag_names(video_defs) do
+    Enum.flat_map(video_defs, fn vdef -> vdef[:tags] || [] end)
+  end
+
+  defp collect_series_tag_names(series_defs) do
+    series_defs
+    |> Enum.flat_map(& &1.seasons)
+    |> Enum.flat_map(&(&1[:episode_tags] || []))
+    |> Enum.flat_map(fn {_idx, tags} -> tags end)
+  end
+
+  defp find_or_create_tag(scope, org, name) do
+    slug = slugify(name)
+
+    case Repo.get_by(Tag, slug: slug, organization_id: org.id) do
+      %Tag{} = tag -> tag
+      nil -> do_create_tag(scope, org, name, slug)
+    end
+  end
+
+  defp do_create_tag(scope, org, name, slug) do
+    case Content.create_tag(scope, %{name: name}) do
+      {:ok, tag} -> tag
+      {:error, :already_exists} -> Repo.get_by!(Tag, slug: slug, organization_id: org.id)
+    end
+  end
+
+  defp tag_video_idempotent(scope, video, tag) do
+    case Content.tag_video(scope, video, tag) do
+      {:ok, _} -> :ok
+      {:error, :already_exists} -> :ok
+    end
+  end
+
+  defp tag_series_episodes(scope, org, sdef, seasons, tag_cache) do
+    sdef.seasons
+    |> Enum.zip(seasons)
+    |> Enum.each(fn {season_def, _season} ->
+      Enum.each(season_def[:episode_tags] || [], fn {ep_idx, tags} ->
+        tag_episode_by_index(scope, org, season_def, ep_idx, tags, tag_cache)
+      end)
+    end)
+  end
+
+  defp tag_episode_by_index(scope, org, season_def, ep_idx, tags, tag_cache) do
+    title = Enum.at(season_def.episode_titles, ep_idx)
+    if is_nil(title), do: :ok
+
+    case Repo.get_by(Video, slug: slugify(title), organization_id: org.id) do
+      %Video{} = video -> apply_video_tags(scope, video, tags, tag_cache)
+      nil -> :ok
+    end
+  end
+
+  # -------------------------------------------------------------------
   # Collections
   # -------------------------------------------------------------------
 
@@ -851,52 +946,62 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
           title: "Sunrise Over Santorini",
           search: "travel landscape aerial",
           description:
-            "Golden light spills across whitewashed villages as dawn breaks over the Aegean."
+            "Golden light spills across whitewashed villages as dawn breaks over the Aegean.",
+          tags: ["europe", "aerial", "golden hour"]
         },
         %{
           title: "Coastal Wandering",
           search: "ocean coast drone",
-          description: "Following the edge of the world where land meets sea."
+          description: "Following the edge of the world where land meets sea.",
+          tags: ["coastal", "drone", "nature"]
         },
         %{
           title: "Desert Horizons",
           search: "travel landscape aerial",
-          description: "Endless dunes stretch to the horizon under a blazing sky."
+          description: "Endless dunes stretch to the horizon under a blazing sky.",
+          tags: ["desert", "aerial", "landscape"]
         },
         %{
           title: "Northern Lights",
           search: "travel landscape aerial",
-          description: "The aurora dances above frozen tundra in electric greens and violets."
+          description: "The aurora dances above frozen tundra in electric greens and violets.",
+          tags: ["arctic", "nature", "night sky"]
         },
         %{
           title: "City After Dark",
           search: "city street night",
-          description: "Neon reflections on rain-slicked streets tell stories of urban life."
+          description: "Neon reflections on rain-slicked streets tell stories of urban life.",
+          tags: ["urban", "night", "street"]
         },
         %{
           title: "Monsoon Season",
           search: "travel landscape aerial",
-          description: "Torrential rains transform the landscape into a lush green paradise."
+          description: "Torrential rains transform the landscape into a lush green paradise.",
+          tags: ["asia", "nature", "weather"]
         },
         %{
           title: "Island Hopping",
           search: "ocean coast drone",
-          description: "Crystal-clear waters connect a chain of tropical islands."
+          description: "Crystal-clear waters connect a chain of tropical islands.",
+          tags: ["tropical", "coastal", "drone"]
         },
         %{
           title: "Ancient Trails",
           search: "travel landscape aerial",
-          description: "Footpaths carved by centuries of travelers wind through mountain passes."
+          description: "Footpaths carved by centuries of travelers wind through mountain passes.",
+          tags: ["hiking", "mountains", "history"]
         },
         %{
           title: "The Night Market",
           search: "city street night",
-          description: "A sensory explosion of street food, lanterns, and bustling crowds."
+          description: "A sensory explosion of street food, lanterns, and bustling crowds.",
+          tags: ["asia", "urban", "food", "night"]
         },
         %{
           title: "Fjord Country",
           search: "ocean coast drone",
-          description: "Dramatic cliffs plunge into deep blue waters in Scandinavia's heartland."
+          description: "Dramatic cliffs plunge into deep blue waters in Scandinavia's heartland.",
+          tags: ["europe", "coastal", "nature", "drone"]
         }
       ],
       series_defs: [
@@ -1078,42 +1183,50 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         %{
           title: "Building a Dovetail Box",
           search: "woodworking crafting handmade",
-          description: "Master the dovetail joint with this step-by-step guide."
+          description: "Master the dovetail joint with this step-by-step guide.",
+          tags: ["joinery", "beginner", "projects"]
         },
         %{
           title: "Router Fundamentals",
           search: "woodworking crafting handmade",
-          description: "Everything you need to know about getting started with a router."
+          description: "Everything you need to know about getting started with a router.",
+          tags: ["power tools", "beginner", "technique"]
         },
         %{
           title: "Hand-Cut Joinery",
           search: "woodworking crafting handmade",
-          description: "Traditional hand-cut joints that stand the test of time."
+          description: "Traditional hand-cut joints that stand the test of time.",
+          tags: ["joinery", "hand tools", "traditional"]
         },
         %{
           title: "Finishing Techniques",
           search: "woodworking crafting handmade",
-          description: "Oils, stains, and lacquers — choosing the right finish for your project."
+          description: "Oils, stains, and lacquers — choosing the right finish for your project.",
+          tags: ["finishing", "technique"]
         },
         %{
           title: "Shop Organization",
           search: "tools equipment workshop",
-          description: "A well-organized shop is a productive shop."
+          description: "A well-organized shop is a productive shop.",
+          tags: ["shop setup", "beginner"]
         },
         %{
           title: "Sharpening Essentials",
           search: "tools equipment workshop",
-          description: "A sharp tool is a safe tool. Learn proper sharpening technique."
+          description: "A sharp tool is a safe tool. Learn proper sharpening technique.",
+          tags: ["hand tools", "technique", "maintenance"]
         },
         %{
           title: "Wood Selection Guide",
           search: "woodworking crafting handmade",
-          description: "Understanding grain, hardness, and figure for better project outcomes."
+          description: "Understanding grain, hardness, and figure for better project outcomes.",
+          tags: ["materials", "beginner"]
         },
         %{
           title: "Glue-Up Strategies",
           search: "woodworking crafting handmade",
-          description: "Complex glue-ups made simple with proper planning and technique."
+          description: "Complex glue-ups made simple with proper planning and technique.",
+          tags: ["technique", "intermediate"]
         }
       ],
       series_defs: [
@@ -1290,62 +1403,74 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         %{
           title: "Morning Sun Salutation",
           search: "yoga morning stretching",
-          description: "Start your day with this energizing sun salutation sequence."
+          description: "Start your day with this energizing sun salutation sequence.",
+          tags: ["yoga", "morning", "beginner"]
         },
         %{
           title: "Power Vinyasa Flow",
           search: "yoga fitness meditation wellness",
-          description: "A challenging vinyasa flow to build strength and flexibility."
+          description: "A challenging vinyasa flow to build strength and flexibility.",
+          tags: ["yoga", "advanced", "strength"]
         },
         %{
           title: "Core Strength Builder",
           search: "fitness exercise bodyweight",
-          description: "Targeted core exercises for stability and power."
+          description: "Targeted core exercises for stability and power.",
+          tags: ["strength", "core", "intermediate"]
         },
         %{
           title: "Deep Stretch Recovery",
           search: "yoga morning stretching",
-          description: "Gentle stretches to release tension and improve recovery."
+          description: "Gentle stretches to release tension and improve recovery.",
+          tags: ["recovery", "stretching", "beginner"]
         },
         %{
           title: "HIIT Cardio Blast",
           search: "fitness exercise bodyweight",
-          description: "High-intensity intervals to boost endurance and burn calories."
+          description: "High-intensity intervals to boost endurance and burn calories.",
+          tags: ["hiit", "cardio", "advanced"]
         },
         %{
           title: "Meditation for Focus",
           search: "yoga fitness meditation wellness",
-          description: "A guided meditation to sharpen concentration and calm the mind."
+          description: "A guided meditation to sharpen concentration and calm the mind.",
+          tags: ["meditation", "mindfulness", "beginner"]
         },
         %{
           title: "Full Body Mobility",
           search: "yoga morning stretching",
-          description: "Improve range of motion with this comprehensive mobility routine."
+          description: "Improve range of motion with this comprehensive mobility routine.",
+          tags: ["mobility", "stretching", "recovery"]
         },
         %{
           title: "Balance & Stability",
           search: "fitness exercise bodyweight",
-          description: "Challenge your balance with these progressive stability exercises."
+          description: "Challenge your balance with these progressive stability exercises.",
+          tags: ["balance", "core", "intermediate"]
         },
         %{
           title: "Evening Wind Down",
           search: "yoga fitness meditation wellness",
-          description: "A calming practice to release the day and prepare for rest."
+          description: "A calming practice to release the day and prepare for rest.",
+          tags: ["yoga", "recovery", "evening"]
         },
         %{
           title: "Breath Work Basics",
           search: "yoga fitness meditation wellness",
-          description: "Foundational breathing techniques for stress management."
+          description: "Foundational breathing techniques for stress management.",
+          tags: ["meditation", "breathwork", "beginner"]
         },
         %{
           title: "Warrior Series",
           search: "yoga morning stretching",
-          description: "Build lower body strength through the warrior pose progression."
+          description: "Build lower body strength through the warrior pose progression.",
+          tags: ["yoga", "strength", "intermediate"]
         },
         %{
           title: "Sculpt & Tone",
           search: "fitness exercise bodyweight",
-          description: "Bodyweight exercises focused on lean muscle definition."
+          description: "Bodyweight exercises focused on lean muscle definition.",
+          tags: ["strength", "toning", "intermediate"]
         }
       ],
       series_defs: [
@@ -1565,78 +1690,93 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         %{
           title: "The Last Signal",
           search: "cinematic short film",
-          description: "A radio operator receives a transmission that changes everything."
+          description: "A radio operator receives a transmission that changes everything.",
+          tags: ["sci-fi", "short film", "new"]
         },
         %{
           title: "Neon District",
           search: "dramatic scene",
-          description: "In a city that never sleeps, one detective works the beat alone."
+          description: "In a city that never sleeps, one detective works the beat alone.",
+          tags: ["crime", "drama", "noir"]
         },
         %{
           title: "Paper Lanterns",
           search: "dramatic scene",
-          description: "Two strangers connect over shared memories at a festival of lights."
+          description: "Two strangers connect over shared memories at a festival of lights.",
+          tags: ["drama", "romance"]
         },
         %{
           title: "Cold Open",
           search: "thriller suspense",
-          description: "The first five minutes will keep you guessing until the end."
+          description: "The first five minutes will keep you guessing until the end.",
+          tags: ["thriller", "suspense", "new"]
         },
         %{
           title: "The Getaway",
           search: "action scene",
-          description: "A heist gone wrong leads to a cross-country chase."
+          description: "A heist gone wrong leads to a cross-country chase.",
+          tags: ["action", "crime", "heist"]
         },
         %{
           title: "Second Chances",
           search: "dramatic scene",
-          description: "A former athlete returns to the sport that nearly destroyed them."
+          description: "A former athlete returns to the sport that nearly destroyed them.",
+          tags: ["drama", "sports", "inspirational"]
         },
         %{
           title: "After Midnight",
           search: "thriller suspense",
-          description: "Strange things happen in this town after the clock strikes twelve."
+          description: "Strange things happen in this town after the clock strikes twelve.",
+          tags: ["thriller", "horror", "mystery"]
         },
         %{
           title: "Iron Valley",
           search: "action scene",
-          description: "In a dying steel town, one family fights to keep the furnace burning."
+          description: "In a dying steel town, one family fights to keep the furnace burning.",
+          tags: ["drama", "action", "family"]
         },
         %{
           title: "Glass City",
           search: "cinematic short film",
-          description: "An architect's obsession with perfection threatens everything she loves."
+          description: "An architect's obsession with perfection threatens everything she loves.",
+          tags: ["drama", "short film", "award winner"]
         },
         %{
           title: "The Undercurrent",
           search: "thriller suspense",
-          description: "Beneath the surface of a quiet coastal town, secrets run deep."
+          description: "Beneath the surface of a quiet coastal town, secrets run deep.",
+          tags: ["thriller", "mystery", "suspense"]
         },
         %{
           title: "Bright Side",
           search: "comedy sketch",
           description:
-            "An eternal optimist faces the worst day of their life — and finds the bright side."
+            "An eternal optimist faces the worst day of their life — and finds the bright side.",
+          tags: ["comedy", "feel good"]
         },
         %{
           title: "Rogue Element",
           search: "action scene",
-          description: "A disgraced agent goes off-grid to expose a conspiracy."
+          description: "A disgraced agent goes off-grid to expose a conspiracy.",
+          tags: ["action", "thriller", "espionage"]
         },
         %{
           title: "Silent Run",
           search: "thriller suspense",
-          description: "A submarine crew faces an impossible choice in hostile waters."
+          description: "A submarine crew faces an impossible choice in hostile waters.",
+          tags: ["thriller", "military", "suspense"]
         },
         %{
           title: "End of the Line",
           search: "dramatic scene",
-          description: "The last train out of town carries passengers with nowhere left to go."
+          description: "The last train out of town carries passengers with nowhere left to go.",
+          tags: ["drama", "indie"]
         },
         %{
           title: "Golden Hour",
           search: "cinematic short film",
-          description: "A photographer chases the perfect shot as time runs out."
+          description: "A photographer chases the perfect shot as time runs out.",
+          tags: ["short film", "drama", "new"]
         }
       ],
       series_defs: [
