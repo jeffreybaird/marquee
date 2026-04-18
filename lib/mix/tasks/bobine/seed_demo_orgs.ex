@@ -25,6 +25,8 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   alias Mux.Video.Assets, as: MuxAssets
 
   @pexels_delay_ms 500
+  @mux_delay_ms 1_000
+  @mux_max_retries 3
 
   @roles [:owner, :admin, :editor, :viewer_support]
 
@@ -237,7 +239,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
   defp maybe_reingest(%Video{mux_asset_id: "pending"} = video, pexels_url) do
     IO.puts("    Re-ingesting: #{video.title} (pending Mux)")
-    Task.async(fn -> ingest_to_mux(video, pexels_url) end) |> Task.await(30_000)
+    ingest_to_mux(video, pexels_url)
   end
 
   defp maybe_reingest(_video, _url), do: :ok
@@ -268,9 +270,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
             visibility: Keyword.get(opts, :visibility, "public")
           })
 
-        Task.async(fn -> ingest_to_mux(video, pexels_url) end)
-        |> Task.await(30_000)
-
+        ingest_to_mux(video, pexels_url)
         video
     end
   end
@@ -322,6 +322,11 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   end
 
   defp ingest_to_mux(video, pexels_url) do
+    ingest_to_mux(video, pexels_url, 1)
+  end
+
+  defp ingest_to_mux(video, pexels_url, attempt) do
+    Process.sleep(@mux_delay_ms)
     client = mux_client()
 
     case MuxAssets.create(client, %{
@@ -344,11 +349,23 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
         |> Repo.update!()
 
       {:error, _type, _messages} ->
-        IO.puts("    ⚠ Mux ingestion failed for #{video.title}")
+        maybe_retry_mux(video, pexels_url, attempt, "API error")
     end
   rescue
     e ->
-      IO.puts("    ⚠ Mux ingestion failed for #{video.title}: #{Exception.message(e)}")
+      maybe_retry_mux(video, pexels_url, attempt, Exception.message(e))
+  end
+
+  defp maybe_retry_mux(video, pexels_url, attempt, reason) do
+    if attempt < @mux_max_retries do
+      backoff = attempt * 2_000
+      IO.puts("    ⚠ Mux attempt #{attempt} failed for #{video.title}: #{reason}")
+      IO.puts("      Retrying in #{div(backoff, 1_000)}s...")
+      Process.sleep(backoff)
+      ingest_to_mux(video, pexels_url, attempt + 1)
+    else
+      IO.puts("    ✗ Mux ingestion failed after #{@mux_max_retries} attempts: #{video.title}")
+    end
   end
 
   defp mux_client do
