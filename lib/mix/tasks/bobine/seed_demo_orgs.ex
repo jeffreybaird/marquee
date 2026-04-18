@@ -17,13 +17,15 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   Videos start in "preparing" status — Mux webhooks update them to "ready".
   """
 
-  alias Bobine.Accounts.{Organization, Scope}
-  alias Bobine.{Admin, Billing, Branding, Catalog, Content, LandingPage, Repo}
+  alias Bobine.{Accounts, Admin, Billing, Branding, Catalog, Content, LandingPage, Repo}
+  alias Bobine.Accounts.{Membership, Organization, Scope, User}
   alias Bobine.Billing.Coupon
   alias Bobine.Content.{Collection, Series, Video}
   alias Mux.Video.Assets, as: MuxAssets
 
   @pexels_delay_ms 500
+
+  @roles [:owner, :admin, :editor, :viewer_support]
 
   @impl Mix.Task
   def run(args) do
@@ -83,6 +85,9 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
           org
       end
 
+    IO.puts("  Creating demo users...")
+    create_demo_users(org)
+
     scope = %Scope{organization: org}
 
     apply_theme(org, org_def.theme)
@@ -131,6 +136,43 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
     org
     |> Organization.branding_changeset(branding_attrs)
     |> Repo.update!()
+  end
+
+  # -------------------------------------------------------------------
+  # Demo Users (one per role)
+  # -------------------------------------------------------------------
+
+  defp create_demo_users(org) do
+    Enum.each(@roles, fn role ->
+      email = "#{role}@#{org.slug}.demo"
+      find_or_create_demo_user(org, email, role)
+    end)
+  end
+
+  defp find_or_create_demo_user(org, email, role) do
+    user =
+      case Repo.get_by(User, email: email) do
+        %User{} = existing ->
+          IO.puts("    User exists: #{email}")
+          existing
+
+        nil ->
+          {:ok, u} = Accounts.register_user(%{email: email})
+          IO.puts("    Created user: #{email}")
+          u
+      end
+
+    case Accounts.get_membership(org, user) do
+      %Membership{} ->
+        IO.puts("    Membership exists: #{role}")
+
+      nil ->
+        %Membership{}
+        |> Membership.changeset(%{user_id: user.id, organization_id: org.id, role: role})
+        |> Repo.insert!()
+
+        IO.puts("    Added #{role} membership")
+    end
   end
 
   # -------------------------------------------------------------------
