@@ -228,6 +228,9 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
       {:error, _type, _messages} ->
         IO.puts("    ⚠ Mux ingestion failed for #{video.title}")
     end
+  rescue
+    e ->
+      IO.puts("    ⚠ Mux ingestion failed for #{video.title}: #{Exception.message(e)}")
   end
 
   defp mux_client do
