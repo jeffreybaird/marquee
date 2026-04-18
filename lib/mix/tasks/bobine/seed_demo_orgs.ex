@@ -22,6 +22,7 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   alias Bobine.Billing.Coupon
   alias Bobine.Content.{Collection, Series, Video}
   alias Bobine.Viewers.Viewer
+  alias Ecto.Adapters.SQL, as: EctoSQL
   alias Mux.Video.Assets, as: MuxAssets
 
   @pexels_delay_ms 500
@@ -63,9 +64,9 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
     cond do
       existing && force? ->
-        IO.puts("\n=== Deleting existing #{org_def.name} ===")
-        Repo.delete!(existing)
-        do_seed(org_def, pexels_key)
+        IO.puts("\n=== Purging content for #{org_def.name} ===")
+        purge_org_content(existing.id)
+        do_seed(org_def, pexels_key, existing)
 
       existing ->
         IO.puts("\n=== Resuming #{org_def.name} (exists, seeding missing content) ===")
@@ -74,6 +75,53 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
       true ->
         do_seed(org_def, pexels_key)
     end
+  end
+
+  @purge_tables [
+    "hero_slides",
+    "row_items",
+    "rows",
+    "landing_sections",
+    "collection_items",
+    "video_tags",
+    "episodes",
+    "seasons",
+    "series",
+    "collections",
+    "watchlist_items",
+    "favorites",
+    "watch_histories",
+    "progresses",
+    "viewer_subscriptions",
+    "subscriptions",
+    "queue_items",
+    "analytics_events",
+    "analytics_snapshots",
+    "playback_drop_offs",
+    "video_drop_off_buckets",
+    "notifications",
+    "webhook_endpoints",
+    "videos",
+    "tags",
+    "coupons",
+    "plans",
+    "viewers",
+    "memberships",
+    "themes",
+    "layouts",
+    "platform_subscriptions",
+    "audit_logs"
+  ]
+
+  defp purge_org_content(org_id) do
+    Enum.each(@purge_tables, fn table ->
+      {count, _} =
+        EctoSQL.query!(Repo, "DELETE FROM #{table} WHERE organization_id = $1", [
+          Ecto.UUID.dump!(org_id)
+        ])
+
+      if count > 0, do: IO.puts("    Purged #{count} rows from #{table}")
+    end)
   end
 
   defp do_seed(org_def, pexels_key, existing_org \\ nil) do
