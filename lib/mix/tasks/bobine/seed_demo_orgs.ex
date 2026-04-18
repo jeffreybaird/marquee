@@ -109,10 +109,10 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
   defp apply_theme(org, theme_attrs) do
     case Branding.get_theme_by_org(org) do
-      {:ok, theme} ->
+      %Branding.Theme{} = theme ->
         Branding.update_theme(nil, theme, theme_attrs)
 
-      {:error, :not_found} ->
+      nil ->
         Branding.create_theme(nil, Map.put(theme_attrs, :organization_id, org.id))
     end
   end
