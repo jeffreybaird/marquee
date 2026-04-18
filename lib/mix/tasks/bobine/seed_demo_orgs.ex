@@ -17,10 +17,11 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
   Videos start in "preparing" status — Mux webhooks update them to "ready".
   """
 
-  alias Bobine.{Accounts, Admin, Billing, Branding, Catalog, Content, LandingPage, Repo}
+  alias Bobine.{Accounts, Admin, Billing, Branding, Catalog, Content, LandingPage, Repo, Viewers}
   alias Bobine.Accounts.{Membership, Organization, Scope, User}
   alias Bobine.Billing.Coupon
   alias Bobine.Content.{Collection, Series, Video}
+  alias Bobine.Viewers.Viewer
   alias Mux.Video.Assets, as: MuxAssets
 
   @pexels_delay_ms 500
@@ -87,6 +88,9 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
     IO.puts("  Creating demo users...")
     create_demo_users(org)
+
+    IO.puts("  Creating demo viewers...")
+    create_demo_viewers(org)
 
     scope = %Scope{organization: org}
 
@@ -173,6 +177,45 @@ defmodule Mix.Tasks.Bobine.SeedDemoOrgs do
 
         IO.puts("    Added #{role} membership")
     end
+  end
+
+  # -------------------------------------------------------------------
+  # Demo Viewers (customers of the org)
+  # -------------------------------------------------------------------
+
+  @viewer_defs [
+    %{name: "alice", display_name: "Alice Demo", subscription_status: "active"},
+    %{name: "bob", display_name: "Bob Demo", subscription_status: "trial"},
+    %{name: "carol", display_name: "Carol Demo", subscription_status: "none"},
+    %{name: "dave", display_name: "Dave Demo", subscription_status: "canceled"},
+    %{name: "eve", display_name: "Eve Demo", subscription_status: "expired"}
+  ]
+
+  defp create_demo_viewers(org) do
+    Enum.each(@viewer_defs, fn vdef ->
+      email = "#{vdef.name}@#{org.slug}.demo"
+
+      case Viewers.get_viewer_by_email(org, email) do
+        %Viewer{} ->
+          IO.puts("    Viewer exists: #{email}")
+
+        nil ->
+          {:ok, viewer} =
+            Viewers.register_viewer(org, %{
+              email: email,
+              display_name: vdef.display_name,
+              password: "demodemo1234"
+            })
+
+          viewer
+          |> Viewer.subscription_changeset(%{
+            subscription_status: vdef.subscription_status
+          })
+          |> Repo.update!()
+
+          IO.puts("    Created viewer: #{email} (#{vdef.subscription_status})")
+      end
+    end)
   end
 
   # -------------------------------------------------------------------
