@@ -52,8 +52,8 @@ defmodule Bobine.Catalog.RowCardVariantTest do
       assert row.card_variant == "poster_portrait"
     end
 
-    test "rejects an incompatible variant", %{scope: scope} do
-      assert {:error, :validation, cs} =
+    test "accepts any valid variant in any row type", %{scope: scope} do
+      assert {:ok, row} =
                Catalog.create_row(scope, %{
                  title: "Hero",
                  source_type: :hero,
@@ -61,7 +61,7 @@ defmodule Bobine.Catalog.RowCardVariantTest do
                  max_items: 20
                })
 
-      assert "is not compatible with row type hero" in errors_on(cs).card_variant
+      assert row.card_variant == "progress_course"
     end
 
     test "rejects an unknown variant", %{scope: scope} do

@@ -33,20 +33,12 @@ defmodule Bobine.Catalog.PresetsTest do
       assert Presets.compatible?(:poster_portrait, :hero)
     end
 
-    test "progress_course forbidden in hero" do
-      refute Presets.compatible?(:progress_course, :hero)
-    end
-
-    test "creator_identity only allowed in creator_showcase + preferences" do
-      assert Presets.compatible?(:creator_identity, :creator_showcase)
-      assert Presets.compatible?(:creator_identity, :preferences)
-      refute Presets.compatible?(:creator_identity, :hero)
-      refute Presets.compatible?(:creator_identity, :series)
-    end
-
-    test "minimal_list_item only allowed in series" do
-      assert Presets.compatible?(:minimal_list_item, :series)
-      refute Presets.compatible?(:minimal_list_item, :continue_watching)
+    test "all card variants allowed in all row types" do
+      for variant <- Presets.card_variants(),
+          row_type <- Presets.row_types() do
+        assert Presets.compatible?(variant, row_type),
+               "#{variant} should be compatible with #{row_type}"
+      end
     end
 
     test "unknown atoms return false" do
@@ -56,11 +48,11 @@ defmodule Bobine.Catalog.PresetsTest do
   end
 
   describe "variants_for_row/1" do
-    test "hero accepts poster_portrait and collection_editorial" do
-      variants = Presets.variants_for_row(:hero)
-      assert :poster_portrait in variants
-      assert :collection_editorial in variants
-      refute :progress_course in variants
+    test "every row type accepts all card variants" do
+      for row_type <- Presets.row_types() do
+        variants = Presets.variants_for_row(row_type)
+        assert variants == Presets.card_variants()
+      end
     end
 
     test "returns [] for unknown row type" do

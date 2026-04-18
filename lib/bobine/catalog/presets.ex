@@ -31,16 +31,8 @@ defmodule Bobine.Catalog.Presets do
 
   @card_variants ~w(poster_portrait landscape_episode creator_identity collection_editorial progress_course minimal_list_item)a
 
-  # Compatibility matrix — transcribed from .claude/brand-system.md.
-  # Value = list of row types the card variant may occupy.
-  @compatibility %{
-    poster_portrait: [:hero, :popularity, :tags, :preferences, :editorial_spotlight],
-    landscape_episode: [:tags, :preferences, :series, :continue_watching, :editorial_spotlight],
-    creator_identity: [:preferences, :creator_showcase],
-    collection_editorial: [:hero, :editorial_spotlight],
-    progress_course: [:tags, :preferences, :series, :continue_watching],
-    minimal_list_item: [:series]
-  }
+  # Compatibility matrix — all card variants allowed in all row types.
+  @compatibility Map.new(@card_variants, fn variant -> {variant, @row_types} end)
 
   @presets %{
     "catalog_cinema" => %{
@@ -140,7 +132,7 @@ defmodule Bobine.Catalog.Presets do
       true
 
       iex> Bobine.Catalog.Presets.compatible?(:progress_course, :hero)
-      false
+      true
   """
   def compatible?(card_variant, row_type)
       when card_variant in @card_variants and row_type in @row_types do
