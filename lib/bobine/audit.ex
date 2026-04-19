@@ -308,6 +308,7 @@ defmodule Bobine.Audit do
   defp user_id_from_scope(nil), do: nil
   defp user_id_from_scope(%{user: nil}), do: nil
   defp user_id_from_scope(%{user: user}), do: user.id
+  defp user_id_from_scope(%{}), do: nil
 
   defp resource_type(%{__struct__: module}), do: module |> Module.split() |> List.last()
   defp resource_type(_), do: "Unknown"
