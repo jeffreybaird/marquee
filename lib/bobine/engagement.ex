@@ -572,21 +572,21 @@ defmodule Bobine.Engagement do
   end
 
   defp recompact_positions(org_id, viewer_id) do
-    items =
-      from(q in QueueItem,
-        where: q.organization_id == ^org_id,
-        where: q.viewer_id == ^viewer_id,
-        order_by: [asc: q.position],
-        select: q.id
-      )
-      |> Repo.all()
+    {:ok, org_bin} = Ecto.UUID.dump(org_id)
+    {:ok, viewer_bin} = Ecto.UUID.dump(viewer_id)
 
-    items
-    |> Enum.with_index()
-    |> Enum.each(fn {id, index} ->
-      from(q in QueueItem, where: q.id == ^id)
-      |> Repo.update_all(set: [position: index])
-    end)
+    Repo.query!(
+      """
+      UPDATE queue_items SET position = sub.new_pos
+      FROM (
+        SELECT id, (row_number() OVER (ORDER BY position ASC)) - 1 AS new_pos
+        FROM queue_items
+        WHERE organization_id = $1 AND viewer_id = $2
+      ) sub
+      WHERE queue_items.id = sub.id
+      """,
+      [org_bin, viewer_bin]
+    )
   end
 
   ## Go-back state (ETS — ephemeral, not persisted)
@@ -1278,9 +1278,12 @@ defmodule Bobine.Engagement do
   end
 
   defp build_in_progress_items(%Organization{} = org, in_progress_records) do
+    video_ids = Enum.map(in_progress_records, & &1.video_id)
+    contexts = Content.batch_get_episode_contexts(org, video_ids)
+
     Enum.map(in_progress_records, fn progress ->
       video = progress.video
-      episode_context = Content.get_episode_context(org, video)
+      episode_context = Map.get(contexts, video.id)
 
       %{
         type: :in_progress,
@@ -1298,7 +1301,7 @@ defmodule Bobine.Engagement do
 
   # Finds seasons where the viewer's most-recent completed episode has a
   # successor episode they haven't started yet.
-  defp find_between_episode_items(%Organization{id: org_id} = org, viewer, in_progress_records) do
+  defp find_between_episode_items(%Organization{id: org_id}, viewer, in_progress_records) do
     in_progress_video_ids =
       in_progress_records
       |> Enum.map(& &1.video_id)
@@ -1319,22 +1322,38 @@ defmodule Bobine.Engagement do
       |> Repo.all()
       |> Enum.group_by(& &1.season_id)
 
+    season_ids = Map.keys(completed_progress_by_season)
+
+    seasons_map =
+      Season
+      |> where([s], s.id in ^season_ids and s.organization_id == ^org_id)
+      |> preload(:series)
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    episodes_by_season =
+      Episode
+      |> where([e], e.season_id in ^season_ids and e.organization_id == ^org_id)
+      |> order_by(:episode_number)
+      |> preload(:video)
+      |> Repo.all()
+      |> Enum.group_by(& &1.season_id)
+
     Enum.flat_map(completed_progress_by_season, fn {season_id, completed_records} ->
-      build_between_episode_item(org, viewer, season_id, completed_records, in_progress_video_ids)
+      season = Map.get(seasons_map, season_id)
+      episodes = Map.get(episodes_by_season, season_id, [])
+
+      build_between_episode_item(
+        season,
+        completed_records,
+        episodes,
+        in_progress_video_ids
+      )
     end)
   end
 
-  defp build_between_episode_item(
-         org,
-         _viewer,
-         season_id,
-         completed_records,
-         in_progress_video_ids
-       ) do
-    season = Content.get_season!(org, season_id)
-    episodes = Content.list_episodes(org, season)
+  defp build_between_episode_item(season, completed_records, episodes, in_progress_video_ids) do
     max_completed = completed_records |> Enum.map(& &1.episode_number) |> Enum.max(fn -> 0 end)
-
     next_episode = Enum.find(episodes, &(&1.episode_number > max_completed))
 
     cond do
@@ -1342,13 +1361,20 @@ defmodule Bobine.Engagement do
         []
 
       MapSet.member?(in_progress_video_ids, next_episode.video_id) ->
-        # The viewer has already started the next episode — the in-progress
-        # entry will represent it; don't double-count.
         []
 
       true ->
-        episode_context = Content.get_episode_context(org, next_episode.video)
+        series = season.series
         most_recent = Enum.max_by(completed_records, & &1.updated_at, DateTime)
+
+        episode_context = %{
+          episode: next_episode,
+          season: season,
+          series: series,
+          episode_number: next_episode.episode_number,
+          season_number: season.season_number,
+          total_episodes: season.episode_count
+        }
 
         [
           %{
@@ -1358,9 +1384,9 @@ defmodule Bobine.Engagement do
             position: 0.0,
             duration: next_episode.video.duration || 0.0,
             last_activity_at: most_recent.updated_at,
-            season: episode_context && episode_context.season,
-            series: episode_context && episode_context.series,
-            series_id: episode_context && episode_context.series.id
+            season: season,
+            series: series,
+            series_id: season.series_id
           }
         ]
     end
@@ -1379,38 +1405,68 @@ defmodule Bobine.Engagement do
       |> distinct(true)
       |> Repo.all()
 
+    seasons_map =
+      Season
+      |> where([s], s.id in ^viewer_season_ids and s.organization_id == ^org_id)
+      |> preload(:series)
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    episodes_by_season =
+      Episode
+      |> where([e], e.season_id in ^viewer_season_ids and e.organization_id == ^org_id)
+      |> order_by(:episode_number)
+      |> preload(:video)
+      |> Repo.all()
+      |> Enum.group_by(& &1.season_id)
+
+    all_video_ids =
+      episodes_by_season
+      |> Map.values()
+      |> List.flatten()
+      |> Enum.map(& &1.video_id)
+
+    progress_map = batch_get_progress(org, viewer, all_video_ids)
+
     Enum.flat_map(viewer_season_ids, fn season_id ->
-      build_next_season_item(org, viewer, season_id)
+      season = Map.get(seasons_map, season_id)
+      episodes = Map.get(episodes_by_season, season_id, [])
+
+      build_next_season_item(org, viewer, season, episodes, progress_map)
     end)
   end
 
-  defp build_next_season_item(%Organization{} = org, viewer, season_id) do
-    season = Content.get_season!(org, season_id)
-    episodes = Content.list_episodes(org, season)
+  defp build_next_season_item(_org, _viewer, nil, _episodes, _progress_map), do: []
 
-    cond do
-      episodes == [] ->
-        []
+  defp build_next_season_item(_org, _viewer, _season, [], _progress_map), do: []
 
-      not all_episodes_completed?(org, viewer, episodes) ->
-        []
+  defp build_next_season_item(org, viewer, season, episodes, progress_map) do
+    all_completed =
+      Enum.all?(episodes, fn ep ->
+        match?(%Progress{completed: true}, Map.get(progress_map, ep.video_id))
+      end)
 
-      true ->
-        case Content.next_season(org, season) do
-          nil -> []
-          next_season -> maybe_build_next_season_item(org, viewer, season, next_season)
-        end
+    if all_completed do
+      case Content.next_season(org, season) do
+        nil ->
+          []
+
+        next_season ->
+          maybe_build_next_season_item(org, viewer, season, next_season, progress_map)
+      end
+    else
+      []
     end
   end
 
-  defp maybe_build_next_season_item(org, viewer, season, next_season) do
+  defp maybe_build_next_season_item(org, viewer, season, next_season, progress_map) do
     next_episodes = Content.list_episodes(org, next_season)
 
     cond do
       next_episodes == [] ->
         []
 
-      season_started?(org, viewer, next_episodes) ->
+      season_started_from_map?(next_episodes, progress_map) ->
         []
 
       true ->
@@ -1433,22 +1489,8 @@ defmodule Bobine.Engagement do
     end
   end
 
-  defp all_episodes_completed?(org, viewer, episodes) do
-    Enum.all?(episodes, fn ep ->
-      case get_progress(org, viewer, ep.video) do
-        %Progress{completed: true} -> true
-        _ -> false
-      end
-    end)
-  end
-
-  defp season_started?(org, viewer, episodes) do
-    Enum.any?(episodes, fn ep ->
-      case get_progress(org, viewer, ep.video) do
-        nil -> false
-        _ -> true
-      end
-    end)
+  defp season_started_from_map?(episodes, progress_map) do
+    Enum.any?(episodes, fn ep -> Map.has_key?(progress_map, ep.video_id) end)
   end
 
   defp most_recent_progress_in_season(%Organization{id: org_id}, %{id: viewer_id}, season_id) do

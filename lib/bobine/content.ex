@@ -1847,6 +1847,31 @@ defmodule Bobine.Content do
   end
 
   @doc """
+  Returns episode contexts for multiple videos in a single query.
+  Returns a map of %{video_id => context}.
+
+  Exempt from doctest — hits the database.
+  """
+  def batch_get_episode_contexts(%Organization{id: org_id}, video_ids) when is_list(video_ids) do
+    Episode
+    |> where(organization_id: ^org_id)
+    |> where([e], e.video_id in ^video_ids)
+    |> preload(season: :series)
+    |> Repo.all()
+    |> Map.new(fn ep ->
+      {ep.video_id,
+       %{
+         episode: ep,
+         season: ep.season,
+         series: ep.season.series,
+         episode_number: ep.episode_number,
+         season_number: ep.season.season_number,
+         total_episodes: ep.season.episode_count
+       }}
+    end)
+  end
+
+  @doc """
   Returns full season/series context for a video, if it's an episode.
   Returns nil for standalone videos.
 
