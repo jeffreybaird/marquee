@@ -9,6 +9,10 @@ defmodule Bobine.Application do
 
   @impl true
   def start(_type, _args) do
+    if Application.get_env(:bobine, :dev_routes) do
+      setup_error_file_logger()
+    end
+
     # OpenTelemetry auto-instrumentation — must be called before supervision tree
     OpentelemetryPhoenix.setup()
     EctoHandler.setup([:bobine, :repo])
@@ -70,6 +74,16 @@ defmodule Bobine.Application do
     end
   else
     defp maybe_exclude_audit_subscriber(children), do: children
+  end
+
+  defp setup_error_file_logger do
+    log_path = Path.join(File.cwd!(), "error.log") |> String.to_charlist()
+
+    :logger.add_handler(:error_file, :logger_std_h, %{
+      level: :warning,
+      config: %{file: log_path},
+      formatter: Logger.default_formatter(format: "$time [$level] $message\n")
+    })
   end
 
   # Tell Phoenix to update the endpoint configuration

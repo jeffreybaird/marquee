@@ -44,4 +44,7 @@ Trace-*
 
 .DS_Store
 
+# Dev error log
+error.log
+
 .claude/settings.local.json
