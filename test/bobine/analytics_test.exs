@@ -312,7 +312,7 @@ defmodule Bobine.AnalyticsTest do
       assert row.top_drop_off.end_seconds == 90
     end
 
-    test "top_drop_off is nil when video has no drop-off data" do
+    test "top_drop_off is nil when video has no drop-off data and no incomplete progress" do
       org = insert(:organization)
       video = insert(:video, organization: org)
 
@@ -320,6 +320,55 @@ defmodule Bobine.AnalyticsTest do
       row = Enum.find(result.results, &(&1.video_id == video.id))
 
       assert row.top_drop_off == nil
+    end
+
+    test "derives top_drop_off from progress when no VideoDropOffBucket exists" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        user: build(:user),
+        position: 25.0,
+        duration: 60.0,
+        completed: false
+      )
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        user: build(:user),
+        position: 22.0,
+        duration: 60.0,
+        completed: false
+      )
+
+      result = Analytics.list_content_performance(org, "30")
+      row = Enum.find(result.results, &(&1.video_id == video.id))
+
+      assert row.top_drop_off.bucket == 2
+      assert row.top_drop_off.count == 2
+      assert row.top_drop_off.start_seconds == 20
+      assert row.top_drop_off.end_seconds == 30
+    end
+
+    test "counts unique viewers for short videos using percentage threshold" do
+      org = insert(:organization)
+      video = insert(:video, organization: org, duration: 45.0)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        user: build(:user),
+        position: 20.0,
+        duration: 45.0
+      )
+
+      result = Analytics.list_content_performance(org, "30")
+      row = Enum.find(result.results, &(&1.video_id == video.id))
+
+      assert row.unique_viewers == 1
     end
 
     test "computes avg watch percentage from float progress without crashing" do
@@ -455,7 +504,7 @@ defmodule Bobine.AnalyticsTest do
       assert result.unique_viewers == 2
     end
 
-    test "excludes viewers with position <= 30s" do
+    test "excludes viewers below 10% watch threshold" do
       org = insert(:organization)
       video = insert(:video, organization: org)
       viewer = insert(:subscribed_viewer, organization: org)
@@ -464,12 +513,29 @@ defmodule Bobine.AnalyticsTest do
         organization: org,
         video: video,
         viewer: viewer,
-        position: 10.0,
+        position: 5.0,
         duration: 120.0
       )
 
       result = Analytics.get_video_watch_stats(org, video.id)
       assert result.unique_viewers == 0
+    end
+
+    test "counts viewers on short videos using percentage threshold" do
+      org = insert(:organization)
+      video = insert(:video, organization: org, duration: 45.0)
+      viewer = insert(:subscribed_viewer, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer,
+        position: 20.0,
+        duration: 45.0
+      )
+
+      result = Analytics.get_video_watch_stats(org, video.id)
+      assert result.unique_viewers == 1
     end
 
     test "computes avg watch percentage" do

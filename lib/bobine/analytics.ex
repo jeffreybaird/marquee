@@ -296,6 +296,14 @@ defmodule Bobine.Analytics do
       |> order_by([b], asc: b.bucket)
       |> Repo.all()
 
+    if rows != [] do
+      build_distribution(rows)
+    else
+      derive_distribution_from_progress(org_id, video_id)
+    end
+  end
+
+  defp build_distribution(rows) do
     total = rows |> Enum.map(& &1.count) |> Enum.sum()
 
     buckets =
@@ -313,6 +321,43 @@ defmodule Bobine.Analytics do
       end)
 
     %{total: total, buckets: buckets}
+  end
+
+  defp derive_distribution_from_progress(org_id, video_id) do
+    bucket_size = PlaybackDropOff.bucket_size()
+
+    counts =
+      Progress
+      |> where([p], p.organization_id == ^org_id and p.video_id == ^video_id)
+      |> where([p], p.completed == false and p.position > 0.0)
+      |> where([p], not is_nil(p.duration) and p.duration > 0.0)
+      |> select([p], fragment("CAST(FLOOR(? / ?) AS integer)", p.position, ^bucket_size))
+      |> Repo.all()
+      |> Enum.frequencies()
+
+    if counts == %{} do
+      %{total: 0, buckets: []}
+    else
+      total = counts |> Map.values() |> Enum.sum()
+
+      buckets =
+        counts
+        |> Enum.sort_by(fn {bucket, _} -> bucket end)
+        |> Enum.map(fn {bucket, count} ->
+          percentage =
+            if total > 0, do: Float.round(count / total * 100, 1), else: 0.0
+
+          %{
+            bucket: bucket,
+            count: count,
+            start_seconds: bucket * bucket_size,
+            end_seconds: (bucket + 1) * bucket_size,
+            percentage: percentage
+          }
+        end)
+
+      %{total: total, buckets: buckets}
+    end
   end
 
   # ---------------------------------------------------------------------------
