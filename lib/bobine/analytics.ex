@@ -201,7 +201,11 @@ defmodule Bobine.Analytics do
       unique_viewers =
         Progress
         |> where([p], p.organization_id == ^org.id and p.video_id == ^video_id)
-        |> where([p], p.position > 30.0)
+        |> where(
+          [p],
+          (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
+            (is_nil(p.duration) and p.position > 30.0)
+        )
         |> select([p], count(p.id, :distinct))
         |> Repo.one()
 
@@ -1045,20 +1049,57 @@ defmodule Bobine.Analytics do
   end
 
   defp fetch_top_drop_offs(org_id, video_ids) do
-    VideoDropOffBucket
-    |> where([b], b.organization_id == ^org_id and b.video_id in ^video_ids)
+    from_buckets =
+      VideoDropOffBucket
+      |> where([b], b.organization_id == ^org_id and b.video_id in ^video_ids)
+      |> Repo.all()
+      |> Enum.group_by(& &1.video_id)
+      |> Map.new(fn {video_id, rows} ->
+        top = Enum.max_by(rows, & &1.count)
+
+        {video_id,
+         %{
+           bucket: top.bucket,
+           count: top.count,
+           start_seconds: top.bucket * PlaybackDropOff.bucket_size(),
+           end_seconds: (top.bucket + 1) * PlaybackDropOff.bucket_size()
+         }}
+      end)
+
+    missing_ids = Enum.reject(video_ids, &Map.has_key?(from_buckets, &1))
+    from_progress = derive_top_drop_offs_from_progress(org_id, missing_ids)
+
+    Map.merge(from_progress, from_buckets)
+  end
+
+  defp derive_top_drop_offs_from_progress(_org_id, []), do: %{}
+
+  defp derive_top_drop_offs_from_progress(org_id, video_ids) do
+    bucket_size = PlaybackDropOff.bucket_size()
+
+    Progress
+    |> where([p], p.organization_id == ^org_id and p.video_id in ^video_ids)
+    |> where([p], p.completed == false and p.position > 0.0)
+    |> where([p], not is_nil(p.duration) and p.duration > 0.0)
+    |> select([p], %{
+      video_id: p.video_id,
+      bucket: fragment("CAST(FLOOR(? / ?) AS integer)", p.position, ^bucket_size)
+    })
     |> Repo.all()
     |> Enum.group_by(& &1.video_id)
     |> Map.new(fn {video_id, rows} ->
-      top = Enum.max_by(rows, & &1.count)
-
-      {video_id,
-       %{
-         bucket: top.bucket,
-         count: top.count,
-         start_seconds: top.bucket * PlaybackDropOff.bucket_size(),
-         end_seconds: (top.bucket + 1) * PlaybackDropOff.bucket_size()
-       }}
+      rows
+      |> Enum.frequencies_by(& &1.bucket)
+      |> Enum.max_by(fn {_bucket, count} -> count end)
+      |> then(fn {bucket, count} ->
+        {video_id,
+         %{
+           bucket: bucket,
+           count: count,
+           start_seconds: bucket * bucket_size,
+           end_seconds: (bucket + 1) * bucket_size
+         }}
+      end)
     end)
   end
 
@@ -1073,7 +1114,12 @@ defmodule Bobine.Analytics do
   defp fetch_unique_viewers(org_id, video_ids, from_dt) do
     Progress
     |> where([p], p.organization_id == ^org_id and p.video_id in ^video_ids)
-    |> where([p], p.position > 30.0 and p.updated_at >= ^from_dt)
+    |> where([p], p.updated_at >= ^from_dt)
+    |> where(
+      [p],
+      (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
+        (is_nil(p.duration) and p.position > 30.0)
+    )
     |> group_by([p], p.video_id)
     |> select([p], {p.video_id, count(p.id, :distinct)})
     |> Repo.all()
