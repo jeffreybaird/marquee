@@ -67,6 +67,13 @@ defmodule BobineWeb.Router do
       pipe_through :browser
 
       live "/components", Dev.CardShowcaseLive, :index
+      live "/bot-stats", Dev.BotStatsLive, :index
+    end
+
+    scope "/dev", BobineWeb do
+      pipe_through [:api, :fetch_session]
+
+      post "/bot-auth", Dev.BotAuthController, :create
     end
   end
 
