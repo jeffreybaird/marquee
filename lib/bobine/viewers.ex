@@ -402,6 +402,42 @@ defmodule Bobine.Viewers do
     end
   end
 
+  @doc """
+  Sets a viewer's subscription status directly.
+
+  Exempt from doctest — hits the database.
+  """
+  def set_subscription_status(scope, %Viewer{} = viewer, status) do
+    attrs = %{subscription_status: status}
+
+    case viewer |> Viewer.subscription_changeset(attrs) |> Repo.update() do
+      {:ok, viewer} ->
+        Audit.log(scope, "viewer.subscription_status_set", viewer, attrs)
+        {:ok, viewer}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
+  Sets a viewer's subscription status to trial with an expiration date.
+
+  Exempt from doctest — hits the database.
+  """
+  def set_subscription_status_with_trial(scope, %Viewer{} = viewer, status, trial_expires_at) do
+    attrs = %{subscription_status: status, trial_expires_at: trial_expires_at}
+
+    case viewer |> Viewer.subscription_changeset(attrs) |> Repo.update() do
+      {:ok, viewer} ->
+        Audit.log(scope, "viewer.subscription_status_set", viewer, attrs)
+        {:ok, viewer}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
   ## -----------------------------------------------------------------------
   ## Deletion
   ## -----------------------------------------------------------------------
