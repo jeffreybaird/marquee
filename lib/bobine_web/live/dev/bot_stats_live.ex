@@ -18,7 +18,20 @@ defmodule BobineWeb.Dev.BotStatsLive do
     {:ok,
      socket
      |> assign(:page_title, "Bot Stats")
+     |> assign(:open_panels, MapSet.new())
      |> assign_stats(), layout: false}
+  end
+
+  @impl true
+  def handle_event("toggle_panel", %{"panel" => panel}, socket) do
+    open_panels = socket.assigns.open_panels
+
+    open_panels =
+      if MapSet.member?(open_panels, panel),
+        do: MapSet.delete(open_panels, panel),
+        else: MapSet.put(open_panels, panel)
+
+    {:noreply, assign(socket, :open_panels, open_panels)}
   end
 
   @impl true
@@ -58,7 +71,9 @@ defmodule BobineWeb.Dev.BotStatsLive do
 
         org_agents = Enum.filter(agents, &(&1["org_slug"] == org))
 
-        %{org: org, actions: actions, agents: org_agents}
+        error_breakdown = build_error_breakdown(org_metrics)
+
+        %{org: org, actions: actions, agents: org_agents, error_breakdown: error_breakdown}
       end)
 
     agents_by_profile =
@@ -82,16 +97,18 @@ defmodule BobineWeb.Dev.BotStatsLive do
       {:ok, contents} ->
         contents
         |> String.split("\n", trim: true)
-        |> Enum.flat_map(fn line ->
-          case Jason.decode(line) do
-            {:ok, %{"result" => "skipped"}} -> []
-            {:ok, map} -> [map]
-            {:error, _} -> []
-          end
-        end)
+        |> Enum.flat_map(&parse_metric_line/1)
 
       {:error, _} ->
         []
+    end
+  end
+
+  defp parse_metric_line(line) do
+    case Jason.decode(line) do
+      {:ok, %{"result" => "skipped"}} -> []
+      {:ok, map} -> [map]
+      {:error, _} -> []
     end
   end
 
@@ -108,6 +125,20 @@ defmodule BobineWeb.Dev.BotStatsLive do
       {:error, _} ->
         []
     end
+  end
+
+  defp build_error_breakdown(org_metrics) do
+    org_metrics
+    |> Enum.filter(&(&1["result"] == "error"))
+    |> Enum.group_by(fn m ->
+      reason = m["error_reason"] || "unknown"
+      action = base_action(m)
+      {action, reason}
+    end)
+    |> Enum.map(fn {{action, reason}, entries} ->
+      %{action: action, reason: reason, count: length(entries)}
+    end)
+    |> Enum.sort_by(& &1.count, :desc)
   end
 
   defp base_action(%{"action" => action}) do
@@ -174,7 +205,7 @@ defmodule BobineWeb.Dev.BotStatsLive do
           </p>
         </div>
 
-        <section :for={org_data <- @by_org} class="scroll-mt-6">
+        <section :for={org_data <- @by_org} id={"org-#{org_data.org}"} class="scroll-mt-6">
           <h2 class="mb-4 font-display text-2xl leading-tight tracking-tight text-text-primary border-b border-border-subtle pb-3">
             {org_data.org}
           </h2>
@@ -219,11 +250,45 @@ defmodule BobineWeb.Dev.BotStatsLive do
             </table>
           </div>
 
-          <details :if={org_data.agents != []} class="mt-4">
-            <summary class="cursor-pointer font-mono text-xs text-text-muted hover:text-text-secondary">
+          <div :if={org_data.error_breakdown != []} class="mt-6">
+            <h3 class="mb-2 font-mono text-xs uppercase tracking-wide text-text-muted">
+              Error Breakdown
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-border-subtle text-left text-text-muted font-mono text-xs uppercase tracking-wide">
+                    <th class="py-2 pr-4">Action</th>
+                    <th class="py-2 px-4">Error Reason</th>
+                    <th class="py-2 px-4 text-right">Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    :for={err <- org_data.error_breakdown}
+                    class="border-b border-border-subtle/50 hover:bg-surface/40"
+                  >
+                    <td class="py-2 pr-4 font-mono text-xs">{err.action}</td>
+                    <td class="py-2 px-4 font-mono text-xs text-red-400">{err.reason}</td>
+                    <td class="py-2 px-4 text-right tabular-nums">{err.count}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div :if={org_data.agents != []} id={"agents-#{org_data.org}"} class="mt-4">
+            <button
+              type="button"
+              phx-click="toggle_panel"
+              phx-value-panel={org_data.org}
+              class="cursor-pointer font-mono text-xs text-text-muted hover:text-text-secondary"
+            >
               {length(org_data.agents)} active agents
-            </summary>
-            <div class="mt-2 overflow-x-auto">
+              <span :if={MapSet.member?(@open_panels, org_data.org)}>▾</span>
+              <span :if={!MapSet.member?(@open_panels, org_data.org)}>▸</span>
+            </button>
+            <div :if={MapSet.member?(@open_panels, org_data.org)} class="mt-2 overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b border-border-subtle text-left text-text-muted font-mono text-xs uppercase tracking-wide">
@@ -264,7 +329,7 @@ defmodule BobineWeb.Dev.BotStatsLive do
                 </tbody>
               </table>
             </div>
-          </details>
+          </div>
         </section>
       </div>
     </main>
