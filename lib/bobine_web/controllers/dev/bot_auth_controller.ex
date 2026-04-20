@@ -60,12 +60,23 @@ defmodule BobineWeb.Dev.BotAuthController do
 
   defp ensure_subscription(_org, viewer, nil), do: {:ok, viewer}
 
-  defp ensure_subscription(_org, %{subscription_status: status} = viewer, status),
-    do: {:ok, viewer}
-
-  defp ensure_subscription(org, viewer, desired) when desired in ["active", "trial"] do
-    Viewers.grant_access(%{organization: org, user: nil}, viewer)
+  defp ensure_subscription(_org, %{subscription_status: status} = viewer, status)
+       when status != "trial" do
+    {:ok, viewer}
   end
 
-  defp ensure_subscription(_org, viewer, _), do: {:ok, viewer}
+  defp ensure_subscription(org, viewer, "trial") do
+    expires = DateTime.add(DateTime.utc_now(), 30, :day)
+
+    Viewers.set_subscription_status_with_trial(
+      %{organization: org, user: nil},
+      viewer,
+      "trial",
+      expires
+    )
+  end
+
+  defp ensure_subscription(org, viewer, desired) do
+    Viewers.set_subscription_status(%{organization: org, user: nil}, viewer, desired)
+  end
 end
