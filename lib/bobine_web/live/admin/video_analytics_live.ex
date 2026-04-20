@@ -17,12 +17,14 @@ defmodule BobineWeb.Admin.VideoAnalyticsLive do
     case Content.get_video(org, video_id) do
       {:ok, video} ->
         distribution = Analytics.drop_off_distribution(org, video.id)
+        watch_stats = Analytics.get_video_watch_stats(org, video.id)
 
         socket =
           socket
           |> assign(page_title: "Analytics: #{video.title}")
           |> assign(video: video)
           |> assign(distribution: distribution)
+          |> assign(watch_stats: watch_stats)
           |> push_distribution_event(distribution)
 
         {:ok, socket}
@@ -59,20 +61,25 @@ defmodule BobineWeb.Admin.VideoAnalyticsLive do
           <.header>{@video.title}</.header>
         </div>
 
-        <section aria-label="Drop-off overview" class="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <section aria-label="Watch stats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-unique-viewers">
+            <p class="text-sm text-admin-muted">Unique Viewers</p>
+            <p class="text-2xl font-bold mt-1">{@watch_stats.unique_viewers}</p>
+          </div>
+
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-avg-watch-pct">
+            <p class="text-sm text-admin-muted">Avg Watch %</p>
+            <p class="text-2xl font-bold mt-1">{@watch_stats.avg_watch_percentage}%</p>
+          </div>
+
           <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-drop-offs">
             <p class="text-sm text-admin-muted">Total drop-offs</p>
             <p class="text-2xl font-bold mt-1">{@distribution.total}</p>
           </div>
 
-          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-worst-bucket">
-            <p class="text-sm text-admin-muted">Worst bucket</p>
-            <p class="text-2xl font-bold mt-1">{worst_bucket_label(@distribution)}</p>
-          </div>
-
-          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-buckets-with-drops">
-            <p class="text-sm text-admin-muted">Buckets with drops</p>
-            <p class="text-2xl font-bold mt-1">{length(@distribution.buckets)}</p>
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-drop-off-time">
+            <p class="text-sm text-admin-muted">Peak drop-off time</p>
+            <p class="text-2xl font-bold mt-1">{worst_bucket_time(@distribution)}</p>
           </div>
         </section>
 
@@ -103,10 +110,20 @@ defmodule BobineWeb.Admin.VideoAnalyticsLive do
     """
   end
 
-  defp worst_bucket_label(%{buckets: []}), do: "—"
+  defp worst_bucket_time(%{buckets: []}), do: "—"
 
-  defp worst_bucket_label(%{buckets: buckets}) do
+  defp worst_bucket_time(%{buckets: buckets}) do
     worst = Enum.max_by(buckets, & &1.count)
-    "#{worst.start_seconds}–#{worst.end_seconds}s"
+    "#{format_timestamp(worst.start_seconds)}–#{format_timestamp(worst.end_seconds)}"
   end
+
+  defp format_timestamp(seconds) when seconds < 60, do: "0:#{pad(seconds)}"
+
+  defp format_timestamp(seconds) do
+    m = div(seconds, 60)
+    s = rem(seconds, 60)
+    "#{m}:#{pad(s)}"
+  end
+
+  defp pad(n), do: String.pad_leading(to_string(n), 2, "0")
 end

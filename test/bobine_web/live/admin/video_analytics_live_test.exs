@@ -63,7 +63,27 @@ defmodule BobineWeb.Admin.VideoAnalyticsLiveTest do
       refute has_element?(view, "[data-test='drop-off-chart']")
     end
 
-    test "renders KPI cards and chart canvas when data exists" do
+    test "renders watch stats KPI cards" do
+      membership = insert(:membership, role: :admin)
+      video = insert(:video, organization: membership.organization, duration: 120.0)
+      viewer = insert(:subscribed_viewer, organization: membership.organization)
+
+      insert(:progress,
+        organization: membership.organization,
+        video: video,
+        viewer: viewer,
+        position: 60.0,
+        duration: 120.0
+      )
+
+      {:ok, view, _html} =
+        live(conn_for(membership), ~p"/admin/analytics/videos/#{video.id}")
+
+      assert has_element?(view, "[data-test='kpi-unique-viewers']", "1")
+      assert has_element?(view, "[data-test='kpi-avg-watch-pct']", "50.0%")
+    end
+
+    test "renders drop-off KPI cards and chart when data exists" do
       membership = insert(:membership, role: :admin)
       video = insert(:video, organization: membership.organization)
 
@@ -85,8 +105,7 @@ defmodule BobineWeb.Admin.VideoAnalyticsLiveTest do
         live(conn_for(membership), ~p"/admin/analytics/videos/#{video.id}")
 
       assert has_element?(view, "[data-test='kpi-total-drop-offs']", "10")
-      assert has_element?(view, "[data-test='kpi-worst-bucket']", "90–100s")
-      assert has_element?(view, "[data-test='kpi-buckets-with-drops']", "2")
+      assert has_element?(view, "[data-test='kpi-drop-off-time']", "1:30–1:40")
       assert has_element?(view, "[data-test='drop-off-chart']")
       refute has_element?(view, "[data-test='drop-off-empty-state']")
     end
