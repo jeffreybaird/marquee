@@ -4,8 +4,8 @@ defmodule BobineWeb.Admin.MembersLive do
   Member management with two tabs: viewers and operators. Supports search,
   status/subscription filtering for viewers, and viewer impersonation.
 
-  Events: switch_tab, search, filter_status, filter_subscription,
-          impersonate_viewer
+  Events: switch_tab, search, filter, page,
+          suspend_viewer, ban_viewer, reactivate_viewer, grant_access, revoke_access
   Route: /admin/members
   """
 
@@ -13,6 +13,8 @@ defmodule BobineWeb.Admin.MembersLive do
 
   alias Bobine.Accounts
   alias Bobine.Viewers
+
+  @per_page 25
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,6 +27,7 @@ defmodule BobineWeb.Admin.MembersLive do
      |> assign(:search, "")
      |> assign(:status_filter, nil)
      |> assign(:subscription_filter, nil)
+     |> assign(:page, 1)
      |> load_viewers(org)}
   end
 
@@ -38,26 +41,39 @@ defmodule BobineWeb.Admin.MembersLive do
     {:noreply,
      socket
      |> assign(:search, search)
+     |> assign(:page, 1)
      |> load_viewers(socket.assigns.organization)}
   end
 
   @impl true
-  def handle_event("filter_status", %{"status" => status}, socket) do
-    status = if status == "", do: nil, else: String.to_existing_atom(status)
+  def handle_event("filter", params, socket) do
+    status =
+      case params["status"] do
+        "" -> nil
+        nil -> socket.assigns.status_filter
+        s -> String.to_existing_atom(s)
+      end
+
+    subscription =
+      case params["subscription"] do
+        "" -> nil
+        nil -> socket.assigns.subscription_filter
+        s -> s
+      end
 
     {:noreply,
      socket
      |> assign(:status_filter, status)
+     |> assign(:subscription_filter, subscription)
+     |> assign(:page, 1)
      |> load_viewers(socket.assigns.organization)}
   end
 
   @impl true
-  def handle_event("filter_subscription", %{"subscription" => sub}, socket) do
-    sub = if sub == "", do: nil, else: sub
-
+  def handle_event("page", %{"page" => page}, socket) do
     {:noreply,
      socket
-     |> assign(:subscription_filter, sub)
+     |> assign(:page, String.to_integer(page))
      |> load_viewers(socket.assigns.organization)}
   end
 
@@ -126,7 +142,8 @@ defmodule BobineWeb.Admin.MembersLive do
       search: socket.assigns.search,
       status: socket.assigns.status_filter,
       subscription_status: socket.assigns.subscription_filter,
-      per_page: 25
+      page: socket.assigns.page,
+      per_page: @per_page
     ]
 
     opts = Enum.reject(opts, fn {_, v} -> is_nil(v) or v == "" end)
@@ -186,30 +203,30 @@ defmodule BobineWeb.Admin.MembersLive do
             class="w-64 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             data-test="viewer-search"
           />
-          <select
-            phx-change="filter_status"
-            name="status"
-            class="w-auto rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-            data-test="viewer-status-filter"
-          >
-            <option value="">All statuses</option>
-            <option value="active" selected={@status_filter == :active}>Active</option>
-            <option value="suspended" selected={@status_filter == :suspended}>Suspended</option>
-            <option value="banned" selected={@status_filter == :banned}>Banned</option>
-          </select>
-          <select
-            phx-change="filter_subscription"
-            name="subscription"
-            class="w-auto rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
-            data-test="viewer-subscription-filter"
-          >
-            <option value="">All subscriptions</option>
-            <option value="active" selected={@subscription_filter == "active"}>Active</option>
-            <option value="trial" selected={@subscription_filter == "trial"}>Trial</option>
-            <option value="none" selected={@subscription_filter == "none"}>None</option>
-            <option value="past_due" selected={@subscription_filter == "past_due"}>Past Due</option>
-            <option value="canceled" selected={@subscription_filter == "canceled"}>Canceled</option>
-          </select>
+          <form phx-change="filter" class="flex flex-wrap gap-3">
+            <select
+              name="status"
+              class="w-auto rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+              data-test="viewer-status-filter"
+            >
+              <option value="">All statuses</option>
+              <option value="active" selected={@status_filter == :active}>Active</option>
+              <option value="suspended" selected={@status_filter == :suspended}>Suspended</option>
+              <option value="banned" selected={@status_filter == :banned}>Banned</option>
+            </select>
+            <select
+              name="subscription"
+              class="w-auto rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+              data-test="viewer-subscription-filter"
+            >
+              <option value="">All subscriptions</option>
+              <option value="active" selected={@subscription_filter == "active"}>Active</option>
+              <option value="trial" selected={@subscription_filter == "trial"}>Trial</option>
+              <option value="none" selected={@subscription_filter == "none"}>None</option>
+              <option value="past_due" selected={@subscription_filter == "past_due"}>Past Due</option>
+              <option value="canceled" selected={@subscription_filter == "canceled"}>Canceled</option>
+            </select>
+          </form>
         </div>
 
         <%!-- Viewer list --%>
@@ -299,12 +316,36 @@ defmodule BobineWeb.Admin.MembersLive do
             No viewers found.
           </p>
 
-          <div
+          <nav
             :if={@viewers_page.total_pages > 1}
-            class="mt-4 text-sm text-admin-muted text-center"
+            class="mt-4 flex items-center justify-between"
+            aria-label="Pagination"
+            data-test="viewer-pagination"
           >
-            Page {@viewers_page.page} of {@viewers_page.total_pages} ({@viewers_page.total} viewers total)
-          </div>
+            <span class="text-sm text-admin-muted">
+              Page {@viewers_page.page} of {@viewers_page.total_pages} ({@viewers_page.total} viewers)
+            </span>
+            <div class="flex gap-2">
+              <button
+                phx-click="page"
+                phx-value-page={@viewers_page.page - 1}
+                disabled={@viewers_page.page <= 1}
+                class="rounded-md border border-admin-border px-3 py-1.5 font-ui text-sm text-admin-fg hover:bg-admin-card disabled:opacity-50 disabled:cursor-not-allowed"
+                data-test="viewer-prev-page"
+              >
+                Previous
+              </button>
+              <button
+                phx-click="page"
+                phx-value-page={@viewers_page.page + 1}
+                disabled={@viewers_page.page >= @viewers_page.total_pages}
+                class="rounded-md border border-admin-border px-3 py-1.5 font-ui text-sm text-admin-fg hover:bg-admin-card disabled:opacity-50 disabled:cursor-not-allowed"
+                data-test="viewer-next-page"
+              >
+                Next
+              </button>
+            </div>
+          </nav>
         </div>
       </div>
 

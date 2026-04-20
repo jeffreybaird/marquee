@@ -200,6 +200,54 @@ defmodule BobineWeb.Admin.MembersLiveTest do
       refute html =~ "Bob Jones"
     end
 
+    test "filter by status shows only matching viewers", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      _active = insert(:viewer, organization: org, email: "active@test.com", status: :active)
+
+      _suspended =
+        insert(:viewer, organization: org, email: "suspended@test.com", status: :suspended)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      html = render_change(view, "filter", %{"status" => "suspended", "subscription" => ""})
+      assert html =~ "suspended@test.com"
+      refute html =~ "active@test.com"
+    end
+
+    test "filter by subscription shows only matching viewers", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+
+      _subscribed =
+        insert(:viewer, organization: org, email: "sub@test.com", subscription_status: "active")
+
+      _trial =
+        insert(:viewer, organization: org, email: "trial@test.com", subscription_status: "trial")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      html = render_change(view, "filter", %{"status" => "", "subscription" => "trial"})
+      assert html =~ "trial@test.com"
+      refute html =~ "sub@test.com"
+    end
+
+    test "clearing filter shows all viewers", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      _active = insert(:viewer, organization: org, email: "active@test.com", status: :active)
+
+      _suspended =
+        insert(:viewer, organization: org, email: "suspended@test.com", status: :suspended)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      render_change(view, "filter", %{"status" => "suspended", "subscription" => ""})
+      html = render_change(view, "filter", %{"status" => "", "subscription" => ""})
+      assert html =~ "active@test.com"
+      assert html =~ "suspended@test.com"
+    end
+
     test "tenant isolation: other org viewers not shown", %{conn: _conn} do
       org = insert(:organization)
       other_org = insert(:organization)
@@ -210,6 +258,68 @@ defmodule BobineWeb.Admin.MembersLiveTest do
       {:ok, _view, html} = live(conn_for(membership), ~p"/admin/members")
       assert html =~ "own@test.com"
       refute html =~ "other@test.com"
+    end
+  end
+
+  describe "pagination" do
+    test "shows pagination controls when more than one page", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+
+      for i <- 1..26 do
+        insert(:viewer, organization: org, email: "viewer#{i}@test.com")
+      end
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      assert has_element?(view, "[data-test='viewer-pagination']")
+      assert has_element?(view, "[data-test='viewer-next-page']")
+      assert has_element?(view, "[data-test='viewer-prev-page']")
+    end
+
+    test "navigating to next page shows different viewers", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+
+      for i <- 1..26 do
+        insert(:viewer,
+          organization: org,
+          email: "viewer#{String.pad_leading("#{i}", 2, "0")}@test.com"
+        )
+      end
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      html_page1 = render(view)
+      assert html_page1 =~ "Page 1 of 2"
+
+      html_page2 = render_click(view, "page", %{"page" => "2"})
+      assert html_page2 =~ "Page 2 of 2"
+    end
+
+    test "does not show pagination with few viewers", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+      insert(:viewer, organization: org, email: "only@test.com")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+
+      refute has_element?(view, "[data-test='viewer-pagination']")
+    end
+
+    test "filter resets page to 1", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org, role: :admin)
+
+      for i <- 1..26 do
+        insert(:viewer, organization: org, email: "viewer#{i}@test.com", status: :active)
+      end
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/members")
+      render_click(view, "page", %{"page" => "2"})
+
+      html = render_change(view, "filter", %{"status" => "active", "subscription" => ""})
+      assert html =~ "Page 1 of"
     end
   end
 end
