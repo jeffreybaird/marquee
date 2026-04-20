@@ -348,7 +348,8 @@ defmodule BobineWeb.Viewer.WatchLive do
     if viewer do
       video = socket.assigns.video
       duration = video.duration || 0.0
-      Engagement.update_progress(org, viewer, video_id, pos, duration)
+      clamped_pos = clamp_position(pos, duration)
+      Engagement.update_progress(org, viewer, video_id, clamped_pos, duration)
     else
       scope = socket.assigns.current_scope
 
@@ -369,7 +370,8 @@ defmodule BobineWeb.Viewer.WatchLive do
     if viewer do
       video = socket.assigns.video
       duration = video.duration || 0.0
-      Engagement.update_progress(org, viewer, video_id, pos, duration)
+      clamped_pos = clamp_position(pos, duration)
+      Engagement.update_progress(org, viewer, video_id, clamped_pos, duration)
     else
       scope = socket.assigns.current_scope
 
@@ -1025,6 +1027,14 @@ defmodule BobineWeb.Viewer.WatchLive do
     phase = if connected?(socket), do: :connected, else: :disconnected
     Metrics.watch_mount(org_id, phase, status, duration_ms, query_count, db_duration_ms)
   end
+
+  defp clamp_position(pos, duration)
+       when is_number(pos) and is_number(duration) and duration > 0.0 do
+    min(pos / 1, duration)
+  end
+
+  defp clamp_position(pos, _duration) when is_number(pos), do: pos / 1
+  defp clamp_position(_pos, _duration), do: 0.0
 
   defp timed(fun) do
     started_at = System.monotonic_time()

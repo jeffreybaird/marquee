@@ -207,6 +207,39 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
     end
   end
 
+  describe "playback_progress position clamping" do
+    test "clamps position to video duration when position exceeds it", %{
+      viewer: viewer,
+      video: video
+    } do
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+
+      render_hook(view, "playback_progress", %{
+        "video_id" => video.id,
+        "position" => 250.0
+      })
+
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+      assert progress.position == 100.0
+    end
+
+    test "does not clamp position within video duration", %{viewer: viewer, video: video} do
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+
+      render_hook(view, "playback_progress", %{
+        "video_id" => video.id,
+        "position" => 75.0
+      })
+
+      :ok = ProgressBuffer.flush()
+
+      progress = Repo.get_by(Progress, viewer_id: viewer.id, video_id: video.id)
+      assert progress.position == 75.0
+    end
+  end
+
   describe "playback_drop_off" do
     test "records a pending drop-off row for the viewer", %{viewer: viewer, video: video} do
       {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
