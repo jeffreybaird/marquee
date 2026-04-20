@@ -121,21 +121,25 @@ defmodule BobineWeb.Admin.AnalyticsLive do
             label="Active Subscribers"
             value={@overview.active_subscribers}
             data_test="kpi-active-subscribers"
+            tooltip="Viewers with an active or trialing subscription in the selected period."
           />
           <.kpi_card
             label="MRR"
             value={"$#{format_cents(@overview.mrr_cents)}"}
             data_test="kpi-mrr"
+            tooltip="Monthly Recurring Revenue — sum of all active subscription plan amounts, normalized to a monthly rate."
           />
           <.kpi_card
             label="Total Views"
             value={@overview.total_views}
             data_test="kpi-total-views"
+            tooltip="Total unique viewer-video pairs where the viewer watched past 30 seconds in the selected period."
           />
           <.kpi_card
             label="Avg Watch Time"
             value={format_seconds(@overview.avg_watch_time_seconds)}
             data_test="kpi-avg-watch-time"
+            tooltip="Average playback position across all progress records with valid duration, capped at video length. Indicates how far viewers typically get."
           />
         </section>
 
@@ -349,11 +353,15 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   attr :label, :string, required: true
   attr :value, :any, required: true
   attr :data_test, :string, required: true
+  attr :tooltip, :string, default: nil
 
   defp kpi_card(assigns) do
     ~H"""
     <div class="bg-admin-bg rounded-xl p-5" data-test={@data_test}>
-      <p class="text-sm text-admin-muted">{@label}</p>
+      <p class="text-sm text-admin-muted flex items-center gap-1">
+        {@label}
+        <.info_tooltip :if={@tooltip} text={@tooltip} />
+      </p>
       <p class="text-2xl font-bold mt-1">{@value}</p>
     </div>
     """
@@ -362,13 +370,51 @@ defmodule BobineWeb.Admin.AnalyticsLive do
   attr :label, :string, required: true
   attr :value, :any, required: true
   attr :data_test, :string, required: true
+  attr :tooltip, :string, default: nil
 
   defp metric_row(assigns) do
     ~H"""
     <div class="flex justify-between items-center" data-test={@data_test}>
-      <span class="text-sm text-admin-muted">{@label}</span>
+      <span class="text-sm text-admin-muted flex items-center gap-1">
+        {@label}
+        <.info_tooltip :if={@tooltip} text={@tooltip} />
+      </span>
       <span class="font-semibold">{@value}</span>
     </div>
+    """
+  end
+
+  attr :text, :string, required: true
+
+  defp info_tooltip(assigns) do
+    ~H"""
+    <span class="relative group/tip inline-flex" data-test="info-tooltip">
+      <button
+        type="button"
+        class="inline-flex items-center justify-center w-4 h-4 rounded-full text-admin-muted hover:text-admin-fg transition-colors"
+        aria-label={@text}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          class="w-4 h-4"
+          aria-hidden="true"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 .75.75 0 0 1 1.06 1.06ZM10 8.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5a.75.75 0 0 1 .75-.75Z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </button>
+      <span
+        role="tooltip"
+        class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-lg bg-admin-card px-3 py-2 text-xs text-admin-fg shadow-lg border border-admin-border opacity-0 group-hover/tip:opacity-100 transition-opacity z-50"
+      >
+        {@text}
+      </span>
+    </span>
     """
   end
 
