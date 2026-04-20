@@ -8,7 +8,7 @@ config :bobine, Bobine.Repo,
   database: "bobine_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+  pool_size: 40
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -22,7 +22,7 @@ config :bobine, BobineWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4000],
   url: [host: "localhost", port: 4000],
   check_origin: false,
-  code_reloader: true,
+  code_reloader: false,
   debug_errors: true,
   secret_key_base: "W6bQ5juXA07IHNT2Apm7mIAxVt6vFnWxmMZgxii+oDs10nnkmjNfgPv/5Q4MO39l",
   watchers: [
@@ -100,6 +100,9 @@ config :bobine, cors_origin: "*"
 # Use Mux basic quality in dev. This is the lowest supported quality tier and
 # is the closest match to the desired 720p/dev behavior.
 config :bobine, mux_video_quality: "basic"
+
+# BobineBot stats file path for dev dashboard
+config :bobine, :bot_stats_file, "../bobine_bot/stats.jsonl"
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
