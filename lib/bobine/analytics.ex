@@ -854,8 +854,12 @@ defmodule Bobine.Analytics do
 
     Progress
     |> where([p], p.organization_id == ^org_id)
-    |> where([p], p.position > 30.0)
     |> where([p], p.updated_at >= ^from_dt)
+    |> where(
+      [p],
+      (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
+        (is_nil(p.duration) and p.position > 30.0)
+    )
     |> select([p], {p.viewer_id, p.video_id})
     |> distinct(true)
     |> Repo.all()
@@ -870,7 +874,8 @@ defmodule Bobine.Analytics do
       Progress
       |> where([p], p.organization_id == ^org_id and p.updated_at >= ^from_dt)
       |> where([p], not is_nil(p.duration) and p.duration > 0.0)
-      |> Repo.aggregate(:avg, :position)
+      |> select([p], avg(fragment("LEAST(?, ?)", p.position, p.duration)))
+      |> Repo.one()
 
     case result do
       nil -> 0.0
@@ -1041,7 +1046,10 @@ defmodule Bobine.Analytics do
     )
     |> where([p], not is_nil(p.duration) and p.duration > 0.0)
     |> group_by([p], p.video_id)
-    |> select([p], {p.video_id, avg(p.position / p.duration * 100)})
+    |> select(
+      [p],
+      {p.video_id, avg(fragment("LEAST(?, ?) / ? * 100", p.position, p.duration, p.duration))}
+    )
     |> Repo.all()
     |> Map.new(fn {id, avg} ->
       {id, if(avg, do: Float.round(to_float(avg), 1), else: 0.0)}

@@ -55,6 +55,40 @@ defmodule Bobine.AnalyticsTest do
       assert result.mrr_cents == 1000
     end
 
+    test "counts views for short videos using percentage threshold" do
+      org = insert(:organization)
+      video = insert(:video, organization: org, duration: 15.0)
+      viewer = insert(:subscribed_viewer, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer,
+        position: 5.0,
+        duration: 15.0
+      )
+
+      result = Analytics.get_overview_cards(org, "30")
+      assert result.total_views == 1
+    end
+
+    test "does not count trivial views below 10% threshold" do
+      org = insert(:organization)
+      video = insert(:video, organization: org, duration: 100.0)
+      viewer = insert(:subscribed_viewer, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer,
+        position: 5.0,
+        duration: 100.0
+      )
+
+      result = Analytics.get_overview_cards(org, "30")
+      assert result.total_views == 0
+    end
+
     test "computes avg watch time from float position column without crashing" do
       org = insert(:organization)
       video = insert(:video, organization: org)
