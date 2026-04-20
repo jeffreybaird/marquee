@@ -415,6 +415,107 @@ defmodule Bobine.AnalyticsTest do
   end
 
   # ---------------------------------------------------------------------------
+  # get_video_watch_stats/2
+  # ---------------------------------------------------------------------------
+
+  describe "get_video_watch_stats/2" do
+    test "returns zero counts for video with no progress" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+
+      result = Analytics.get_video_watch_stats(org, video.id)
+
+      assert result.unique_viewers == 0
+      assert result.avg_watch_percentage == 0.0
+    end
+
+    test "counts unique viewers with position > 30s" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+      viewer_a = insert(:subscribed_viewer, organization: org)
+      viewer_b = insert(:subscribed_viewer, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer_a,
+        position: 60.0,
+        duration: 120.0
+      )
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer_b,
+        position: 45.0,
+        duration: 120.0
+      )
+
+      result = Analytics.get_video_watch_stats(org, video.id)
+      assert result.unique_viewers == 2
+    end
+
+    test "excludes viewers with position <= 30s" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+      viewer = insert(:subscribed_viewer, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        viewer: viewer,
+        position: 10.0,
+        duration: 120.0
+      )
+
+      result = Analytics.get_video_watch_stats(org, video.id)
+      assert result.unique_viewers == 0
+    end
+
+    test "computes avg watch percentage" do
+      org = insert(:organization)
+      video = insert(:video, organization: org)
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        user: build(:user),
+        position: 60.0,
+        duration: 120.0
+      )
+
+      insert(:progress,
+        organization: org,
+        video: video,
+        user: build(:user),
+        position: 120.0,
+        duration: 120.0
+      )
+
+      result = Analytics.get_video_watch_stats(org, video.id)
+      assert result.avg_watch_percentage == 75.0
+    end
+
+    test "org A cannot see org B video stats" do
+      org_a = insert(:organization)
+      org_b = insert(:organization)
+      video_b = insert(:video, organization: org_b)
+      viewer = insert(:subscribed_viewer, organization: org_b)
+
+      insert(:progress,
+        organization: org_b,
+        video: video_b,
+        viewer: viewer,
+        position: 60.0,
+        duration: 120.0
+      )
+
+      result = Analytics.get_video_watch_stats(org_a, video_b.id)
+      assert result.unique_viewers == 0
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # drop_off_distribution/2 and top_drop_off_buckets_by_video/2
   # ---------------------------------------------------------------------------
 

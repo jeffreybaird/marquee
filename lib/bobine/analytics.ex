@@ -182,6 +182,48 @@ defmodule Bobine.Analytics do
   end
 
   # ---------------------------------------------------------------------------
+  # Per-video watch stats
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns watch stats for a single video: unique viewers and average watch
+  percentage.
+
+  A viewer counts if their progress position exceeds 30 seconds. Avg watch
+  percentage uses `LEAST(position, duration) / duration * 100`, capped at
+  100%. Returns `%{unique_viewers: int, avg_watch_percentage: float}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def get_video_watch_stats(%Organization{} = org, video_id) do
+    Bobine.Otel.with_span "bobine.analytics.get_video_watch_stats",
+                          %{"bobine.org.id" => org.id, "bobine.video.id" => video_id} do
+      unique_viewers =
+        Progress
+        |> where([p], p.organization_id == ^org.id and p.video_id == ^video_id)
+        |> where([p], p.position > 30.0)
+        |> select([p], count(p.id, :distinct))
+        |> Repo.one()
+
+      avg_watch_pct =
+        Progress
+        |> where([p], p.organization_id == ^org.id and p.video_id == ^video_id)
+        |> where([p], not is_nil(p.duration) and p.duration > 0.0)
+        |> select(
+          [p],
+          avg(fragment("LEAST(?, ?) / ? * 100", p.position, p.duration, p.duration))
+        )
+        |> Repo.one()
+
+      %{
+        unique_viewers: unique_viewers || 0,
+        avg_watch_percentage:
+          if(avg_watch_pct, do: Float.round(to_float(avg_watch_pct), 1), else: 0.0)
+      }
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Drop-off buckets (per video)
   # ---------------------------------------------------------------------------
 
