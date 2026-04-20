@@ -734,6 +734,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       phx-hook="MuxPlayer"
       data-playback-id={@video.mux_playback_id}
       data-video-id={@video.id}
+      data-duration={@video.duration}
       data-resume-position={@resume_position}
       class="sv-player-container"
       data-test="sv-player"
