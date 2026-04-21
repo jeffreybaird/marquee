@@ -198,33 +198,46 @@ defmodule Bobine.Analytics do
   def get_video_watch_stats(%Organization{} = org, video_id) do
     Bobine.Otel.with_span "bobine.analytics.get_video_watch_stats",
                           %{"bobine.org.id" => org.id, "bobine.video.id" => video_id} do
-      unique_viewers =
-        Progress
-        |> where([p], p.organization_id == ^org.id and p.video_id == ^video_id)
-        |> where(
-          [p],
-          (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
-            (is_nil(p.duration) and p.position > 30.0)
-        )
-        |> select([p], count(p.id, :distinct))
-        |> Repo.one()
-
-      avg_watch_pct =
-        Progress
-        |> where([p], p.organization_id == ^org.id and p.video_id == ^video_id)
-        |> where([p], not is_nil(p.duration) and p.duration > 0.0)
-        |> select(
-          [p],
-          avg(fragment("LEAST(?, ?) / ? * 100", p.position, p.duration, p.duration))
-        )
-        |> Repo.one()
+      unique_viewers = count_unique_viewers_for_video(org.id, video_id)
+      avg_watch_pct = avg_watch_percentage_for_video(org.id, video_id)
 
       %{
-        unique_viewers: unique_viewers || 0,
-        avg_watch_percentage:
-          if(avg_watch_pct, do: Float.round(to_float(avg_watch_pct), 1), else: 0.0)
+        unique_viewers: unique_viewers,
+        avg_watch_percentage: avg_watch_pct
       }
     end
+  end
+
+  defp count_unique_viewers_for_video(org_id, video_id) do
+    Progress
+    |> where([p], p.organization_id == ^org_id and p.video_id == ^video_id)
+    |> where_meaningful_watch()
+    |> select([p], count(p.id, :distinct))
+    |> Repo.one()
+    |> Kernel.||(0)
+  end
+
+  defp avg_watch_percentage_for_video(org_id, video_id) do
+    result =
+      Progress
+      |> where([p], p.organization_id == ^org_id and p.video_id == ^video_id)
+      |> where([p], not is_nil(p.duration) and p.duration > 0.0)
+      |> select(
+        [p],
+        avg(fragment("LEAST(?, ?) / ? * 100", p.position, p.duration, p.duration))
+      )
+      |> Repo.one()
+
+    if result, do: Float.round(to_float(result), 1), else: 0.0
+  end
+
+  defp where_meaningful_watch(query) do
+    where(
+      query,
+      [p],
+      (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
+        (is_nil(p.duration) and p.position > 30.0)
+    )
   end
 
   # ---------------------------------------------------------------------------
@@ -326,7 +339,7 @@ defmodule Bobine.Analytics do
   defp derive_distribution_from_progress(org_id, video_id) do
     bucket_size = PlaybackDropOff.bucket_size()
 
-    counts =
+    rows =
       Progress
       |> where([p], p.organization_id == ^org_id and p.video_id == ^video_id)
       |> where([p], p.completed == false and p.position > 0.0)
@@ -334,30 +347,9 @@ defmodule Bobine.Analytics do
       |> select([p], fragment("CAST(FLOOR(? / ?) AS integer)", p.position, ^bucket_size))
       |> Repo.all()
       |> Enum.frequencies()
+      |> Enum.map(fn {bucket, count} -> %{bucket: bucket, count: count} end)
 
-    if counts == %{} do
-      %{total: 0, buckets: []}
-    else
-      total = counts |> Map.values() |> Enum.sum()
-
-      buckets =
-        counts
-        |> Enum.sort_by(fn {bucket, _} -> bucket end)
-        |> Enum.map(fn {bucket, count} ->
-          percentage =
-            if total > 0, do: Float.round(count / total * 100, 1), else: 0.0
-
-          %{
-            bucket: bucket,
-            count: count,
-            start_seconds: bucket * bucket_size,
-            end_seconds: (bucket + 1) * bucket_size,
-            percentage: percentage
-          }
-        end)
-
-      %{total: total, buckets: buckets}
-    end
+    build_distribution(rows)
   end
 
   # ---------------------------------------------------------------------------
@@ -946,11 +938,7 @@ defmodule Bobine.Analytics do
     Progress
     |> where([p], p.organization_id == ^org_id)
     |> where([p], p.updated_at >= ^from_dt)
-    |> where(
-      [p],
-      (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
-        (is_nil(p.duration) and p.position > 30.0)
-    )
+    |> where_meaningful_watch()
     |> select([p], {p.viewer_id, p.video_id})
     |> distinct(true)
     |> Repo.all()
@@ -1160,11 +1148,7 @@ defmodule Bobine.Analytics do
     Progress
     |> where([p], p.organization_id == ^org_id and p.video_id in ^video_ids)
     |> where([p], p.updated_at >= ^from_dt)
-    |> where(
-      [p],
-      (not is_nil(p.duration) and p.duration > 0.0 and p.position / p.duration >= 0.1) or
-        (is_nil(p.duration) and p.position > 30.0)
-    )
+    |> where_meaningful_watch()
     |> group_by([p], p.video_id)
     |> select([p], {p.video_id, count(p.id, :distinct)})
     |> Repo.all()
