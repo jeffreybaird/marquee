@@ -47,13 +47,20 @@ defmodule BobineWeb.Super.OrganizationShowLive do
           <.link navigate={~p"/super/organizations/#{@org.id}/edit"}>
             <.button>Edit</.button>
           </.link>
-          <.link
-            href={~p"/super/organizations/#{@org.id}/impersonate"}
-            method="post"
-            data-test="impersonate-btn"
-          >
-            <.button class="btn-warning">Open as Admin</.button>
-          </.link>
+          <form action={~p"/super/organizations/#{@org.id}/impersonate"} method="post">
+            <input
+              type="hidden"
+              name="_csrf_token"
+              value={
+                Plug.CSRFProtection.get_csrf_token_for(
+                  ~p"/super/organizations/#{@org.id}/impersonate"
+                )
+              }
+            />
+            <.button type="submit" class="btn-warning" data-test="impersonate-btn">
+              Open as Admin
+            </.button>
+          </form>
         </div>
       </div>
 
