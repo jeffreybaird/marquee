@@ -21,8 +21,8 @@ defmodule BobineWeb.Plugs.RateLimit do
 
   import Plug.Conn
 
-  @default_limit 100_000_000_000
-  @default_period :timer.seconds(1)
+  @default_limit 100
+  @default_period :timer.minutes(1)
   @table :bobine_rate_limit
 
   @doc """
