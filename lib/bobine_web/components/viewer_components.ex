@@ -752,6 +752,42 @@ defmodule BobineWeb.Components.ViewerComponents do
   end
 
   # ---------------------------------------------------------------------------
+  # Live Event Player Container
+  # ---------------------------------------------------------------------------
+
+  attr :event, :map, required: true
+
+  @doc """
+  Renders a Mux Player container configured for live streaming.
+
+  Uses `stream-type="live"` and the event's `mux_live_playback_id`.
+  Does not support resume position or progress tracking.
+
+  ## Examples
+
+      <.live_event_player event={@event} />
+
+  """
+  def live_event_player(assigns) do
+    ~H"""
+    <div
+      id="live-player-container"
+      class="sv-player-container"
+      data-test="sv-live-player"
+    >
+      <mux-player
+        stream-type="live"
+        playback-id={@event.mux_live_playback_id}
+        metadata-video-title={@event.title}
+        autoplay
+        data-test="mux-live-player"
+      >
+      </mux-player>
+    </div>
+    """
+  end
+
+  # ---------------------------------------------------------------------------
   # Buttons
   # ---------------------------------------------------------------------------
 

@@ -86,6 +86,18 @@ defmodule Bobine.Streaming do
   end
 
   @doc """
+  Preloads the recording video association onto a live event.
+
+  Use this when rendering the ended-event view to access `recording_video`.
+  Returns the event struct with `recording_video` loaded (or nil if no recording).
+
+  Exempt from doctest — hits the database.
+  """
+  def preload_recording_video(%LiveEvent{} = event) do
+    Repo.preload(event, :recording_video)
+  end
+
+  @doc """
   Gets a live event by its Mux live stream ID.
 
   This is intentionally cross-tenant: Mux webhooks arrive without org context,
