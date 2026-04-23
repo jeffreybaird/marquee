@@ -100,7 +100,7 @@ defmodule Bobine.Workers.RefundPpvTicketsWorker do
   defp issue_stripe_refund(stripe_client, %LiveEventTicket{
          stripe_payment_intent_id: payment_intent_id
        }) do
-    stripe_client.create_refund(payment_intent_id)
+    stripe_client.create_refund(payment_intent_id, [])
   end
 
   defp mark_ticket_refunded(ticket, org_id) do
