@@ -18,6 +18,7 @@ defmodule Bobine.Catalog do
   alias Bobine.Events
   alias Bobine.Pagination
   alias Bobine.Repo
+  alias Bobine.Streaming
 
   require Bobine.Otel
 
@@ -422,6 +423,13 @@ defmodule Bobine.Catalog do
       :editorial_spotlight ->
         # Editorial rows need a bound collection — empty until configured.
         %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
+
+      :upcoming_live_events ->
+        limit = Keyword.get(opts, :per_page) || row.max_items || 20
+        Streaming.list_live_events(organization, status: "scheduled", per_page: limit)
+
+      :welcome_text ->
+        %{results: [], page: 1, per_page: 25, total: 0, total_pages: 1}
     end
   end
 
@@ -467,6 +475,9 @@ defmodule Bobine.Catalog do
       :continue_watching ->
         resolve_row_content(organization, row, opts)
 
+      :upcoming_live_events ->
+        resolve_row_content(organization, row, opts)
+
       _ ->
         Cache.fetch(
           "row_content:#{organization.id}:#{row.id}",
@@ -489,6 +500,9 @@ defmodule Bobine.Catalog do
       ) do
     case row.source_type do
       :continue_watching ->
+        resolve_row_content_as_videos(organization, row, opts)
+
+      :upcoming_live_events ->
         resolve_row_content_as_videos(organization, row, opts)
 
       _ ->
@@ -529,6 +543,7 @@ defmodule Bobine.Catalog do
   end
 
   defp flatten_item_to_videos(_org, %Video{} = video), do: [video]
+  defp flatten_item_to_videos(_org, %Bobine.Streaming.LiveEvent{}), do: []
 
   # Continue-watching maps carry their playable video under :video for the
   # in_progress / between_episodes types. :next_season has no video.
@@ -608,6 +623,7 @@ defmodule Bobine.Catalog do
   defp unwrap_row_item(%CollectionItem{item_type: :video, video: video}), do: video
   defp unwrap_row_item(%CollectionItem{item_type: :season, season: season}), do: season
   defp unwrap_row_item(%CollectionItem{item_type: :series, series: series}), do: series
+  defp unwrap_row_item(%Bobine.Streaming.LiveEvent{} = event), do: event
   defp unwrap_row_item(item), do: item
 
   @doc """
@@ -1118,6 +1134,7 @@ defmodule Bobine.Catalog do
   defp preset_row_title(:series), do: "Series"
   defp preset_row_title(:creator_showcase), do: "Creators"
   defp preset_row_title(:editorial_spotlight), do: "Editor's picks"
+  defp preset_row_title(:upcoming_live_events), do: "Upcoming live events"
   defp preset_row_title(other), do: other |> to_string() |> String.capitalize()
 
   defp unwrap_ok({:ok, r}), do: r

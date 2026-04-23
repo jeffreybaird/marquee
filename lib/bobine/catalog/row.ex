@@ -31,7 +31,9 @@ defmodule Bobine.Catalog.Row do
         # Static text block rendered inline in the catalog. No items; content
         # lives in `filter_config` keys: eyebrow, headline, body, cta_label,
         # cta_href.
-        :welcome_text
+        :welcome_text,
+        # Upcoming live events — resolved from Streaming context
+        :upcoming_live_events
       ]
 
     field :source_id, :binary_id
@@ -68,6 +70,7 @@ defmodule Bobine.Catalog.Row do
   def compat_row_type(:collection), do: :editorial_spotlight
   def compat_row_type(:tag), do: :tags
   def compat_row_type(:new_seasons), do: :series
+  def compat_row_type(:upcoming_live_events), do: :popularity
   def compat_row_type(other) when is_atom(other), do: other
 
   @doc false

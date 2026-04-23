@@ -300,4 +300,79 @@ defmodule Bobine.CatalogTest do
       assert Catalog.list_enriched_hero_slides(org, hero_row) == []
     end
   end
+
+  describe "resolve_row_content/3 with :upcoming_live_events" do
+    setup do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
+      %{org: org, scope: scope}
+    end
+
+    test "returns scheduled live events for the org", %{org: org, scope: scope} do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Upcoming Events",
+          source_type: :upcoming_live_events,
+          position: 0,
+          visible: true,
+          max_items: 20
+        })
+
+      _scheduled =
+        insert(:live_event, organization: org, status: "scheduled", title: "Tomorrow Show")
+
+      _live = insert(:live_event, organization: org, status: "live", title: "Live Now")
+      _ended = insert(:live_event, organization: org, status: "ended", title: "Old Show")
+
+      %{results: results} = Catalog.resolve_row_content(org, row)
+
+      titles = Enum.map(results, & &1.title)
+      assert "Tomorrow Show" in titles
+      refute "Live Now" in titles
+      refute "Old Show" in titles
+    end
+
+    test "returns empty results when no scheduled events", %{org: org, scope: scope} do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Upcoming Events",
+          source_type: :upcoming_live_events,
+          position: 0,
+          visible: true,
+          max_items: 20
+        })
+
+      %{results: results} = Catalog.resolve_row_content(org, row)
+      assert results == []
+    end
+
+    test "resolve_row_content_cached bypasses cache for upcoming_live_events", %{
+      org: org,
+      scope: scope
+    } do
+      {:ok, row} =
+        Catalog.create_row(scope, %{
+          title: "Upcoming Events",
+          source_type: :upcoming_live_events,
+          position: 0,
+          visible: true,
+          max_items: 20
+        })
+
+      event =
+        insert(:live_event, organization: org, status: "scheduled", title: "Cache Test Show")
+
+      # First call — should return event
+      %{results: results_1} = Catalog.resolve_row_content_cached(org, row)
+      assert Enum.any?(results_1, &(&1.id == event.id))
+
+      # Delete event from DB and call again — should reflect change (not cached)
+      Bobine.Repo.delete!(event)
+
+      %{results: results_2} = Catalog.resolve_row_content_cached(org, row)
+      refute Enum.any?(results_2, &(&1.id == event.id))
+    end
+  end
 end
