@@ -199,11 +199,63 @@ defmodule Bobine.Billing.StripeClient do
     end)
   end
 
+  @dialyzer {:nowarn_function, create_connected_payment_checkout_session: 1}
+  @impl true
+  def create_connected_payment_checkout_session(params) do
+    account_id = params[:stripe_connect_account_id] || params["stripe_connect_account_id"]
+    org_id = params[:organization_id] || params["organization_id"]
+    viewer_id = params[:viewer_id] || params["viewer_id"]
+    live_event_id = params[:live_event_id] || params["live_event_id"]
+    key = Bobine.Idempotency.key("ppv_checkout", org_id, "#{viewer_id}_#{live_event_id}")
+
+    traced_call("create_connected_payment_checkout_session", fn ->
+      Tracer.set_attribute("stripe.connect_account", account_id)
+      Tracer.set_attribute("bobine.idempotency_key", key)
+
+      checkout_params = %{
+        mode: :payment,
+        line_items: params[:line_items],
+        success_url: params[:success_url],
+        cancel_url: params[:cancel_url],
+        customer_email: params[:viewer_email],
+        payment_intent_data: %{
+          transfer_data: %{destination: account_id},
+          metadata: %{
+            "bobine_org_id" => to_string(org_id),
+            "bobine_viewer_id" => to_string(viewer_id),
+            "bobine_live_event_id" => to_string(live_event_id),
+            "bobine_type" => "ppv"
+          }
+        },
+        application_fee_amount: 200,
+        metadata: %{
+          "bobine_org_id" => to_string(org_id),
+          "bobine_viewer_id" => to_string(viewer_id),
+          "bobine_live_event_id" => to_string(live_event_id),
+          "bobine_type" => "ppv"
+        }
+      }
+
+      Stripe.Checkout.Session.create(
+        checkout_params,
+        connect_account: account_id,
+        idempotency_key: key
+      )
+    end)
+  end
+
   @impl true
   def create_connected_portal_session(params, opts) do
     traced_call("create_connected_portal_session", fn ->
       Tracer.set_attribute("stripe.connect_account", Keyword.get(opts, :connect_account))
       Stripe.BillingPortal.Session.create(params, opts)
+    end)
+  end
+
+  @impl true
+  def create_refund(payment_intent_id, opts \\ []) do
+    traced_call("create_refund", fn ->
+      Stripe.Refund.create(%{payment_intent: payment_intent_id}, opts)
     end)
   end
 
