@@ -136,8 +136,8 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
 
             :ok
 
-          {:error, reason} ->
-            {:error, reason}
+          {:error, :validation, _cs} = err ->
+            err
         end
 
       {:error, :not_found} ->
@@ -168,8 +168,8 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
             attribute_to_org(updated)
             :ok
 
-          {:error, reason} ->
-            {:error, reason}
+          {:error, :validation, _cs} = err ->
+            err
         end
 
       {:ok, event} ->

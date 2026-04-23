@@ -838,6 +838,10 @@ defmodule Bobine.Streaming do
   @doc false
   def handle_recording_completed(mux_live_stream_id, asset_data) do
     case get_live_event_by_mux_stream_id(mux_live_stream_id) do
+      {:ok, %{recording_video_id: vid_id}} when not is_nil(vid_id) ->
+        # Already linked — idempotent no-op
+        :ok
+
       {:ok, event} ->
         case link_recording_to_event(event, asset_data) do
           {:ok, _event} -> :ok

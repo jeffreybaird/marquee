@@ -298,9 +298,11 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
         }
       }
 
+      # First delivery — links recording
       assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
-      # Second delivery — video slug will conflict but should be handled gracefully
-      # (in reality Oban unique would prevent this)
+      # Second delivery — idempotent no-op, must not error or create duplicate
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
       assert {:ok, updated} = Streaming.get_live_event(org, event.id)
       assert updated.recording_video_id != nil
     end
