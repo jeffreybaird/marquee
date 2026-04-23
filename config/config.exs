@@ -144,7 +144,8 @@ config :logger, :default_formatter,
     :messages,
     :mux_upload_params,
     :rejecting_webhook,
-    :body
+    :body,
+    :stream_id
   ]
 
 # Configure Oban

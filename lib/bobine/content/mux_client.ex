@@ -12,6 +12,7 @@ defmodule Bobine.Content.MuxClient do
   require OpenTelemetry.Tracer, as: Tracer
 
   alias Mux.Video.Assets
+  alias Mux.Video.LiveStreams
   alias Mux.Video.Uploads
 
   @impl true
@@ -71,6 +72,131 @@ defmodule Bobine.Content.MuxClient do
   def list_assets(opts \\ []) do
     traced_call("list_assets", fn ->
       Assets.list(client(), opts)
+    end)
+  end
+
+  @impl true
+  def create_live_stream(params) do
+    Logger.info("Mux create_live_stream requested",
+      org_id: logger_org_id(),
+      params: inspect(params, pretty: true, limit: :infinity)
+    )
+
+    traced_call("create_live_stream", fn ->
+      LiveStreams.create(client(), params)
+    end)
+  end
+
+  @impl true
+  def get_live_stream(stream_id) do
+    traced_call("get_live_stream", fn ->
+      LiveStreams.get(client(), stream_id)
+    end)
+  end
+
+  @impl true
+  def delete_live_stream(stream_id) do
+    Tracer.with_span "bobine.mux.delete_live_stream" do
+      Tracer.set_attributes([
+        {"bobine.mux.operation", "delete_live_stream"},
+        {"bobine.service", "mux"}
+        | org_attributes_from_logger()
+      ])
+
+      start = System.monotonic_time(:millisecond)
+      result = LiveStreams.delete(client(), stream_id)
+      duration = System.monotonic_time(:millisecond) - start
+      Tracer.set_attribute("duration_ms", duration)
+
+      case result do
+        {:ok, _, _} ->
+          Tracer.set_attribute("http.status_code", 200)
+          :ok
+
+        {:error, reason, _} ->
+          Tracer.set_status(:error, inspect(reason))
+
+          Logger.error("Mux delete_live_stream failed",
+            org_id: logger_org_id(),
+            stream_id: stream_id,
+            reason: inspect(reason, pretty: true, limit: :infinity)
+          )
+
+          {:error, :mux_error, reason}
+      end
+    end
+  end
+
+  @impl true
+  def disable_live_stream(stream_id) do
+    Tracer.with_span "bobine.mux.disable_live_stream" do
+      Tracer.set_attributes([
+        {"bobine.mux.operation", "disable_live_stream"},
+        {"bobine.service", "mux"}
+        | org_attributes_from_logger()
+      ])
+
+      start = System.monotonic_time(:millisecond)
+      result = LiveStreams.disable(client(), stream_id)
+      duration = System.monotonic_time(:millisecond) - start
+      Tracer.set_attribute("duration_ms", duration)
+
+      case result do
+        {:ok, _, _} ->
+          Tracer.set_attribute("http.status_code", 200)
+          :ok
+
+        {:error, reason, _} ->
+          Tracer.set_status(:error, inspect(reason))
+
+          Logger.error("Mux disable_live_stream failed",
+            org_id: logger_org_id(),
+            stream_id: stream_id,
+            reason: inspect(reason, pretty: true, limit: :infinity)
+          )
+
+          {:error, :mux_error, reason}
+      end
+    end
+  end
+
+  @impl true
+  def enable_live_stream(stream_id) do
+    Tracer.with_span "bobine.mux.enable_live_stream" do
+      Tracer.set_attributes([
+        {"bobine.mux.operation", "enable_live_stream"},
+        {"bobine.service", "mux"}
+        | org_attributes_from_logger()
+      ])
+
+      start = System.monotonic_time(:millisecond)
+      result = LiveStreams.enable(client(), stream_id)
+      duration = System.monotonic_time(:millisecond) - start
+      Tracer.set_attribute("duration_ms", duration)
+
+      case result do
+        {:ok, _, _} ->
+          Tracer.set_attribute("http.status_code", 200)
+          :ok
+
+        {:error, reason, _} ->
+          Tracer.set_status(:error, inspect(reason))
+
+          Logger.error("Mux enable_live_stream failed",
+            org_id: logger_org_id(),
+            stream_id: stream_id,
+            reason: inspect(reason, pretty: true, limit: :infinity)
+          )
+
+          {:error, :mux_error, reason}
+      end
+    end
+  end
+
+  @impl true
+  def reset_stream_key(stream_id) do
+    traced_call("reset_stream_key", fn ->
+      LiveStreams.reset_stream_key(client(), stream_id)
     end)
   end
 
