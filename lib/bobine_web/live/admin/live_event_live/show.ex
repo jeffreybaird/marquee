@@ -26,6 +26,11 @@ defmodule BobineWeb.Admin.LiveEventLive.Show do
           Events.subscribe(org.id)
         end
 
+        mod_messages =
+          if event.status == "live",
+            do: Streaming.list_chat_messages(event, per_page: 50).results,
+            else: []
+
         {:ok,
          socket
          |> assign(:page_title, event.title)
@@ -33,13 +38,62 @@ defmodule BobineWeb.Admin.LiveEventLive.Show do
          |> assign(:show_credentials_modal, false)
          |> assign(:credentials, nil)
          |> assign(:credentials_loading, false)
-         |> assign(:show_delete_confirm, false)}
+         |> assign(:show_delete_confirm, false)
+         |> assign(:mod_chat_messages, mod_messages)}
 
       {:error, :not_found} ->
         {:ok,
          socket
          |> put_flash(:error, "Live event not found.")
          |> push_navigate(to: ~p"/admin/live-events")}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_chat_message", %{"id" => msg_id}, socket) do
+    scope = socket.assigns.current_scope
+    msg = Enum.find(socket.assigns.mod_chat_messages, &(&1.id == msg_id))
+
+    if msg do
+      case Streaming.delete_chat_message(scope, msg) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(
+             :mod_chat_messages,
+             Enum.reject(socket.assigns.mod_chat_messages, &(&1.id == msg_id))
+           )
+           |> put_flash(:info, "Message deleted.")}
+
+        {:error, :validation, _cs} ->
+          {:noreply, put_flash(socket, :error, "Failed to delete message.")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("ban_viewer", %{"viewer-id" => viewer_id}, socket) do
+    scope = socket.assigns.current_scope
+    event = socket.assigns.event
+    org = socket.assigns.organization
+
+    case Bobine.Viewers.get_viewer(org, viewer_id) do
+      {:ok, viewer} ->
+        case Streaming.ban_viewer_from_chat(scope, event, viewer) do
+          :ok ->
+            {:noreply, put_flash(socket, :info, "Viewer banned.")}
+
+          {:error, :already_banned} ->
+            {:noreply, put_flash(socket, :info, "Viewer already banned.")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Failed to ban viewer.")}
+        end
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Viewer not found.")}
     end
   end
 
@@ -170,6 +224,25 @@ defmodule BobineWeb.Admin.LiveEventLive.Show do
   def handle_info({:bobine_event, {:live_event_updated, updated}, _scope}, socket) do
     if socket.assigns.event.id == updated.id do
       {:noreply, assign(socket, :event, updated)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:bobine_event, {:chat_message_posted, msg}, _scope}, socket) do
+    if msg.live_event_id == socket.assigns.event.id do
+      {:noreply, assign(socket, :mod_chat_messages, socket.assigns.mod_chat_messages ++ [msg])}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:bobine_event, {:chat_message_deleted, msg}, _scope}, socket) do
+    if msg.live_event_id == socket.assigns.event.id do
+      updated = Enum.reject(socket.assigns.mod_chat_messages, &(&1.id == msg.id))
+      {:noreply, assign(socket, :mod_chat_messages, updated)}
     else
       {:noreply, socket}
     end
@@ -355,6 +428,45 @@ defmodule BobineWeb.Admin.LiveEventLive.Show do
         <h3 class="text-xs font-medium uppercase tracking-wide text-admin-muted">Description</h3>
         <p class="mt-1 text-sm text-admin-fg">{@event.description}</p>
       </div>
+
+      <%!-- Chat moderation section --%>
+      <section
+        :if={@event.status == "live"}
+        aria-label="Chat moderation"
+        data-test="chat-moderation"
+        class="mt-8"
+      >
+        <h2 class="op-section-title">Live Chat Moderation</h2>
+        <div data-test="mod-message-list">
+          <div
+            :for={msg <- @mod_chat_messages}
+            class="op-mod-message"
+            data-test={"mod-message-#{msg.id}"}
+          >
+            <span class="op-mod-viewer">{String.slice(to_string(msg.viewer_id), 0, 8)}</span>
+            <span class="op-mod-content">{msg.content}</span>
+            <button
+              phx-click="delete_chat_message"
+              phx-value-id={msg.id}
+              data-test={"delete-chat-msg-#{msg.id}"}
+              aria-label="Delete message"
+              class="op-btn-danger-sm"
+            >
+              Delete
+            </button>
+            <button
+              phx-click="ban_viewer"
+              phx-value-viewer-id={msg.viewer_id}
+              data-test={"ban-viewer-#{msg.viewer_id}"}
+              aria-label="Ban viewer from chat"
+              class="op-btn-warning-sm"
+            >
+              Ban
+            </button>
+          </div>
+          <p :if={@mod_chat_messages == []} data-test="mod-no-messages">No messages yet.</p>
+        </div>
+      </section>
 
       <%!-- Streaming credentials section --%>
       <section :if={@show_credentials} class="mt-8 rounded-lg border border-admin-border p-4">
