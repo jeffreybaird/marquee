@@ -246,4 +246,46 @@ defmodule Bobine.Metrics do
       %{org_id: org_id, topic: topic, event: event_name}
     )
   end
+
+  @doc """
+  Records a live event status transition.
+
+      iex> Bobine.Metrics.live_event_transitioned("org_123", "live")
+      :ok
+  """
+  def live_event_transitioned(org_id, to_status) do
+    :telemetry.execute(
+      [:bobine, :live_event, :transitioned],
+      %{count: 1},
+      %{org_id: org_id, to_status: to_status}
+    )
+  end
+
+  @doc """
+  Records a chat message sent in a live event.
+
+      iex> Bobine.Metrics.chat_message_sent("org_123")
+      :ok
+  """
+  def chat_message_sent(org_id) do
+    :telemetry.execute(
+      [:bobine, :live_event, :chat_message_sent],
+      %{count: 1},
+      %{org_id: org_id}
+    )
+  end
+
+  @doc """
+  Records a PPV ticket created.
+
+      iex> Bobine.Metrics.ppv_ticket_created("org_123")
+      :ok
+  """
+  def ppv_ticket_created(org_id) do
+    :telemetry.execute(
+      [:bobine, :live_event, :ppv_ticket_created],
+      %{count: 1},
+      %{org_id: org_id}
+    )
+  end
 end
