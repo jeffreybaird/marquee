@@ -54,6 +54,7 @@ defmodule BobineWeb.Admin.LiveEventLive.Edit do
   def handle_event("save", %{"live_event" => params}, socket) do
     scope = socket.assigns.current_scope
     event = socket.assigns.event
+    params = convert_ppv_price_to_cents(params)
 
     case Streaming.update_live_event(scope, event, params) do
       {:ok, updated} ->
@@ -176,15 +177,28 @@ defmodule BobineWeb.Admin.LiveEventLive.Edit do
 
         <%!-- PPV fields — only shown when access_type is pay_per_view --%>
         <div :if={@access_type == "pay_per_view"} data-test="ppv-fields">
-          <.input
-            field={@form[:ppv_price_cents]}
-            type="number"
-            label="Price (in cents, e.g. 999 = $9.99)"
-            min="1"
-            required
-            aria-required="true"
-            data-test="ppv-price-input"
-          />
+          <%!-- User inputs price in dollars; LiveView converts to cents before saving --%>
+          <div>
+            <label
+              for="live_event_ppv_price_dollars"
+              class="block text-sm font-medium text-admin-fg"
+            >
+              Price (USD) <span aria-hidden="true">*</span>
+            </label>
+            <input
+              id="live_event_ppv_price_dollars"
+              name="live_event[ppv_price_dollars]"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              aria-required="true"
+              placeholder="9.99"
+              value={cents_to_dollars(@event.ppv_price_cents)}
+              class="mt-1 block w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+              data-test="ppv-price-input"
+            />
+          </div>
 
           <.input
             field={@form[:ppv_access_window_hours]}
@@ -214,5 +228,30 @@ defmodule BobineWeb.Admin.LiveEventLive.Edit do
       </.form>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
+  end
+
+  # Converts ppv_price_dollars (user-facing, string dollars) to ppv_price_cents (integer).
+  defp convert_ppv_price_to_cents(%{"ppv_price_dollars" => dollars} = params)
+       when is_binary(dollars) and dollars != "" do
+    case Float.parse(dollars) do
+      {amount, _} ->
+        cents = round(amount * 100)
+
+        params
+        |> Map.delete("ppv_price_dollars")
+        |> Map.put("ppv_price_cents", cents)
+
+      :error ->
+        Map.delete(params, "ppv_price_dollars")
+    end
+  end
+
+  defp convert_ppv_price_to_cents(params), do: params
+
+  # Renders cents as a dollar string for pre-populating the edit form.
+  defp cents_to_dollars(nil), do: ""
+
+  defp cents_to_dollars(cents) when is_integer(cents) do
+    :erlang.float_to_binary(cents / 100, decimals: 2)
   end
 end

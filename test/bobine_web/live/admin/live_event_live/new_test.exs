@@ -160,7 +160,7 @@ defmodule BobineWeb.Admin.LiveEventLive.NewTest do
       assert html =~ "Could not provision Mux stream"
     end
 
-    test "creates PPV event with price fields", %{conn: _conn} do
+    test "creates PPV event with price in dollars (converted to cents)", %{conn: _conn} do
       membership = insert(:membership, role: :editor)
       mux_stream_stub()
 
@@ -175,12 +175,26 @@ defmodule BobineWeb.Admin.LiveEventLive.NewTest do
                    "slug" => "ppv-stream",
                    "scheduled_start_at" => "2026-06-01T18:00",
                    "access_type" => "pay_per_view",
-                   "ppv_price_cents" => "999",
+                   "ppv_price_dollars" => "9.99",
                    "ppv_access_window_hours" => "48"
                  }
                })
 
       assert redirect_path =~ "/admin/live-events/ppv-stream"
+    end
+  end
+
+  describe "slug auto-generation" do
+    test "blurring the title field auto-generates slug", %{conn: _conn} do
+      membership = insert(:membership, role: :editor)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/live-events/new")
+
+      html =
+        view
+        |> element(~s([data-test="title-input"]))
+        |> render_blur(%{"title" => "My Awesome Stream"})
+
+      assert html =~ "my-awesome-stream"
     end
   end
 end

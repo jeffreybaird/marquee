@@ -149,6 +149,39 @@ defmodule BobineWeb.Admin.LiveEventLive.EditTest do
       assert html =~ "can&#39;t be blank"
     end
 
+    test "updates PPV event with price in dollars (converted to cents)", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          access_type: "pay_per_view",
+          ppv_price_cents: 999,
+          ppv_access_window_hours: 24
+        )
+
+      {:ok, view, _html} =
+        live(conn_for(membership), ~p"/admin/live-events/#{event.slug}/edit")
+
+      assert {:error, {:live_redirect, %{to: redirect_path}}} =
+               view
+               |> element(~s(#live-event-edit-form))
+               |> render_submit(%{
+                 "live_event" => %{
+                   "title" => event.title,
+                   "slug" => event.slug,
+                   "scheduled_start_at" => "2026-06-01T18:00",
+                   "access_type" => "pay_per_view",
+                   "ppv_price_dollars" => "14.99",
+                   "ppv_access_window_hours" => "48"
+                 }
+               })
+
+      assert redirect_path =~ "/admin/live-events/#{event.slug}"
+    end
+
     test "renders cancel link back to show page", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)

@@ -37,7 +37,7 @@ defmodule BobineWeb.Admin.LiveEventLive.New do
   end
 
   @impl true
-  def handle_event("generate_slug", %{"live_event" => %{"title" => title}}, socket) do
+  def handle_event("generate_slug", %{"title" => title}, socket) do
     slug = slugify(title)
     params = socket.assigns.form.params |> Map.put("slug", slug)
     changeset = LiveEvent.changeset(%LiveEvent{}, params) |> Map.put(:action, :validate)
@@ -51,7 +51,11 @@ defmodule BobineWeb.Admin.LiveEventLive.New do
   def handle_event("save", %{"live_event" => params}, socket) do
     scope = socket.assigns.current_scope
     org = socket.assigns.organization
-    params = Map.put(params, "organization_id", org.id)
+
+    params =
+      params
+      |> convert_ppv_price_to_cents()
+      |> Map.put("organization_id", org.id)
 
     case Streaming.create_live_event(scope, params) do
       {:ok, event} ->
@@ -180,15 +184,27 @@ defmodule BobineWeb.Admin.LiveEventLive.New do
 
         <%!-- PPV fields — only shown when access_type is pay_per_view --%>
         <div :if={@access_type == "pay_per_view"} data-test="ppv-fields">
-          <.input
-            field={@form[:ppv_price_cents]}
-            type="number"
-            label="Price (in cents, e.g. 999 = $9.99)"
-            min="1"
-            required
-            aria-required="true"
-            data-test="ppv-price-input"
-          />
+          <%!-- User inputs price in dollars; LiveView converts to cents before saving --%>
+          <div>
+            <label
+              for="live_event_ppv_price_dollars"
+              class="block text-sm font-medium text-admin-fg"
+            >
+              Price (USD) <span aria-hidden="true">*</span>
+            </label>
+            <input
+              id="live_event_ppv_price_dollars"
+              name="live_event[ppv_price_dollars]"
+              type="number"
+              step="0.01"
+              min="0.01"
+              required
+              aria-required="true"
+              placeholder="9.99"
+              class="mt-1 block w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+              data-test="ppv-price-input"
+            />
+          </div>
 
           <.input
             field={@form[:ppv_access_window_hours]}
@@ -228,4 +244,23 @@ defmodule BobineWeb.Admin.LiveEventLive.New do
     |> String.replace(~r/[\s]+/, "-")
     |> String.trim("-")
   end
+
+  # Converts ppv_price_dollars (user-facing, string dollars) to ppv_price_cents (integer).
+  # If ppv_price_dollars is absent or blank, passes params through unchanged.
+  defp convert_ppv_price_to_cents(%{"ppv_price_dollars" => dollars} = params)
+       when is_binary(dollars) and dollars != "" do
+    case Float.parse(dollars) do
+      {amount, _} ->
+        cents = round(amount * 100)
+
+        params
+        |> Map.delete("ppv_price_dollars")
+        |> Map.put("ppv_price_cents", cents)
+
+      :error ->
+        Map.delete(params, "ppv_price_dollars")
+    end
+  end
+
+  defp convert_ppv_price_to_cents(params), do: params
 end
