@@ -31,6 +31,7 @@ defmodule Bobine.Application do
         Bobine.Cache,
         {Oban, Application.fetch_env!(:bobine, Oban)},
         Bobine.Buffers.ProgressBuffer,
+        Bobine.Streaming.ChatRateLimiter,
         Bobine.Events.AuditSubscriber,
         Bobine.Catalog.HeroCacheSubscriber,
         Bobine.Branding.CacheSubscriber,

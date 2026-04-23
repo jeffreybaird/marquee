@@ -3,6 +3,8 @@ defmodule BobineWeb.Viewer.LiveEventWatchLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Bobine.Streaming.ChatRateLimiter
+
   # ---------------------------------------------------------------------------
   # scheduled event
   # ---------------------------------------------------------------------------
@@ -271,6 +273,217 @@ defmodule BobineWeb.Viewer.LiveEventWatchLiveTest do
 
       assert {:error, {:live_redirect, %{to: "/events"}}} =
                live(conn, ~p"/events/no-such-event")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # chat island
+  # ---------------------------------------------------------------------------
+
+  describe "live chat" do
+    setup do
+      ChatRateLimiter.clear()
+      :ok
+    end
+
+    test "chat section renders for live event with valid subscriber access", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-live-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_chat"
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(data-test="chat-section")
+      assert html =~ ~s(data-test="chat-input-area")
+      assert html =~ ~s(data-test="chat-form")
+    end
+
+    test "chat input not shown for scheduled event", %{conn: conn} do
+      org = insert(:organization)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "scheduled",
+          slug: "chat-scheduled-test"
+        )
+
+      conn = conn |> Map.put(:host, "#{org.slug}.localhost")
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.slug}")
+
+      refute html =~ ~s(data-test="chat-section")
+      refute html =~ ~s(data-test="chat-input-area")
+    end
+
+    test "chat input not shown for live event with no viewer (unauthenticated)", %{conn: conn} do
+      org = insert(:organization)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-no-auth-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_no_auth"
+        )
+
+      conn = conn |> Map.put(:host, "#{org.slug}.localhost")
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(data-test="chat-section")
+      refute html =~ ~s(data-test="chat-input-area")
+      assert html =~ ~s(data-test="chat-login-prompt")
+    end
+
+    test "chat shows access-denied message for logged-in viewer without subscription", %{
+      conn: _conn
+    } do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-no-access-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_no_access"
+        )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(data-test="chat-section")
+      refute html =~ ~s(data-test="chat-input-area")
+      assert html =~ ~s(data-test="chat-access-denied")
+    end
+
+    test "viewer sends a chat message and it appears via PubSub stream", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-send-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_send"
+        )
+
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      view
+      |> form(~s([data-test="chat-form"]), message: "Hello chat!")
+      |> render_submit()
+
+      # Message is broadcast via PubSub — simulate it arriving
+      {:ok, msg} = Bobine.Streaming.post_chat_message(event, viewer, "Hello from PubSub!")
+
+      send(
+        view.pid,
+        {:bobine_event, {:chat_message_posted, msg}, %{organization: org}}
+      )
+
+      html = render(view)
+      assert html =~ "Hello from PubSub!"
+    end
+
+    test "rate-limited message shows error flash", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-rate-limit-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_rate"
+        )
+
+      {:ok, view, _html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      # First submit fills the rate limiter slot
+      view
+      |> form(~s([data-test="chat-form"]), message: "First message")
+      |> render_submit()
+
+      # Second submit within burst window hits rate limit
+      html =
+        view
+        |> form(~s([data-test="chat-form"]), message: "Too fast!")
+        |> render_submit()
+
+      assert html =~ "Slow down"
+    end
+
+    test "banned notice appears when viewer_banned_from_chat event received via PubSub", %{
+      conn: _conn
+    } do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-ban-pubsub-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_ban"
+        )
+
+      {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(data-test="chat-input-area")
+      refute html =~ ~s(data-test="chat-banned-notice")
+
+      send(
+        view.pid,
+        {:bobine_event, {:viewer_banned_from_chat, %{event: event, viewer: viewer}},
+         %{organization: org}}
+      )
+
+      html = render(view)
+      assert html =~ ~s(data-test="chat-banned-notice")
+      refute html =~ ~s(data-test="chat-input-area")
+    end
+
+    test "real-time message appears via PubSub chat_message_posted broadcast", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      other_viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "chat-realtime-test",
+          access_type: "subscribers_only",
+          mux_live_playback_id: "live_pb_realtime"
+        )
+
+      {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/events/#{event.slug}")
+
+      refute html =~ "realtime-message-content"
+
+      {:ok, msg} =
+        Bobine.Streaming.post_chat_message(event, other_viewer, "realtime-message-content")
+
+      send(
+        view.pid,
+        {:bobine_event, {:chat_message_posted, msg}, %{organization: org}}
+      )
+
+      html = render(view)
+      assert html =~ "realtime-message-content"
     end
   end
 

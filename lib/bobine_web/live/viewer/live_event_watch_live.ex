@@ -21,6 +21,7 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
 
   alias Bobine.Events
   alias Bobine.Streaming
+  alias Bobine.Streaming.ChatRateLimiter
   alias BobineWeb.Components.ViewerComponents
   alias BobineWeb.Components.ViewerLayout
   alias BobineWeb.Viewer.LiveEventController
@@ -47,13 +48,30 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
         access = Streaming.check_event_access(event, viewer)
         base_url = build_base_url(socket)
 
+        {messages, chat_input_enabled, viewer_banned} =
+          load_chat_state(event, access, viewer)
+
         {:ok,
          socket
          |> assign(:page_title, event.title)
          |> assign(:event, event)
          |> assign(:has_reminder, has_reminder)
          |> assign(:access, access)
-         |> assign(:base_url, base_url)}
+         |> assign(:base_url, base_url)
+         |> stream(:chat_messages, messages)
+         |> assign(:chat_input_enabled, chat_input_enabled)
+         |> assign(:viewer_banned_from_chat, viewer_banned)}
+    end
+  end
+
+  @impl true
+  def handle_event("send_chat", %{"message" => content}, socket) do
+    viewer = socket.assigns[:current_viewer]
+
+    if is_nil(viewer) do
+      {:noreply, socket}
+    else
+      {:noreply, attempt_send_chat(socket, viewer, content)}
     end
   end
 
@@ -98,6 +116,38 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
        socket
        |> assign(:event, updated_event)
        |> assign(:access, access)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:bobine_event, {:chat_message_posted, msg}, _scope}, socket) do
+    if msg.live_event_id == socket.assigns.event.id do
+      {:noreply, stream_insert(socket, :chat_messages, msg)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:bobine_event, {:chat_message_deleted, msg}, _scope}, socket) do
+    if msg.live_event_id == socket.assigns.event.id do
+      {:noreply, stream_delete(socket, :chat_messages, msg)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(
+        {:bobine_event, {:viewer_banned_from_chat, %{event: evt, viewer: v}}, _scope},
+        socket
+      ) do
+    current_viewer = socket.assigns[:current_viewer]
+
+    if current_viewer && v.id == current_viewer.id && evt.id == socket.assigns.event.id do
+      {:noreply,
+       socket
+       |> assign(:viewer_banned_from_chat, true)
+       |> assign(:chat_input_enabled, false)}
     else
       {:noreply, socket}
     end
@@ -182,6 +232,63 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
       <span class="sv-event-badge sv-event-badge--live" aria-label="Live now">LIVE</span>
       {render_live_player(assigns)}
       <p :if={@event.description} class="sv-event-description">{@event.description}</p>
+
+      <section aria-label="Live chat" data-test="chat-section" class="sv-chat">
+        <div
+          id="chat-messages"
+          data-test="chat-messages"
+          phx-update="stream"
+          role="log"
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          <div
+            :for={{dom_id, msg} <- @streams.chat_messages}
+            id={dom_id}
+            class="sv-chat-message"
+            data-test={"chat-message-#{msg.id}"}
+          >
+            <span class="sv-chat-author">
+              {"Viewer " <> String.slice(to_string(msg.viewer_id), 0, 6)}
+            </span>
+            <span class="sv-chat-content">{msg.content}</span>
+          </div>
+        </div>
+
+        <div :if={@chat_input_enabled} data-test="chat-input-area">
+          <form phx-submit="send_chat" data-test="chat-form">
+            <label for="chat-input" class="sr-only">Chat message</label>
+            <input
+              id="chat-input"
+              name="message"
+              type="text"
+              maxlength="500"
+              placeholder="Say something…"
+              autocomplete="off"
+              data-test="chat-input"
+              required
+            />
+            <button type="submit" data-test="chat-submit" aria-label="Send message">
+              Send
+            </button>
+          </form>
+        </div>
+
+        <p :if={@viewer_banned_from_chat} role="alert" data-test="chat-banned-notice">
+          You have been banned from this chat.
+        </p>
+
+        <p
+          :if={!@chat_input_enabled and !@viewer_banned_from_chat and @current_viewer != nil}
+          data-test="chat-access-denied"
+        >
+          You need access to this event to chat.
+        </p>
+
+        <p :if={@current_viewer == nil} data-test="chat-login-prompt">
+          <a href={~p"/login"}>Log in</a> to join the chat.
+        </p>
+      </section>
     </article>
     """
   end
@@ -332,6 +439,43 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp attempt_send_chat(socket, viewer, content) do
+    event = socket.assigns.event
+
+    case ChatRateLimiter.check_and_record(viewer.id, event.id) do
+      {:error, :rate_limited} ->
+        put_flash(socket, :error, "Slow down — you're sending messages too quickly.")
+
+      :ok ->
+        apply_post_chat_result(socket, Streaming.post_chat_message(event, viewer, content))
+    end
+  end
+
+  defp apply_post_chat_result(socket, {:ok, _msg}), do: socket
+
+  defp apply_post_chat_result(socket, {:error, :access_denied, :viewer_banned}) do
+    socket
+    |> assign(:viewer_banned_from_chat, true)
+    |> assign(:chat_input_enabled, false)
+  end
+
+  defp apply_post_chat_result(socket, {:error, :event_not_live}) do
+    put_flash(socket, :error, "The stream has ended.")
+  end
+
+  defp apply_post_chat_result(socket, {:error, :validation, _cs}) do
+    put_flash(socket, :error, "Message too long (500 character limit).")
+  end
+
+  defp load_chat_state(%{status: "live"} = event, access, viewer) do
+    msgs = Streaming.list_chat_messages(event, per_page: 50)
+    access_ok = access == {:ok, :allowed}
+    banned = viewer != nil && Streaming.viewer_banned?(event, viewer)
+    {msgs.results, access_ok && !banned && viewer != nil, banned}
+  end
+
+  defp load_chat_state(_event, _access, _viewer), do: {[], false, false}
 
   defp maybe_preload_recording(%{recording_video_id: nil} = event), do: event
 

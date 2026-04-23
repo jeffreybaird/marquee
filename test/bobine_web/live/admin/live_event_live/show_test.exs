@@ -405,6 +405,122 @@ defmodule BobineWeb.Admin.LiveEventLive.ShowTest do
     end
   end
 
+  describe "chat moderation panel" do
+    test "moderation panel renders for live event", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+
+      assert html =~ ~s(data-test="chat-moderation")
+      assert html =~ ~s(data-test="mod-message-list")
+    end
+
+    test "moderation panel does not render for non-live events", %{conn: _conn} do
+      for status <- ["scheduled", "draft", "ended", "canceled"] do
+        org = insert(:organization)
+        user = insert(:user)
+        membership = insert(:membership, organization: org, user: user, role: :editor)
+        event = insert(:live_event, organization: org, status: status)
+
+        {:ok, _view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+
+        refute html =~ ~s(data-test="chat-moderation"),
+               "expected no moderation panel for #{status}"
+      end
+    end
+
+    test "no-messages placeholder shown when no chat messages", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+
+      assert html =~ ~s(data-test="mod-no-messages")
+    end
+
+    test "existing chat messages appear in moderation list", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, msg} = Bobine.Streaming.post_chat_message(event, viewer, "hello mods!")
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+
+      assert html =~ ~s(data-test="mod-message-#{msg.id}")
+      assert html =~ "hello mods!"
+    end
+
+    test "delete chat message button removes message from list", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, msg} = Bobine.Streaming.post_chat_message(event, viewer, "delete me")
+
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+      assert html =~ ~s(data-test="mod-message-#{msg.id}")
+
+      html =
+        view
+        |> element(~s([data-test="delete-chat-msg-#{msg.id}"]))
+        |> render_click()
+
+      refute html =~ ~s(data-test="mod-message-#{msg.id}")
+      assert html =~ "Message deleted"
+    end
+
+    test "ban viewer button shows success flash", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, _msg} = Bobine.Streaming.post_chat_message(event, viewer, "ban me!")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+
+      html =
+        view
+        |> element(~s([data-test="ban-viewer-#{viewer.id}"]))
+        |> render_click()
+
+      assert html =~ "Viewer banned"
+    end
+
+    test "new chat message appears in moderation panel via PubSub", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      event = insert(:live_event, organization: org, status: "live")
+
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/live-events/#{event.slug}")
+      assert html =~ ~s(data-test="mod-no-messages")
+
+      {:ok, msg} = Bobine.Streaming.post_chat_message(event, viewer, "new pubsub message!")
+
+      send(
+        view.pid,
+        {:bobine_event, {:chat_message_posted, msg}, %{organization: org}}
+      )
+
+      html = render(view)
+      assert html =~ "new pubsub message!"
+      assert html =~ ~s(data-test="mod-message-#{msg.id}")
+    end
+  end
+
   describe "real-time PubSub updates" do
     test "updates status in real time on live_event_status_changed broadcast", %{conn: _conn} do
       org = insert(:organization)
