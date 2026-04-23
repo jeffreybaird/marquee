@@ -205,6 +205,8 @@ defmodule BobineWeb.Router do
 
     post "/viewer-session", SessionController, :create
     delete "/viewer-session", SessionController, :delete
+
+    post "/events/:slug/purchase", LiveEventPpvController, :create
   end
 
   ## Viewer impersonation routes (operator must be authenticated)

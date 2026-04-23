@@ -19,6 +19,7 @@ defmodule Bobine.Billing do
   require Logger
 
   alias Bobine.Billing.Plan
+  alias Bobine.Streaming.LiveEvent
 
   @doc """
   Returns a paginated list of plans, excluding soft-deleted records.
@@ -620,6 +621,68 @@ defmodule Bobine.Billing do
         )
       end
     end
+  end
+
+  @doc """
+  Creates a Stripe Checkout Session for a viewer to purchase a pay-per-view event.
+
+  Returns `{:ok, session_url}` on success, or one of:
+    * `{:error, :not_pay_per_view}` — event does not have pay_per_view access type
+    * `{:error, :stripe_not_connected}` — org has not completed Stripe Connect onboarding
+    * `{:error, :stripe_error, reason}` — Stripe API error
+
+  Exempt from doctest — calls external API.
+  """
+  def create_ppv_checkout(
+        %LiveEvent{access_type: "pay_per_view"} = event,
+        %Viewer{} = viewer,
+        %Organization{} = org,
+        %{success_url: _, cancel_url: _} = urls
+      ) do
+    Bobine.Otel.with_span "bobine.billing.create_ppv_checkout",
+                          %{"bobine.org.id" => org.id, "bobine.viewer.id" => viewer.id} do
+      with :ok <- ensure_stripe_connected(org) do
+        params = %{
+          organization_id: org.id,
+          viewer_id: viewer.id,
+          viewer_email: viewer.email,
+          live_event_id: event.id,
+          stripe_connect_account_id: org.stripe_connect_account_id,
+          line_items: [
+            %{
+              price_data: %{
+                currency: "usd",
+                unit_amount: event.ppv_price_cents,
+                product_data: %{name: event.title}
+              },
+              quantity: 1
+            }
+          ],
+          success_url: urls.success_url,
+          cancel_url: urls.cancel_url
+        }
+
+        case stripe_client().create_connected_payment_checkout_session(params) do
+          {:ok, session} ->
+            Bobine.Metrics.checkout_initiated(org.id, event.id)
+            {:ok, session.url}
+
+          {:error, :stripe_error, reason} ->
+            Logger.error("PPV checkout failed",
+              org_id: org.id,
+              viewer_id: viewer.id,
+              live_event_id: event.id,
+              reason: inspect(reason)
+            )
+
+            {:error, :stripe_error, reason}
+        end
+      end
+    end
+  end
+
+  def create_ppv_checkout(%LiveEvent{}, %Viewer{}, %Organization{}, _urls) do
+    {:error, :not_pay_per_view}
   end
 
   @doc """
