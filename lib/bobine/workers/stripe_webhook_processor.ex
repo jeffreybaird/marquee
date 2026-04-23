@@ -17,6 +17,8 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   alias Bobine.Admin
   alias Bobine.Billing
   alias Bobine.PlatformBilling
+  alias Bobine.Repo
+  alias Bobine.Streaming
   alias Bobine.Viewers
 
   @impl true
@@ -249,6 +251,17 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
     end
   end
 
+  defp handle_event("payment_intent.succeeded", payment_intent, connect_account_id)
+       when not is_nil(connect_account_id) do
+    metadata = payment_intent["metadata"] || %{}
+
+    if metadata["bobine_type"] == "ppv" do
+      handle_ppv_payment_intent_succeeded(payment_intent, metadata, connect_account_id)
+    else
+      :ok
+    end
+  end
+
   defp handle_event("customer.subscription.trial_will_end", _data, connect_account_id)
        when not is_nil(connect_account_id) do
     # Trial ending notification — log for now, full notification system is future work
@@ -273,6 +286,95 @@ defmodule Bobine.Workers.StripeWebhookProcessor do
   defp handle_event(type, _data, nil) do
     Logger.debug("Unhandled platform Stripe event", type: type)
     :ok
+  end
+
+  # ── PPV helpers ──
+
+  defp handle_ppv_payment_intent_succeeded(payment_intent, metadata, connect_account_id) do
+    live_event_id = metadata["bobine_live_event_id"]
+    viewer_id = metadata["bobine_viewer_id"]
+    payment_intent_id = payment_intent["id"]
+
+    with {:org, {:ok, org}} <- {:org, resolve_connected_org(connect_account_id)},
+         {:event, {:ok, event}} <- {:event, fetch_ppv_live_event(org, live_event_id)},
+         {:viewer, viewer} when not is_nil(viewer) <-
+           {:viewer, Viewers.get_viewer_by_id(viewer_id)},
+         {:idempotent, false} <-
+           {:idempotent, ticket_exists_for_payment_intent?(payment_intent_id)},
+         {:ok, _ticket} <-
+           Streaming.create_ticket(event, viewer, %{
+             stripe_payment_intent_id: payment_intent_id,
+             purchased_at: DateTime.utc_now(),
+             amount_cents: payment_intent["amount"]
+           }) do
+      Logger.info("PPV ticket created",
+        org_id: org.id,
+        viewer_id: viewer_id,
+        live_event_id: live_event_id,
+        payment_intent_id: payment_intent_id
+      )
+
+      :ok
+    else
+      {:idempotent, true} ->
+        Logger.info("PPV ticket already exists, skipping",
+          payment_intent_id: payment_intent_id
+        )
+
+        :ok
+
+      {:org, {:error, :not_found}} ->
+        Logger.warning("PPV: connected org not found",
+          connect_account_id: connect_account_id
+        )
+
+        :ok
+
+      {:event, {:error, :not_found}} ->
+        Logger.warning("PPV: live event not found",
+          live_event_id: live_event_id
+        )
+
+        :ok
+
+      {:viewer, nil} ->
+        Logger.warning("PPV: viewer not found",
+          viewer_id: viewer_id
+        )
+
+        :ok
+
+      {:error, :validation, _changeset} ->
+        Logger.error("PPV ticket creation failed due to validation error",
+          payment_intent_id: payment_intent_id
+        )
+
+        :ok
+
+      error ->
+        Logger.error("PPV ticket creation failed",
+          payment_intent_id: payment_intent_id,
+          reason: inspect(error)
+        )
+
+        :ok
+    end
+  end
+
+  defp fetch_ppv_live_event(org, live_event_id) do
+    Streaming.get_live_event(org, live_event_id)
+  end
+
+  defp ticket_exists_for_payment_intent?(payment_intent_id) do
+    import Ecto.Query, warn: false
+    alias Bobine.Streaming.LiveEventTicket
+
+    Repo.exists?(
+      from(t in LiveEventTicket,
+        where: t.stripe_payment_intent_id == ^payment_intent_id,
+        where: is_nil(t.deleted_at)
+      )
+    )
   end
 
   # ── Connected account helpers ──

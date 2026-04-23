@@ -38,6 +38,10 @@ defmodule Bobine.Billing.StripeClientBehaviour do
               {:ok, map()} | {:error, :stripe_error, term()}
   @callback create_connected_checkout_session(map()) ::
               {:ok, map()} | {:error, :stripe_error, term()}
+  @callback create_connected_payment_checkout_session(map()) ::
+              {:ok, map()} | {:error, :stripe_error, term()}
   @callback create_connected_portal_session(map(), keyword()) ::
+              {:ok, map()} | {:error, :stripe_error, term()}
+  @callback create_refund(String.t(), keyword()) ::
               {:ok, map()} | {:error, :stripe_error, term()}
 end
