@@ -3,16 +3,20 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
   Oban worker that processes Mux webhook events asynchronously.
 
   Handles video lifecycle events: upload completion, asset readiness, and errors.
+  Also handles live stream lifecycle events: active, idle, disconnected, and
+  asset.live_stream_completed for recording VOD linking.
   """
 
   use Oban.Worker,
     queue: :mux,
-    unique: [period: 60, fields: [:args], keys: [:payload]]
+    unique: [period: 300, fields: [:args], keys: [:payload]]
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
+  alias Bobine.Accounts.Scope
   alias Bobine.Content
+  alias Bobine.Streaming
 
   @impl true
   def perform(%Oban.Job{args: %{"payload" => payload} = args}) do
@@ -98,6 +102,144 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
           {:error, reason}
       end
     else
+      :ok
+    end
+  end
+
+  # Live stream active: stream has started receiving video — transition event to :live
+  defp handle_event("video.live_stream.active", data) do
+    stream_id = data["id"]
+
+    case Streaming.get_live_event_by_mux_stream_id(stream_id) do
+      {:ok, event} ->
+        attribute_to_org(event)
+        # Build a system scope to drive the transition
+        scope = %Scope{organization: %{id: event.organization_id}}
+
+        case Streaming.transition_event(scope, event, "live") do
+          {:ok, updated} ->
+            Logger.info("Live event transitioned to live",
+              org_id: event.organization_id,
+              live_event_id: event.id
+            )
+
+            attribute_to_org(updated)
+            :ok
+
+          {:error, :invalid_transition} ->
+            # Already live or in a terminal state — idempotent, not an error
+            Logger.debug("Live stream active: transition already applied or invalid",
+              org_id: event.organization_id,
+              live_event_id: event.id,
+              current_status: event.status
+            )
+
+            :ok
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, :not_found} ->
+        Logger.debug("video.live_stream.active: no live event for stream",
+          stream_id: stream_id
+        )
+
+        :ok
+    end
+  end
+
+  # Live stream idle: stream is no longer receiving video — if it was live, transition to ended
+  defp handle_event("video.live_stream.idle", data) do
+    stream_id = data["id"]
+
+    case Streaming.get_live_event_by_mux_stream_id(stream_id) do
+      {:ok, %{status: "live"} = event} ->
+        attribute_to_org(event)
+        scope = %Scope{organization: %{id: event.organization_id}}
+
+        case Streaming.transition_event(scope, event, "ended") do
+          {:ok, updated} ->
+            Logger.info("Live event transitioned to ended",
+              org_id: event.organization_id,
+              live_event_id: event.id
+            )
+
+            attribute_to_org(updated)
+            :ok
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:ok, event} ->
+        # Event not in live status — log and ignore
+        Logger.debug("video.live_stream.idle: event not live, no transition",
+          org_id: event.organization_id,
+          live_event_id: event.id,
+          current_status: event.status
+        )
+
+        :ok
+
+      {:error, :not_found} ->
+        Logger.debug("video.live_stream.idle: no live event for stream",
+          stream_id: stream_id
+        )
+
+        :ok
+    end
+  end
+
+  # Live stream disconnected: broadcaster lost connection — do NOT end the event,
+  # wait for idle which fires after reconnect_window expires
+  defp handle_event("video.live_stream.disconnected", data) do
+    stream_id = data["id"]
+
+    case Streaming.get_live_event_by_mux_stream_id(stream_id) do
+      {:ok, event} ->
+        attribute_to_org(event)
+
+        Logger.info("Live stream disconnected (waiting for idle or reconnect)",
+          org_id: event.organization_id,
+          live_event_id: event.id,
+          stream_id: stream_id
+        )
+
+        :ok
+
+      {:error, :not_found} ->
+        Logger.debug("video.live_stream.disconnected: no live event for stream",
+          stream_id: stream_id
+        )
+
+        :ok
+    end
+  end
+
+  # Recording available for future use (not yet implemented)
+  defp handle_event("video.live_stream.recording.ready", _data) do
+    :ok
+  end
+
+  # Live stream completed: Mux has finished processing the recording asset.
+  # Link the new VOD asset to the live event.
+  defp handle_event("video.asset.live_stream_completed", data) do
+    asset_id = data["id"]
+    stream_id = data["live_stream_id"]
+
+    if asset_id && stream_id do
+      Logger.info("Live stream recording asset ready",
+        stream_id: stream_id,
+        mux_asset_id: asset_id
+      )
+
+      Streaming.handle_recording_completed(stream_id, data)
+    else
+      Logger.warning("Missing asset_id or live_stream_id in video.asset.live_stream_completed",
+        data: inspect(data)
+      )
+
       :ok
     end
   end
