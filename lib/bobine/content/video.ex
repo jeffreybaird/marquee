@@ -17,6 +17,7 @@ defmodule Bobine.Content.Video do
     field :published, :boolean, default: false
     field :visibility, :string, default: "subscribers_only"
     field :custom_thumbnail_url, :string
+    field :is_recording, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     belongs_to :organization, Bobine.Accounts.Organization
@@ -42,6 +43,7 @@ defmodule Bobine.Content.Video do
       :published,
       :visibility,
       :custom_thumbnail_url,
+      :is_recording,
       :organization_id
     ])
     |> validate_required([:title, :slug, :organization_id])

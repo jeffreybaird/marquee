@@ -11,4 +11,12 @@ defmodule Bobine.Content.MuxClientBehaviour do
   @callback get_asset(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
   @callback delete_asset(String.t()) :: :ok | {:error, :mux_error, term()}
   @callback list_assets(keyword()) :: {:ok, list(map())} | {:error, :mux_error, term()}
+
+  # Live stream callbacks
+  @callback create_live_stream(map()) :: {:ok, map()} | {:error, :mux_error, term()}
+  @callback get_live_stream(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
+  @callback delete_live_stream(String.t()) :: :ok | {:error, :mux_error, term()}
+  @callback disable_live_stream(String.t()) :: :ok | {:error, :mux_error, term()}
+  @callback enable_live_stream(String.t()) :: :ok | {:error, :mux_error, term()}
+  @callback reset_stream_key(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
 end
