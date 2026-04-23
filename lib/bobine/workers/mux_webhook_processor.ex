@@ -14,9 +14,11 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
-  alias Bobine.Accounts.Scope
+  alias Bobine.Accounts.{Organization, Scope}
   alias Bobine.Content
+  alias Bobine.Repo
   alias Bobine.Streaming
+  alias Bobine.Streaming.LiveEventNotifier
 
   @impl true
   def perform(%Oban.Job{args: %{"payload" => payload} = args}) do
@@ -124,6 +126,8 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
             )
 
             attribute_to_org(updated)
+            org = Repo.get!(Organization, updated.organization_id)
+            LiveEventNotifier.send_live_now_emails(updated, org)
             :ok
 
           {:error, :invalid_transition} ->
