@@ -147,6 +147,10 @@ defmodule BobineWeb.Router do
       live "/plans", PlansLive
       live "/coupons", CouponsLive
       live "/audit-log", AuditLogLive
+      live "/live-events", LiveEventLive.Index
+      live "/live-events/new", LiveEventLive.New
+      live "/live-events/:slug", LiveEventLive.Show
+      live "/live-events/:slug/edit", LiveEventLive.Edit
     end
   end
 
