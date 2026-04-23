@@ -263,6 +263,9 @@ defmodule BobineWeb.Router do
   scope "/", BobineWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
+    get "/events", LiveEventController, :index
+    get "/events/:slug/calendar.ics", LiveEventController, :calendar_ics
+
     live_session :viewer_public,
       on_mount: [
         {BobineWeb.Hooks.AssignScope, :assign_org},
@@ -272,6 +275,7 @@ defmodule BobineWeb.Router do
       live "/browse", BrowseLive
       live "/browse/:source", ViewAllLive
       live "/collections/:slug", CollectionLive
+      live "/events/:slug", LiveEventWatchLive
     end
   end
 
