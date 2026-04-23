@@ -449,6 +449,64 @@ defmodule Bobine.Factory do
   end
 
   # -------------------------------------------------------------------------
+  # Streaming
+  # -------------------------------------------------------------------------
+
+  def live_event_factory do
+    %Bobine.Streaming.LiveEvent{
+      organization: build(:organization),
+      title: sequence(:live_event_title, &"Live Event #{&1}"),
+      slug: sequence(:live_event_slug, &"live-event-#{&1}"),
+      scheduled_start_at: DateTime.utc_now() |> DateTime.add(3600) |> DateTime.truncate(:second),
+      access_type: "subscribers_only",
+      status: "scheduled",
+      mux_live_stream_id: sequence(:mux_stream_id, &"stream_#{&1}"),
+      mux_live_playback_id: sequence(:mux_live_playback, &"live_playback_#{&1}"),
+      mux_rtmp_url: "rtmps://global-live.mux.com:443/app"
+    }
+  end
+
+  def live_event_ticket_factory do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    event = build(:live_event)
+
+    %Bobine.Streaming.LiveEventTicket{
+      organization: event.organization,
+      live_event: event,
+      viewer: build(:viewer),
+      amount_cents: 999,
+      access_starts_at: now,
+      access_ends_at: DateTime.add(now, 48 * 3600, :second)
+    }
+  end
+
+  def chat_message_factory do
+    %Bobine.Streaming.ChatMessage{
+      organization: build(:organization),
+      live_event: build(:live_event),
+      viewer: build(:viewer),
+      content: sequence(:chat_content, &"Hello #{&1}!")
+    }
+  end
+
+  def live_event_chat_ban_factory do
+    %Bobine.Streaming.LiveEventChatBan{
+      organization: build(:organization),
+      live_event: build(:live_event),
+      viewer: build(:viewer),
+      banned_by_user: build(:user)
+    }
+  end
+
+  def live_event_reminder_factory do
+    %Bobine.Streaming.LiveEventReminder{
+      organization: build(:organization),
+      live_event: build(:live_event),
+      viewer: build(:viewer)
+    }
+  end
+
+  # -------------------------------------------------------------------------
   # Webhooks
   # -------------------------------------------------------------------------
 
