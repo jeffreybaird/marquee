@@ -89,6 +89,17 @@ defmodule BobineWeb.Viewer.LiveEventControllerTest do
 
       assert html_response(conn, 200)
     end
+
+    test "works for authenticated operator visiting their org events page", %{conn: _conn} do
+      org = insert(:organization)
+      membership = insert(:membership, organization: org)
+
+      conn =
+        conn_for(membership)
+        |> get(~p"/events")
+
+      assert html_response(conn, 200)
+    end
   end
 
   # ---------------------------------------------------------------------------

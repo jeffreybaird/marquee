@@ -23,7 +23,7 @@ defmodule BobineWeb.Viewer.LiveEventController do
   Exempt from doctest — hits the database.
   """
   def index(conn, _params) do
-    org = conn.assigns.organization
+    org = conn.assigns[:organization] || conn.assigns.current_scope.organization
     viewer = resolve_viewer(conn)
     theme = Branding.get_theme_or_default_cached(org)
 
@@ -50,7 +50,7 @@ defmodule BobineWeb.Viewer.LiveEventController do
   Exempt from doctest — hits the database.
   """
   def calendar_ics(conn, %{"slug" => slug}) do
-    org = conn.assigns.organization
+    org = conn.assigns[:organization] || conn.assigns.current_scope.organization
 
     case Streaming.get_live_event_by_slug(org, slug) do
       {:ok, event} when event.status in ["scheduled", "live"] ->
