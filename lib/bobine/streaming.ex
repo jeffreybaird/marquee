@@ -14,6 +14,7 @@ defmodule Bobine.Streaming do
 
   import Ecto.Query, warn: false
 
+  require Bobine.Otel
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
@@ -247,21 +248,29 @@ defmodule Bobine.Streaming do
   Exempt from doctest — hits the database.
   """
   def transition_event(%Scope{} = scope, %LiveEvent{} = event, new_status) do
-    case LiveEvent.transition_changeset(event, event.status, new_status) do
-      {:error, :invalid_transition} ->
-        {:error, :invalid_transition}
+    Bobine.Otel.with_span "bobine.streaming.transition_event",
+                          %{
+                            org_id: event.organization_id,
+                            live_event_id: event.id,
+                            to_status: new_status
+                          } do
+      case LiveEvent.transition_changeset(event, event.status, new_status) do
+        {:error, :invalid_transition} ->
+          {:error, :invalid_transition}
 
-      changeset ->
-        changeset
-        |> Repo.update()
-        |> case do
-          {:ok, updated} ->
-            Events.broadcast(scope, {:live_event_status_changed, updated})
-            {:ok, updated}
+        changeset ->
+          changeset
+          |> Repo.update()
+          |> case do
+            {:ok, updated} ->
+              Events.broadcast(scope, {:live_event_status_changed, updated})
+              Bobine.Metrics.live_event_transitioned(updated.organization_id, new_status)
+              {:ok, updated}
 
-          {:error, cs} ->
-            {:error, :validation, cs}
-        end
+            {:error, cs} ->
+              {:error, :validation, cs}
+          end
+      end
     end
   end
 
@@ -488,31 +497,39 @@ defmodule Bobine.Streaming do
   Exempt from doctest — hits the database.
   """
   def create_ticket(%LiveEvent{} = event, %Viewer{} = viewer, attrs) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
-    access_starts_at = calculate_access_starts_at(event, now)
-    window_seconds = (event.ppv_access_window_hours || 48) * 3600
-    access_ends_at = DateTime.add(access_starts_at, window_seconds, :second)
+    Bobine.Otel.with_span "bobine.streaming.create_ticket",
+                          %{org_id: event.organization_id, live_event_id: event.id} do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      access_starts_at = calculate_access_starts_at(event, now)
+      window_seconds = (event.ppv_access_window_hours || 48) * 3600
+      access_ends_at = DateTime.add(access_starts_at, window_seconds, :second)
 
-    attrs =
-      attrs
-      |> Map.merge(%{
-        organization_id: event.organization_id,
-        live_event_id: event.id,
-        viewer_id: viewer.id,
-        access_starts_at: access_starts_at,
-        access_ends_at: access_ends_at
-      })
+      attrs =
+        attrs
+        |> Map.merge(%{
+          organization_id: event.organization_id,
+          live_event_id: event.id,
+          viewer_id: viewer.id,
+          access_starts_at: access_starts_at,
+          access_ends_at: access_ends_at
+        })
 
-    %LiveEventTicket{}
-    |> LiveEventTicket.changeset(attrs)
-    |> Repo.insert()
-    |> case do
-      {:ok, ticket} ->
-        Events.broadcast(%{organization: %{id: event.organization_id}}, {:ticket_created, ticket})
-        {:ok, ticket}
+      %LiveEventTicket{}
+      |> LiveEventTicket.changeset(attrs)
+      |> Repo.insert()
+      |> case do
+        {:ok, ticket} ->
+          Events.broadcast(
+            %{organization: %{id: event.organization_id}},
+            {:ticket_created, ticket}
+          )
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+          Bobine.Metrics.ppv_ticket_created(event.organization_id)
+          {:ok, ticket}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -581,33 +598,37 @@ defmodule Bobine.Streaming do
   Exempt from doctest — hits the database.
   """
   def post_chat_message(%LiveEvent{} = event, %Viewer{} = viewer, content) do
-    with :ok <- require_event_live(event),
-         {:ok, :allowed} <- check_event_access(event, viewer),
-         false <- viewer_banned?(event, viewer) do
-      %ChatMessage{}
-      |> ChatMessage.changeset(%{
-        content: content,
-        organization_id: event.organization_id,
-        live_event_id: event.id,
-        viewer_id: viewer.id
-      })
-      |> Repo.insert()
-      |> case do
-        {:ok, message} ->
-          Events.broadcast(
-            %{organization: %{id: event.organization_id}},
-            {:chat_message_posted, message}
-          )
+    Bobine.Otel.with_span "bobine.streaming.post_chat_message",
+                          %{org_id: event.organization_id, live_event_id: event.id} do
+      with :ok <- require_event_live(event),
+           {:ok, :allowed} <- check_event_access(event, viewer),
+           false <- viewer_banned?(event, viewer) do
+        %ChatMessage{}
+        |> ChatMessage.changeset(%{
+          content: content,
+          organization_id: event.organization_id,
+          live_event_id: event.id,
+          viewer_id: viewer.id
+        })
+        |> Repo.insert()
+        |> case do
+          {:ok, message} ->
+            Events.broadcast(
+              %{organization: %{id: event.organization_id}},
+              {:chat_message_posted, message}
+            )
 
-          {:ok, message}
+            Bobine.Metrics.chat_message_sent(event.organization_id)
+            {:ok, message}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+      else
+        {:error, :event_not_live} -> {:error, :event_not_live}
+        {:error, :access_denied, reason} -> {:error, :access_denied, reason}
+        true -> {:error, :access_denied, :viewer_banned}
       end
-    else
-      {:error, :event_not_live} -> {:error, :event_not_live}
-      {:error, :access_denied, reason} -> {:error, :access_denied, reason}
-      true -> {:error, :access_denied, :viewer_banned}
     end
   end
 
