@@ -26,6 +26,7 @@ defmodule Bobine.Streaming do
   alias Bobine.Streaming.ChatMessage
   alias Bobine.Streaming.LiveEvent
   alias Bobine.Streaming.LiveEventChatBan
+  alias Bobine.Streaming.LiveEventNotifier
   alias Bobine.Streaming.LiveEventReminder
   alias Bobine.Streaming.LiveEventTicket
   alias Bobine.Viewers.Viewer
@@ -155,12 +156,21 @@ defmodule Bobine.Streaming do
   @doc """
   Cancels a live event by transitioning it to the `canceled` status.
 
-  Broadcasts `{:live_event_status_changed, event}` on success.
+  Broadcasts `{:live_event_status_changed, event}` on success and enqueues
+  a `NotifyCancellationWorker` to email affected viewers.
 
   Exempt from doctest — hits the database.
   """
   def cancel_live_event(%Scope{} = scope, %LiveEvent{} = event) do
-    transition_event(scope, event, "canceled")
+    case transition_event(scope, event, "canceled") do
+      {:ok, canceled_event} = result ->
+        org = Repo.get!(Organization, canceled_event.organization_id)
+        LiveEventNotifier.send_cancellation_emails(canceled_event, org)
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -421,6 +431,25 @@ defmodule Bobine.Streaming do
     LiveEventTicket
     |> where(organization_id: ^org_id, live_event_id: ^event_id)
     |> where([t], is_nil(t.deleted_at))
+    |> order_by(asc: :inserted_at)
+    |> Pagination.paginate(opts)
+  end
+
+  @doc """
+  Returns a paginated list of viewers with unrefunded tickets for a live event.
+
+  Used by the cancellation worker to notify PPV ticket holders when an event
+  is canceled. Only returns tickets that have not been refunded, so viewers
+  who have already been refunded are not notified again.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_unrefunded_ticket_viewers(%LiveEvent{id: event_id}, opts \\ []) do
+    LiveEventTicket
+    |> where(live_event_id: ^event_id)
+    |> where([t], is_nil(t.deleted_at))
+    |> where([t], is_nil(t.refunded_at))
+    |> preload(:viewer)
     |> order_by(asc: :inserted_at)
     |> Pagination.paginate(opts)
   end

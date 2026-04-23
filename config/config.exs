@@ -148,7 +148,9 @@ config :logger, :default_formatter,
     :stream_id,
     :mux_live_stream_id,
     :live_event_id,
-    :current_status
+    :current_status,
+    :reminder_id,
+    :errors
   ]
 
 # Configure Oban
