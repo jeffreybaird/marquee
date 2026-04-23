@@ -157,10 +157,28 @@ defmodule Bobine.Streaming do
 
   Broadcasts `{:live_event_status_changed, event}` on success.
 
+  For pay-per-view events, dispatches a `RefundPpvTicketsWorker` Oban job to
+  issue Stripe refunds for all non-refunded tickets.
+
   Exempt from doctest — hits the database.
   """
   def cancel_live_event(%Scope{} = scope, %LiveEvent{} = event) do
-    transition_event(scope, event, "canceled")
+    case transition_event(scope, event, "canceled") do
+      {:ok, canceled_event} = result ->
+        if canceled_event.access_type == "pay_per_view" do
+          %{
+            "live_event_id" => canceled_event.id,
+            "organization_id" => canceled_event.organization_id
+          }
+          |> Bobine.Workers.RefundPpvTicketsWorker.new()
+          |> Oban.insert()
+        end
+
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc """
