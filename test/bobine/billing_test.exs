@@ -1,6 +1,8 @@
 defmodule Bobine.BillingTest do
   use Bobine.DataCase
 
+  import Mox
+
   alias Bobine.Billing
 
   describe "plans" do
@@ -269,6 +271,111 @@ defmodule Bobine.BillingTest do
     test "change_subscription/1 returns a subscription changeset" do
       subscription = subscription_fixture()
       assert %Ecto.Changeset{} = Billing.change_subscription(subscription)
+    end
+  end
+
+  # ── PPV checkout ──────────────────────────────────────────────────────────
+
+  describe "create_ppv_checkout/4" do
+    setup :verify_on_exit!
+
+    setup do
+      org =
+        insert(:organization,
+          stripe_connect_account_id: "acct_test_123",
+          stripe_connect_onboarding_complete: true
+        )
+
+      viewer = insert(:viewer, organization: org, email: "viewer@example.com")
+
+      event =
+        insert(:live_event,
+          organization: org,
+          access_type: "pay_per_view",
+          ppv_price_cents: 999,
+          title: "Big Stream"
+        )
+
+      %{org: org, viewer: viewer, event: event}
+    end
+
+    test "returns {:ok, url} on successful Stripe checkout creation", %{
+      org: org,
+      viewer: viewer,
+      event: event
+    } do
+      expect(
+        Bobine.Billing.MockStripeClient,
+        :create_connected_payment_checkout_session,
+        fn params ->
+          assert params.organization_id == org.id
+          assert params.viewer_id == viewer.id
+          assert params.live_event_id == event.id
+          assert params.viewer_email == viewer.email
+          assert params.stripe_connect_account_id == org.stripe_connect_account_id
+          assert [%{price_data: %{unit_amount: 999, currency: "usd"}}] = params.line_items
+          {:ok, %{url: "https://checkout.stripe.com/pay/cs_test_abc"}}
+        end
+      )
+
+      urls = %{
+        success_url: "https://org.localhost/events/#{event.slug}/success",
+        cancel_url: "https://org.localhost/events/#{event.slug}"
+      }
+
+      assert {:ok, "https://checkout.stripe.com/pay/cs_test_abc"} =
+               Billing.create_ppv_checkout(event, viewer, org, urls)
+    end
+
+    test "returns {:error, :not_pay_per_view} for non-PPV event", %{
+      org: org,
+      viewer: viewer
+    } do
+      sub_event = insert(:live_event, organization: org, access_type: "subscribers_only")
+
+      urls = %{
+        success_url: "https://org.localhost/events/#{sub_event.slug}/success",
+        cancel_url: "https://org.localhost/events/#{sub_event.slug}"
+      }
+
+      assert {:error, :not_pay_per_view} =
+               Billing.create_ppv_checkout(sub_event, viewer, org, urls)
+    end
+
+    test "returns {:error, :stripe_not_connected} when org has no Stripe Connect", %{
+      viewer: viewer,
+      event: event
+    } do
+      disconnected_org = insert(:organization, stripe_connect_onboarding_complete: false)
+
+      urls = %{
+        success_url: "https://org.localhost/events/#{event.slug}/success",
+        cancel_url: "https://org.localhost/events/#{event.slug}"
+      }
+
+      assert {:error, :stripe_not_connected} =
+               Billing.create_ppv_checkout(event, viewer, disconnected_org, urls)
+    end
+
+    test "returns {:error, :stripe_error, details} when Stripe API fails", %{
+      org: org,
+      viewer: viewer,
+      event: event
+    } do
+      expect(
+        Bobine.Billing.MockStripeClient,
+        :create_connected_payment_checkout_session,
+        fn _params ->
+          {:error, :stripe_error, %{message: "card_error"}}
+        end
+      )
+
+      urls = %{
+        success_url: "https://org.localhost/events/#{event.slug}/success",
+        cancel_url: "https://org.localhost/events/#{event.slug}"
+      }
+
+      assert {:error, :stripe_error, _} = Billing.create_ppv_checkout(event, viewer, org, urls)
     end
   end
 end

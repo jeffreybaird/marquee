@@ -3,6 +3,7 @@ defmodule Bobine.Workers.StripeWebhookProcessorConnectedTest do
   use Oban.Testing, repo: Bobine.Repo
 
   alias Bobine.Billing.ViewerSubscription
+  alias Bobine.Streaming.LiveEventTicket
   alias Bobine.Workers.StripeWebhookProcessor
 
   defp connected_org do
@@ -622,6 +623,166 @@ defmodule Bobine.Workers.StripeWebhookProcessorConnectedTest do
 
       updated_viewer = Repo.get!(Bobine.Viewers.Viewer, viewer.id)
       assert updated_viewer.subscription_status == "past_due"
+    end
+  end
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # payment_intent.succeeded — PPV
+  # ══════════════════════════════════════════════════════════════════════════
+
+  describe "connected payment_intent.succeeded (PPV)" do
+    test "creates a ticket when bobine_type is ppv" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          access_type: "pay_per_view",
+          ppv_price_cents: 999
+        )
+
+      stripe_event =
+        build_connected_event(
+          "payment_intent.succeeded",
+          %{
+            "id" => "pi_ppv_001",
+            "amount" => 999,
+            "metadata" => %{
+              "bobine_type" => "ppv",
+              "bobine_org_id" => org.id,
+              "bobine_viewer_id" => viewer.id,
+              "bobine_live_event_id" => event.id
+            }
+          },
+          org
+        )
+
+      assert :ok =
+               perform_job(StripeWebhookProcessor, %{
+                 event: stripe_event,
+                 event_id: stripe_event["id"]
+               })
+
+      ticket = Repo.one!(from(t in LiveEventTicket, where: t.viewer_id == ^viewer.id))
+      assert ticket.stripe_payment_intent_id == "pi_ppv_001"
+      assert ticket.live_event_id == event.id
+      assert ticket.organization_id == org.id
+      assert ticket.refunded_at == nil
+    end
+
+    test "is idempotent — skips creation when ticket already exists for payment_intent" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          access_type: "pay_per_view",
+          ppv_price_cents: 999
+        )
+
+      # Pre-insert the ticket as if the webhook was already processed
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      insert(:live_event_ticket,
+        organization: org,
+        live_event: event,
+        viewer: viewer,
+        stripe_payment_intent_id: "pi_ppv_idem",
+        amount_cents: 999,
+        access_starts_at: now,
+        access_ends_at: DateTime.add(now, 48 * 3600, :second)
+      )
+
+      stripe_event =
+        build_connected_event(
+          "payment_intent.succeeded",
+          %{
+            "id" => "pi_ppv_idem",
+            "amount" => 999,
+            "metadata" => %{
+              "bobine_type" => "ppv",
+              "bobine_org_id" => org.id,
+              "bobine_viewer_id" => viewer.id,
+              "bobine_live_event_id" => event.id
+            }
+          },
+          org
+        )
+
+      # Should not raise or create a second ticket
+      assert :ok =
+               perform_job(StripeWebhookProcessor, %{
+                 event: stripe_event,
+                 event_id: stripe_event["id"]
+               })
+
+      count =
+        Repo.aggregate(from(t in LiveEventTicket, where: t.viewer_id == ^viewer.id), :count)
+
+      assert count == 1
+    end
+
+    test "ignores payment_intent.succeeded without ppv metadata" do
+      org = connected_org()
+
+      stripe_event =
+        build_connected_event(
+          "payment_intent.succeeded",
+          %{
+            "id" => "pi_not_ppv",
+            "amount" => 999,
+            "metadata" => %{}
+          },
+          org
+        )
+
+      assert :ok =
+               perform_job(StripeWebhookProcessor, %{
+                 event: stripe_event,
+                 event_id: stripe_event["id"]
+               })
+
+      assert 0 == Repo.aggregate(LiveEventTicket, :count)
+    end
+
+    test "handles unknown org gracefully" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          access_type: "pay_per_view",
+          ppv_price_cents: 999
+        )
+
+      stripe_event = %{
+        "id" => "evt_unknown_org",
+        "type" => "payment_intent.succeeded",
+        "account" => "acct_nonexistent",
+        "data" => %{
+          "object" => %{
+            "id" => "pi_ppv_unknown",
+            "amount" => 999,
+            "metadata" => %{
+              "bobine_type" => "ppv",
+              "bobine_org_id" => org.id,
+              "bobine_viewer_id" => viewer.id,
+              "bobine_live_event_id" => event.id
+            }
+          }
+        }
+      }
+
+      assert :ok =
+               perform_job(StripeWebhookProcessor, %{
+                 event: stripe_event,
+                 event_id: stripe_event["id"]
+               })
+
+      assert 0 == Repo.aggregate(LiveEventTicket, :count)
     end
   end
 end
