@@ -35,6 +35,7 @@ defmodule Bobine.Admin do
   alias Bobine.Content.{Collection, CollectionItem, Episode, Season, Series, Tag, Video}
   alias Bobine.Engagement.{Favorite, Progress, WatchHistory, WatchlistItem}
   alias Bobine.Notifications.Notification
+  alias Bobine.Streaming.LiveEvent
   alias Bobine.Viewers.{Viewer, ViewerToken}
   alias Bobine.Webhooks.Endpoint, as: WebhookEndpoint
 
@@ -387,6 +388,20 @@ defmodule Bobine.Admin do
   def subscriber_count(%Organization{id: org_id}) do
     Subscription
     |> where(organization_id: ^org_id, status: :active)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Returns the count of live events for an organization.
+
+  Cross-tenant query — intentional.
+
+  Exempt from doctest — hits the database.
+  """
+  def live_event_count(%Organization{id: org_id}) do
+    LiveEvent
+    |> where(organization_id: ^org_id)
+    |> where([e], is_nil(e.deleted_at))
     |> Repo.aggregate(:count)
   end
 

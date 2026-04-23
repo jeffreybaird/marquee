@@ -5,6 +5,16 @@ defmodule Bobine.Features do
 
   alias Bobine.Accounts.Organization
 
+  @known_features ~w(analytics drm live_streaming)
+
+  @doc """
+  Returns all known feature flag keys.
+
+      iex> Bobine.Features.known_features()
+      ["analytics", "drm", "live_streaming"]
+  """
+  def known_features, do: @known_features
+
   @doc """
   Checks if a feature is enabled for the given organization.
 
