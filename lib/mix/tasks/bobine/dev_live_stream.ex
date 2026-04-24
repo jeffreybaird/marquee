@@ -11,10 +11,14 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
   skip Mux and use a test playback ID instead (player shows "stream unavailable"
   but the full UI and chat work).
 
-      mix bobine.dev_live_stream                   # uses first org in DB
-      mix bobine.dev_live_stream --org my-org      # uses specific org by slug
-      mix bobine.dev_live_stream --no-ffmpeg       # print credentials, don't run ffmpeg
-      mix bobine.dev_live_stream --fake            # skip Mux, no RTMP needed
+      mix bobine.dev_live_stream                          # uses first org, random source
+      mix bobine.dev_live_stream --org my-org            # uses specific org by slug
+      mix bobine.dev_live_stream --no-ffmpeg             # print credentials, don't run ffmpeg
+      mix bobine.dev_live_stream --fake                  # skip Mux, no RTMP needed
+      mix bobine.dev_live_stream --source testsrc        # color grid with timestamp
+      mix bobine.dev_live_stream --source smptebars      # SMPTE color bars
+      mix bobine.dev_live_stream --source mandelbrot     # animated Mandelbrot fractal
+      mix bobine.dev_live_stream --source life           # Conway's Game of Life
 
   When ffmpeg runs, Ctrl+C stops the push. The event stays live — use the
   super admin dashboard or `Streaming.transition_event/3` in iex to end it.
@@ -31,7 +35,15 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
   alias Bobine.Streaming.LiveEvent
 
   @fake_playback_id "DS00Spx1CV902MCtPj5WknGlR102V5HFkDe"
-  @switches [org: :string, no_ffmpeg: :boolean, fake: :boolean]
+  @switches [org: :string, no_ffmpeg: :boolean, fake: :boolean, source: :string]
+
+  @sources %{
+    "testsrc" => "testsrc=size=1280x720:rate=30,format=yuv420p",
+    "smptebars" => "smptebars=size=1280x720:rate=30",
+    "mandelbrot" => "mandelbrot=size=1280x720:rate=30",
+    "life" => "life=size=1280x720:rate=30"
+  }
+  @source_names Map.keys(@sources)
 
   @impl Mix.Task
   def run(args) do
@@ -40,6 +52,7 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
 
     org = find_org!(opts[:org])
     fake = opts[:fake] || false
+    source = resolve_source!(opts[:source])
 
     info("Org: #{org.name} (#{org.slug})")
 
@@ -59,9 +72,25 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
       info("Fake mode — no RTMP. Playback ID: #{event.mux_live_playback_id}")
     else
       creds = fetch_credentials!(event)
-      print_credentials(creds)
-      unless opts[:no_ffmpeg], do: run_ffmpeg!(creds)
+      print_credentials(creds, source)
+      unless opts[:no_ffmpeg], do: run_ffmpeg!(creds, source)
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Source resolution
+  # ---------------------------------------------------------------------------
+
+  defp resolve_source!(nil) do
+    name = Enum.random(@source_names)
+    info("No source specified — picked #{name} at random.")
+    {name, @sources[name]}
+  end
+
+  defp resolve_source!(name) when name in @source_names, do: {name, @sources[name]}
+
+  defp resolve_source!(name) do
+    Mix.raise("Unknown source #{inspect(name)}. Valid options: #{Enum.join(@source_names, ", ")}")
   end
 
   # ---------------------------------------------------------------------------
@@ -190,17 +219,18 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
     end
   end
 
-  defp print_credentials(%{rtmp_url: rtmp_url, stream_key: key}) do
+  defp print_credentials(%{rtmp_url: rtmp_url, stream_key: key}, {source_name, filter}) do
     Mix.shell().info("""
 
     RTMP credentials:
-      URL:        #{rtmp_url}
-      Stream key: #{key}
+      URL:         #{rtmp_url}
+      Stream key:  #{key}
       Full target: #{rtmp_url}/#{key}
+      Source:      #{source_name}
 
     To push manually:
       ffmpeg -re \\
-        -f lavfi -i "testsrc=size=1280x720:rate=30,format=yuv420p" \\
+        -f lavfi -i "#{filter}" \\
         -f lavfi -i anullsrc \\
         -c:v libx264 -preset veryfast -b:v 2M \\
         -c:a aac -ar 44100 -b:a 128k \\
@@ -208,13 +238,13 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
     """)
   end
 
-  defp run_ffmpeg!(%{rtmp_url: rtmp_url, stream_key: key}) do
+  defp run_ffmpeg!(%{rtmp_url: rtmp_url, stream_key: key}, {source_name, filter}) do
     case System.find_executable("ffmpeg") do
       nil ->
         Mix.shell().info("ffmpeg not found in PATH — run the command above manually.")
 
       ffmpeg ->
-        info("Starting ffmpeg push… (Ctrl+C to stop)")
+        info("Starting ffmpeg push (source: #{source_name})… (Ctrl+C to stop)")
 
         System.cmd(
           ffmpeg,
@@ -223,7 +253,7 @@ defmodule Mix.Tasks.Bobine.DevLiveStream do
             "-f",
             "lavfi",
             "-i",
-            "testsrc=size=1280x720:rate=30,format=yuv420p",
+            filter,
             "-f",
             "lavfi",
             "-i",

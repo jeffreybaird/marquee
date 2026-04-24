@@ -21,11 +21,17 @@ Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 **Usage**
 
 ```bash
-# Uses the first org in the DB
+# Uses the first org in the DB, picks a random video source
 mix bobine.dev_live_stream
 
 # Target a specific org by slug
 mix bobine.dev_live_stream --org my-org
+
+# Choose a video source (default: random)
+mix bobine.dev_live_stream --source testsrc       # color grid with timestamp
+mix bobine.dev_live_stream --source smptebars     # SMPTE color bars
+mix bobine.dev_live_stream --source mandelbrot    # animated Mandelbrot fractal
+mix bobine.dev_live_stream --source life          # Conway's Game of Life
 
 # Print RTMP credentials without starting ffmpeg
 mix bobine.dev_live_stream --org my-org --no-ffmpeg
