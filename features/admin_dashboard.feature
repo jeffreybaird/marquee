@@ -75,7 +75,7 @@ Feature: Landing Page Builder
 
   Scenario: Operator deletes a landing page section
     Given a landing page section exists
-    When I delete it
+    When I delete the section
     Then the section is removed from the landing page
 
   Scenario: Operator links an existing video to a landing page section
