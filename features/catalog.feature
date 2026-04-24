@@ -79,6 +79,57 @@ Feature: Hero Banner Management
     When I delete the slide
     Then it is removed from the hero rotation
 
+  Scenario: Operator adds a title logo image to a hero slide
+    Given a hero slide exists
+    When I enter a title logo URL for that slide
+    Then the viewer hero renders the title logo image instead of plain text
+
+  Scenario: Operator adds a channel logo to a hero slide
+    Given a hero slide exists
+    When I enter a channel logo URL for that slide
+    Then the viewer hero renders the channel logo above the title area
+
+  Scenario: Hero slide without logo URLs falls back to text headline
+    Given a hero slide exists with no title logo or channel logo URL
+    When a viewer sees the hero banner
+    Then the slide renders the text title and no logo images
+
+  Scenario: Both logo URLs are optional independently
+    Given a hero slide exists
+    When I set only a channel logo URL and leave the title logo URL blank
+    Then the channel logo appears and the text headline is used for the title
+
+Feature: Row Card Display Options
+
+  Background:
+    Given I am logged in as an operator with content management permissions
+    And I am on the catalog management page
+
+  Scenario: Operator hides details below cards in a row
+    Given a catalog row exists with "Show details below card" enabled
+    When I uncheck "Show details below card" for that row and save
+    Then cards in that row on the viewer homepage display without the details bar
+
+  Scenario: Operator re-enables details below cards
+    Given a catalog row has details hidden
+    When I check "Show details below card" for that row and save
+    Then cards in that row display the details bar again
+
+  Scenario: Operator enables title overlay on cards
+    Given a catalog row has details hidden
+    When I check "Overlay title on thumbnail" for that row and save
+    Then cards in that row show the title text overlaid on the thumbnail
+
+  Scenario: Title overlay option is only available when details are hidden
+    Given a catalog row exists with "Show details below card" enabled
+    When I view the row editor
+    Then the "Overlay title on thumbnail" checkbox is not visible
+
+  Scenario: Disabling details and enabling overlay does not affect other rows
+    Given the catalog has two rows
+    When I hide details and enable overlay on only one row
+    Then the other row still displays the details bar and no overlay
+
 Feature: Layout Presets
 
   Background:

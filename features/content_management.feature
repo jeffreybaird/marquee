@@ -31,6 +31,26 @@ Feature: Video Upload and Management
     When I upload a thumbnail image for that video
     Then the thumbnail is stored and associated with the video
 
+  Scenario: Operator uploads a portrait thumbnail for a video
+    Given a video exists in the content library
+    When I upload a portrait thumbnail image for that video
+    Then the portrait thumbnail is stored and used for poster-style card displays
+
+  Scenario: Operator uploads a landscape thumbnail for a video
+    Given a video exists in the content library
+    When I upload a landscape thumbnail image for that video
+    Then the landscape thumbnail is stored and used for episode and hero card displays
+
+  Scenario: Video without uploaded thumbnails falls back to Mux smart-cropped URL
+    Given a video exists with no portrait or landscape thumbnail uploaded
+    When the video is displayed on the viewer site
+    Then the player uses the Mux-generated thumbnail at the appropriate aspect dimensions
+
+  Scenario: Uploading a landscape thumbnail does not overwrite the portrait thumbnail
+    Given a video exists with both a portrait and a landscape thumbnail
+    When I upload a new landscape thumbnail
+    Then the portrait thumbnail remains unchanged
+
   Scenario: Operator soft-deletes a video
     Given a video exists in the content library
     When I delete the video

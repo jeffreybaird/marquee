@@ -122,6 +122,33 @@ Use behaviours (`Bobine.Buffer`, `Bobine.Cache`, `Bobine.Content.MuxClientBehavi
 
 ## **NOTE: EVERY ADDITIONAL CODE WRITTEN THAT ADDS BEHAVIOR MUST BE ACCOMPANIED BY A TEST THAT VALIDATES SAID BEHAVIOR**
 
+### Cucumber Feature Files — Required for Every User-Facing Feature
+
+Every user-facing feature must have a Gherkin scenario in `features/`. This is not optional. A feature is not done until its user pathways are described in Gherkin and covered by step definitions.
+
+**File placement:**
+- Operator dashboard features → add scenario to the relevant `features/*.feature` file (`catalog.feature`, `content_management.feature`, etc.)
+- Viewer-side features → `features/content_consumption.feature` or create a new focused file
+- New domains → create `features/<domain>.feature`
+
+**Scenario rules:**
+1. One scenario per user pathway (happy path AND failure paths)
+2. Scenarios written in plain English from the user's perspective
+3. Every conditional UI state tested: empty state, error state, success state
+4. Multi-tenant isolation tested: org A cannot see org B's data
+5. RBAC tested: unauthorized role cannot perform the action
+
+**Step definitions:**
+- Shared steps (login, navigation, generic assertions) → `features/step_definitions/shared_steps.ex`
+- Domain steps → `features/step_definitions/<domain>_steps.ex`
+- Never duplicate step text — reuse or generalize existing steps
+
+**Running cucumber:**
+```bash
+mix bobine.cucumber        # acceptance suite (context-level, no browser)
+mix test --only e2e        # Wallaby suite (browser-required flows only)
+```
+
 ### Single Responsibility — One Function, One Job
 
 Every function does one thing. If write `and` in `@doc`, function needs split.
