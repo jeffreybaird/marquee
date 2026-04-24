@@ -114,6 +114,31 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
   def welcome_text?(value), do: to_string(value) == "welcome_text"
 
   @doc """
+  Normalizes the assorted forms a checkbox value can take across a Phoenix
+  LiveView form lifecycle (nil from a fresh struct, "true"/"false" from a
+  submitted form, true/false after `to_form/1` coerces types).
+
+      iex> BobineWeb.Admin.CatalogLive.Components.checkbox_checked?(true, default: false)
+      true
+
+      iex> BobineWeb.Admin.CatalogLive.Components.checkbox_checked?("true", default: false)
+      true
+
+      iex> BobineWeb.Admin.CatalogLive.Components.checkbox_checked?(nil, default: true)
+      true
+
+      iex> BobineWeb.Admin.CatalogLive.Components.checkbox_checked?(nil, default: false)
+      false
+  """
+  def checkbox_checked?(value, opts \\ [])
+  def checkbox_checked?(true, _opts), do: true
+  def checkbox_checked?(false, _opts), do: false
+  def checkbox_checked?("true", _opts), do: true
+  def checkbox_checked?("false", _opts), do: false
+  def checkbox_checked?(nil, opts), do: Keyword.get(opts, :default, false)
+  def checkbox_checked?(_, opts), do: Keyword.get(opts, :default, false)
+
+  @doc """
   Pulls a string value from the row form's `filter_config` map for the
   welcome-text editor. Returns an empty string when the key is missing.
 
@@ -1086,6 +1111,59 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
               max="50"
               class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
             />
+          </div>
+
+          <div
+            :if={not welcome_text?(@form[:source_type].value)}
+            class="mb-4 space-y-2 rounded-md border border-admin-border bg-admin-bg/40 p-3"
+          >
+            <%!-- Phoenix form checkboxes ship a hidden "false" field that
+                 the browser submits when the box is unchecked. That keeps
+                 the params explicit and avoids the classic "checkbox missing
+                 from params" toggle bug. --%>
+            <label class="flex items-start gap-2">
+              <input type="hidden" name="row[show_details]" value="false" />
+              <input
+                type="checkbox"
+                name="row[show_details]"
+                value="true"
+                checked={checkbox_checked?(@form[:show_details].value, default: true)}
+                class="mt-0.5 h-4 w-4 rounded border-admin-border"
+                data-test="row-show-details-input"
+              />
+              <span>
+                <span class="block font-ui text-sm font-medium text-admin-fg">
+                  Show details below card
+                </span>
+                <span class="block font-body text-xs text-admin-muted">
+                  Uncheck to hide the title and metadata beneath each thumbnail.
+                </span>
+              </span>
+            </label>
+
+            <label
+              :if={not checkbox_checked?(@form[:show_details].value, default: true)}
+              class="flex items-start gap-2"
+              data-test="row-title-overlay-wrapper"
+            >
+              <input type="hidden" name="row[title_overlay]" value="false" />
+              <input
+                type="checkbox"
+                name="row[title_overlay]"
+                value="true"
+                checked={checkbox_checked?(@form[:title_overlay].value, default: false)}
+                class="mt-0.5 h-4 w-4 rounded border-admin-border"
+                data-test="row-title-overlay-input"
+              />
+              <span>
+                <span class="block font-ui text-sm font-medium text-admin-fg">
+                  Overlay title on thumbnail
+                </span>
+                <span class="block font-body text-xs text-admin-muted">
+                  When details are hidden, show the title on top of the image.
+                </span>
+              </span>
+            </label>
           </div>
           <div class="flex justify-end gap-2">
             <button

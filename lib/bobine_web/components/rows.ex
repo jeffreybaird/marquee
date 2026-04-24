@@ -140,6 +140,8 @@ defmodule BobineWeb.Components.Rows do
     values: [:poster_portrait, :landscape_episode, :progress_course]
 
   attr :items, :list, required: true
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Standard horizontal carousel. Arrow buttons on desktop hover.
@@ -158,6 +160,8 @@ defmodule BobineWeb.Components.Rows do
         :for={item <- @items}
         variant={@card}
         item={item}
+        show_details={@show_details}
+        title_overlay={@title_overlay}
       />
     </.scroll_row>
     """
@@ -171,6 +175,8 @@ defmodule BobineWeb.Components.Rows do
   attr :title, :string, default: "Continue watching"
   attr :card, :atom, required: true, values: [:landscape_episode, :progress_course]
   attr :items, :list, required: true
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Like content row with a dismiss button per card and a time-remaining
@@ -382,13 +388,19 @@ defmodule BobineWeb.Components.Rows do
   attr :variant, :atom, required: true
   attr :item, :map, required: true
   attr :width_class, :string, default: nil
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   defp card_item(%{variant: :poster_portrait} = assigns) do
     assigns = Map.put_new(assigns, :w, "w-40 sm:w-48 md:w-56")
 
     ~H"""
     <div class={["flex-none snap-start", @w]}>
-      <Cards.poster_portrait item={@item} />
+      <Cards.poster_portrait
+        item={@item}
+        show_details={@show_details}
+        title_overlay={@title_overlay}
+      />
     </div>
     """
   end
@@ -398,7 +410,11 @@ defmodule BobineWeb.Components.Rows do
 
     ~H"""
     <div class={["flex-none snap-start", @w]}>
-      <Cards.landscape_episode item={@item} />
+      <Cards.landscape_episode
+        item={@item}
+        show_details={@show_details}
+        title_overlay={@title_overlay}
+      />
     </div>
     """
   end
@@ -408,7 +424,11 @@ defmodule BobineWeb.Components.Rows do
 
     ~H"""
     <div class={["flex-none snap-start", @w]}>
-      <Cards.progress_course item={@item} />
+      <Cards.progress_course
+        item={@item}
+        show_details={@show_details}
+        title_overlay={@title_overlay}
+      />
     </div>
     """
   end
@@ -416,7 +436,11 @@ defmodule BobineWeb.Components.Rows do
   defp card_item(%{variant: :minimal_list_item} = assigns) do
     ~H"""
     <div class="flex-none w-full snap-start">
-      <Cards.minimal_list_item item={@item} />
+      <Cards.minimal_list_item
+        item={@item}
+        show_details={@show_details}
+        title_overlay={@title_overlay}
+      />
     </div>
     """
   end

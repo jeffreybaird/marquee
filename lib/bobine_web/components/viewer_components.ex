@@ -24,6 +24,8 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
   attr :preview_on_hover, :boolean, default: true
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Renders a card for a polymorphic catalog item — a video, series, or season.
@@ -37,6 +39,8 @@ defmodule BobineWeb.Components.ViewerComponents do
       series={@item}
       size={@size}
       card_id={@card_id}
+      show_details={@show_details}
+      title_overlay={@title_overlay}
     />
     """
   end
@@ -47,6 +51,8 @@ defmodule BobineWeb.Components.ViewerComponents do
       season={@item}
       size={@size}
       card_id={@card_id}
+      show_details={@show_details}
+      title_overlay={@title_overlay}
     />
     """
   end
@@ -54,7 +60,12 @@ defmodule BobineWeb.Components.ViewerComponents do
   def content_item_card(%{item: %{type: type}} = assigns)
       when type in [:in_progress, :between_episodes, :next_season] do
     ~H"""
-    <.continue_watching_card item={@item} card_id={@card_id} />
+    <.continue_watching_card
+      item={@item}
+      card_id={@card_id}
+      show_details={@show_details}
+      title_overlay={@title_overlay}
+    />
     """
   end
 
@@ -85,6 +96,8 @@ defmodule BobineWeb.Components.ViewerComponents do
       watchlisted_ids={@watchlisted_ids}
       queued_ids={@queued_ids}
       preview_on_hover={@preview_on_hover}
+      show_details={@show_details}
+      title_overlay={@title_overlay}
     />
     """
   end
@@ -102,6 +115,8 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
   attr :preview_on_hover, :boolean, default: true
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Renders a content card for a video with a hover/focus popup.
@@ -148,9 +163,16 @@ defmodule BobineWeb.Components.ViewerComponents do
               data-test={"sv-card-progress-#{@video.id}"}
               aria-label={"#{round(@progress * 100)}% watched"}
             />
+            <div
+              :if={!@show_details && @title_overlay}
+              class="sv-card-title-overlay"
+              data-test={"sv-card-title-overlay-#{@video.id}"}
+            >
+              <span class="sv-card-title">{@video.title}</span>
+            </div>
           </div>
         </.link>
-        <div class="sv-card-info">
+        <div :if={@show_details} class="sv-card-info">
           <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-title-link">
             <span class="sv-card-title">{@video.title}</span>
           </.link>
@@ -254,6 +276,8 @@ defmodule BobineWeb.Components.ViewerComponents do
 
   attr :item, :map, required: true
   attr :card_id, :string, default: nil
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Renders a continue-watching card. The shape of the card is determined by
@@ -286,8 +310,15 @@ defmodule BobineWeb.Components.ViewerComponents do
       >
         <div class="sv-card-thumb">
           <img src={@thumbnail_url} alt={@item.season.title} loading="lazy" />
+          <div
+            :if={!@show_details && @title_overlay}
+            class="sv-card-title-overlay"
+            data-test={"continue-card-season-title-overlay-#{@item.season.id}"}
+          >
+            <span class="sv-card-title">{@item.season.title}</span>
+          </div>
         </div>
-        <div class="sv-card-info">
+        <div :if={@show_details} class="sv-card-info">
           <span class="sv-card-context">{@item.series.title} · New season</span>
           <span class="sv-card-title">{@item.season.title}</span>
           <div class="sv-card-meta-row">
@@ -341,8 +372,15 @@ defmodule BobineWeb.Components.ViewerComponents do
             style={"width: #{@progress_pct}%"}
             data-test={"continue-card-progress-#{@item.video.id}"}
           />
+          <div
+            :if={!@show_details && @title_overlay}
+            class="sv-card-title-overlay"
+            data-test={"continue-card-title-overlay-#{@item.video.id}"}
+          >
+            <span class="sv-card-title">{@item.video.title}</span>
+          </div>
         </div>
-        <div class="sv-card-info">
+        <div :if={@show_details} class="sv-card-info">
           <%= if @item.episode_context do %>
             <span class="sv-card-context" data-test={"continue-card-context-#{@item.video.id}"}>
               {@item.episode_context.series.title} · {@item.episode_context.season.title}
@@ -434,6 +472,8 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :series, :map, required: true
   attr :size, :string, values: ["row", "grid", "large"], default: "row"
   attr :card_id, :string, default: nil
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Renders a card for a series. Shape and size match `content_card/1` so
@@ -474,8 +514,15 @@ defmodule BobineWeb.Components.ViewerComponents do
           >
             New Season
           </span>
+          <div
+            :if={!@show_details && @title_overlay}
+            class="sv-card-title-overlay"
+            data-test={"series-card-title-overlay-#{@series.id}"}
+          >
+            <span class="sv-card-title">{@series.title}</span>
+          </div>
         </div>
-        <div class="sv-card-info">
+        <div :if={@show_details} class="sv-card-info">
           <span class="sv-card-title">{@series.title}</span>
           <div class="sv-card-meta-row">
             <span class="sv-card-meta">
@@ -495,6 +542,8 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :season, :map, required: true
   attr :size, :string, values: ["row", "grid", "large"], default: "row"
   attr :card_id, :string, default: nil
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   @doc """
   Renders a card for a season. Same shape as `content_card/1` and
@@ -524,8 +573,15 @@ defmodule BobineWeb.Components.ViewerComponents do
       >
         <div class="sv-card-thumb">
           <img src={@thumbnail_url} alt={@season.title} loading="lazy" />
+          <div
+            :if={!@show_details && @title_overlay}
+            class="sv-card-title-overlay"
+            data-test={"season-card-title-overlay-#{@season.id}"}
+          >
+            <span class="sv-card-title">{@season.title}</span>
+          </div>
         </div>
-        <div class="sv-card-info">
+        <div :if={@show_details} class="sv-card-info">
           <span class="sv-card-title">{@season.title}</span>
           <div class="sv-card-meta-row">
             <span class="sv-card-meta">
@@ -784,6 +840,57 @@ defmodule BobineWeb.Components.ViewerComponents do
       >
       </mux-player>
     </div>
+    """
+  end
+
+  @doc """
+  Renders a muted, chromeless live stream preview for use inside an event card
+  thumbnail on the events index. Falls back to the cover image (or a neutral
+  placeholder) when no `mux_live_playback_id` is set.
+
+  Pointer events are disabled on the player so clicks pass through to the
+  surrounding card link; keyboard and screen-reader navigation is preserved
+  via the parent anchor.
+
+  ## Examples
+
+      <.live_event_preview event={@event} />
+
+  """
+  attr :event, :map, required: true
+
+  def live_event_preview(%{event: %{mux_live_playback_id: playback_id}} = assigns)
+      when is_binary(playback_id) and playback_id != "" do
+    ~H"""
+    <mux-player
+      class="sv-event-preview"
+      stream-type="live"
+      playback-id={@event.mux_live_playback_id}
+      autoplay="muted"
+      muted
+      playsinline
+      nohotkeys
+      disable-cookies
+      disable-tracking
+      poster={@event.cover_image_url}
+      aria-hidden="true"
+      tabindex="-1"
+      data-test="event-live-preview"
+    >
+    </mux-player>
+    """
+  end
+
+  def live_event_preview(%{event: %{cover_image_url: url}} = assigns)
+      when is_binary(url) and url != "" do
+    ~H"""
+    <img src={@event.cover_image_url} alt="" class="sv-event-cover-img" />
+    """
+  end
+
+  def live_event_preview(assigns) do
+    ~H"""
+    <div class="sv-event-cover-placeholder" aria-hidden="true" />
     """
   end
 

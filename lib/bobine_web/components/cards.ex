@@ -24,6 +24,8 @@ defmodule BobineWeb.Components.Cards do
       "Map with :id, :title, :image_url, :year, :duration, :rating, and optional :progress (0.0–1.0)"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   def poster_portrait(assigns) do
     ~H"""
@@ -44,12 +46,18 @@ defmodule BobineWeb.Components.Cards do
           class="h-full w-full object-cover"
         />
 
-        <div class={[
-          "absolute inset-0 flex flex-col justify-end",
-          "bg-gradient-to-t from-bg/95 via-bg/40 to-transparent",
-          "opacity-0 transition-opacity duration-200 ease-out",
-          "group-hover:opacity-100 group-focus-within:opacity-100"
-        ]}>
+        <%!-- Hover metadata overlay (only when details bar is shown; if the
+             details bar is already hidden, the always-on title overlay takes
+             over and the hover overlay would compete with it). --%>
+        <div
+          :if={@show_details}
+          class={[
+            "absolute inset-0 flex flex-col justify-end",
+            "bg-gradient-to-t from-bg/95 via-bg/40 to-transparent",
+            "opacity-0 transition-opacity duration-200 ease-out",
+            "group-hover:opacity-100 group-focus-within:opacity-100"
+          ]}
+        >
           <div class="p-3">
             <h3 class="font-display text-lg leading-tight tracking-tight text-text-primary">
               {@item.title}
@@ -58,6 +66,17 @@ defmodule BobineWeb.Components.Cards do
               {@item.year} · {@item.duration}
             </p>
           </div>
+        </div>
+
+        <%!-- Always-on title overlay (details bar hidden + overlay requested). --%>
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 via-bg/50 to-transparent p-3"
+          data-test={"card-poster-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
+            {@item.title}
+          </h3>
         </div>
 
         <div :if={@item[:progress]} class="absolute inset-x-0 bottom-0 h-[3px] bg-elevated">
@@ -95,6 +114,8 @@ defmodule BobineWeb.Components.Cards do
       "Map with :id, :title, :series, :image_url, :episode_number, :duration, optional :progress"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   def landscape_episode(assigns) do
     ~H"""
@@ -141,6 +162,16 @@ defmodule BobineWeb.Components.Cards do
           </span>
         </div>
 
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 via-bg/50 to-transparent p-3 pr-16"
+          data-test={"card-episode-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
+            {@item.title}
+          </h3>
+        </div>
+
         <div :if={@item[:progress]} class="absolute inset-x-0 bottom-0 h-[3px] bg-elevated">
           <div
             class="h-full bg-accent"
@@ -149,7 +180,7 @@ defmodule BobineWeb.Components.Cards do
         </div>
       </div>
 
-      <div class="mt-3 space-y-1">
+      <div :if={@show_details} class="mt-3 space-y-1">
         <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
           {@item.title}
         </h3>
@@ -188,6 +219,8 @@ defmodule BobineWeb.Components.Cards do
     doc: "Map with :id, :name, :image_url, :content_count"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   def creator_identity(assigns) do
     ~H"""
@@ -219,9 +252,19 @@ defmodule BobineWeb.Components.Cards do
             View channel
           </span>
         </div>
+
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 via-bg/50 to-transparent p-3 text-center"
+          data-test={"card-creator-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
+            {@item.name}
+          </h3>
+        </div>
       </div>
 
-      <div class="mt-3 text-center">
+      <div :if={@show_details} class="mt-3 text-center">
         <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
           {@item.name}
         </h3>
@@ -260,6 +303,8 @@ defmodule BobineWeb.Components.Cards do
     doc: "Map with :id, :title, :image_url, :film_count, :curator_note"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   def collection_editorial(assigns) do
     ~H"""
@@ -280,9 +325,18 @@ defmodule BobineWeb.Components.Cards do
           class="h-full w-full object-cover"
         />
 
-        <div class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-bg/95 via-bg/60 to-transparent" />
+        <%!-- Details always live on top of the image for this variant. When
+             :show_details is false we still show the title if :title_overlay
+             is true, but suppress the film count and curator note. --%>
+        <div
+          :if={@show_details || @title_overlay}
+          class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-bg/95 via-bg/60 to-transparent"
+        />
 
-        <div class="absolute inset-x-0 bottom-0 p-4">
+        <div
+          :if={@show_details}
+          class="absolute inset-x-0 bottom-0 p-4"
+        >
           <p class="font-mono text-xs uppercase tracking-wide text-text-muted">
             {@item.film_count} films
           </p>
@@ -296,6 +350,16 @@ defmodule BobineWeb.Components.Cards do
           ]}>
             {@item.curator_note}
           </p>
+        </div>
+
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 p-4"
+          data-test={"card-collection-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-2xl leading-tight tracking-tight text-text-primary">
+            {@item.title}
+          </h3>
         </div>
       </div>
     </a>
@@ -323,6 +387,8 @@ defmodule BobineWeb.Components.Cards do
       "Map with :id, :title, :instructor, :image_url, :lessons_completed, :lessons_total, :percent (0–100)"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
   def progress_course(assigns) do
     complete? = assigns.item.percent >= 100
@@ -365,9 +431,19 @@ defmodule BobineWeb.Components.Cards do
             <.icon name="hero-play-solid" class="h-6 w-6" />
           </span>
         </div>
+
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 via-bg/50 to-transparent p-3"
+          data-test={"card-course-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
+            {@item.title}
+          </h3>
+        </div>
       </div>
 
-      <div class="mt-3 space-y-1.5">
+      <div :if={@show_details} class="mt-3 space-y-1.5">
         <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
           {@item.title}
         </h3>
@@ -428,7 +504,15 @@ defmodule BobineWeb.Components.Cards do
     doc: "Map with :id, :title, :image_url, :metadata, :synopsis"
 
   attr :href, :string, default: "#"
+  attr :show_details, :boolean, default: true
+  attr :title_overlay, :boolean, default: false
 
+  @doc """
+  Horizontal thumbnail + metadata layout. When `show_details` is false,
+  the right-hand metadata column is suppressed and only the poster thumb
+  renders; the thumb grows to fit the available width and the title sits
+  on an overlay when `title_overlay` is true.
+  """
   def minimal_list_item(assigns) do
     ~H"""
     <a
@@ -441,16 +525,28 @@ defmodule BobineWeb.Components.Cards do
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       ]}
     >
-      <div class="relative h-20 w-[3.333rem] flex-shrink-0 overflow-hidden rounded bg-surface border border-border-subtle">
+      <div class={[
+        "relative flex-shrink-0 overflow-hidden rounded bg-surface border border-border-subtle",
+        if(@show_details, do: "h-20 w-[3.333rem]", else: "h-24 w-full")
+      ]}>
         <img
           src={@item.image_url}
           alt={@item.title}
           loading="lazy"
           class="h-full w-full object-cover"
         />
+        <div
+          :if={!@show_details && @title_overlay}
+          class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 via-bg/50 to-transparent p-2"
+          data-test={"card-list-title-overlay-#{@item.id}"}
+        >
+          <h3 class="font-display text-sm leading-tight tracking-tight text-text-primary">
+            {@item.title}
+          </h3>
+        </div>
       </div>
 
-      <div class="min-w-0 flex-1">
+      <div :if={@show_details} class="min-w-0 flex-1">
         <h3 class="font-display text-base leading-tight tracking-tight text-text-primary">
           {@item.title}
         </h3>
@@ -462,10 +558,13 @@ defmodule BobineWeb.Components.Cards do
         </p>
       </div>
 
-      <span class={[
-        "flex-shrink-0 text-text-muted opacity-0 transition-opacity duration-150",
-        "group-hover:opacity-100 group-focus-within:opacity-100"
-      ]}>
+      <span
+        :if={@show_details}
+        class={[
+          "flex-shrink-0 text-text-muted opacity-0 transition-opacity duration-150",
+          "group-hover:opacity-100 group-focus-within:opacity-100"
+        ]}
+      >
         <.icon name="hero-chevron-right" class="h-5 w-5" />
       </span>
     </a>

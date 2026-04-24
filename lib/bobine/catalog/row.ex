@@ -42,6 +42,11 @@ defmodule Bobine.Catalog.Row do
     field :position, :integer, default: 0
     field :visible, :boolean, default: false
     field :max_items, :integer, default: 20
+    # Hide the details bar (title + metadata) beneath each card image.
+    field :show_details, :boolean, default: true
+    # When :show_details is false, render the card's title overlaid on the
+    # thumbnail instead. Ignored when :show_details is true.
+    field :title_overlay, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     has_many :row_items, Bobine.Catalog.RowItem
@@ -85,6 +90,8 @@ defmodule Bobine.Catalog.Row do
       :position,
       :visible,
       :max_items,
+      :show_details,
+      :title_overlay,
       :organization_id
     ])
     |> validate_required([:title, :source_type, :organization_id])
