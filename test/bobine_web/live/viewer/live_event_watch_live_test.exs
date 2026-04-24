@@ -590,4 +590,64 @@ defmodule BobineWeb.Viewer.LiveEventWatchLiveTest do
       refute html =~ ~s(data-test="event-live")
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # layout / chat drawer
+  # ---------------------------------------------------------------------------
+
+  describe "live event layout" do
+    setup do
+      ChatRateLimiter.clear()
+      :ok
+    end
+
+    test "live page renders two-column watch layout with chat drawer", %{conn: conn} do
+      org = insert(:organization)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "layout-test",
+          access_type: "public",
+          mux_live_playback_id: "live_pb_layout"
+        )
+
+      conn = conn |> Map.put(:host, "#{org.slug}.localhost")
+      {:ok, _view, html} = live(conn, ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(class="sv-watch-layout")
+      assert html =~ ~s(class="sv-watch-player")
+      assert html =~ ~s(data-test="chat-section")
+      assert html =~ ~s(data-test="chat-toggle")
+      assert html =~ ~s(data-test="sv-live-badge")
+      assert html =~ ~s(data-chat-open="true")
+    end
+
+    test "toggle_chat flips the chat_open state", %{conn: conn} do
+      org = insert(:organization)
+
+      event =
+        insert(:live_event,
+          organization: org,
+          status: "live",
+          slug: "toggle-chat-test",
+          access_type: "public",
+          mux_live_playback_id: "live_pb_toggle"
+        )
+
+      conn = conn |> Map.put(:host, "#{org.slug}.localhost")
+      {:ok, view, html} = live(conn, ~p"/events/#{event.slug}")
+
+      assert html =~ ~s(data-chat-open="true")
+      assert html =~ ~s(aria-expanded="true")
+
+      html = render_click(view, "toggle_chat")
+      assert html =~ ~s(data-chat-open="false")
+      assert html =~ ~s(aria-expanded="false")
+
+      html = render_click(view, "toggle_chat")
+      assert html =~ ~s(data-chat-open="true")
+    end
+  end
 end

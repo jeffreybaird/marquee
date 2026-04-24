@@ -7,9 +7,12 @@
   flash={@flash}
 >
   <div class="sv-page-content" data-test="events-index">
-    <div class="sv-page-header">
+    <header class="sv-page-header">
       <h1 class="sv-page-title">Live Events</h1>
-    </div>
+      <p class="sv-events-subtitle">
+        Streams happening now, coming up, and recently aired.
+      </p>
+    </header>
 
     <%!-- Live Now --%>
     <section
@@ -27,17 +30,7 @@
         >
           <a href={~p"/events/#{event.slug}"} class="sv-event-card-link" data-test="event-link">
             <div class="sv-event-cover" aria-hidden="true">
-              <img
-                :if={event.cover_image_url}
-                src={event.cover_image_url}
-                alt=""
-                class="sv-event-cover-img"
-              />
-              <div
-                :if={!event.cover_image_url}
-                class="sv-event-cover-placeholder"
-                aria-hidden="true"
-              />
+              <BobineWeb.Components.ViewerComponents.live_event_preview event={event} />
               <span class="sv-event-badge sv-event-badge--live" aria-label="Live now">LIVE</span>
             </div>
             <div class="sv-event-info">

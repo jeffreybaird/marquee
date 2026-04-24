@@ -243,6 +243,8 @@ defmodule Bobine.Branding.Theme do
       true
       iex> css =~ "--sv-accent: var(--color-accent, #FF0000)"
       true
+      iex> css =~ "--sv-live-indicator-bg: #D4183D"
+      true
 
   """
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
@@ -274,7 +276,12 @@ defmodule Bobine.Branding.Theme do
       {"--sv-form-placeholder", theme.form_placeholder || defaults.form_placeholder},
       {"--sv-radius-sm", "4px"},
       {"--sv-radius-md", "8px"},
-      {"--sv-radius-lg", "12px"}
+      {"--sv-radius-lg", "12px"},
+      # Semantic "liveness" indicator — used for LIVE badges and error surfaces
+      # on live pages. Distinct from brand accent so streaming signals remain
+      # recognizable regardless of tenant color choice.
+      {"--sv-live-indicator-bg", "#D4183D"},
+      {"--sv-live-indicator-fg", "#FFFFFF"}
     ]
     |> Enum.map_join("; ", fn {var, val} -> "#{var}: #{val}" end)
   end

@@ -41,6 +41,50 @@ defmodule BobineWeb.Viewer.LiveEventControllerTest do
       assert html =~ "Live Right Now"
     end
 
+    test "live-now cards embed a muted live preview for events with a playback id",
+         %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:live_event,
+        organization: org,
+        status: "live",
+        title: "Preview Stream",
+        mux_live_playback_id: "live_pb_preview_index"
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> get(~p"/events")
+
+      html = html_response(conn, 200)
+      assert html =~ ~s(data-test="event-live-preview")
+      assert html =~ ~s(playback-id="live_pb_preview_index")
+      assert html =~ ~s(autoplay="muted")
+    end
+
+    test "live-now cards without a playback id fall back to the cover image",
+         %{conn: conn} do
+      org = insert(:organization)
+
+      insert(:live_event,
+        organization: org,
+        status: "live",
+        title: "Coverless",
+        mux_live_playback_id: nil,
+        cover_image_url: "https://example.com/cover.png"
+      )
+
+      conn =
+        conn
+        |> Map.put(:host, "#{org.slug}.localhost")
+        |> get(~p"/events")
+
+      html = html_response(conn, 200)
+      refute html =~ ~s(data-test="event-live-preview")
+      assert html =~ "https://example.com/cover.png"
+    end
+
     test "shows upcoming section when scheduled events exist", %{conn: conn} do
       org = insert(:organization)
       insert(:live_event, organization: org, status: "scheduled", title: "Coming Up")

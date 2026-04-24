@@ -60,8 +60,14 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
          |> assign(:base_url, base_url)
          |> stream(:chat_messages, messages)
          |> assign(:chat_input_enabled, chat_input_enabled)
-         |> assign(:viewer_banned_from_chat, viewer_banned)}
+         |> assign(:viewer_banned_from_chat, viewer_banned)
+         |> assign(:chat_open, true)}
     end
+  end
+
+  @impl true
+  def handle_event("toggle_chat", _params, socket) do
+    {:noreply, assign(socket, :chat_open, !socket.assigns.chat_open)}
   end
 
   @impl true
@@ -227,68 +233,126 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
 
   defp render_event_body(%{event: %{status: "live"}} = assigns) do
     ~H"""
-    <article aria-labelledby="event-title" data-test="event-live">
-      <h1 id="event-title" class="sv-page-title">{@event.title}</h1>
-      <span class="sv-event-badge sv-event-badge--live" aria-label="Live now">LIVE</span>
-      {render_live_player(assigns)}
-      <p :if={@event.description} class="sv-event-description">{@event.description}</p>
+    <article
+      aria-labelledby="event-title"
+      data-test="event-live"
+      class="sv-watch-layout"
+    >
+      <div class="sv-watch-player">
+        {render_live_player(assigns)}
+      </div>
 
-      <section aria-label="Live chat" data-test="chat-section" class="sv-chat">
-        <div
-          id="chat-messages"
-          data-test="chat-messages"
-          phx-update="stream"
-          role="log"
-          aria-live="polite"
-          aria-atomic="false"
-        >
-          <div
-            :for={{dom_id, msg} <- @streams.chat_messages}
-            id={dom_id}
-            class="sv-chat-message"
-            data-test={"chat-message-#{msg.id}"}
+      <div class="sv-watch-info sv-live-info">
+        <div class="sv-live-title-row">
+          <h1 id="event-title" class="sv-live-title">{@event.title}</h1>
+          <span
+            class="sv-live-badge"
+            data-test="sv-live-badge"
+            aria-label="Live now"
           >
-            <span class="sv-chat-author">
-              {"Viewer " <> String.slice(to_string(msg.viewer_id), 0, 6)}
-            </span>
-            <span class="sv-chat-content">{msg.content}</span>
+            Live
+          </span>
+        </div>
+        <p :if={@event.description} class="sv-live-description">
+          {@event.description}
+        </p>
+      </div>
+
+      <aside
+        class="sv-watch-chat-panel"
+        aria-label="Live chat"
+        data-test="chat-section"
+        data-chat-open={to_string(@chat_open)}
+      >
+        <header class="sv-chat-header">
+          <h2 class="sv-chat-title">Live chat</h2>
+          <button
+            type="button"
+            class="sv-chat-toggle"
+            phx-click="toggle_chat"
+            aria-expanded={to_string(@chat_open)}
+            aria-controls="chat-body"
+            data-test="chat-toggle"
+          >
+            {if @chat_open, do: "Hide", else: "Show"}
+          </button>
+        </header>
+
+        <div id="chat-body" class="sv-chat-body">
+          <div
+            id="chat-messages"
+            class="sv-chat-messages"
+            data-test="chat-messages"
+            phx-hook="ChatAutoScroll"
+            phx-update="stream"
+            role="log"
+            aria-live="polite"
+            aria-atomic="false"
+          >
+            <div
+              :for={{dom_id, msg} <- @streams.chat_messages}
+              id={dom_id}
+              class="sv-chat-message"
+              data-test={"chat-message-#{msg.id}"}
+            >
+              <span class="sv-chat-author">
+                {"Viewer " <> String.slice(to_string(msg.viewer_id), 0, 6)}
+              </span>
+              <span class="sv-chat-content">{msg.content}</span>
+            </div>
           </div>
+
+          <div :if={@chat_input_enabled} data-test="chat-input-area">
+            <form phx-submit="send_chat" class="sv-chat-form" data-test="chat-form">
+              <label for="chat-input" class="sr-only">Chat message</label>
+              <input
+                id="chat-input"
+                class="sv-chat-input"
+                name="message"
+                type="text"
+                maxlength="500"
+                placeholder="Say something…"
+                autocomplete="off"
+                data-test="chat-input"
+                required
+              />
+              <button
+                type="submit"
+                class="sv-chat-send"
+                data-test="chat-submit"
+                aria-label="Send message"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+
+          <p
+            :if={@viewer_banned_from_chat}
+            class="sv-chat-notice sv-chat-notice--error"
+            role="alert"
+            data-test="chat-banned-notice"
+          >
+            You have been banned from this chat.
+          </p>
+
+          <p
+            :if={!@chat_input_enabled and !@viewer_banned_from_chat and @current_viewer != nil}
+            class="sv-chat-notice"
+            data-test="chat-access-denied"
+          >
+            You need access to this event to chat.
+          </p>
+
+          <p
+            :if={@current_viewer == nil}
+            class="sv-chat-notice"
+            data-test="chat-login-prompt"
+          >
+            <a href={~p"/login"}>Log in</a> to join the chat.
+          </p>
         </div>
-
-        <div :if={@chat_input_enabled} data-test="chat-input-area">
-          <form phx-submit="send_chat" data-test="chat-form">
-            <label for="chat-input" class="sr-only">Chat message</label>
-            <input
-              id="chat-input"
-              name="message"
-              type="text"
-              maxlength="500"
-              placeholder="Say something…"
-              autocomplete="off"
-              data-test="chat-input"
-              required
-            />
-            <button type="submit" data-test="chat-submit" aria-label="Send message">
-              Send
-            </button>
-          </form>
-        </div>
-
-        <p :if={@viewer_banned_from_chat} role="alert" data-test="chat-banned-notice">
-          You have been banned from this chat.
-        </p>
-
-        <p
-          :if={!@chat_input_enabled and !@viewer_banned_from_chat and @current_viewer != nil}
-          data-test="chat-access-denied"
-        >
-          You need access to this event to chat.
-        </p>
-
-        <p :if={@current_viewer == nil} data-test="chat-login-prompt">
-          <a href={~p"/login"}>Log in</a> to join the chat.
-        </p>
-      </section>
+      </aside>
     </article>
     """
   end

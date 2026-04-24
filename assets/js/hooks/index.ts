@@ -1,6 +1,7 @@
 import AnalyticsChart from "./analytics_chart_hook"
 import CardFocus from "./card_focus"
 import Carousel from "./carousel"
+import ChatAutoScroll from "./chat_auto_scroll"
 import HeroCarousel from "./hero_carousel"
 import MuxPlayer from "./mux_player"
 import MuxUploader from "./mux_uploader"
@@ -15,6 +16,7 @@ export const hooks = {
   AnalyticsChart,
   CardFocus,
   Carousel,
+  ChatAutoScroll,
   HeroCarousel,
   MuxPlayer,
   MuxUploader,
