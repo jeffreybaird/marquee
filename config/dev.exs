@@ -22,7 +22,7 @@ config :bobine, BobineWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4000],
   url: [host: "localhost", port: 4000],
   check_origin: false,
-  code_reloader: false,
+  code_reloader: true,
   debug_errors: true,
   secret_key_base: "W6bQ5juXA07IHNT2Apm7mIAxVt6vFnWxmMZgxii+oDs10nnkmjNfgPv/5Q4MO39l",
   watchers: [
