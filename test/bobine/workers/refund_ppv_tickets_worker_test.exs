@@ -94,12 +94,9 @@ defmodule Bobine.Workers.RefundPpvTicketsWorkerTest do
       _t1 = ticket_with_payment_intent(event, viewer1, "pi_fail")
       t2 = ticket_with_payment_intent(event, viewer2, "pi_ok")
 
-      expect(Bobine.Billing.MockStripeClient, :create_refund, fn "pi_fail", _opts ->
-        {:error, :stripe_error, %{message: "card_error"}}
-      end)
-
-      expect(Bobine.Billing.MockStripeClient, :create_refund, fn "pi_ok", _opts ->
-        {:ok, %{id: "re_ok"}}
+      stub(Bobine.Billing.MockStripeClient, :create_refund, fn
+        "pi_fail", _opts -> {:error, :stripe_error, %{message: "card_error"}}
+        "pi_ok", _opts -> {:ok, %{id: "re_ok"}}
       end)
 
       assert :ok =
