@@ -294,24 +294,48 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             <div class="hero-gradient" aria-hidden="true" />
           </div>
 
-          <%!-- Content overlay (left-aligned) --%>
+          <%!-- Content overlay (left-aligned, Peacock-style) --%>
           <div class="hero-content" data-test={"hero-content-#{index}"}>
+            <img
+              :if={slide.channel_logo_url}
+              src={slide.channel_logo_url}
+              alt=""
+              class="hero-channel-logo"
+              data-test={"hero-channel-logo-#{index}"}
+              aria-hidden="true"
+            />
+
+            <img
+              :if={slide.title_logo_url}
+              src={slide.title_logo_url}
+              alt={slide.headline || ""}
+              class="hero-title-logo"
+              data-test={"hero-title-logo-#{index}"}
+            />
+            <h1
+              :if={!slide.title_logo_url && slide_show?(slide, :show_headline)}
+              class="hero-title"
+            >
+              {slide.headline}
+            </h1>
+
             <span
               :if={slide_show?(slide, :show_brand_tag) && slide.brand_tag}
-              class="hero-brand-tag"
+              class="hero-tune-in"
+              data-test={"hero-tune-in-#{index}"}
             >
               {slide.brand_tag}
             </span>
-            <h1 :if={slide_show?(slide, :show_headline)} class="hero-title">{slide.headline}</h1>
+
             <p
               :if={slide_show?(slide, :show_subheadline) && slide.subheadline}
-              class="hero-status"
+              class="hero-metadata"
             >
               {slide.subheadline}
             </p>
             <p
               :if={slide_show?(slide, :show_description) && slide.description}
-              class="hero-metadata"
+              class="hero-synopsis"
             >
               {slide.description}
             </p>
@@ -324,7 +348,8 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
                 class="hero-cta-primary"
                 data-test={"hero-primary-cta-#{index}"}
               >
-                {slide.primary_cta_label}
+                <.icon name="hero-play-solid" class="hero-cta-icon" aria-hidden="true" />
+                <span>{slide.primary_cta_label}</span>
               </.link>
               <.link
                 :if={slide_show?(slide, :show_secondary_cta) && slide.secondary_cta_path}
@@ -332,7 +357,8 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
                 class="hero-cta-secondary"
                 data-test={"hero-secondary-cta-#{index}"}
               >
-                {slide.secondary_cta_label}
+                <.icon name="hero-information-circle" class="hero-cta-icon" aria-hidden="true" />
+                <span>{slide.secondary_cta_label}</span>
               </.link>
             </div>
           </div>

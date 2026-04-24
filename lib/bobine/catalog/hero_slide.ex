@@ -41,6 +41,15 @@ defmodule Bobine.Catalog.HeroSlide do
     # Optional custom background image
     field :background_image_url, :string
 
+    # Optional branded title artwork rendered instead of the `:headline` text.
+    # When present, the viewer hero renders the image and the text headline
+    # is hidden (accessible label is preserved via `alt`).
+    field :title_logo_url, :string
+
+    # Optional small network / studio logo anchored top-left of the slide
+    # (e.g. NBC, Dick Wolf), rendered above the title logo.
+    field :channel_logo_url, :string
+
     field :deleted_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
@@ -61,6 +70,8 @@ defmodule Bobine.Catalog.HeroSlide do
       :primary_cta_label,
       :secondary_cta_label,
       :background_image_url,
+      :title_logo_url,
+      :channel_logo_url,
       :show_headline,
       :show_subheadline,
       :show_description,

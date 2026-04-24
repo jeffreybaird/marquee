@@ -500,6 +500,49 @@ defmodule BobineWeb.Admin.CatalogLive.Components do
                     />
                   </div>
 
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Title Logo URL
+                      </label>
+                      <input
+                        type="text"
+                        name="title_logo_url"
+                        value={slide.title_logo_url}
+                        placeholder="Replaces the text headline when set"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-title-logo-url-input-#{slide.position}"}
+                      />
+                      <img
+                        :if={slide.title_logo_url}
+                        src={slide.title_logo_url}
+                        alt=""
+                        class="mt-2 max-h-16 w-auto rounded border border-admin-border bg-admin-card p-2 object-contain"
+                        data-test={"hero-title-logo-preview-#{slide.position}"}
+                      />
+                    </div>
+                    <div>
+                      <label class="block font-ui text-xs font-medium text-admin-muted mb-1">
+                        Channel / Studio Logo URL
+                      </label>
+                      <input
+                        type="text"
+                        name="channel_logo_url"
+                        value={slide.channel_logo_url}
+                        placeholder="Optional network or studio mark"
+                        class="w-full rounded-md border border-admin-border bg-admin-bg px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
+                        data-test={"hero-channel-logo-url-input-#{slide.position}"}
+                      />
+                      <img
+                        :if={slide.channel_logo_url}
+                        src={slide.channel_logo_url}
+                        alt=""
+                        class="mt-2 max-h-10 w-auto rounded border border-admin-border bg-admin-card p-2 object-contain"
+                        data-test={"hero-channel-logo-preview-#{slide.position}"}
+                      />
+                    </div>
+                  </div>
+
                   <div class="flex justify-end">
                     <BobineWeb.Components.AdminUI.admin_button
                       :if={@can_manage}

@@ -576,6 +576,8 @@ defmodule BobineWeb.Admin.CatalogLive do
           primary_cta_label: blank_to_nil(params["primary_cta_label"]),
           secondary_cta_label: blank_to_nil(params["secondary_cta_label"]),
           background_image_url: blank_to_nil(params["background_image_url"]),
+          title_logo_url: blank_to_nil(params["title_logo_url"]),
+          channel_logo_url: blank_to_nil(params["channel_logo_url"]),
           show_headline: checkbox_bool(params["show_headline"]),
           show_subheadline: checkbox_bool(params["show_subheadline"]),
           show_description: checkbox_bool(params["show_description"]),
