@@ -41,6 +41,55 @@ defmodule BobineWeb.Components.ContentCardTest do
       assert html =~ "/watch/#{video.id}"
       assert html =~ "vid_pb"
     end
+
+    test "uses portrait thumbnail URL when aspect: :portrait and portrait_thumbnail_url set",
+         %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          portrait_thumbnail_url: "https://example.com/portrait.jpg",
+          landscape_thumbnail_url: "https://example.com/landscape.jpg",
+          mux_playback_id: "pb_fallback"
+        )
+
+      html =
+        render_component(&ViewerComponents.content_card/1, %{video: video, aspect: :portrait})
+
+      assert html =~ "https://example.com/portrait.jpg"
+      refute html =~ "https://example.com/landscape.jpg"
+    end
+
+    test "uses landscape thumbnail URL when aspect: :landscape and landscape_thumbnail_url set",
+         %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          portrait_thumbnail_url: "https://example.com/portrait.jpg",
+          landscape_thumbnail_url: "https://example.com/landscape.jpg",
+          mux_playback_id: "pb_fallback"
+        )
+
+      html =
+        render_component(&ViewerComponents.content_card/1, %{video: video, aspect: :landscape})
+
+      assert html =~ "https://example.com/landscape.jpg"
+      refute html =~ "https://example.com/portrait.jpg"
+    end
+
+    test "defaults to landscape thumbnail when no aspect specified", %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          portrait_thumbnail_url: "https://example.com/portrait.jpg",
+          landscape_thumbnail_url: "https://example.com/landscape.jpg",
+          mux_playback_id: "pb_fallback"
+        )
+
+      html = render_component(&ViewerComponents.content_card/1, %{video: video})
+
+      assert html =~ "https://example.com/landscape.jpg"
+      refute html =~ "https://example.com/portrait.jpg"
+    end
   end
 
   ## -----------------------------------------------------------------------

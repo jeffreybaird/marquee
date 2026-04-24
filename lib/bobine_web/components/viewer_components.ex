@@ -26,6 +26,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :preview_on_hover, :boolean, default: true
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
   @doc """
   Renders a card for a polymorphic catalog item — a video, series, or season.
@@ -98,6 +99,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       preview_on_hover={@preview_on_hover}
       show_details={@show_details}
       title_overlay={@title_overlay}
+      aspect={@aspect}
     />
     """
   end
@@ -117,6 +119,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :preview_on_hover, :boolean, default: true
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
   @doc """
   Renders a content card for a video with a hover/focus popup.
@@ -138,7 +141,7 @@ defmodule BobineWeb.Components.ViewerComponents do
       |> assign_new(:resolved_card_id, fn ->
         assigns[:card_id] || "card-#{assigns.video.id}"
       end)
-      |> assign(:thumbnail_url, video_thumbnail_url(assigns.video, width: 640, height: 360))
+      |> assign(:thumbnail_url, video_thumbnail_url(assigns.video, aspect: assigns.aspect))
 
     ~H"""
     <div
