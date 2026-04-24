@@ -22,6 +22,9 @@ defmodule BobineWeb.Admin.ContentLive do
   alias BobineWeb.Admin.ImageUploadHandlers
 
   @impl true
+  def allowed_upload_kind?("video_portrait_thumbnail"), do: true
+  def allowed_upload_kind?("video_landscape_thumbnail"), do: true
+  # Kept for backward compatibility with the pre-split single thumbnail.
   def allowed_upload_kind?("video_thumbnail"), do: true
   def allowed_upload_kind?(_), do: false
 
@@ -271,9 +274,14 @@ defmodule BobineWeb.Admin.ContentLive do
         {:noreply,
          socket
          |> ImageUploadHandlers.put_initial_url(
-           "video_thumbnail",
+           "video_portrait_thumbnail",
            video.id,
-           video.custom_thumbnail_url
+           video.portrait_thumbnail_url
+         )
+         |> ImageUploadHandlers.put_initial_url(
+           "video_landscape_thumbnail",
+           video.id,
+           video.landscape_thumbnail_url || video.custom_thumbnail_url
          )
          |> assign(:viewing_video, video)
          |> assign(:video_tags, tags)
@@ -305,10 +313,16 @@ defmodule BobineWeb.Admin.ContentLive do
     video = socket.assigns.viewing_video
     scope = socket.assigns.current_scope
 
-    uploaded_thumbnail =
-      ImageUploadHandlers.upload_url(socket, "video_thumbnail", video.id)
+    portrait_url =
+      ImageUploadHandlers.upload_url(socket, "video_portrait_thumbnail", video.id)
 
-    params = maybe_put_custom_thumbnail_url(params, uploaded_thumbnail)
+    landscape_url =
+      ImageUploadHandlers.upload_url(socket, "video_landscape_thumbnail", video.id)
+
+    params =
+      params
+      |> maybe_put_url("portrait_thumbnail_url", portrait_url)
+      |> maybe_put_url("landscape_thumbnail_url", landscape_url)
 
     case Content.update_video(scope, video, params) do
       {:ok, updated} ->
@@ -513,11 +527,11 @@ defmodule BobineWeb.Admin.ContentLive do
     end
   end
 
-  defp maybe_put_custom_thumbnail_url(params, nil), do: params
-  defp maybe_put_custom_thumbnail_url(params, ""), do: params
+  defp maybe_put_url(params, _key, nil), do: params
+  defp maybe_put_url(params, _key, ""), do: params
 
-  defp maybe_put_custom_thumbnail_url(params, url) when is_binary(url) do
-    Map.put(params, "custom_thumbnail_url", url)
+  defp maybe_put_url(params, key, url) when is_binary(url) do
+    Map.put(params, key, url)
   end
 
   defp upload_complete_message(1), do: "Upload complete. Processing video..."

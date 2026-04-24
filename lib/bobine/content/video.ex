@@ -16,7 +16,17 @@ defmodule Bobine.Content.Video do
     field :max_resolution, :string
     field :published, :boolean, default: false
     field :visibility, :string, default: "subscribers_only"
+    # Deprecated — kept for backward compatibility with rows that existed
+    # before the portrait/landscape split. New writes should target the
+    # aspect-specific fields. The landscape field is backfilled from this
+    # column at migration time.
     field :custom_thumbnail_url, :string
+
+    # Operator-uploaded thumbnails, one per aspect. Either may be nil; the
+    # resolver falls back to Mux smart-cropped thumbnails when missing.
+    field :portrait_thumbnail_url, :string
+    field :landscape_thumbnail_url, :string
+
     field :is_recording, :boolean, default: false
     field :deleted_at, :utc_datetime
 
@@ -43,6 +53,8 @@ defmodule Bobine.Content.Video do
       :published,
       :visibility,
       :custom_thumbnail_url,
+      :portrait_thumbnail_url,
+      :landscape_thumbnail_url,
       :is_recording,
       :organization_id
     ])

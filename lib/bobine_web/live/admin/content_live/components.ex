@@ -318,17 +318,28 @@ defmodule BobineWeb.Admin.ContentLive.Components do
                   data-test="video-description-input"
                 >{@video.description}</textarea>
               </div>
-              <div>
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-test="video-thumbnails">
                 <BobineWeb.Components.AdminComponents.image_upload_field
-                  name="video[custom_thumbnail_url]"
-                  kind="video_thumbnail"
+                  name="video[portrait_thumbnail_url]"
+                  kind="video_portrait_thumbnail"
                   target_id={@video.id}
-                  url={@video_thumbnail_state.url}
-                  status={@video_thumbnail_state.status}
-                  percent={@video_thumbnail_state.percent}
-                  error={@video_thumbnail_state.error}
-                  label="Custom thumbnail"
-                  help="Optional — overrides the Mux auto-generated thumbnail on cards."
+                  url={@portrait_thumbnail_state.url}
+                  status={@portrait_thumbnail_state.status}
+                  percent={@portrait_thumbnail_state.percent}
+                  error={@portrait_thumbnail_state.error}
+                  label="Portrait thumbnail (2:3)"
+                  help="Used by poster-style cards. Optional — Mux will be used if empty."
+                />
+                <BobineWeb.Components.AdminComponents.image_upload_field
+                  name="video[landscape_thumbnail_url]"
+                  kind="video_landscape_thumbnail"
+                  target_id={@video.id}
+                  url={@landscape_thumbnail_state.url}
+                  status={@landscape_thumbnail_state.status}
+                  percent={@landscape_thumbnail_state.percent}
+                  error={@landscape_thumbnail_state.error}
+                  label="Landscape thumbnail (16:9)"
+                  help="Used by episode + hero cards. Optional — Mux will be used if empty."
                 />
               </div>
               <div class="flex gap-2">

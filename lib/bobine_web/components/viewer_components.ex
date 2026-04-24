@@ -433,37 +433,63 @@ defmodule BobineWeb.Components.ViewerComponents do
   defp format_remaining(_), do: "0:00"
 
   @doc """
-  Resolves the thumbnail URL for a video.
-
-  Prefers the operator-uploaded `custom_thumbnail_url` when present;
-  otherwise falls back to the Mux auto-generated thumbnail. Returns
-  `nil` for videos without either source (e.g. still-processing uploads).
+  Resolves the thumbnail URL for a video, preferring operator uploads at
+  the requested aspect, then the legacy single thumbnail, then a Mux
+  smart-cropped URL. Returns `nil` when the video has no playback id
+  and no uploads (e.g. still-processing ingestion).
 
   ## Options
 
-    * `:width` — requested Mux width (default 640)
-    * `:height` — requested Mux height (default 360)
+    * `:aspect` — `:landscape` (default) or `:portrait`. Chooses which
+      aspect-specific upload field to read and which default dimensions
+      to request from Mux when falling back.
+    * `:width` / `:height` — explicit Mux dimensions (override aspect
+      defaults).
 
-  Custom uploads are served as-is — the uploader is trusted to have
-  stored an appropriately-sized image. Mux URLs honor the size params
-  via `smartcrop`.
+  Operator uploads are served as-is — the uploader is trusted to have
+  stored an image at the correct aspect. Mux URLs use `smartcrop` so
+  a 16:9 source still renders cleanly when requested at 2:3.
   """
-  def video_thumbnail_url(video, opts \\ [])
+  def video_thumbnail_url(video, opts \\ []) do
+    aspect = Keyword.get(opts, :aspect, :landscape)
 
-  def video_thumbnail_url(%{custom_thumbnail_url: url}, _opts)
-      when is_binary(url) and url != "",
-      do: url
+    aspect_upload_url(video, aspect) ||
+      legacy_custom_url(video) ||
+      mux_thumbnail_url(video, aspect, opts)
+  end
 
-  def video_thumbnail_url(%{mux_playback_id: playback_id}, opts)
-      when is_binary(playback_id) do
-    width = Keyword.get(opts, :width, 640)
-    height = Keyword.get(opts, :height, 360)
+  defp aspect_upload_url(%{portrait_thumbnail_url: url}, :portrait)
+       when is_binary(url) and url != "",
+       do: url
+
+  defp aspect_upload_url(%{landscape_thumbnail_url: url}, :landscape)
+       when is_binary(url) and url != "",
+       do: url
+
+  defp aspect_upload_url(_, _), do: nil
+
+  defp legacy_custom_url(%{custom_thumbnail_url: url})
+       when is_binary(url) and url != "",
+       do: url
+
+  defp legacy_custom_url(_), do: nil
+
+  defp mux_thumbnail_url(%{mux_playback_id: playback_id}, aspect, opts)
+       when is_binary(playback_id) do
+    {default_w, default_h} = aspect_defaults(aspect)
+    width = Keyword.get(opts, :width, default_w)
+    height = Keyword.get(opts, :height, default_h)
 
     "https://image.mux.com/#{playback_id}/thumbnail.webp?" <>
       "width=#{width}&height=#{height}&fit_mode=smartcrop"
   end
 
-  def video_thumbnail_url(_, _opts), do: nil
+  defp mux_thumbnail_url(_, _, _), do: nil
+
+  # Sensible default dimensions per aspect — callers can still override via
+  # :width / :height opts when a specific card size is known.
+  defp aspect_defaults(:portrait), do: {480, 720}
+  defp aspect_defaults(_), do: {640, 360}
 
   # ---------------------------------------------------------------------------
   # Series Card

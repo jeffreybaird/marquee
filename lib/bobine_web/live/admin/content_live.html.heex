@@ -17,10 +17,17 @@
       show_tag_picker={@show_tag_picker}
       tag_search={@tag_search}
       can_manage={@can_manage}
-      video_thumbnail_state={
+      portrait_thumbnail_state={
         BobineWeb.Admin.ImageUploadHandlers.upload_state(
           @image_uploads,
-          "video_thumbnail",
+          "video_portrait_thumbnail",
+          @viewing_video.id
+        )
+      }
+      landscape_thumbnail_state={
+        BobineWeb.Admin.ImageUploadHandlers.upload_state(
+          @image_uploads,
+          "video_landscape_thumbnail",
           @viewing_video.id
         )
       }
