@@ -48,3 +48,7 @@ Trace-*
 error.log
 
 .claude/settings.local.json
+
+# Sub-agent scratch worktrees — session-local, never tracked.
+.claude/worktrees/
+.claire/
