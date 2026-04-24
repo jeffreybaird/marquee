@@ -28,7 +28,12 @@ defmodule Bobine.MixProject do
 
   def cli do
     [
-      preferred_envs: [{:precommit, :test}, {:"bobine.verify", :test}]
+      preferred_envs: [
+        {:precommit, :test},
+        {:"bobine.verify", :test},
+        {:cucumber, :test},
+        {:"bobine.cucumber", :test}
+      ]
     ]
   end
 
@@ -98,7 +103,8 @@ defmodule Bobine.MixProject do
 
       # Structured JSON logging for production
       {:logger_json, "~> 6.0"},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:cucumberex, "~> 0.2.1", only: :test}
     ]
   end
 
@@ -127,7 +133,8 @@ defmodule Bobine.MixProject do
         "esbuild bobine --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"],
+      "bobine.cucumber": ["cucumber"]
     ]
   end
 end
