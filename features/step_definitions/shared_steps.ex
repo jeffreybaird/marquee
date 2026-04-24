@@ -9,7 +9,6 @@ defmodule BobineFeatures.Steps.Shared do
   use Cucumberex.DSL
 
   use Wallaby.DSL
-  import Wallaby.Query
   import Bobine.Factory
   import ExUnit.Assertions
 
@@ -42,6 +41,10 @@ defmodule BobineFeatures.Steps.Shared do
 
   given_ "I am logged in as an operator with the editor role", fn world ->
     log_in_as_operator(world, :editor)
+  end
+
+  given_ "I am logged in as an organization owner", fn world ->
+    log_in_as_operator(world, :owner)
   end
 
   # ---- Navigation ---------------------------------------------------------
@@ -88,6 +91,11 @@ defmodule BobineFeatures.Steps.Shared do
 
   given_ "I am on the audit log page", fn world ->
     session = visit(world.session, "/admin/audit-log?org=#{world.org.slug}")
+    Map.put(world, :session, session)
+  end
+
+  given_ "I am on the appearance settings page", fn world ->
+    session = visit(world.session, "/admin/appearance?org=#{world.org.slug}")
     Map.put(world, :session, session)
   end
 
