@@ -260,6 +260,15 @@ defmodule Bobine.Factory do
     }
   end
 
+  def continue_watching_dismissal_factory do
+    %Bobine.Engagement.ContinueWatchingDismissal{
+      organization: build(:organization),
+      viewer: build(:viewer),
+      video: build(:video),
+      dismissed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+  end
+
   def playback_drop_off_factory do
     %Bobine.Engagement.PlaybackDropOff{
       organization: build(:organization),

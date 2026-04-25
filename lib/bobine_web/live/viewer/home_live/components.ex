@@ -470,6 +470,87 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
     """
   end
 
+  attr :row, :map, required: true
+  attr :items, :list, required: true
+  attr :current_viewer, :map, default: nil
+  attr :favorited_ids, :any, default: nil
+  attr :watchlisted_ids, :any, default: nil
+  attr :queued_ids, :any, default: nil
+
+  @doc """
+  Renders a continue-watching row with per-card dismiss buttons.
+
+  Uses `ViewerComponents.content_item_card` for real continue watching item data.
+  Renders nothing when `items` is empty.
+
+  Exempt from doctest — renders LiveView HTML with side effects.
+  """
+  def continue_watching_content_row(%{items: []} = assigns), do: ~H""
+
+  def continue_watching_content_row(assigns) do
+    ~H"""
+    <section
+      class="content-row"
+      id={"row-#{@row.id}"}
+      phx-hook="RowScroller"
+      data-test={"content-row-#{@row.id}"}
+      data-card-variant="landscape_episode"
+    >
+      <div class="content-row-header">
+        <h2 class="content-row-title">{@row.title}</h2>
+      </div>
+      <div class="content-row-scroll">
+        <button
+          class="row-arrow row-arrow-prev row-arrow-hidden"
+          aria-label="Scroll left"
+          data-test={"row-arrow-prev-#{@row.id}"}
+        >
+          <.icon name="hero-chevron-left" class="size-5" aria-hidden="true" />
+        </button>
+        <div class="content-row-items" data-card-variant="landscape_episode">
+          <div
+            :for={item <- @items}
+            class="relative flex-none group/cw"
+            id={"cw-item-#{item.id}"}
+          >
+            <button
+              type="button"
+              phx-click="dismiss_continue"
+              phx-value-id={item.id}
+              phx-value-kind={if item[:series_id], do: "series", else: "video"}
+              aria-label={"Remove #{item[:title] || "item"} from continue watching"}
+              data-test={"dismiss-#{item.id}"}
+              class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-80 transition-opacity duration-150 hover:bg-black/80 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <.icon name="hero-x-mark" class="h-4 w-4" />
+            </button>
+            <ViewerComponents.content_item_card
+              item={item}
+              size="row"
+              current_viewer={@current_viewer}
+              card_id={"cw-card-#{item.id}"}
+              favorited_ids={@favorited_ids || MapSet.new()}
+              watchlisted_ids={@watchlisted_ids || MapSet.new()}
+              queued_ids={@queued_ids || MapSet.new()}
+              preview_on_hover={true}
+              show_details={true}
+              title_overlay={false}
+              aspect={:landscape}
+            />
+          </div>
+        </div>
+        <button
+          class="row-arrow row-arrow-next"
+          aria-label="Scroll right"
+          data-test={"row-arrow-next-#{@row.id}"}
+        >
+          <.icon name="hero-chevron-right" class="size-5" aria-hidden="true" />
+        </button>
+      </div>
+    </section>
+    """
+  end
+
   defp item_card_id(row, %{type: :next_season, season: %{id: season_id}}),
     do: "home-row-#{row.id}-card-season-#{season_id}"
 

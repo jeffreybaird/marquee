@@ -46,18 +46,28 @@
       <%!-- Catalog rows --%>
       <section :if={@rows != []} class="catalog-rows" data-test="catalog-rows">
         <%= for %{row: row, items: items, view_all_path: view_all_path} <- @rows do %>
-          <%= if row.source_type == :welcome_text do %>
-            <.welcome_text_row row={row} />
-          <% else %>
-            <.content_row
-              row={row}
-              items={items}
-              view_all_path={view_all_path}
-              current_viewer={@current_viewer}
-              favorited_ids={@favorited_ids}
-              watchlisted_ids={@watchlisted_ids}
-              queued_ids={@queued_ids}
-            />
+          <%= cond do %>
+            <% row.source_type == :welcome_text -> %>
+              <.welcome_text_row row={row} />
+            <% row.source_type == :continue_watching -> %>
+              <.continue_watching_content_row
+                row={row}
+                items={items}
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
+              />
+            <% true -> %>
+              <.content_row
+                row={row}
+                items={items}
+                view_all_path={view_all_path}
+                current_viewer={@current_viewer}
+                favorited_ids={@favorited_ids}
+                watchlisted_ids={@watchlisted_ids}
+                queued_ids={@queued_ids}
+              />
           <% end %>
         <% end %>
       </section>

@@ -173,7 +173,11 @@ defmodule BobineWeb.Components.Rows do
 
   attr :id, :string, required: true
   attr :title, :string, default: "Continue watching"
-  attr :card, :atom, required: true, values: [:landscape_episode, :progress_course]
+
+  attr :card, :atom,
+    required: true,
+    values: [:landscape_episode, :progress_course, :poster_portrait]
+
   attr :items, :list, required: true
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
@@ -190,15 +194,19 @@ defmodule BobineWeb.Components.Rows do
     <.scroll_row id={@id} title={@title} see_all_href={nil} kind="continue-watching">
       <div
         :for={item <- @items}
-        class="relative flex-none w-64 sm:w-72 md:w-80 group/cw"
+        class={[
+          "relative flex-none group/cw",
+          continue_watching_card_width(@card)
+        ]}
       >
         <button
           type="button"
           phx-click="dismiss_continue"
           phx-value-id={item.id}
+          phx-value-kind={if item[:series_id], do: "series", else: "video"}
           aria-label={"Remove #{item.title} from continue watching"}
           data-test={"dismiss-#{item.id}"}
-          class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-overlay/90 text-text-primary opacity-0 transition-opacity duration-150 hover:bg-elevated focus-visible:opacity-100 group-hover/cw:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-80 transition-opacity duration-150 hover:bg-black/80 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <.icon name="hero-x-mark" class="h-4 w-4" />
         </button>
@@ -215,6 +223,11 @@ defmodule BobineWeb.Components.Rows do
     </.scroll_row>
     """
   end
+
+  # Portrait cards are narrower than landscape ones; keep the row's
+  # snap width in sync with the card's intrinsic aspect.
+  defp continue_watching_card_width(:poster_portrait), do: "w-40 sm:w-48 md:w-56"
+  defp continue_watching_card_width(_), do: "w-64 sm:w-72 md:w-80"
 
   # ---------------------------------------------------------------------------
   # Series Row — current episode gets accent ring

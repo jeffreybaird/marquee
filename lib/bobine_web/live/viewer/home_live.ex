@@ -21,6 +21,7 @@ defmodule BobineWeb.Viewer.HomeLive do
   alias Bobine.Accounts
   alias Bobine.Catalog
   alias Bobine.Content
+  alias Bobine.Engagement
   alias Bobine.LandingPage
   alias BobineWeb.Components.ViewerLayout
 
@@ -149,6 +150,24 @@ defmodule BobineWeb.Viewer.HomeLive do
   end
 
   @impl true
+  def handle_event("dismiss_continue", %{"id" => id, "kind" => "series"}, socket) do
+    org = socket.assigns[:organization]
+    viewer = socket.assigns[:current_viewer]
+    socket = remove_continue_watching_item(socket, id)
+    if org && viewer, do: Engagement.dismiss_continue_watching(org, viewer, %{series_id: id})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("dismiss_continue", %{"id" => id, "kind" => "video"}, socket) do
+    org = socket.assigns[:organization]
+    viewer = socket.assigns[:current_viewer]
+    socket = remove_continue_watching_item(socket, id)
+    if org && viewer, do: Engagement.dismiss_continue_watching(org, viewer, %{video_id: id})
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_info({:layout_updated, _layout}, socket) do
     org = socket.assigns[:organization]
     viewer = socket.assigns[:current_viewer]
@@ -186,4 +205,17 @@ defmodule BobineWeb.Viewer.HomeLive do
   end
 
   defp resolve_view_all_path(_org, _row), do: nil
+
+  defp remove_continue_watching_item(socket, item_id) do
+    rows =
+      Enum.map(socket.assigns[:rows] || [], fn
+        %{row: %{source_type: :continue_watching}, items: items} = entry ->
+          Map.put(entry, :items, Enum.reject(items, &(&1.id == item_id)))
+
+        entry ->
+          entry
+      end)
+
+    assign(socket, :rows, rows)
+  end
 end

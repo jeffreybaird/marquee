@@ -14,6 +14,7 @@ defmodule Bobine.Engagement do
   alias Bobine.Content.{Episode, Season, Series, Video}
 
   alias Bobine.Engagement.{
+    ContinueWatchingDismissal,
     Favorite,
     PlaybackDropOff,
     Progress,
@@ -1218,6 +1219,102 @@ defmodule Bobine.Engagement do
   end
 
   @doc """
+  Dismisses an item from the viewer's continue-watching row.
+
+  Accepts either `%{series_id: id}` for series/episode items or
+  `%{video_id: id}` for standalone video items. Dismissed items are
+  suppressed in `list_continue_watching` until the viewer's progress
+  advances past the dismissal timestamp.
+
+  Exempt from doctest — hits the database.
+  """
+  def dismiss_continue_watching(%Organization{} = org, %{} = viewer, %{series_id: series_id})
+      when is_binary(series_id) do
+    Bobine.Otel.with_span "bobine.engagement.dismiss_continue_watching",
+                          %{
+                            "bobine.org.id" => org.id,
+                            "bobine.viewer.id" => viewer.id,
+                            "bobine.engagement.dismiss_kind" => "series"
+                          } do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      attrs = %{
+        organization_id: org.id,
+        viewer_id: viewer.id,
+        series_id: series_id,
+        dismissed_at: now
+      }
+
+      result =
+        %ContinueWatchingDismissal{}
+        |> ContinueWatchingDismissal.series_changeset(attrs)
+        |> Repo.insert(
+          on_conflict: {:replace, [:dismissed_at, :updated_at]},
+          conflict_target:
+            {:unsafe_fragment,
+             "(viewer_id, series_id, organization_id) WHERE series_id IS NOT NULL"}
+        )
+
+      case result do
+        {:ok, dismissal} ->
+          Events.broadcast(
+            nil,
+            {:continue_watching_dismissed,
+             %{organization: org, viewer: viewer, series_id: series_id}}
+          )
+
+          {:ok, dismissal}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  def dismiss_continue_watching(%Organization{} = org, %{} = viewer, %{video_id: video_id})
+      when is_binary(video_id) do
+    Bobine.Otel.with_span "bobine.engagement.dismiss_continue_watching",
+                          %{
+                            "bobine.org.id" => org.id,
+                            "bobine.viewer.id" => viewer.id,
+                            "bobine.engagement.dismiss_kind" => "video"
+                          } do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      attrs = %{
+        organization_id: org.id,
+        viewer_id: viewer.id,
+        video_id: video_id,
+        dismissed_at: now
+      }
+
+      result =
+        %ContinueWatchingDismissal{}
+        |> ContinueWatchingDismissal.video_changeset(attrs)
+        |> Repo.insert(
+          on_conflict: {:replace, [:dismissed_at, :updated_at]},
+          conflict_target:
+            {:unsafe_fragment,
+             "(viewer_id, video_id, organization_id) WHERE video_id IS NOT NULL"}
+        )
+
+      case result do
+        {:ok, dismissal} ->
+          Events.broadcast(
+            nil,
+            {:continue_watching_dismissed,
+             %{organization: org, viewer: viewer, video_id: video_id}}
+          )
+
+          {:ok, dismissal}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
   Returns the viewer's continue-watching items.
 
   Mixes three kinds of entries, deduplicated to one per series:
@@ -1245,6 +1342,7 @@ defmodule Bobine.Engagement do
       per_page = Keyword.get(opts, :per_page, 20)
 
       in_progress_records = list_in_progress_records(org, viewer)
+      dismissals = load_dismissals(org, viewer)
 
       episode_items = build_in_progress_items(org, in_progress_records)
       between_items = find_between_episode_items(org, viewer, in_progress_records)
@@ -1253,6 +1351,7 @@ defmodule Bobine.Engagement do
       results =
         (episode_items ++ between_items ++ next_season_items)
         |> deduplicate_by_series()
+        |> Enum.reject(&dismissed?(&1, dismissals))
         |> Enum.sort_by(& &1.last_activity_at, {:desc, DateTime})
         |> Enum.take(per_page)
 
@@ -1277,6 +1376,29 @@ defmodule Bobine.Engagement do
     |> Repo.all()
   end
 
+  defp load_dismissals(%Organization{id: org_id}, %{id: viewer_id}) do
+    ContinueWatchingDismissal
+    |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
+    |> Repo.all()
+  end
+
+  # An item is suppressed when there's a dismissal that was recorded AFTER
+  # the item's most recent activity (i.e. the viewer hasn't watched again
+  # since dismissing). If last_activity_at > dismissed_at the item resurfaces.
+  defp dismissed?(_item, []), do: false
+
+  defp dismissed?(item, dismissals) do
+    Enum.any?(dismissals, fn d ->
+      key_matches =
+        (item[:series_id] && d.series_id == item[:series_id]) ||
+          (is_nil(item[:series_id]) && item[:video] && d.video_id == item.video.id)
+
+      key_matches &&
+        (is_nil(item[:last_activity_at]) ||
+           DateTime.compare(item.last_activity_at, d.dismissed_at) != :gt)
+    end)
+  end
+
   defp build_in_progress_items(%Organization{} = org, in_progress_records) do
     video_ids = Enum.map(in_progress_records, & &1.video_id)
     contexts = Content.batch_get_episode_contexts(org, video_ids)
@@ -1284,8 +1406,11 @@ defmodule Bobine.Engagement do
     Enum.map(in_progress_records, fn progress ->
       video = progress.video
       episode_context = Map.get(contexts, video.id)
+      series_id = episode_context && episode_context.series && episode_context.series.id
 
       %{
+        id: series_id || video.id,
+        title: video.title,
         type: :in_progress,
         video: video,
         episode_context: episode_context,
@@ -1294,7 +1419,7 @@ defmodule Bobine.Engagement do
         last_activity_at: progress.updated_at,
         season: episode_context && episode_context.season,
         series: episode_context && episode_context.series,
-        series_id: episode_context && episode_context.series.id
+        series_id: series_id
       }
     end)
   end
@@ -1378,6 +1503,8 @@ defmodule Bobine.Engagement do
 
         [
           %{
+            id: season.series_id,
+            title: series.title,
             type: :between_episodes,
             video: next_episode.video,
             episode_context: episode_context,
@@ -1475,6 +1602,8 @@ defmodule Bobine.Engagement do
 
         [
           %{
+            id: season.series_id,
+            title: series.title,
             type: :next_season,
             video: nil,
             episode_context: nil,

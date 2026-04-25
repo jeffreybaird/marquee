@@ -142,6 +142,79 @@ defmodule BobineWeb.Viewer.HomeLiveTest do
       assert html =~ "Resume Me"
     end
 
+    test "continue watching card shows a progress bar for in_progress items", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Halfway There",
+          mux_status: "ready",
+          duration: 600.0
+        )
+
+      insert(:row,
+        organization: org,
+        title: "Continue Watching",
+        source_type: :continue_watching,
+        visible: true,
+        position: 0
+      )
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 300.0,
+        duration: 600.0,
+        completed: false
+      )
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/")
+
+      assert html =~ ~s(data-test="continue-card-progress-#{video.id}")
+    end
+
+    test "dismissing a continue watching card removes it from the row", %{conn: _conn} do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Dismiss Me",
+          mux_status: "ready",
+          duration: 600.0
+        )
+
+      insert(:row,
+        organization: org,
+        title: "Continue Watching",
+        source_type: :continue_watching,
+        visible: true,
+        position: 0
+      )
+
+      insert(:progress,
+        organization: org,
+        viewer: viewer,
+        video: video,
+        position: 100.0,
+        duration: 600.0,
+        completed: false
+      )
+
+      {:ok, view, html} = live(conn_for_viewer(viewer), ~p"/")
+      assert html =~ "Dismiss Me"
+
+      view
+      |> element(~s([data-test="dismiss-#{video.id}"]))
+      |> render_click()
+
+      refute render(view) =~ "Dismiss Me"
+    end
+
     test "welcome_text row renders configured eyebrow, headline, body, and CTA", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
