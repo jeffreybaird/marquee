@@ -47,6 +47,12 @@ defmodule BobineWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Dev-only local upload receiver. Mounted above Plug.Parsers so that
+  # raw PUT bodies aren't consumed by the webhook body reader.
+  if Application.compile_env(:bobine, :dev_routes) do
+    plug BobineWeb.Plugs.DevUploadReceiver
+  end
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],

@@ -71,6 +71,19 @@ config :bobine, BobineWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :bobine, dev_routes: true
 
+# Store uploaded files on the local filesystem instead of DigitalOcean
+# Spaces. Files land under `priv/static/uploads/` (gitignored) and are
+# served by Plug.Static at `/uploads/<key>`. URLs are relative so they
+# work across tenant subdomains. URLs written to the database while this
+# client is active are dev-only — do not copy a dev DB to staging/prod.
+config :bobine, Bobine.Storage,
+  client: Bobine.Storage.LocalClient,
+  bucket: "dev-local",
+  region: "local",
+  host: "localhost",
+  public_url_base: "/uploads",
+  local_upload_dir: Path.expand("../priv/static/uploads", __DIR__)
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 
