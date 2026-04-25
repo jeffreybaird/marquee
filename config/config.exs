@@ -150,7 +150,11 @@ config :logger, :default_formatter,
     :live_event_id,
     :current_status,
     :reminder_id,
-    :errors
+    :errors,
+    :payment_intent_id,
+    :ticket_id,
+    :stripe_payment_intent_id,
+    :ticket_count
   ]
 
 # Configure Oban

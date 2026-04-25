@@ -16,6 +16,8 @@ defmodule BobineWeb.Plugs.DevUploadReceiver do
 
   import Plug.Conn
 
+  alias Bobine.Storage.LocalClient
+
   @prefix "/dev/uploads/"
   @max_bytes 25_000_000
 
@@ -69,7 +71,7 @@ defmodule BobineWeb.Plugs.DevUploadReceiver do
   end
 
   defp write_file!(key, body) do
-    full_path = Path.join(Bobine.Storage.LocalClient.upload_dir(), key)
+    full_path = Path.join(LocalClient.upload_dir(), key)
     File.mkdir_p!(Path.dirname(full_path))
     File.write!(full_path, body)
   end

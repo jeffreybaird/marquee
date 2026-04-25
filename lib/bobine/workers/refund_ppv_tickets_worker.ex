@@ -82,7 +82,7 @@ defmodule Bobine.Workers.RefundPpvTicketsWorker do
           reason: inspect(reason)
         )
 
-      {:db, {:error, reason}} ->
+      {:db, {:error, :validation, reason}} ->
         Logger.error("Failed to mark ticket as refunded in DB",
           ticket_id: ticket.id,
           live_event_id: live_event_id,

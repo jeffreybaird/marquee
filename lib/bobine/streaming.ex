@@ -31,6 +31,7 @@ defmodule Bobine.Streaming do
   alias Bobine.Streaming.LiveEventReminder
   alias Bobine.Streaming.LiveEventTicket
   alias Bobine.Viewers.Viewer
+  alias Bobine.Workers.RefundPpvTicketsWorker
 
   # Active subscription statuses that grant access to subscribers-only events
   @active_subscription_statuses ~w(active trial past_due)
@@ -188,7 +189,7 @@ defmodule Bobine.Streaming do
             "live_event_id" => canceled_event.id,
             "organization_id" => canceled_event.organization_id
           }
-          |> Bobine.Workers.RefundPpvTicketsWorker.new()
+          |> RefundPpvTicketsWorker.new()
           |> Oban.insert()
         end
 
