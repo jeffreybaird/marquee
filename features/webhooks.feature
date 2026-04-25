@@ -20,7 +20,7 @@ Feature: Mux Webhook Processing
 
   Scenario: Mux webhook with invalid signature is rejected
     When Mux POSTs a webhook with an invalid Mux-Signature header
-    Then the request is rejected with a 401 response
+    Then the request is rejected with a 400 response
     And no processing occurs
 
   Scenario: Mux webhook organization is resolved from passthrough metadata
@@ -67,7 +67,7 @@ Feature: Stripe Webhook Processing
 
   Scenario: Stripe webhook with invalid signature is rejected
     When Stripe POSTs a webhook with an invalid Stripe-Signature header
-    Then the request is rejected with a 401 response
+    Then the request is rejected with a 400 response
     And no processing occurs
 
   Scenario: Stripe Connect webhook is routed to the correct organization
