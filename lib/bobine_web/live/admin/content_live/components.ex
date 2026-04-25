@@ -35,17 +35,16 @@ defmodule BobineWeb.Admin.ContentLive.Components do
         </AdminUI.admin_button>
       </:actions>
 
-      <div class="mb-4">
+      <form phx-change="search" phx-submit="search" class="mb-4">
         <.input
           type="text"
           name="search"
           value={@search}
           placeholder="Search videos by title…"
-          phx-change="search"
           phx-debounce="300"
           data-test="video-search"
         />
-      </div>
+      </form>
 
       <AdminUI.admin_empty
         :if={@videos == []}

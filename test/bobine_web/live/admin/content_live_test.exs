@@ -205,6 +205,20 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       refute html =~ "Beta Film"
     end
 
+    test "search input is wrapped in a form element so phx-change fires in the browser",
+         %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/content")
+
+      # phx-change must be on the <form> tag so the browser serializes
+      # all form field values correctly on each keystroke
+      assert html =~ ~r/<form[^>]*phx-change="search"/
+      assert html =~ ~s(data-test="video-search")
+    end
+
     test "video title opens detail view", %{conn: _conn} do
       org = insert(:organization)
       user = insert(:user)
