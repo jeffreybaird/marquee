@@ -51,6 +51,12 @@ defmodule BobineWeb.WallabyCase do
 
     session
     |> Wallaby.Browser.click(Wallaby.Query.button(button_text))
+    # `phx-trigger-action` submits the login form asynchronously after the
+    # LiveView re-render, so Wallaby's click returns before the redirect
+    # that sets the session cookie has landed. Wait for the confirmation
+    # button to disappear before forcing the org context — otherwise the
+    # follow-up visit races the cookie write and lands back on /log-in.
+    |> wait_until_gone(Wallaby.Query.button(button_text))
     # Visit the org-specific admin page to seed organization_id into the new session
     |> Wallaby.Browser.visit("/admin?org=#{org.slug}")
   end
@@ -73,6 +79,29 @@ defmodule BobineWeb.WallabyCase do
         "Keep me logged in on this device"
       end
 
-    Wallaby.Browser.click(session, Wallaby.Query.button(button_text))
+    session
+    |> Wallaby.Browser.click(Wallaby.Query.button(button_text))
+    |> wait_until_gone(Wallaby.Query.button(button_text))
+  end
+
+  # Polls up to `timeout_ms` for the given query to stop matching. Used after
+  # clicking a `phx-trigger-action` submit button so the subsequent navigation
+  # step doesn't race the form POST that sets the session cookie.
+  defp wait_until_gone(session, query, timeout_ms \\ 5_000, step_ms \\ 50) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_wait_until_gone(session, query, deadline, step_ms)
+  end
+
+  defp do_wait_until_gone(session, query, deadline, step_ms) do
+    if Wallaby.Browser.has?(session, query) do
+      if System.monotonic_time(:millisecond) >= deadline do
+        session
+      else
+        Process.sleep(step_ms)
+        do_wait_until_gone(session, query, deadline, step_ms)
+      end
+    else
+      session
+    end
   end
 end

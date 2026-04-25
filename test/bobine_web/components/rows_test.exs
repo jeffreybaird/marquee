@@ -152,6 +152,44 @@ defmodule BobineWeb.Components.RowsTest do
       assert html =~ "2h 14m left"
       assert html =~ "45m left"
     end
+
+    test "dismiss button is visible by default (semi-opaque), not hover-only" do
+      items = [course("c1", %{time_remaining: "1h"})]
+
+      html =
+        render_component(&Rows.continue_watching_row/1, %{
+          id: "cw",
+          card: :progress_course,
+          items: items
+        })
+
+      # Always-on (semi-opaque): dismiss button starts at 80% opacity rather
+      # than the prior hover-to-reveal opacity-0.
+      assert html =~ ~s(data-test="dismiss-c1")
+      [dismiss_html] = Regex.run(~r/<button[^>]*data-test="dismiss-c1"[^>]*>/, html)
+      assert dismiss_html =~ "opacity-80"
+      refute dismiss_html =~ "opacity-0"
+    end
+
+    test "supports poster_portrait variant with portrait widths" do
+      item =
+        Map.merge(course("c1", %{time_remaining: "1h"}), %{
+          year: 2024,
+          duration: "1h"
+        })
+
+      html =
+        render_component(&Rows.continue_watching_row/1, %{
+          id: "cw-portrait",
+          card: :poster_portrait,
+          items: [item]
+        })
+
+      assert html =~ ~s(data-test="dismiss-c1")
+      # Portrait width (w-40 family) rather than landscape (w-64 family)
+      assert html =~ "w-40"
+      refute html =~ "w-64"
+    end
   end
 
   describe "series_row/1" do
