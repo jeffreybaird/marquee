@@ -37,7 +37,8 @@ defmodule BobineWeb.Components.CardsTest do
       html = render_component(&Cards.poster_portrait/1, %{item: item})
 
       assert html =~ "width: 42%"
-      assert html =~ "bg-accent"
+      assert html =~ "bg-white"
+      assert html =~ "bg-black/60"
     end
 
     test "omits progress bar when progress absent" do
@@ -189,6 +190,48 @@ defmodule BobineWeb.Components.CardsTest do
       html = render_component(&Cards.progress_course/1, %{item: item})
       assert html =~ "bg-success"
       assert html =~ "100%"
+    end
+
+    test "renders progress overlay on the thumb even when details are hidden" do
+      item = %{
+        id: "co3",
+        title: "Hidden Details",
+        instructor: "x",
+        lessons_completed: 4,
+        lessons_total: 10,
+        percent: 40,
+        image_url: "x"
+      }
+
+      html =
+        render_component(&Cards.progress_course/1, %{
+          item: item,
+          show_details: false
+        })
+
+      # The details panel is gone (lesson string only renders there)…
+      refute html =~ "Lesson 4 of 10"
+      # …but the progress bar is still rendered on the thumbnail.
+      assert html =~ ~s(data-test="card-course-progress-co3")
+      assert html =~ ~s(aria-valuenow="40")
+      assert html =~ "width: 40%"
+    end
+
+    test "omits the progress overlay when percent is zero" do
+      item = %{
+        id: "co4",
+        title: "Not started",
+        instructor: "x",
+        lessons_completed: 0,
+        lessons_total: 10,
+        percent: 0,
+        image_url: "x"
+      }
+
+      html = render_component(&Cards.progress_course/1, %{item: item})
+
+      refute html =~ ~s(data-test="card-course-progress-co4")
+      refute html =~ "aria-valuenow="
     end
   end
 

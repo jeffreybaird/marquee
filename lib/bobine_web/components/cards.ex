@@ -79,9 +79,12 @@ defmodule BobineWeb.Components.Cards do
           </h3>
         </div>
 
-        <div :if={@item[:progress]} class="absolute inset-x-0 bottom-0 h-[3px] bg-elevated">
+        <div
+          :if={@item[:progress]}
+          class="absolute inset-x-4 bottom-5 h-1 overflow-hidden rounded-full bg-black/60"
+        >
           <div
-            class="h-full bg-accent"
+            class="h-full rounded-full bg-white"
             style={"width: #{round(@item.progress * 100)}%"}
           />
         </div>
@@ -172,9 +175,12 @@ defmodule BobineWeb.Components.Cards do
           </h3>
         </div>
 
-        <div :if={@item[:progress]} class="absolute inset-x-0 bottom-0 h-[3px] bg-elevated">
+        <div
+          :if={@item[:progress]}
+          class="absolute inset-x-4 bottom-5 h-1 overflow-hidden rounded-full bg-black/60"
+        >
           <div
-            class="h-full bg-accent"
+            class="h-full rounded-full bg-white"
             style={"width: #{round(@item.progress * 100)}%"}
           />
         </div>
@@ -441,6 +447,30 @@ defmodule BobineWeb.Components.Cards do
             {@item.title}
           </h3>
         </div>
+
+        <%!-- Watch-progress bar overlaid on the thumbnail. Inset from the
+             card edges and rounded so it reads as its own UI element rather
+             than blending into the bottom border. Stays visible when the
+             details panel below is hidden, so a "Continue Watching" row
+             always communicates how far through the user is. --%>
+        <div
+          :if={@item.percent > 0}
+          class="absolute inset-x-4 bottom-5 h-1 overflow-hidden rounded-full bg-black/60"
+          role="progressbar"
+          aria-valuenow={@item.percent}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label={"Course progress: #{@item.percent} percent"}
+          data-test={"card-course-progress-#{@item.id}"}
+        >
+          <div
+            class={[
+              "h-full rounded-full",
+              if(@complete?, do: "bg-success", else: "bg-white")
+            ]}
+            style={"width: #{@item.percent}%"}
+          />
+        </div>
       </div>
 
       <div :if={@show_details} class="mt-3 space-y-1.5">
@@ -453,19 +483,6 @@ defmodule BobineWeb.Components.Cards do
         <p class="font-mono text-xs text-text-muted">
           Lesson {@item.lessons_completed} of {@item.lessons_total}
         </p>
-        <div
-          class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-elevated"
-          role="progressbar"
-          aria-valuenow={@item.percent}
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-label={"Course progress: #{@item.percent} percent"}
-        >
-          <div
-            class={["h-full", if(@complete?, do: "bg-success", else: "bg-accent")]}
-            style={"width: #{@item.percent}%"}
-          />
-        </div>
       </div>
     </a>
     """

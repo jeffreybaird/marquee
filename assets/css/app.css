@@ -784,10 +784,22 @@
 
 .sv-card-progress {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: var(--sv-accent);
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  height: 4px;
+  border-radius: 9999px;
+  /* Track + fill in one element: the gradient stop is driven by
+     `--sv-progress` set inline (e.g. style="--sv-progress: 42%"). The
+     left side renders as the white fill, the right side as a
+     semi-opaque black track. */
+  background: linear-gradient(
+    to right,
+    #ffffff 0%,
+    #ffffff var(--sv-progress, 0%),
+    rgba(0, 0, 0, 0.6) var(--sv-progress, 0%),
+    rgba(0, 0, 0, 0.6) 100%
+  );
 }
 
 /* Title overlay rendered directly on the thumbnail when the details bar

@@ -162,7 +162,7 @@ defmodule BobineWeb.Components.ViewerComponents do
             <div
               :if={@progress && @progress > 0}
               class="sv-card-progress"
-              style={"width: #{min(@progress * 100, 100)}%"}
+              style={"--sv-progress: #{min(@progress * 100, 100)}%"}
               data-test={"sv-card-progress-#{@video.id}"}
               aria-label={"#{round(@progress * 100)}% watched"}
             />
@@ -259,7 +259,7 @@ defmodule BobineWeb.Components.ViewerComponents do
           <div
             :if={@progress && @progress > 0}
             class="sv-card-progress"
-            style={"width: #{min(@progress * 100, 100)}%"}
+            style={"--sv-progress: #{min(@progress * 100, 100)}%"}
             aria-hidden="true"
           />
           <div :if={Map.get(@video, :description)} class="sv-card-popup-body">
@@ -372,7 +372,7 @@ defmodule BobineWeb.Components.ViewerComponents do
           <div
             :if={@show_progress_bar?}
             class="sv-card-progress"
-            style={"width: #{@progress_pct}%"}
+            style={"--sv-progress: #{@progress_pct}%"}
             data-test={"continue-card-progress-#{@item.video.id}"}
           />
           <div
