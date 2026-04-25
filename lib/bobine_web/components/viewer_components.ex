@@ -345,7 +345,7 @@ defmodule BobineWeb.Components.ViewerComponents do
         assigns[:card_id] || "continue-card-#{assigns.item.video.id}"
       end)
       |> assign(:thumbnail_url, video_thumbnail_url(assigns.item.video, width: 640, height: 360))
-      |> assign(:show_progress_bar?, type == :in_progress and assigns.item.duration > 0)
+      |> assign(:show_progress_bar?, type == :in_progress)
       |> assign(
         :progress_pct,
         progress_percent(assigns.item.position, assigns.item.duration)
@@ -417,6 +417,8 @@ defmodule BobineWeb.Components.ViewerComponents do
     percent = position / duration * 100
     min(percent, 100)
   end
+
+  defp progress_percent(position, _duration) when is_number(position) and position > 0, do: 10
 
   defp progress_percent(_position, _duration), do: 0
 
