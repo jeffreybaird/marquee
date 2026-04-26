@@ -211,6 +211,13 @@ const MuxPlayer = {
   },
 
   destroyed(this: any) {
+    // Save final position before teardown. pagehide does not fire on
+    // LiveView client-side navigation, so without this any watch shorter
+    // than the progress interval would lose its position entirely.
+    if (this.flushProgress) {
+      this.flushProgress()
+    }
+
     if (this.sendDropOff) {
       this.sendDropOff()
     }
