@@ -452,7 +452,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             favorited_ids={@favorited_ids}
             watchlisted_ids={@watchlisted_ids}
             queued_ids={@queued_ids}
-            preview_on_hover={@card_variant != "poster_portrait"}
+            preview_on_hover={@card_variant == "landscape_episode"}
             show_details={Map.get(@row, :show_details, true)}
             title_overlay={Map.get(@row, :title_overlay, false)}
             aspect={if @card_variant == "poster_portrait", do: :portrait, else: :landscape}
