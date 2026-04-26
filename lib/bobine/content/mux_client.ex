@@ -28,6 +28,18 @@ defmodule Bobine.Content.MuxClient do
   end
 
   @impl true
+  def create_audio_direct_upload(params) do
+    Logger.info("Mux create_audio_direct_upload requested",
+      org_id: logger_org_id(),
+      params: inspect(params, pretty: true, limit: :infinity)
+    )
+
+    traced_call("create_audio_direct_upload", fn ->
+      Uploads.create(client(), params)
+    end)
+  end
+
+  @impl true
   def get_asset(asset_id) do
     traced_call("get_asset", fn ->
       Assets.get(client(), asset_id)

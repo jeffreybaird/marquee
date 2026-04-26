@@ -516,6 +516,83 @@ defmodule Bobine.Factory do
   end
 
   # -------------------------------------------------------------------------
+  # Podcasts
+  # -------------------------------------------------------------------------
+
+  def podcast_show_factory do
+    %Bobine.Podcasts.Show{
+      organization: build(:organization),
+      title: sequence(:show_title, &"Show #{&1}"),
+      slug: sequence(:show_slug, &"show-#{&1}"),
+      description: "A premium podcast.",
+      author: "Author Name",
+      owner_name: "Owner",
+      owner_email: sequence(:show_owner_email, &"owner-#{&1}@example.com"),
+      language: "en-us",
+      primary_category: "Technology",
+      explicit: false,
+      source_type: "direct_upload",
+      access_mode: "any_active",
+      published: true
+    }
+  end
+
+  def feed_import_show_factory do
+    struct!(
+      podcast_show_factory(),
+      source_type: "feed_import",
+      remote_feed_url: sequence(:remote_feed_url, &"https://example.com/feed-#{&1}.xml")
+    )
+  end
+
+  def podcast_show_tier_factory do
+    show = build(:podcast_show)
+    plan = build(:plan, organization: show.organization)
+
+    %Bobine.Podcasts.ShowTier{
+      organization: show.organization,
+      show: show,
+      plan: plan
+    }
+  end
+
+  def podcast_episode_factory do
+    show = build(:podcast_show)
+
+    %Bobine.Podcasts.Episode{
+      organization: show.organization,
+      show: show,
+      guid: sequence(:episode_guid, &"guid-#{&1}"),
+      title: sequence(:episode_title, &"Episode #{&1}"),
+      description: "Episode description.",
+      episode_number: sequence(:episode_number_seq, & &1),
+      episode_type: "full",
+      publish_date: DateTime.utc_now() |> DateTime.truncate(:second),
+      duration_seconds: 1800,
+      mux_asset_id: sequence(:episode_mux_asset_id, &"asset_ep_#{&1}"),
+      mux_playback_id: sequence(:episode_mux_playback_id, &"playback_ep_#{&1}"),
+      mux_status: "ready",
+      mp3_byte_size: 25_000_000,
+      status: "published"
+    }
+  end
+
+  def podcast_feed_token_factory do
+    show = build(:podcast_show)
+    viewer = build(:subscribed_viewer, organization: show.organization)
+
+    %Bobine.Podcasts.FeedToken{
+      organization: show.organization,
+      show: show,
+      viewer: viewer,
+      token: sequence(:feed_token, &"tok_#{&1}_#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}"),
+      status: "active",
+      expires_at:
+        DateTime.utc_now() |> DateTime.add(365, :day) |> DateTime.truncate(:second)
+    }
+  end
+
+  # -------------------------------------------------------------------------
   # Webhooks
   # -------------------------------------------------------------------------
 
