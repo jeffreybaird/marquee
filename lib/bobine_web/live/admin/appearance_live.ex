@@ -805,17 +805,19 @@ defmodule BobineWeb.Admin.AppearanceLive do
         </div>
       </div>
 
-      <%!-- Full-screen canonical preview — uses actual viewer hero_carousel component --%>
+      <%!-- Full-screen canonical preview — renders through the same shared
+           viewer_home_body component as the real viewer home, so the two
+           cannot drift. --%>
       <div
         :if={@preview_expanded}
-        class="fixed inset-0 z-50 overflow-hidden"
+        class="fixed inset-0 z-50 overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-label="Full-size appearance preview"
         data-test="preview-expanded-overlay"
       >
         <div
-          class="sv-root h-full"
+          class="sv-root min-h-full"
           style={
             preview_style(%{
               preview_theme: @preview_theme,
@@ -824,23 +826,17 @@ defmodule BobineWeb.Admin.AppearanceLive do
             })
           }
         >
-          <ViewerHome.hero_carousel
-            id="appearance-preview-hero"
-            slides={@preview_hero_slides}
-            auto_advance_ms={0}
+          <ViewerHome.viewer_home_body
+            hero_slides={@preview_hero_slides}
+            rows={@preview_rows}
+            hero_id="appearance-preview-hero"
+            catalog_rows_test="preview-expanded-catalog-rows"
           />
-          <section class="catalog-rows" data-test="preview-expanded-catalog-rows">
-            <ViewerHome.content_row
-              :for={%{row: row, items: items} <- @preview_rows}
-              row={row}
-              items={items}
-            />
-          </section>
         </div>
         <button
           type="button"
           phx-click="toggle_preview_expanded"
-          class="absolute top-4 right-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          class="fixed top-4 right-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           aria-label="Close full-size preview"
           data-test="close-preview-expanded"
         >
