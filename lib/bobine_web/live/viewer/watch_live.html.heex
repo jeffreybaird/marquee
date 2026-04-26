@@ -216,6 +216,9 @@
       <%!-- Season section (only for episodes) --%>
       <%= if @episode_context do %>
         <section class="sv-season-section" data-test="season-section">
+          <h2 class="sv-row-title" data-test="season-section-heading">
+            Season {@selected_season.season_number}: {@selected_season.title}
+          </h2>
           <%!-- Season selector dropdown --%>
           <div class="sv-season-header">
             <form phx-change="switch_season" data-test="season-selector">

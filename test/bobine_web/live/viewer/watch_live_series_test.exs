@@ -120,6 +120,20 @@ defmodule BobineWeb.Viewer.WatchLiveSeriesTest do
       assert html =~ ~s(data-test="season-selector")
     end
 
+    test "season section heading replaces the More From row", %{conn: _conn} do
+      org = insert(:organization, name: "Test Studio")
+      viewer = insert(:subscribed_viewer, organization: org)
+      {_series, [{_season, episodes}]} = create_series_with_episodes(org)
+
+      ep = List.first(episodes)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{ep.video_id}")
+
+      assert html =~ ~s(data-test="season-section-heading")
+      assert html =~ "Season 1"
+      refute html =~ "More from #{org.name}"
+    end
+
     test "series breadcrumb links to series page", %{conn: _conn} do
       org = insert(:organization)
       viewer = insert(:subscribed_viewer, organization: org)
