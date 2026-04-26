@@ -1365,7 +1365,14 @@ defmodule Bobine.Engagement do
     end
   end
 
-  defp list_in_progress_records(%Organization{id: org_id}, %{id: viewer_id}) do
+  defp list_in_progress_records(%Organization{id: org_id} = org, %{id: viewer_id}) do
+    pg_records = list_pg_progress_records(org_id, viewer_id)
+    buffered = ProgressBuffer.list_viewer_entries(org_id, viewer_id)
+
+    merge_progress_records(pg_records, buffered, org, viewer_id)
+  end
+
+  defp list_pg_progress_records(org_id, viewer_id) do
     Progress
     |> where(organization_id: ^org_id, viewer_id: ^viewer_id)
     |> where([p], p.completed == false)
@@ -1374,6 +1381,76 @@ defmodule Bobine.Engagement do
     |> order_by([p], desc: p.updated_at)
     |> preload(:video)
     |> Repo.all()
+  end
+
+  defp merge_progress_records(pg_records, [], _org, _viewer_id), do: pg_records
+
+  defp merge_progress_records(pg_records, buffered, org, viewer_id) do
+    buffered_by_video = Map.new(buffered, &{&1.video_id, &1})
+    pg_video_ids = MapSet.new(pg_records, & &1.video_id)
+
+    overlaid = Enum.map(pg_records, &overlay_buffered_progress(&1, buffered_by_video))
+
+    buffer_only_entries =
+      buffered
+      |> Enum.reject(&MapSet.member?(pg_video_ids, &1.video_id))
+      |> Enum.filter(&(&1.position > 0.0))
+
+    buffer_only_records = synthesize_buffer_only_progress(buffer_only_entries, org, viewer_id)
+
+    Enum.sort_by(overlaid ++ buffer_only_records, & &1.updated_at, {:desc, DateTime})
+  end
+
+  defp overlay_buffered_progress(%Progress{video_id: video_id} = progress, buffered_by_video) do
+    case Map.get(buffered_by_video, video_id) do
+      nil ->
+        progress
+
+      %{position: position, duration: duration, updated_at: updated_at} ->
+        %{
+          progress
+          | position: position,
+            duration: duration || progress.duration,
+            updated_at: updated_at
+        }
+    end
+  end
+
+  defp synthesize_buffer_only_progress([], _org, _viewer_id), do: []
+
+  defp synthesize_buffer_only_progress(entries, %Organization{id: org_id}, viewer_id) do
+    video_ids = Enum.map(entries, & &1.video_id)
+
+    videos =
+      Video
+      |> where([v], v.organization_id == ^org_id)
+      |> where([v], v.id in ^video_ids)
+      |> where([v], is_nil(v.deleted_at))
+      |> Repo.all()
+      |> Map.new(&{&1.id, &1})
+
+    Enum.flat_map(entries, &build_buffer_only_progress(&1, org_id, viewer_id, videos))
+  end
+
+  defp build_buffer_only_progress(entry, org_id, viewer_id, videos) do
+    case Map.get(videos, entry.video_id) do
+      nil ->
+        []
+
+      video ->
+        [
+          %Progress{
+            organization_id: org_id,
+            viewer_id: viewer_id,
+            video_id: entry.video_id,
+            position: entry.position,
+            duration: entry.duration,
+            completed: false,
+            updated_at: entry.updated_at,
+            video: video
+          }
+        ]
+    end
   end
 
   defp load_dismissals(%Organization{id: org_id}, %{id: viewer_id}) do

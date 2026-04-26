@@ -268,4 +268,82 @@ defmodule Bobine.Engagement.ContinueWatchingTest do
       assert results == []
     end
   end
+
+  ## -----------------------------------------------------------------------
+  ## Buffered progress (pre-flush visibility)
+  ## -----------------------------------------------------------------------
+
+  describe "buffered progress" do
+    setup do
+      Bobine.Buffers.ProgressBuffer.clear()
+      on_exit(fn -> Bobine.Buffers.ProgressBuffer.clear() end)
+      :ok
+    end
+
+    test "buffer-only progress (no PG row) surfaces before flush",
+         %{org: org, viewer: viewer} do
+      video =
+        insert(:video, organization: org, title: "Buffered Solo", duration: 1200.0)
+
+      :ok =
+        Bobine.Buffers.ProgressBuffer.update_viewer(
+          org.id,
+          viewer.id,
+          video.id,
+          240.0,
+          1200.0
+        )
+
+      %{results: [item]} = Engagement.list_continue_watching(org, viewer)
+
+      assert item.type == :in_progress
+      assert item.video.id == video.id
+      assert item.position == 240.0
+      assert item.duration == 1200.0
+    end
+
+    test "buffered position overlays the PG row when both exist",
+         %{org: org, viewer: viewer} do
+      video = insert(:video, organization: org, title: "Resumed", duration: 1800.0)
+      insert_progress(org, viewer, video, 100.0, false)
+
+      :ok =
+        Bobine.Buffers.ProgressBuffer.update_viewer(
+          org.id,
+          viewer.id,
+          video.id,
+          900.0,
+          1800.0
+        )
+
+      %{results: [item]} = Engagement.list_continue_watching(org, viewer)
+
+      assert item.video.id == video.id
+      assert item.position == 900.0
+    end
+
+    test "soft-deleted videos are not synthesized from buffer entries",
+         %{org: org, viewer: viewer} do
+      video =
+        insert(:video,
+          organization: org,
+          title: "Gone",
+          duration: 600.0,
+          deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        )
+
+      :ok =
+        Bobine.Buffers.ProgressBuffer.update_viewer(
+          org.id,
+          viewer.id,
+          video.id,
+          120.0,
+          600.0
+        )
+
+      %{results: results} = Engagement.list_continue_watching(org, viewer)
+
+      assert results == []
+    end
+  end
 end

@@ -67,6 +67,34 @@ defmodule Bobine.Buffers.ProgressBuffer do
   end
 
   @doc """
+  Lists every buffered viewer progress entry for an org+viewer pair.
+
+  Returned entries shape:
+
+      %{video_id: id, position: float, duration: float | nil, updated_at: %DateTime{}}
+
+  Used by the continue-watching read path to surface in-flight progress
+  before the next buffer flush. Returns `[]` when the table is missing
+  (e.g. before init in a test) or when no entries match.
+  """
+  def list_viewer_entries(org_id, viewer_id) do
+    pattern = {{@viewer, org_id, viewer_id, :_}, :_, :_}
+
+    @table
+    |> :ets.match_object(pattern)
+    |> Enum.map(fn {{_, _, _, video_id}, %{position: position, duration: duration}, ts} ->
+      %{
+        video_id: video_id,
+        position: position,
+        duration: duration,
+        updated_at: DateTime.from_unix!(ts)
+      }
+    end)
+  rescue
+    ArgumentError -> []
+  end
+
+  @doc """
   Clears all buffered entries. Useful in tests.
   """
   def clear do
