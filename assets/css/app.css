@@ -1373,10 +1373,30 @@
   background: var(--sv-bg-elevated);
   color: var(--sv-text-primary);
   border: 1px solid var(--sv-border);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 80ms ease;
 }
 
 .sv-btn-secondary:hover {
   background: var(--sv-bg-secondary);
+}
+
+.sv-btn-secondary:active {
+  transform: scale(0.97);
+}
+
+.sv-btn-secondary.active {
+  background: var(--sv-accent);
+  border-color: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+}
+
+.sv-btn-secondary.active:hover {
+  background: var(--sv-accent-hover);
+  border-color: var(--sv-accent-hover);
 }
 
 .sv-btn-ghost {

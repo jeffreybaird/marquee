@@ -322,6 +322,38 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       refute html =~ "hero-bookmark-solid"
     end
+
+    test "favorite button exposes aria-pressed + active class state", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      assert html =~ ~s(data-test="favorite-btn")
+      assert html =~ ~s(aria-pressed="false")
+
+      {:ok, _id, :added} = Engagement.toggle_favorite(org, viewer, video)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      assert html =~ ~s(aria-pressed="true")
+      assert html =~ "sv-btn-secondary active"
+    end
+
+    test "watchlist button exposes aria-pressed + active class state", %{
+      org: org,
+      viewer: viewer,
+      video: video
+    } do
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      assert html =~ ~s(data-test="watchlist-btn")
+      assert html =~ ~s(aria-pressed="false")
+
+      {:ok, _} = Engagement.add_to_watchlist(org, viewer, video)
+
+      {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
+      assert html =~ ~s(aria-pressed="true")
+      assert html =~ "sv-btn-secondary active"
+    end
   end
 
   describe "watchlist toggle round-trip" do

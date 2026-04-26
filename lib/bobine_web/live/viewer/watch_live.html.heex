@@ -186,6 +186,7 @@
             phx-click="toggle_favorite"
             class={["sv-btn sv-btn-secondary", @is_favorited && "active"]}
             data-test="favorite-btn"
+            aria-pressed={to_string(@is_favorited)}
             aria-label={if @is_favorited, do: "Remove from favorites", else: "Add to favorites"}
           >
             <.icon
@@ -200,6 +201,7 @@
             phx-click="toggle_watchlist"
             class={["sv-btn sv-btn-secondary", @in_watchlist && "active"]}
             data-test="watchlist-btn"
+            aria-pressed={to_string(@in_watchlist)}
             aria-label={if @in_watchlist, do: "Remove from watchlist", else: "Add to watchlist"}
           >
             <.icon
