@@ -1529,10 +1529,14 @@
   padding: 24px 48px;
 }
 
-/* Player + Queue sit in their own flex row */
+/* Player + Queue sit in their own flex row.
+   align-items: stretch + min-height: 0 on the queue panel keep the
+   queue from pushing the row taller than the 16:9 player — long
+   queues scroll internally instead of extending past the video. */
 .sv-watch-player-row {
   display: flex;
   gap: 0;
+  align-items: stretch;
 }
 
 .sv-watch-player-col {
@@ -1880,7 +1884,10 @@
   display: none;
   flex-direction: column;
   flex-shrink: 0;
-  /* No sticky — scrolls with the player as one unit */
+  /* min-height: 0 stops intrinsic queue content from forcing the
+     player row taller than 16:9 — long lists scroll internally. */
+  min-height: 0;
+  align-self: stretch;
 }
 
 .sv-queue-panel.open {
