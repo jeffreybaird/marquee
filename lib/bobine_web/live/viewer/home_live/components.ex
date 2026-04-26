@@ -258,13 +258,14 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
     """
   end
 
+  attr :id, :string, default: "hero-carousel"
   attr :slides, :list, required: true
   attr :auto_advance_ms, :integer, required: true
 
   def hero_carousel(assigns) do
     ~H"""
     <section
-      id="hero-carousel"
+      id={@id}
       phx-hook="HeroCarousel"
       data-auto-advance={@auto_advance_ms}
       data-test="hero-carousel"

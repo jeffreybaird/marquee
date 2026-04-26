@@ -11,9 +11,12 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
     test "admin can access the appearance page", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
 
-      {:ok, _view, html} = live(conn_for(membership), ~p"/admin/appearance")
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/appearance")
       assert html =~ "Appearance"
       assert html =~ "Preset chooser"
+      assert has_element?(view, "[data-test='preview-frame']")
+      assert has_element?(view, "[data-test='hero-carousel']")
+      assert has_element?(view, "[data-test='preview-catalog-rows']")
     end
 
     test "unauthenticated user is redirected", %{conn: conn} do
@@ -21,6 +24,39 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
       conn = Map.put(conn, :host, "#{org.slug}.localhost")
       assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/admin/appearance")
       assert path == ~p"/users/log-in"
+    end
+
+    test "renders configured hero slide content in the preview", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      hero_row = insert(:hero_row, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Mission Briefing",
+          description: "A competitive breakdown for the home-page hero."
+        )
+
+      insert(:hero_slide,
+        organization: org,
+        row: hero_row,
+        video: video,
+        position: 0,
+        headline: "Command Phase",
+        brand_tag: "Featured",
+        primary_cta_label: "Watch now",
+        secondary_cta_label: "More info",
+        show_primary_cta: true,
+        show_secondary_cta: true
+      )
+
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      assert has_element?(view, "[data-test='hero-carousel']")
+      assert html =~ "Command Phase"
+      assert has_element?(view, "[data-test='hero-primary-cta-0']", "Watch now")
+      assert has_element?(view, "[data-test='hero-dot-0']")
     end
   end
 
@@ -178,6 +214,99 @@ defmodule BobineWeb.Admin.AppearanceLiveTest do
 
       assert has_element?(view, "[data-test='theme-editor']")
       assert has_element?(view, "[data-test='save-branding-btn']")
+    end
+  end
+
+  describe "expand preview" do
+    test "expand button is present on mount", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      assert has_element?(view, "[data-test='expand-preview-btn']")
+      refute has_element?(view, "[data-test='preview-expanded-overlay']")
+    end
+
+    test "clicking expand button shows the full-screen overlay", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      view
+      |> element("[data-test='expand-preview-btn']")
+      |> render_click()
+
+      assert has_element?(view, "[data-test='preview-expanded-overlay']")
+      assert has_element?(view, "[data-test='hero-carousel']")
+    end
+
+    test "clicking close button dismisses the overlay", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      view
+      |> element("[data-test='expand-preview-btn']")
+      |> render_click()
+
+      assert has_element?(view, "[data-test='preview-expanded-overlay']")
+
+      view
+      |> element("[data-test='close-preview-expanded']")
+      |> render_click()
+
+      refute has_element?(view, "[data-test='preview-expanded-overlay']")
+    end
+
+    test "expanded overlay uses the canonical hero_carousel component", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      hero_row = insert(:hero_row, organization: org)
+
+      video =
+        insert(:video,
+          organization: org,
+          title: "Mission Briefing",
+          description: "A competitive breakdown."
+        )
+
+      insert(:hero_slide,
+        organization: org,
+        row: hero_row,
+        video: video,
+        position: 0,
+        headline: "Expanded View Test",
+        show_primary_cta: true,
+        show_secondary_cta: true
+      )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      view
+      |> element("[data-test='expand-preview-btn']")
+      |> render_click()
+
+      assert has_element?(view, "[data-test='preview-expanded-overlay']")
+      assert has_element?(view, "[data-test='hero-carousel']")
+    end
+
+    test "inline preview reuses the canonical hero_carousel + content_row components",
+         %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      assert has_element?(view, "[data-test='hero-carousel']")
+      assert has_element?(view, "[data-test='preview-catalog-rows']")
+      assert html =~ "hero-cta-primary"
+      assert html =~ "hero-cta-secondary"
+    end
+
+    test "inline preview hides rows while expanded so ids stay unique", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      view |> element("[data-test='expand-preview-btn']") |> render_click()
+
+      assert has_element?(view, "[data-test='preview-expanded-overlay']")
+      refute has_element?(view, "[data-test='preview-catalog-rows']")
+      assert has_element?(view, "[data-test='preview-expanded-catalog-rows']")
     end
   end
 end

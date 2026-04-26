@@ -43,6 +43,31 @@ Feature: Theme and Color Customization
     Then the color preview updates in the UI
     But the live viewer site is not changed until I apply
 
+  Scenario: Operator expands preview to full screen
+    Given I am on the appearance settings page
+    When I click the expand preview button
+    Then a full-screen overlay appears
+    And the overlay renders the canonical hero carousel component
+    And the CTA buttons in the overlay match the viewer site exactly
+
+  Scenario: Operator dismisses the expanded preview
+    Given the full-screen preview overlay is open
+    When I click the close button on the overlay
+    Then the overlay is dismissed
+    And I return to the appearance editor
+
+  Scenario: Mini preview CTA buttons match viewer CTA styles
+    Given I am on the appearance settings page
+    Then the primary CTA in the mini preview uses the hero-cta-primary CSS class
+    And the secondary CTA in the mini preview uses the hero-cta-secondary CSS class
+    And both CTAs reflect my configured accent color and text-on-accent color
+
+  Scenario: Mini preview reuses the real viewer hero carousel and content rows
+    Given I am on the appearance settings page
+    Then the mini preview renders the canonical hero carousel component
+    And the mini preview renders the canonical content row component
+    And default hero, landscape, and portrait images populate the preview when the catalog is empty
+
 Feature: Organization Branding Configuration
 
   Background:
