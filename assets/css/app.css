@@ -2236,10 +2236,10 @@
   border-bottom-color: var(--sv-accent);
 }
 
-/* Two-column details/actions row beneath the player.
+/* Two-column details/actions row beneath the on-demand watch player.
    Left column = title + meta + description.
    Right column = vertical stack of action buttons. */
-.sv-watch-info {
+.sv-watch-details {
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(220px, 22vw, 320px);
   gap: 32px;
@@ -2559,7 +2559,7 @@
   .sv-watch-layout { padding: 16px; }
   .sv-watch-player-row { flex-direction: column; }
   .sv-player-container { border-radius: 0; margin: 0 -16px; width: calc(100% + 32px); }
-  .sv-watch-info { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .sv-watch-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .sv-video-actions { flex-direction: row; flex-wrap: wrap; }
 
   /* Season section - mobile */
@@ -3672,40 +3672,42 @@ details[open] .sv-faq-question::after {
 
 /* =========================================================================
    Live Event Watch Page — player + chat drawer
-   ========================================================================= */
+   Scoped under .sv-live-watch-layout so the on-demand /watch page
+   (which uses .sv-watch-layout as a plain block container) is not
+   forced into the live-event grid. */
 
-.sv-watch-layout {
+.sv-live-watch-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
+.sv-live-watch-layout .sv-live-watch-player {
+  min-width: 0;
+}
+
 @media (min-width: 1024px) {
-  .sv-watch-layout {
+  .sv-live-watch-layout {
     grid-template-columns: minmax(0, 1fr) 360px;
     grid-template-rows: auto auto;
     column-gap: 24px;
     row-gap: 16px;
   }
 
-  .sv-watch-player {
+  .sv-live-watch-layout .sv-live-watch-player {
     grid-column: 1;
     grid-row: 1;
   }
 
-  .sv-watch-info {
+  .sv-live-watch-layout .sv-watch-info {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .sv-watch-chat-panel {
+  .sv-live-watch-layout .sv-watch-chat-panel {
     grid-column: 2;
     grid-row: 1;
   }
-}
-
-.sv-watch-player {
-  min-width: 0;
 }
 
 .sv-live-info {

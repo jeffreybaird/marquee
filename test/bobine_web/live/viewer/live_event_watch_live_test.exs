@@ -616,8 +616,8 @@ defmodule BobineWeb.Viewer.LiveEventWatchLiveTest do
       conn = conn |> Map.put(:host, "#{org.slug}.localhost")
       {:ok, _view, html} = live(conn, ~p"/events/#{event.slug}")
 
-      assert html =~ ~s(class="sv-watch-layout")
-      assert html =~ ~s(class="sv-watch-player")
+      assert html =~ ~s(class="sv-live-watch-layout")
+      assert html =~ ~s(class="sv-live-watch-player")
       assert html =~ ~s(data-test="chat-section")
       assert html =~ ~s(data-test="chat-toggle")
       assert html =~ ~s(data-test="sv-live-badge")
