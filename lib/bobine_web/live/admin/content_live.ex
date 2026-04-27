@@ -41,10 +41,13 @@ defmodule BobineWeb.Admin.ContentLive do
 
     can_manage = Accounts.can_manage_content?(scope)
 
+    %{results: all_tags} = Content.list_tags(org)
+
     {:ok,
      socket
      |> assign(:page_title, "Content")
      |> assign(:search, "")
+     |> assign(:filter_tag_ids, [])
      |> assign(:show_upload_modal, false)
      |> assign(:upload_files, [])
      |> assign(:uploading, false)
@@ -54,7 +57,7 @@ defmodule BobineWeb.Admin.ContentLive do
      |> assign(:can_manage, can_manage)
      |> assign(:viewing_video, nil)
      |> assign(:video_tags, [])
-     |> assign(:all_tags, [])
+     |> assign(:all_tags, all_tags)
      |> assign(:editing_video, false)
      |> assign(:show_tag_picker, false)
      |> assign(:tag_search, "")
@@ -66,6 +69,26 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def handle_event("search", %{"search" => term}, socket) do
     {:noreply, socket |> assign(:search, term) |> assign(:page, 1) |> load_videos()}
+  end
+
+  @impl true
+  def handle_event("toggle_tag_filter", %{"tag-id" => tag_id}, socket) do
+    filter_tag_ids = toggle_tag_id(socket.assigns.filter_tag_ids, tag_id)
+
+    {:noreply,
+     socket
+     |> assign(:filter_tag_ids, filter_tag_ids)
+     |> assign(:page, 1)
+     |> load_videos()}
+  end
+
+  @impl true
+  def handle_event("clear_tag_filters", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:filter_tag_ids, [])
+     |> assign(:page, 1)
+     |> load_videos()}
   end
 
   @impl true
@@ -611,9 +634,15 @@ defmodule BobineWeb.Admin.ContentLive do
     org = socket.assigns.organization
     search = socket.assigns.search
     page = socket.assigns.page
+    tag_ids = socket.assigns[:filter_tag_ids] || []
 
     %{results: videos, total_pages: total_pages} =
-      Content.list_videos(org, search: search, page: page, per_page: @per_page)
+      Content.list_videos(org,
+        search: search,
+        tag_ids: tag_ids,
+        page: page,
+        per_page: @per_page
+      )
 
     video_ids = Enum.map(videos, & &1.id)
     videos_tags_map = Content.list_tags_for_videos(org, video_ids)
@@ -631,5 +660,13 @@ defmodule BobineWeb.Admin.ContentLive do
       end)
 
     assign(socket, :videos, videos)
+  end
+
+  defp toggle_tag_id(current_ids, tag_id) do
+    if tag_id in current_ids do
+      List.delete(current_ids, tag_id)
+    else
+      [tag_id | current_ids]
+    end
   end
 end

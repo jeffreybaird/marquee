@@ -46,6 +46,12 @@ defmodule BobineWeb.Admin.ContentLive.Components do
         />
       </form>
 
+      <.tag_filter_bar
+        :if={@all_tags != []}
+        all_tags={@all_tags}
+        selected_ids={@filter_tag_ids}
+      />
+
       <AdminUI.admin_empty
         :if={@videos == []}
         title="No videos yet."
@@ -712,6 +718,50 @@ defmodule BobineWeb.Admin.ContentLive.Components do
   defp filter_tags_by_search(tags, search) do
     normalized = String.downcase(String.trim(search))
     Enum.filter(tags, fn tag -> String.contains?(String.downcase(tag.name), normalized) end)
+  end
+
+  attr :all_tags, :list, required: true
+  attr :selected_ids, :list, default: []
+
+  defp tag_filter_bar(assigns) do
+    ~H"""
+    <div
+      class="mb-4 flex flex-wrap items-center gap-2"
+      role="group"
+      aria-label="Filter videos by tag"
+      data-test="tag-filter-bar"
+    >
+      <span class="font-ui text-xs uppercase tracking-wide text-admin-muted">
+        Filter by tag
+      </span>
+      <button
+        :for={tag <- @all_tags}
+        type="button"
+        phx-click="toggle_tag_filter"
+        phx-value-tag-id={tag.id}
+        class={[
+          "inline-flex items-center gap-1 rounded-full px-3 py-1 font-ui text-xs font-medium transition",
+          tag.id in @selected_ids &&
+            "bg-admin-accent text-admin-bg",
+          tag.id not in @selected_ids &&
+            "bg-admin-card text-admin-fg hover:bg-admin-border"
+        ]}
+        aria-pressed={to_string(tag.id in @selected_ids)}
+        data-test={"tag-filter-#{tag.id}"}
+      >
+        {tag.name}
+      </button>
+      <button
+        :if={@selected_ids != []}
+        type="button"
+        phx-click="clear_tag_filters"
+        class="font-ui text-xs text-admin-muted underline hover:text-admin-fg"
+        data-test="clear-tag-filters"
+      >
+        Clear
+      </button>
+    </div>
+    """
   end
 
   attr :page, :integer, required: true

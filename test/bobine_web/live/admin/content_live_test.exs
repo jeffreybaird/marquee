@@ -205,6 +205,76 @@ defmodule BobineWeb.Admin.ContentLiveTest do
       refute html =~ "Beta Film"
     end
 
+    test "tag filter chips toggle the visible video set", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      tag = insert(:tag, organization: org, name: "Action")
+      tagged = insert(:video, organization: org, title: "Action Pic")
+      _untagged = insert(:video, organization: org, title: "Other Pic")
+      insert(:video_tag, organization: org, video: tagged, tag: tag)
+
+      {:ok, view, html} = live(conn_for(membership), ~p"/admin/content")
+      assert html =~ ~s(data-test="tag-filter-bar")
+      assert html =~ "Action Pic"
+      assert html =~ "Other Pic"
+
+      html =
+        view
+        |> element(~s([data-test="tag-filter-#{tag.id}"]))
+        |> render_click()
+
+      assert html =~ "Action Pic"
+      refute html =~ "Other Pic"
+      assert html =~ ~s(aria-pressed="true")
+      assert html =~ ~s(data-test="clear-tag-filters")
+    end
+
+    test "tag filter chips support multi-select (OR semantics)", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      tag_a = insert(:tag, organization: org, name: "Action")
+      tag_b = insert(:tag, organization: org, name: "Drama")
+      v_action = insert(:video, organization: org, title: "Action Pic")
+      v_drama = insert(:video, organization: org, title: "Drama Pic")
+      _v_off = insert(:video, organization: org, title: "Off Pic")
+
+      insert(:video_tag, organization: org, video: v_action, tag: tag_a)
+      insert(:video_tag, organization: org, video: v_drama, tag: tag_b)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      view |> element(~s([data-test="tag-filter-#{tag_a.id}"])) |> render_click()
+      html = view |> element(~s([data-test="tag-filter-#{tag_b.id}"])) |> render_click()
+
+      assert html =~ "Action Pic"
+      assert html =~ "Drama Pic"
+      refute html =~ "Off Pic"
+    end
+
+    test "clear button removes all tag filters", %{conn: _conn} do
+      org = insert(:organization)
+      user = insert(:user)
+      membership = insert(:membership, organization: org, user: user, role: :editor)
+
+      tag = insert(:tag, organization: org, name: "Action")
+      tagged = insert(:video, organization: org, title: "Action Pic")
+      _untagged = insert(:video, organization: org, title: "Other Pic")
+      insert(:video_tag, organization: org, video: tagged, tag: tag)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      view |> element(~s([data-test="tag-filter-#{tag.id}"])) |> render_click()
+      html = view |> element(~s([data-test="clear-tag-filters"])) |> render_click()
+
+      assert html =~ "Action Pic"
+      assert html =~ "Other Pic"
+      refute html =~ ~s(data-test="clear-tag-filters")
+    end
+
     test "search input is wrapped in a form element so phx-change fires in the browser",
          %{conn: _conn} do
       org = insert(:organization)

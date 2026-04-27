@@ -37,6 +37,7 @@ defmodule Bobine.Content do
     |> where([v], is_nil(v.deleted_at))
     |> apply_video_search(Keyword.get(opts, :search))
     |> apply_video_episode_exclusion(Keyword.get(opts, :exclude_episodes, false))
+    |> apply_video_tag_filter(Keyword.get(opts, :tag_ids, []))
     |> apply_video_order(opts)
     |> Pagination.paginate(opts)
   end
@@ -49,6 +50,18 @@ defmodule Bobine.Content do
   defp apply_video_search(query, term) do
     pattern = "%#{term}%"
     where(query, [v], ilike(v.title, ^pattern))
+  end
+
+  # OR semantics: a video matches when it carries any of the requested
+  # tags. Distinct because the inner join multiplies rows when a video
+  # has more than one of the filter tags.
+  defp apply_video_tag_filter(query, nil), do: query
+  defp apply_video_tag_filter(query, []), do: query
+
+  defp apply_video_tag_filter(query, tag_ids) when is_list(tag_ids) do
+    query
+    |> join(:inner, [v], vt in VideoTag, on: vt.video_id == v.id and vt.tag_id in ^tag_ids)
+    |> distinct(true)
   end
 
   defp apply_video_order(query, opts) do

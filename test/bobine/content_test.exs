@@ -39,6 +39,53 @@ defmodule Bobine.ContentTest do
       assert %{results: [_one]} = Content.list_videos(org)
     end
 
+    test "list_videos/2 with tag_ids filters videos to those carrying any tag",
+         %{org: org} do
+      tag_a = insert(:tag, organization: org, name: "Action")
+      tag_b = insert(:tag, organization: org, name: "Drama")
+      tag_c = insert(:tag, organization: org, name: "Comedy")
+
+      v_action = insert(:video, organization: org, title: "Action Pic")
+      v_drama = insert(:video, organization: org, title: "Drama Pic")
+      _v_comedy = insert(:video, organization: org, title: "Comedy Pic")
+      _v_untagged = insert(:video, organization: org, title: "Untagged")
+
+      insert(:video_tag, organization: org, video: v_action, tag: tag_a)
+      insert(:video_tag, organization: org, video: v_drama, tag: tag_b)
+      insert(:video_tag, organization: org, video: insert(:video, organization: org), tag: tag_c)
+
+      %{results: results} = Content.list_videos(org, tag_ids: [tag_a.id, tag_b.id])
+
+      ids = Enum.map(results, & &1.id) |> Enum.sort()
+      assert ids == Enum.sort([v_action.id, v_drama.id])
+    end
+
+    test "list_videos/2 deduplicates videos that match multiple filter tags",
+         %{org: org} do
+      tag_a = insert(:tag, organization: org, name: "Action")
+      tag_b = insert(:tag, organization: org, name: "Drama")
+      video = insert(:video, organization: org, title: "Crossover")
+
+      insert(:video_tag, organization: org, video: video, tag: tag_a)
+      insert(:video_tag, organization: org, video: video, tag: tag_b)
+
+      %{results: results} = Content.list_videos(org, tag_ids: [tag_a.id, tag_b.id])
+
+      assert [%{id: id}] = results
+      assert id == video.id
+    end
+
+    test "list_videos/2 with empty tag_ids list returns unfiltered list",
+         %{org: org} do
+      v1 = insert(:video, organization: org)
+      v2 = insert(:video, organization: org)
+
+      %{results: results} = Content.list_videos(org, tag_ids: [])
+
+      ids = Enum.map(results, & &1.id) |> Enum.sort()
+      assert ids == Enum.sort([v1.id, v2.id])
+    end
+
     test "get_video/2 returns the video in the org", %{org: org} do
       video = insert(:video, organization: org)
       assert {:ok, found} = Content.get_video(org, video.id)
