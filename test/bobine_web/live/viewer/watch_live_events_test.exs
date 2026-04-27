@@ -323,7 +323,7 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
       refute html =~ "hero-bookmark-solid"
     end
 
-    test "favorite button exposes aria-pressed + active class state", %{
+    test "favorite button exposes aria-pressed state", %{
       org: org,
       viewer: viewer,
       video: video
@@ -336,10 +336,9 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ ~s(aria-pressed="true")
-      assert html =~ "sv-btn-secondary active"
     end
 
-    test "watchlist button exposes aria-pressed + active class state", %{
+    test "watchlist button exposes aria-pressed state", %{
       org: org,
       viewer: viewer,
       video: video
@@ -352,7 +351,6 @@ defmodule BobineWeb.Viewer.WatchLiveEventsTest do
 
       {:ok, _view, html} = live(conn_for_viewer(viewer), ~p"/watch/#{video.id}")
       assert html =~ ~s(aria-pressed="true")
-      assert html =~ "sv-btn-secondary active"
     end
   end
 

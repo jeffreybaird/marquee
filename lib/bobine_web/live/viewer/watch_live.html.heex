@@ -155,21 +155,21 @@
           <button
             :if={@go_back_available}
             phx-click="go_back"
-            class="sv-btn sv-btn-secondary sv-go-back-btn"
+            class="sv-btn sv-btn-secondary sv-btn-icon sv-go-back-btn"
             data-test="go-back-btn"
             aria-label="Go back to previous video"
           >
-            <.icon name="hero-backward" class="size-5 mr-1" aria-hidden="true" /> Go back
+            <.icon name="hero-backward" class="size-5" aria-hidden="true" />
           </button>
 
           <button
             :if={@current_viewer && @queue_count > 0}
             phx-click="skip_to_next"
-            class="sv-btn sv-btn-secondary"
+            class="sv-btn sv-btn-secondary sv-btn-icon"
             data-test="skip-next-btn"
             aria-label="Skip to next video in queue"
           >
-            <.icon name="hero-forward" class="size-5 mr-1" aria-hidden="true" /> Next
+            <.icon name="hero-forward" class="size-5" aria-hidden="true" />
           </button>
 
           <%!-- Engagement actions --%>
@@ -177,41 +177,41 @@
             :if={@current_viewer}
             phx-click="add_to_queue"
             phx-value-video-id={@video.id}
-            class="sv-btn sv-btn-secondary"
+            class="sv-btn sv-btn-secondary sv-btn-icon"
             data-test="add-to-queue-btn"
             aria-label="Add to queue"
           >
-            <.icon name="hero-queue-list" class="size-5 mr-1" aria-hidden="true" /> Queue
+            <.icon name="hero-queue-list" class="size-5" aria-hidden="true" />
           </button>
 
           <button
             :if={@current_viewer}
             phx-click="toggle_favorite"
-            class={["sv-btn sv-btn-secondary", @is_favorited && "active"]}
+            class={["sv-btn sv-btn-secondary sv-btn-icon", @is_favorited && "active"]}
             data-test="favorite-btn"
             aria-pressed={to_string(@is_favorited)}
             aria-label={if @is_favorited, do: "Remove from favorites", else: "Add to favorites"}
           >
             <.icon
               name={if @is_favorited, do: "hero-heart-solid", else: "hero-heart"}
-              class="size-5 mr-1"
+              class="size-5"
               aria-hidden="true"
-            /> Favorite
+            />
           </button>
 
           <button
             :if={@current_viewer}
             phx-click="toggle_watchlist"
-            class={["sv-btn sv-btn-secondary", @in_watchlist && "active"]}
+            class={["sv-btn sv-btn-secondary sv-btn-icon", @in_watchlist && "active"]}
             data-test="watchlist-btn"
             aria-pressed={to_string(@in_watchlist)}
             aria-label={if @in_watchlist, do: "Remove from watchlist", else: "Add to watchlist"}
           >
             <.icon
               name={if @in_watchlist, do: "hero-bookmark-solid", else: "hero-bookmark"}
-              class="size-5 mr-1"
+              class="size-5"
               aria-hidden="true"
-            /> Watchlist
+            />
           </button>
         </div>
       </div>

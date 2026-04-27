@@ -2241,7 +2241,7 @@
    Right column = vertical stack of action buttons. */
 .sv-watch-details {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(220px, 22vw, 320px);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 32px;
   align-items: start;
   margin-top: 24px;
@@ -2269,13 +2269,18 @@
 
 .sv-video-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.sv-video-actions .sv-btn {
-  justify-content: center;
+.sv-btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 .sv-video-badges {
