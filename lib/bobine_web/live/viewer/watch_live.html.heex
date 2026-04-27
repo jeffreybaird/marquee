@@ -116,36 +116,39 @@
     </div>
 
     <div class="sv-watch-below">
-      <%!-- Video metadata --%>
-      <div class="sv-video-meta" data-test="video-detail">
-        <%!-- Series breadcrumb (only for episodes) --%>
-        <.link
-          :if={@episode_context}
-          navigate={~p"/series/#{@episode_context.series.slug}"}
-          class="sv-series-breadcrumb"
-          data-test="series-breadcrumb"
-        >
-          {@episode_context.series.title}
-        </.link>
+      <%!-- 2-col details/actions grid: text on the left, action stack on the
+           right. Stacks on narrow viewports. --%>
+      <div class="sv-watch-info">
+        <div class="sv-video-meta" data-test="video-detail">
+          <%!-- Series breadcrumb (only for episodes) --%>
+          <.link
+            :if={@episode_context}
+            navigate={~p"/series/#{@episode_context.series.slug}"}
+            class="sv-series-breadcrumb"
+            data-test="series-breadcrumb"
+          >
+            {@episode_context.series.title}
+          </.link>
 
-        <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
+          <h1 class="sv-video-title" data-test="video-title">{@video.title}</h1>
 
-        <p :if={@episode_context} class="sv-episode-label" data-test="episode-label">
-          Season {@episode_context.season_number},
-          Episode {@episode_context.episode_number} of {@episode_context.total_episodes}
-        </p>
+          <p :if={@episode_context} class="sv-episode-label" data-test="episode-label">
+            Season {@episode_context.season_number},
+            Episode {@episode_context.episode_number} of {@episode_context.total_episodes}
+          </p>
 
-        <div :if={@video.duration && !@episode_context} class="sv-video-badges">
-          <ViewerComponents.badge label={format_duration(@video.duration)} />
+          <div :if={@video.duration && !@episode_context} class="sv-video-badges">
+            <ViewerComponents.badge label={format_duration(@video.duration)} />
+          </div>
+
+          <p
+            :if={@video.description}
+            class="sv-video-desc"
+            data-test="video-description"
+          >
+            {@video.description}
+          </p>
         </div>
-
-        <p
-          :if={@video.description}
-          class="sv-video-desc"
-          data-test="video-description"
-        >
-          {@video.description}
-        </p>
 
         <div class="sv-video-actions" data-test="video-actions">
           <%!-- Queue navigation --%>
