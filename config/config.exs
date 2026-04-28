@@ -166,7 +166,8 @@ config :bobine, Oban,
      crontab: [
        {"0 */6 * * *", Bobine.Workers.AnalyticsComputer, args: %{"dispatch" => true}},
        {"*/15 * * * *", Bobine.Workers.DropOffAggregator},
-       {"*/15 * * * *", Bobine.Workers.MarkEventsDidNotOccurWorker}
+       {"*/15 * * * *", Bobine.Workers.MarkEventsDidNotOccurWorker},
+       {"*/15 * * * *", Bobine.Workers.PodcastFeedSync}
      ]}
   ],
   queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3]
