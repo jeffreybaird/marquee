@@ -776,6 +776,32 @@ defmodule Bobine.Podcasts do
 
   def can_access?(%Show{}, _), do: false
 
+  @doc """
+  Returns the published shows in the org that the viewer can access,
+  paired with the viewer's active feed token (issuing one when none
+  exists). Used by the subscriber account page.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_accessible_shows_for_viewer(%Organization{id: org_id}, %Viewer{} = viewer) do
+    Show
+    |> where(organization_id: ^org_id)
+    |> where([s], is_nil(s.deleted_at) and s.published == true)
+    |> order_by(asc: :title)
+    |> Repo.all()
+    |> Repo.preload([:access_plans, :show_tiers])
+    |> Enum.filter(&can_access?(&1, viewer))
+    |> Enum.map(&pair_with_token(&1, viewer))
+    |> Enum.reject(fn {_show, token} -> is_nil(token) end)
+  end
+
+  defp pair_with_token(%Show{} = show, %Viewer{} = viewer) do
+    case issue_feed_token(show, viewer) do
+      {:ok, token} -> {show, token}
+      _ -> {show, nil}
+    end
+  end
+
   ## ----------------------------------------------------------------------
   ## Analytics helpers
   ## ----------------------------------------------------------------------

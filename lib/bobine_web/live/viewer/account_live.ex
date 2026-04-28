@@ -10,8 +10,10 @@ defmodule BobineWeb.Viewer.AccountLive do
   use BobineWeb, :live_view
 
   alias Bobine.Billing
+  alias Bobine.Podcasts
   alias Bobine.Viewers
   alias BobineWeb.Components.ViewerLayout
+  alias BobineWeb.Endpoint
 
   @impl true
   def mount(_params, _session, socket) do
@@ -20,6 +22,7 @@ defmodule BobineWeb.Viewer.AccountLive do
     changeset = Viewers.Viewer.profile_changeset(viewer, %{})
 
     subscription = load_subscription(org, viewer)
+    podcasts = Podcasts.list_accessible_shows_for_viewer(org, viewer)
 
     {:ok,
      socket
@@ -27,6 +30,7 @@ defmodule BobineWeb.Viewer.AccountLive do
      |> assign(:viewer, viewer)
      |> assign(:subscription, subscription)
      |> assign(:editing, false)
+     |> assign(:podcasts, podcasts)
      |> assign_form(changeset)}
   end
 
@@ -93,7 +97,46 @@ defmodule BobineWeb.Viewer.AccountLive do
     end
   end
 
+  @impl true
+  def handle_event("regenerate_podcast_token", %{"show-id" => show_id}, socket) do
+    org = socket.assigns.organization
+    viewer = socket.assigns.viewer
+
+    case Podcasts.get_show(org, show_id) do
+      {:ok, show} ->
+        case Podcasts.regenerate_feed_token(show, viewer) do
+          {:ok, _new_token} ->
+            podcasts = Podcasts.list_accessible_shows_for_viewer(org, viewer)
+
+            {:noreply,
+             socket
+             |> assign(:podcasts, podcasts)
+             |> put_flash(:info, "Feed URL regenerated. Update it in your podcast app.")}
+
+          _ ->
+            {:noreply, put_flash(socket, :error, "Could not regenerate feed URL.")}
+        end
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Show not found.")}
+    end
+  end
+
   defp assign_form(socket, changeset), do: assign(socket, :form, to_form(changeset))
+
+  defp feed_url(token), do: Endpoint.url() <> "/podcasts/#{token.token}/feed.xml"
+
+  defp podcast_scheme_url(token) do
+    feed_url(token)
+    |> String.replace_prefix("https://", "podcast://")
+    |> String.replace_prefix("http://", "podcast://")
+  end
+
+  defp apple_podcasts_url(token) do
+    feed = feed_url(token)
+    podcasts = String.replace_prefix(feed, "https://", "podcasts://")
+    String.replace_prefix(podcasts, "http://", "podcasts://")
+  end
 
   defp load_subscription(org, viewer) do
     case Billing.get_active_viewer_subscription(org, viewer) do
@@ -293,6 +336,69 @@ defmodule BobineWeb.Viewer.AccountLive do
             >
               Subscribe to start watching
             </a>
+          </div>
+        </div>
+
+        <%!-- Podcasts section --%>
+        <div :if={@podcasts != []} class="sv-account-section" data-test="account-podcasts-section">
+          <h3 class="sv-account-section-title">Podcasts</h3>
+          <p style="font-size: 0.8125rem; color: var(--sv-text-secondary); margin-bottom: 12px">
+            Add these private feeds to your podcast app. Each URL is unique to
+            you — keep it private.
+          </p>
+
+          <div
+            :for={{show, token} <- @podcasts}
+            class="sv-account-podcast"
+            style="border: 1px solid var(--sv-border); border-radius: 8px; padding: 12px; margin-bottom: 12px"
+            data-test={"podcast-#{show.id}"}
+          >
+            <div style="font-weight: 600; margin-bottom: 6px">{show.title}</div>
+
+            <div
+              style="font-family: monospace; font-size: 0.8125rem; word-break: break-all; color: var(--sv-text-secondary); margin-bottom: 8px"
+              data-test={"podcast-feed-url-#{show.id}"}
+            >
+              {feed_url(token)}
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px">
+              <button
+                type="button"
+                phx-hook="CopyToClipboard"
+                id={"podcast-copy-#{show.id}"}
+                data-copy-value={feed_url(token)}
+                data-copy-confirm="Copied!"
+                class="sv-btn sv-btn-secondary"
+                data-test={"podcast-copy-#{show.id}"}
+              >
+                Copy URL
+              </button>
+              <a
+                href={apple_podcasts_url(token)}
+                class="sv-btn sv-btn-secondary"
+                data-test={"podcast-apple-#{show.id}"}
+              >
+                Open in Apple Podcasts
+              </a>
+              <a
+                href={podcast_scheme_url(token)}
+                class="sv-btn sv-btn-secondary"
+                data-test={"podcast-deeplink-#{show.id}"}
+              >
+                Open in podcast app
+              </a>
+              <button
+                type="button"
+                phx-click="regenerate_podcast_token"
+                phx-value-show-id={show.id}
+                data-confirm="Regenerate this feed URL? Your old URL will stop working immediately."
+                class="sv-btn sv-btn-ghost"
+                data-test={"podcast-regenerate-#{show.id}"}
+              >
+                Regenerate URL
+              </button>
+            </div>
           </div>
         </div>
 
