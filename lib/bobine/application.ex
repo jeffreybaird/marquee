@@ -35,6 +35,7 @@ defmodule Bobine.Application do
         Bobine.Events.AuditSubscriber,
         Bobine.Catalog.HeroCacheSubscriber,
         Bobine.Branding.CacheSubscriber,
+        Bobine.Podcasts.LifecycleSubscriber,
         # Start to serve requests, typically the last entry
         BobineWeb.Endpoint
       ]
