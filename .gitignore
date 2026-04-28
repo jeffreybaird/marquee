@@ -54,4 +54,5 @@ error.log
 
 # Sub-agent scratch worktrees — session-local, never tracked.
 .claude/worktrees/
-.claire/
+.claire/.playwright-mcp/
+.playwright-mcp/

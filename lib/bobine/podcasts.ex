@@ -640,22 +640,26 @@ defmodule Bobine.Podcasts do
   """
   def regenerate_feed_token(%Show{} = show, %Viewer{} = viewer) do
     Repo.transaction(fn ->
-      case existing_active_token(show.id, viewer.id) do
-        nil ->
-          :ok
-
-        existing ->
-          case revoke_feed_token(existing, "regenerated") do
-            {:ok, _} -> :ok
-            other -> Repo.rollback(other)
-          end
-      end
+      revoke_existing_or_rollback(show.id, viewer.id)
 
       case issue_feed_token(show, viewer) do
         {:ok, token} -> token
         other -> Repo.rollback(other)
       end
     end)
+  end
+
+  defp revoke_existing_or_rollback(show_id, viewer_id) do
+    case existing_active_token(show_id, viewer_id) do
+      nil ->
+        :ok
+
+      existing ->
+        case revoke_feed_token(existing, "regenerated") do
+          {:ok, _} -> :ok
+          other -> Repo.rollback(other)
+        end
+    end
   end
 
   @doc """

@@ -69,9 +69,9 @@ defmodule BobineWeb.PodcastFeedControllerTest do
       {:ok, sub} = Bobine.Billing.get_active_viewer_subscription(org, viewer)
       Repo.update!(Ecto.Changeset.change(sub, status: "canceled"))
 
-      Repo.update!(
-        Bobine.Viewers.Viewer.subscription_changeset(viewer, %{subscription_status: "canceled"})
-      )
+      alias Bobine.Viewers.Viewer
+
+      Repo.update!(Viewer.subscription_changeset(viewer, %{subscription_status: "canceled"}))
 
       Cache.delete({:podcast_feed_xml, token.id})
 

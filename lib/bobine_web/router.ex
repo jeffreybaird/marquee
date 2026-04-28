@@ -137,6 +137,7 @@ defmodule BobineWeb.Router do
       live "/series/:series_id/seasons/:season_id", SeasonLive
       live "/tags", TagsLive
       live "/catalog", CatalogLive
+      live "/podcasts", PodcastsLive
       live "/landing", LandingLive
       live "/analytics", AnalyticsLive
       live "/analytics/videos/:video_id", VideoAnalyticsLive

@@ -81,25 +81,7 @@ defmodule Bobine.Workers.PodcastFeedSync do
 
     with {:ok, %{status: 200, body: body}} <- RemoteFeedClient.fetch(url),
          {:ok, parsed} <- RemoteFeedParser.parse(body) do
-      Enum.each(parsed.episodes, fn item ->
-        case Podcasts.upsert_episode_from_feed(show, item) do
-          {:ok, _} ->
-            :ok
-
-          {:error, reason} ->
-            Logger.warning("Episode upsert failed",
-              guid: item[:guid],
-              reason: inspect(reason)
-            )
-
-          {:error, _, _} = err ->
-            Logger.warning("Episode upsert failed",
-              guid: item[:guid],
-              reason: inspect(err)
-            )
-        end
-      end)
-
+      Enum.each(parsed.episodes, &upsert_one(show, &1))
       record_success(show)
     else
       {:ok, %{status: status}} ->
@@ -111,6 +93,21 @@ defmodule Bobine.Workers.PodcastFeedSync do
       {:error, reason} ->
         record_failure(show, "fetch failed: #{inspect(reason)}")
     end
+  end
+
+  defp upsert_one(show, item) do
+    case Podcasts.upsert_episode_from_feed(show, item) do
+      {:ok, _} -> :ok
+      {:error, reason} -> log_upsert_failure(item, reason)
+      {:error, _, _} = err -> log_upsert_failure(item, err)
+    end
+  end
+
+  defp log_upsert_failure(item, reason) do
+    Logger.warning("Episode upsert failed",
+      guid: item[:guid],
+      reason: inspect(reason)
+    )
   end
 
   defp record_success(show) do

@@ -121,8 +121,7 @@ defmodule Bobine.Podcasts.FeedXml do
   defp category_tags(%Show{primary_category: primary, secondary_categories: secondary}) do
     [primary | List.wrap(secondary)]
     |> Enum.reject(&is_nil/1)
-    |> Enum.map(&~s(<itunes:category text="#{xml_escape(&1)}"/>))
-    |> Enum.join("\n    ")
+    |> Enum.map_join("\n    ", &~s(<itunes:category text="#{xml_escape(&1)}"/>))
   end
 
   defp copyright_tag(%Show{copyright: nil}), do: ""

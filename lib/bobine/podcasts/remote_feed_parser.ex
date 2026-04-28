@@ -42,20 +42,18 @@ defmodule Bobine.Podcasts.RemoteFeedParser do
   Exempt from doctest — exercised via integration tests.
   """
   def parse(body) when is_binary(body) do
-    try do
-      doc = SweetXml.parse(body, quiet: true)
+    doc = SweetXml.parse(body, quiet: true)
 
-      if doc |> xpath(~x"//rss/channel"o) do
-        {:ok, %{show: parse_show(doc), episodes: parse_episodes(doc)}}
-      else
-        {:error, :invalid_feed}
-      end
-    rescue
-      _ -> {:error, :invalid_feed}
-    catch
-      :exit, _ -> {:error, :invalid_feed}
-      _, _ -> {:error, :invalid_feed}
+    if doc |> xpath(~x"//rss/channel"o) do
+      {:ok, %{show: parse_show(doc), episodes: parse_episodes(doc)}}
+    else
+      {:error, :invalid_feed}
     end
+  rescue
+    _ -> {:error, :invalid_feed}
+  catch
+    :exit, _ -> {:error, :invalid_feed}
+    _, _ -> {:error, :invalid_feed}
   end
 
   def parse(_), do: {:error, :invalid_feed}

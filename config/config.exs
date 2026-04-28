@@ -154,7 +154,10 @@ config :logger, :default_formatter,
     :payment_intent_id,
     :ticket_id,
     :stripe_payment_intent_id,
-    :ticket_count
+    :ticket_count,
+    :podcast_show_id,
+    :guid,
+    :trigger
   ]
 
 # Configure Oban
