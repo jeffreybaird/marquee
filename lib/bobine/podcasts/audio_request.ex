@@ -46,7 +46,7 @@ defmodule Bobine.Podcasts.AudioRequest do
       :user_agent,
       :occurred_at
     ])
-    |> validate_required([:organization_id, :show_id, :episode_id, :request_type, :occurred_at])
+    |> validate_required([:organization_id, :show_id, :request_type, :occurred_at])
     |> validate_inclusion(:request_type, @request_types)
   end
 
