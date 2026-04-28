@@ -129,6 +129,30 @@ defmodule Bobine.Storage do
   end
 
   @doc """
+  Returns object metadata, or `{:error, :not_found}`.
+
+  Exempt from doctest — calls external service.
+  """
+  def head_object(key) when is_binary(key) do
+    Bobine.Otel.with_span "bobine.storage.head_object",
+                          %{"bobine.storage.key" => key} do
+      client().head_object(key)
+    end
+  end
+
+  @doc """
+  Downloads an object's bytes and content type.
+
+  Exempt from doctest — calls external service.
+  """
+  def download_object(key) when is_binary(key) do
+    Bobine.Otel.with_span "bobine.storage.download_object",
+                          %{"bobine.storage.key" => key} do
+      client().download_object(key)
+    end
+  end
+
+  @doc """
   Returns the public URL for a given bucket key.
 
       iex> url = Bobine.Storage.public_url_for_key("org/abc/exports/audit/file.csv")

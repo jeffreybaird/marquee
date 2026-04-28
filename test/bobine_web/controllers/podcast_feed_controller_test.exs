@@ -1,11 +1,16 @@
 defmodule BobineWeb.PodcastFeedControllerTest do
   use BobineWeb.ConnCase, async: false
 
+  import Mox
   import SweetXml
 
   alias Bobine.Cache
   alias Bobine.Podcasts
   alias Bobine.Repo
+  alias Bobine.Storage.MockSpacesClient
+
+  setup :set_mox_from_context
+  setup :verify_on_exit!
 
   setup do
     org = insert(:organization)
@@ -113,6 +118,39 @@ defmodule BobineWeb.PodcastFeedControllerTest do
 
       conn = get(conn, ~p"/podcasts/#{token.token}/episodes/#{other_ep.id}/audio.mp3")
       assert response(conn, 404)
+    end
+
+    test "feed-import episode streams cached bytes through the proxy",
+         %{conn: conn, org: org, viewer: viewer} do
+      feed_show =
+        insert(:feed_import_show, organization: org, access_mode: "any_active", published: true)
+
+      feed_ep =
+        insert(:podcast_episode,
+          organization: org,
+          show: feed_show,
+          status: "published",
+          mux_playback_id: nil,
+          mux_asset_id: nil,
+          remote_audio_url: "https://upstream.test/ep.mp3",
+          remote_audio_content_type: "audio/mpeg"
+        )
+
+      {:ok, feed_token} = Podcasts.issue_feed_token(feed_show, viewer)
+
+      Application.put_env(:bobine, :podcast_upstream_fetcher, fn _url ->
+        {:ok, "PROXY-BYTES", "audio/mpeg"}
+      end)
+
+      on_exit(fn -> Application.delete_env(:bobine, :podcast_upstream_fetcher) end)
+
+      expect(MockSpacesClient, :head_object, fn _key -> {:error, :not_found} end)
+      expect(MockSpacesClient, :put_object, fn _, _, _ -> :ok end)
+
+      conn = get(conn, ~p"/podcasts/#{feed_token.token}/episodes/#{feed_ep.id}/audio.mp3")
+
+      assert response(conn, 200) == "PROXY-BYTES"
+      assert get_resp_header(conn, "content-type") == ["audio/mpeg; charset=utf-8"]
     end
   end
 end

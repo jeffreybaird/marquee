@@ -157,7 +157,8 @@ config :logger, :default_formatter,
     :ticket_count,
     :podcast_show_id,
     :guid,
-    :trigger
+    :trigger,
+    :details
   ]
 
 # Configure Oban

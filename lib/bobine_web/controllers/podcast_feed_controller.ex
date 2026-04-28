@@ -19,9 +19,11 @@ defmodule BobineWeb.PodcastFeedController do
 
   use BobineWeb, :controller
 
+  require Logger
+
   alias Bobine.Cache
   alias Bobine.Podcasts
-  alias Bobine.Podcasts.{Episode, FeedToken, FeedXml, Show}
+  alias Bobine.Podcasts.{AudioProxy, Episode, FeedToken, FeedXml, Show}
   alias Bobine.Repo
 
   @feed_cache_ttl_ms 60_000
@@ -101,8 +103,34 @@ defmodule BobineWeb.PodcastFeedController do
     redirect(conn, external: "https://stream.mux.com/#{playback_id}/audio.mp3")
   end
 
-  defp serve_audio(conn, _show, %Episode{remote_audio_url: url}) when is_binary(url) do
-    redirect(conn, external: url)
+  defp serve_audio(conn, _show, %Episode{remote_audio_url: url} = episode)
+       when is_binary(url) do
+    case AudioProxy.fetch_audio(episode) do
+      {:ok, %{body: body, content_type: content_type}} ->
+        conn
+        |> put_resp_content_type(content_type || "audio/mpeg")
+        |> put_resp_header("cache-control", "private, max-age=3600")
+        |> send_resp(200, body)
+
+      {:error, reason, details} ->
+        Logger.warning("Audio proxy failed",
+          org_id: episode.organization_id,
+          podcast_show_id: episode.show_id,
+          reason: reason,
+          details: inspect(details)
+        )
+
+        send_resp(conn, 502, "")
+
+      {:error, reason} ->
+        Logger.warning("Audio proxy failed",
+          org_id: episode.organization_id,
+          podcast_show_id: episode.show_id,
+          reason: inspect(reason)
+        )
+
+        send_resp(conn, 502, "")
+    end
   end
 
   defp serve_audio(conn, _show, _episode), do: send_resp(conn, 404, "")

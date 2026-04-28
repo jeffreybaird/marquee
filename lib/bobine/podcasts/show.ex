@@ -139,18 +139,13 @@ defmodule Bobine.Podcasts.Show do
   end
 
   defp prevent_source_type_change(changeset) do
-    case {changeset.data.source_type, get_change(changeset, :source_type)} do
-      {nil, _} ->
-        changeset
-
-      {_existing, nil} ->
-        changeset
-
-      {existing, existing} ->
-        changeset
-
-      {_existing, _new} ->
-        add_error(changeset, :source_type, "cannot be changed after creation")
+    cond do
+      # New record — any source_type is fine.
+      is_nil(changeset.data.id) -> changeset
+      # Persisted record, no change cast — fine.
+      is_nil(get_change(changeset, :source_type)) -> changeset
+      # Persisted record with a real source_type change — reject.
+      true -> add_error(changeset, :source_type, "cannot be changed after creation")
     end
   end
 
