@@ -16,6 +16,7 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
 
   alias Bobine.Accounts.{Organization, Scope}
   alias Bobine.Content
+  alias Bobine.Podcasts
   alias Bobine.Repo
   alias Bobine.Streaming
   alias Bobine.Streaming.LiveEventNotifier
@@ -37,10 +38,13 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     asset_id = data["asset_id"]
 
     if upload_id && asset_id do
-      case Content.link_upload_to_asset(upload_id, asset_id) do
-        {:ok, video} ->
-          attribute_to_org(video)
+      case Podcasts.link_audio_upload_to_asset(upload_id, asset_id) do
+        {:ok, episode} ->
+          attribute_to_org(episode)
           :ok
+
+        {:error, :not_found} ->
+          dispatch_video_upload_link(upload_id, asset_id)
 
         {:error, reason} ->
           {:error, reason}
@@ -61,16 +65,23 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
       playback_ids = data["playback_ids"] || []
       public_playback = Enum.find(playback_ids, &(&1["policy"] == "public"))
 
+      static_renditions = data["static_renditions"] || %{}
+      mp3_byte_size = mp3_size_from_renditions(static_renditions)
+
       metadata = %{
         duration: data["duration"],
         max_resolution: data["max_stored_resolution"],
-        playback_id: public_playback && public_playback["id"]
+        playback_id: public_playback && public_playback["id"],
+        mp3_byte_size: mp3_byte_size
       }
 
-      case Content.mark_video_ready(asset_id, metadata) do
-        {:ok, video} ->
-          attribute_to_org(video)
+      case Podcasts.mark_episode_ready(asset_id, metadata) do
+        {:ok, episode} ->
+          attribute_to_org(episode)
           :ok
+
+        {:error, :not_found} ->
+          dispatch_video_ready(asset_id, metadata)
 
         {:error, reason} ->
           {:error, reason}
@@ -95,10 +106,13 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
         error_details: inspect(error_details, pretty: true, limit: :infinity)
       )
 
-      case Content.mark_video_errored(asset_id, error_details) do
-        {:ok, video} ->
-          attribute_to_org(video)
+      case Podcasts.mark_episode_errored(asset_id, error_details) do
+        {:ok, episode} ->
+          attribute_to_org(episode)
           :ok
+
+        {:error, :not_found} ->
+          dispatch_video_errored(asset_id, error_details)
 
         {:error, reason} ->
           {:error, reason}
@@ -252,6 +266,49 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     Logger.debug("Unhandled Mux webhook event", type: type)
     :ok
   end
+
+  defp dispatch_video_upload_link(upload_id, asset_id) do
+    case Content.link_upload_to_asset(upload_id, asset_id) do
+      {:ok, video} ->
+        attribute_to_org(video)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp dispatch_video_ready(asset_id, metadata) do
+    case Content.mark_video_ready(asset_id, metadata) do
+      {:ok, video} ->
+        attribute_to_org(video)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp dispatch_video_errored(asset_id, error_details) do
+    case Content.mark_video_errored(asset_id, error_details) do
+      {:ok, video} ->
+        attribute_to_org(video)
+        :ok
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp mp3_size_from_renditions(%{"files" => files}) when is_list(files) do
+    Enum.find_value(files, fn
+      %{"ext" => "mp3", "filesize" => size} when is_integer(size) -> size
+      %{"ext" => "mp3", "filesize" => size} when is_binary(size) -> String.to_integer(size)
+      _ -> nil
+    end)
+  end
+
+  defp mp3_size_from_renditions(_), do: nil
 
   defp attribute_to_org(%{organization_id: org_id}) when not is_nil(org_id) do
     Logger.metadata(org_id: org_id)

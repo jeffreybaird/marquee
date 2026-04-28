@@ -92,6 +92,123 @@ defmodule Bobine.Workers.MuxWebhookProcessorTest do
     end
   end
 
+  describe "podcast audio routing" do
+    alias Bobine.Podcasts
+
+    test "video.upload.asset_created routes to a podcast episode when one owns the upload" do
+      org = insert(:organization)
+      show = insert(:podcast_show, organization: org)
+
+      ep =
+        insert(:podcast_episode,
+          organization: org,
+          show: show,
+          mux_upload_id: "upload_pod",
+          mux_asset_id: nil,
+          mux_status: "waiting"
+        )
+
+      payload = %{
+        "type" => "video.upload.asset_created",
+        "data" => %{"id" => "upload_pod", "asset_id" => "asset_pod"}
+      }
+
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      {:ok, updated} = Podcasts.get_episode(org, ep.id)
+      assert updated.mux_asset_id == "asset_pod"
+      assert updated.mux_status == "preparing"
+    end
+
+    test "video.asset.ready publishes the podcast episode and stores mp3 size" do
+      org = insert(:organization)
+      show = insert(:podcast_show, organization: org)
+
+      ep =
+        insert(:podcast_episode,
+          organization: org,
+          show: show,
+          mux_asset_id: "asset_pod_ready",
+          mux_status: "preparing",
+          status: "processing"
+        )
+
+      payload = %{
+        "type" => "video.asset.ready",
+        "data" => %{
+          "id" => "asset_pod_ready",
+          "duration" => 90.0,
+          "playback_ids" => [%{"id" => "pb_pod", "policy" => "public"}],
+          "static_renditions" => %{
+            "files" => [%{"ext" => "mp3", "filesize" => 12_345_678}]
+          }
+        }
+      }
+
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      {:ok, updated} = Podcasts.get_episode(org, ep.id)
+      assert updated.mux_status == "ready"
+      assert updated.status == "published"
+      assert updated.mp3_byte_size == 12_345_678
+      assert updated.mux_playback_id == "pb_pod"
+    end
+
+    test "video.asset.ready falls through to Content when no podcast episode owns the asset" do
+      org = insert(:organization)
+
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_fall_through",
+          mux_status: "preparing"
+        )
+
+      payload = %{
+        "type" => "video.asset.ready",
+        "data" => %{
+          "id" => "asset_fall_through",
+          "duration" => 30.0,
+          "max_stored_resolution" => "720p",
+          "playback_ids" => [%{"id" => "pb_v", "policy" => "public"}]
+        }
+      }
+
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+    end
+
+    test "video.asset.errored marks the podcast episode errored" do
+      org = insert(:organization)
+      show = insert(:podcast_show, organization: org)
+
+      ep =
+        insert(:podcast_episode,
+          organization: org,
+          show: show,
+          mux_asset_id: "asset_pod_err",
+          mux_status: "preparing",
+          status: "processing"
+        )
+
+      payload = %{
+        "type" => "video.asset.errored",
+        "data" => %{
+          "id" => "asset_pod_err",
+          "errors" => %{"messages" => ["bad mp3"], "type" => "internal"}
+        }
+      }
+
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      {:ok, updated} = Podcasts.get_episode(org, ep.id)
+      assert updated.mux_status == "errored"
+      assert updated.error_message == "bad mp3"
+    end
+  end
+
   describe "idempotency" do
     test "processing same webhook twice produces same result" do
       org = insert(:organization)
