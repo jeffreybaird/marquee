@@ -145,7 +145,7 @@ defmodule BobineFeatures.Steps.Webhooks do
     world
   end
 
-  then_ ~s|the video status is updated to "ready"|, fn world ->
+  then_ "the video status is updated to \"ready\"", fn world ->
     fetched = Repo.reload!(world.video)
     assert fetched.mux_status == "ready",
            "expected status 'ready', got #{inspect(fetched.mux_status)}"
@@ -153,7 +153,7 @@ defmodule BobineFeatures.Steps.Webhooks do
     Map.put(world, :video, fetched)
   end
 
-  then_ ~s|the video status is updated to "error"|, fn world ->
+  then_ "the video status is updated to \"error\"", fn world ->
     fetched = Repo.reload!(world.video)
     assert fetched.mux_status == "errored",
            "expected status 'errored', got #{inspect(fetched.mux_status)}"
