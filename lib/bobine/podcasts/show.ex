@@ -90,14 +90,16 @@ defmodule Bobine.Podcasts.Show do
     |> validate_required([:title, :slug, :source_type, :access_mode, :organization_id])
     |> validate_inclusion(:source_type, @source_types)
     |> validate_inclusion(:access_mode, @access_modes)
-    |> validate_format(:slug, ~r/^[a-z0-9-]+$/, message: "must be lowercase letters, numbers and dashes")
-    |> validate_format(:owner_email, ~r/^[^@\s]+@[^@\s]+$/,
-      message: "must be a valid email"
+    |> validate_format(:slug, ~r/^[a-z0-9-]+$/,
+      message: "must be lowercase letters, numbers and dashes"
     )
+    |> validate_format(:owner_email, ~r/^[^@\s]+@[^@\s]+$/, message: "must be a valid email")
     |> validate_remote_feed_url()
     |> validate_audio_only_plan()
     |> prevent_source_type_change()
-    |> unique_constraint([:slug, :organization_id], name: :podcast_shows_organization_id_slug_index)
+    |> unique_constraint([:slug, :organization_id],
+      name: :podcast_shows_organization_id_slug_index
+    )
     |> foreign_key_constraint(:organization_id)
     |> foreign_key_constraint(:audio_only_plan_id)
   end
@@ -138,9 +140,15 @@ defmodule Bobine.Podcasts.Show do
 
   defp prevent_source_type_change(changeset) do
     case {changeset.data.source_type, get_change(changeset, :source_type)} do
-      {nil, _} -> changeset
-      {_existing, nil} -> changeset
-      {existing, existing} -> changeset
+      {nil, _} ->
+        changeset
+
+      {_existing, nil} ->
+        changeset
+
+      {existing, existing} ->
+        changeset
+
       {_existing, _new} ->
         add_error(changeset, :source_type, "cannot be changed after creation")
     end

@@ -585,10 +585,13 @@ defmodule Bobine.Factory do
       organization: show.organization,
       show: show,
       viewer: viewer,
-      token: sequence(:feed_token, &"tok_#{&1}_#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}"),
+      token:
+        sequence(
+          :feed_token,
+          &"tok_#{&1}_#{:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)}"
+        ),
       status: "active",
-      expires_at:
-        DateTime.utc_now() |> DateTime.add(365, :day) |> DateTime.truncate(:second)
+      expires_at: DateTime.utc_now() |> DateTime.add(365, :day) |> DateTime.truncate(:second)
     }
   end
 

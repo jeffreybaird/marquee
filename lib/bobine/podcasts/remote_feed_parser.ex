@@ -66,8 +66,7 @@ defmodule Bobine.Podcasts.RemoteFeedParser do
       description: doc |> xpath(~x"//rss/channel/description/text()"so) |> blank_to_nil(),
       author: doc |> xpath(~x"//rss/channel/itunes:author/text()"so) |> blank_to_nil(),
       language: doc |> xpath(~x"//rss/channel/language/text()"so) |> blank_to_nil(),
-      cover_artwork_url:
-        doc |> xpath(~x"//rss/channel/itunes:image/@href"so) |> blank_to_nil(),
+      cover_artwork_url: doc |> xpath(~x"//rss/channel/itunes:image/@href"so) |> blank_to_nil(),
       explicit: parse_explicit(doc |> xpath(~x"//rss/channel/itunes:explicit/text()"so))
     }
   end
