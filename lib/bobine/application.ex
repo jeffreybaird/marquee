@@ -41,6 +41,7 @@ defmodule Bobine.Application do
       ]
       |> maybe_add_log_shipper()
       |> maybe_exclude_audit_subscriber()
+      |> maybe_exclude_podcast_lifecycle_subscriber()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -74,8 +75,15 @@ defmodule Bobine.Application do
     defp maybe_exclude_audit_subscriber(children) do
       Enum.reject(children, &(&1 == Bobine.Events.AuditSubscriber))
     end
+
+    # Same rationale as AuditSubscriber — the lifecycle subscriber owns its
+    # own process, so it can't share sandbox checkouts with the test runner.
+    defp maybe_exclude_podcast_lifecycle_subscriber(children) do
+      Enum.reject(children, &(&1 == Bobine.Podcasts.LifecycleSubscriber))
+    end
   else
     defp maybe_exclude_audit_subscriber(children), do: children
+    defp maybe_exclude_podcast_lifecycle_subscriber(children), do: children
   end
 
   defp setup_error_file_logger do
