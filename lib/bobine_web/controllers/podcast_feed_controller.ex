@@ -107,7 +107,7 @@ defmodule BobineWeb.PodcastFeedController do
 
   defp serve_audio(conn, _show, _episode), do: send_resp(conn, 404, "")
 
-  defp render_feed_cached(conn, %Show{} = show, %FeedToken{} = token) do
+  defp render_feed_cached(_conn, %Show{} = show, %FeedToken{} = token) do
     key = {:podcast_feed_xml, token.id}
 
     Cache.fetch(key, [ttl: @feed_cache_ttl_ms], fn ->
@@ -121,6 +121,5 @@ defmodule BobineWeb.PodcastFeedController do
 
       FeedXml.render(show, token, episodes, audio_url_fun, feed_url: feed_url)
     end)
-    |> tap(fn _ -> conn end)
   end
 end
