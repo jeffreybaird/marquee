@@ -259,6 +259,31 @@
   --color-admin-on-accent: #18181b;
 }
 
+/* Light-mode overrides for root surface/text tokens.
+   Root tokens default to dark cinema palette; when user picks light theme
+   via the toggle, flip to a warm-paper light palette so non-admin pages
+   (auth, marketing) stay legible. Admin uses its own --color-admin-* scale. */
+[data-theme=light] {
+  color-scheme: light;
+
+  --color-bg: oklch(0.98 0.005 82);
+  --color-surface: oklch(0.96 0.008 82);
+  --color-elevated: oklch(0.99 0.004 82);
+  --color-overlay: oklch(0.93 0.010 82);
+
+  --color-border: oklch(0.85 0.012 65);
+  --color-border-subtle: oklch(0.92 0.008 65);
+  --color-border-strong: oklch(0.72 0.014 65);
+
+  --color-text-primary: oklch(0.20 0.018 55);
+  --color-text-secondary: oklch(0.40 0.020 55);
+  --color-text-muted: oklch(0.55 0.016 55);
+  --color-text-disabled: oklch(0.70 0.010 55);
+
+  --color-accent-subtle: oklch(0.88 0.06 68);
+  --color-accent-text: oklch(0.20 0.02 55);
+}
+
 /* Global reduced-motion kill switch — non-negotiable. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
