@@ -46,6 +46,7 @@ config :bobine, Oban, testing: :inline
 # Mock external service clients
 config :bobine, :mux_client, Bobine.Content.MockMuxClient
 config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
+config :bobine, :remote_feed_client, Bobine.Podcasts.MockRemoteFeedClient
 
 # Disable the RateLimit plug globally in tests. The suite's shared
 # 127.0.0.1 counter otherwise breaches mid-run and yields flaky 429s.

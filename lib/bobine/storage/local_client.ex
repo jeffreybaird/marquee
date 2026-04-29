@@ -98,4 +98,54 @@ defmodule Bobine.Storage.LocalClient do
       dir when is_binary(dir) -> dir
     end
   end
+
+  @doc """
+  Returns metadata for a previously written object, or `{:error, :not_found}`
+  when no file exists at the key. Content type is recovered from the
+  filename extension since the local client does not persist it.
+
+  Exempt from doctest — touches the filesystem.
+  """
+  @impl true
+  def head_object(key) when is_binary(key) do
+    full_path = Path.join(upload_dir(), key)
+
+    case File.stat(full_path) do
+      {:ok, %File.Stat{size: size}} ->
+        {:ok, %{content_type: content_type_from_key(key), size: size}}
+
+      {:error, :enoent} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Reads the bytes back from the local uploads directory.
+
+  Exempt from doctest — touches the filesystem.
+  """
+  @impl true
+  def download_object(key) when is_binary(key) do
+    full_path = Path.join(upload_dir(), key)
+
+    case File.read(full_path) do
+      {:ok, body} -> {:ok, %{body: body, content_type: content_type_from_key(key)}}
+      {:error, :enoent} -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp content_type_from_key(key) do
+    case key |> Path.extname() |> String.downcase() do
+      ".mp3" -> "audio/mpeg"
+      ".m4a" -> "audio/x-m4a"
+      ".aac" -> "audio/aac"
+      ".ogg" -> "audio/ogg"
+      ".wav" -> "audio/wav"
+      _ -> nil
+    end
+  end
 end

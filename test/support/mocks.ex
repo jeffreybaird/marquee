@@ -9,3 +9,7 @@ Mox.defmock(Bobine.Billing.MockStripeClient,
 Mox.defmock(Bobine.Storage.MockSpacesClient,
   for: Bobine.Storage.SpacesClientBehaviour
 )
+
+Mox.defmock(Bobine.Podcasts.MockRemoteFeedClient,
+  for: Bobine.Podcasts.RemoteFeedClient
+)

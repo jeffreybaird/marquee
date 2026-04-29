@@ -69,6 +69,66 @@ defmodule Bobine.Storage.SpacesClient do
     end
   end
 
+  @impl true
+  def head_object(key) when is_binary(key) do
+    cfg = Bobine.Storage.config()
+
+    case ExAws.S3.head_object(cfg.bucket, key)
+         |> ExAws.request(region: cfg.region, host: cfg.host, scheme: "https://") do
+      {:ok, %{headers: headers}} ->
+        {:ok,
+         %{
+           content_type: header(headers, "content-type"),
+           size: header(headers, "content-length") |> parse_int()
+         }}
+
+      {:error, {:http_error, 404, _}} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
+  def download_object(key) when is_binary(key) do
+    cfg = Bobine.Storage.config()
+
+    case ExAws.S3.get_object(cfg.bucket, key)
+         |> ExAws.request(region: cfg.region, host: cfg.host, scheme: "https://") do
+      {:ok, %{body: body, headers: headers}} ->
+        {:ok, %{body: body, content_type: header(headers, "content-type")}}
+
+      {:error, {:http_error, 404, _}} ->
+        {:error, :not_found}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp header(headers, name) when is_list(headers) do
+    target = String.downcase(name)
+
+    Enum.find_value(headers, fn {k, v} ->
+      if String.downcase(to_string(k)) == target, do: v
+    end)
+  end
+
+  defp header(_, _), do: nil
+
+  defp parse_int(nil), do: nil
+
+  defp parse_int(v) when is_binary(v) do
+    case Integer.parse(v) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp parse_int(v) when is_integer(v), do: v
+  defp parse_int(_), do: nil
+
   defp build_aws_config(cfg) do
     # Resolve Spaces credentials explicitly so a misconfigured env produces a
     # clear error up front, instead of the ex_aws default chain silently

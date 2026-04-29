@@ -44,6 +44,11 @@ defmodule BobineWeb.Router do
     plug BobineWeb.Plugs.RateLimit, bucket: :webhook_stripe, limit: 500, key: :ip
   end
 
+  pipeline :podcast_public do
+    plug :accepts, ["xml", "html", "*/*"]
+    plug BobineWeb.Plugs.RateLimit, bucket: :podcast_public, limit: 600, key: :ip
+  end
+
   pipeline :require_admin do
     plug BobineWeb.Plugs.RequireRole, minimum_role: :viewer_support
   end
@@ -132,6 +137,7 @@ defmodule BobineWeb.Router do
       live "/series/:series_id/seasons/:season_id", SeasonLive
       live "/tags", TagsLive
       live "/catalog", CatalogLive
+      live "/podcasts", PodcastsLive
       live "/landing", LandingLive
       live "/analytics", AnalyticsLive
       live "/analytics/videos/:video_id", VideoAnalyticsLive
@@ -347,5 +353,16 @@ defmodule BobineWeb.Router do
     pipe_through [:api, :rate_limit_webhook_stripe]
 
     post "/stripe", WebhookController, :stripe
+  end
+
+  ## ──────────────────────────────────────────────────────────────────────
+  ## Public, token-gated podcast feed + audio
+  ## ──────────────────────────────────────────────────────────────────────
+
+  scope "/podcasts", BobineWeb do
+    pipe_through [:podcast_public]
+
+    get "/:token/feed.xml", PodcastFeedController, :feed
+    get "/:token/episodes/:episode_id/audio.mp3", PodcastFeedController, :episode_audio
   end
 end

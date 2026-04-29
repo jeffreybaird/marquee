@@ -31,4 +31,14 @@ defmodule Bobine.Storage.SpacesClientBehaviour do
 
   @callback put_object(key :: String.t(), body :: iodata(), content_type :: String.t()) ::
               :ok | {:error, atom() | binary()}
+
+  @callback head_object(key :: String.t()) ::
+              {:ok, %{content_type: String.t() | nil, size: integer() | nil}}
+              | {:error, :not_found}
+              | {:error, atom() | binary()}
+
+  @callback download_object(key :: String.t()) ::
+              {:ok, %{body: binary(), content_type: String.t() | nil}}
+              | {:error, :not_found}
+              | {:error, atom() | binary()}
 end
