@@ -236,9 +236,9 @@ defmodule BobineWeb.Viewer.LiveEventWatchLive do
     <article
       aria-labelledby="event-title"
       data-test="event-live"
-      class="sv-watch-layout"
+      class="sv-live-watch-layout"
     >
-      <div class="sv-watch-player">
+      <div class="sv-live-watch-player">
         {render_live_player(assigns)}
       </div>
 

@@ -23,7 +23,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
-  attr :preview_on_hover, :boolean, default: true
+  attr :preview_on_hover, :boolean, default: false
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
@@ -116,7 +116,7 @@ defmodule BobineWeb.Components.ViewerComponents do
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
   attr :queued_ids, :any, default: MapSet.new()
-  attr :preview_on_hover, :boolean, default: true
+  attr :preview_on_hover, :boolean, default: false
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape

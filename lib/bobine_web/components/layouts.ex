@@ -298,12 +298,10 @@ defmodule BobineWeb.Layouts do
 
       overrides ->
         css = render_tenant_css(slug, overrides)
-        assigns = assign(assigns, :css, css)
+        assigns = assign(assigns, :style_tag, Phoenix.HTML.raw("<style>#{css}</style>"))
 
         ~H"""
-        <style>
-          {Phoenix.HTML.raw(@css)}
-        </style>
+        {@style_tag}
         """
     end
   end

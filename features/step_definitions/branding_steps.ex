@@ -123,4 +123,25 @@ defmodule BobineFeatures.Steps.Branding do
 
     world
   end
+
+  # ---- Mini preview reuses canonical viewer components ---------------------
+
+  then_ "the mini preview renders the canonical hero carousel component", fn world ->
+    assert_has(world.session, css("[data-test=preview-frame] [data-test=hero-carousel]"))
+    world
+  end
+
+  then_ "the mini preview renders the canonical content row component", fn world ->
+    assert_has(world.session, css("[data-test=preview-catalog-rows] .content-row"))
+    world
+  end
+
+  then_ "default hero, landscape, and portrait images populate the preview when the catalog is empty",
+       fn world ->
+    %{results: rows} = Catalog.list_rows(world.org)
+    assert rows == [], "expected an empty catalog for default-image preview check"
+    assert_has(world.session, css("[data-test=hero-slide-0] img[src*='picsum.photos']"))
+    assert_has(world.session, css("[data-test=preview-catalog-rows] img[src*='picsum.photos']"))
+    world
+  end
 end

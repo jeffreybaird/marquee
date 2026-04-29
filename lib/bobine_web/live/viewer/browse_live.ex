@@ -180,6 +180,7 @@ defmodule BobineWeb.Viewer.BrowseLive do
             favorited_ids={@favorited_ids}
             watchlisted_ids={@watchlisted_ids}
             queued_ids={@queued_ids}
+            preview_on_hover={true}
           />
         </div>
       </div>

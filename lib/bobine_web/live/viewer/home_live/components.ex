@@ -258,13 +258,80 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
     """
   end
 
+  @doc """
+  Shared org-home body: hero carousel, empty state, and catalog rows.
+
+  Single source of truth for the viewer home composition — both
+  `BobineWeb.Viewer.HomeLive` and the operator's appearance preview
+  render through this component, so adding a new section appears in
+  both surfaces automatically.
+
+  Exempt from doctest — renders LiveView HTML with side effects.
+  """
+  attr :hero_slides, :list, required: true
+  attr :hero_auto_advance_ms, :integer, default: 0
+  attr :rows, :list, default: []
+  attr :current_viewer, :map, default: nil
+  attr :favorited_ids, :any, default: MapSet.new()
+  attr :watchlisted_ids, :any, default: MapSet.new()
+  attr :queued_ids, :any, default: MapSet.new()
+  attr :hero_id, :string, default: "hero-carousel"
+  attr :catalog_rows_test, :string, default: "catalog-rows"
+
+  def viewer_home_body(assigns) do
+    ~H"""
+    <.hero_carousel
+      :if={@hero_slides != []}
+      id={@hero_id}
+      slides={@hero_slides}
+      auto_advance_ms={@hero_auto_advance_ms}
+    />
+
+    <div
+      :if={@hero_slides == [] && @rows == []}
+      class="py-12 text-center text-base-content/60"
+    >
+      <p class="text-lg">No videos available yet.</p>
+    </div>
+
+    <section :if={@rows != []} class="catalog-rows" data-test={@catalog_rows_test}>
+      <%= for %{row: row, items: items} = entry <- @rows do %>
+        <%= cond do %>
+          <% row.source_type == :welcome_text -> %>
+            <.welcome_text_row row={row} />
+          <% row.source_type == :continue_watching -> %>
+            <.continue_watching_content_row
+              row={row}
+              items={items}
+              current_viewer={@current_viewer}
+              favorited_ids={@favorited_ids}
+              watchlisted_ids={@watchlisted_ids}
+              queued_ids={@queued_ids}
+            />
+          <% true -> %>
+            <.content_row
+              row={row}
+              items={items}
+              view_all_path={Map.get(entry, :view_all_path)}
+              current_viewer={@current_viewer}
+              favorited_ids={@favorited_ids}
+              watchlisted_ids={@watchlisted_ids}
+              queued_ids={@queued_ids}
+            />
+        <% end %>
+      <% end %>
+    </section>
+    """
+  end
+
+  attr :id, :string, default: "hero-carousel"
   attr :slides, :list, required: true
   attr :auto_advance_ms, :integer, required: true
 
   def hero_carousel(assigns) do
     ~H"""
     <section
-      id="hero-carousel"
+      id={@id}
       phx-hook="HeroCarousel"
       data-auto-advance={@auto_advance_ms}
       data-test="hero-carousel"
@@ -452,7 +519,7 @@ defmodule BobineWeb.Viewer.HomeLive.Components do
             favorited_ids={@favorited_ids}
             watchlisted_ids={@watchlisted_ids}
             queued_ids={@queued_ids}
-            preview_on_hover={@card_variant != "poster_portrait"}
+            preview_on_hover={@card_variant == "landscape_episode"}
             show_details={Map.get(@row, :show_details, true)}
             title_overlay={Map.get(@row, :title_overlay, false)}
             aspect={if @card_variant == "poster_portrait", do: :portrait, else: :landscape}

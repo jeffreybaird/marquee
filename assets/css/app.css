@@ -1373,10 +1373,30 @@
   background: var(--sv-bg-elevated);
   color: var(--sv-text-primary);
   border: 1px solid var(--sv-border);
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 80ms ease;
 }
 
 .sv-btn-secondary:hover {
   background: var(--sv-bg-secondary);
+}
+
+.sv-btn-secondary:active {
+  transform: scale(0.97);
+}
+
+.sv-btn-secondary.active {
+  background: var(--sv-accent);
+  border-color: var(--sv-accent);
+  color: var(--sv-text-on-accent);
+}
+
+.sv-btn-secondary.active:hover {
+  background: var(--sv-accent-hover);
+  border-color: var(--sv-accent-hover);
 }
 
 .sv-btn-ghost {
@@ -1509,10 +1529,14 @@
   padding: 24px 48px;
 }
 
-/* Player + Queue sit in their own flex row */
+/* Player + Queue sit in their own flex row.
+   align-items: stretch + min-height: 0 on the queue panel keep the
+   queue from pushing the row taller than the 16:9 player — long
+   queues scroll internally instead of extending past the video. */
 .sv-watch-player-row {
   display: flex;
   gap: 0;
+  align-items: stretch;
 }
 
 .sv-watch-player-col {
@@ -1860,7 +1884,10 @@
   display: none;
   flex-direction: column;
   flex-shrink: 0;
-  /* No sticky — scrolls with the player as one unit */
+  /* min-height: 0 stops intrinsic queue content from forcing the
+     player row taller than 16:9 — long lists scroll internally. */
+  min-height: 0;
+  align-self: stretch;
 }
 
 .sv-queue-panel.open {
@@ -2209,8 +2236,20 @@
   border-bottom-color: var(--sv-accent);
 }
 
-.sv-video-meta {
+/* Two-column details/actions row beneath the on-demand watch player.
+   Left column = title + meta + description.
+   Right column = vertical stack of action buttons. */
+.sv-watch-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: start;
   margin-top: 24px;
+}
+
+.sv-video-meta {
+  /* margin-top now lives on .sv-watch-info — keep meta flush inside the grid */
+  min-width: 0;
 }
 
 .sv-video-title {
@@ -2230,8 +2269,18 @@
 
 .sv-video-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 16px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.sv-btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 .sv-video-badges {
@@ -2515,6 +2564,8 @@
   .sv-watch-layout { padding: 16px; }
   .sv-watch-player-row { flex-direction: column; }
   .sv-player-container { border-radius: 0; margin: 0 -16px; width: calc(100% + 32px); }
+  .sv-watch-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .sv-video-actions { flex-direction: row; flex-wrap: wrap; }
 
   /* Season section - mobile */
   .sv-season-section { padding: 16px; }
@@ -3626,40 +3677,42 @@ details[open] .sv-faq-question::after {
 
 /* =========================================================================
    Live Event Watch Page — player + chat drawer
-   ========================================================================= */
+   Scoped under .sv-live-watch-layout so the on-demand /watch page
+   (which uses .sv-watch-layout as a plain block container) is not
+   forced into the live-event grid. */
 
-.sv-watch-layout {
+.sv-live-watch-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
+.sv-live-watch-layout .sv-live-watch-player {
+  min-width: 0;
+}
+
 @media (min-width: 1024px) {
-  .sv-watch-layout {
+  .sv-live-watch-layout {
     grid-template-columns: minmax(0, 1fr) 360px;
     grid-template-rows: auto auto;
     column-gap: 24px;
     row-gap: 16px;
   }
 
-  .sv-watch-player {
+  .sv-live-watch-layout .sv-live-watch-player {
     grid-column: 1;
     grid-row: 1;
   }
 
-  .sv-watch-info {
+  .sv-live-watch-layout .sv-watch-info {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .sv-watch-chat-panel {
+  .sv-live-watch-layout .sv-watch-chat-panel {
     grid-column: 2;
     grid-row: 1;
   }
-}
-
-.sv-watch-player {
-  min-width: 0;
 }
 
 .sv-live-info {

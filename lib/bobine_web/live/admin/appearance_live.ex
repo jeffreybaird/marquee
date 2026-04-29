@@ -31,6 +31,51 @@ defmodule BobineWeb.Admin.AppearanceLive do
   alias Bobine.Branding.Theme
   alias Bobine.Catalog
   alias Bobine.Catalog.{Presets, Row}
+  alias Bobine.Content.Video
+  alias BobineWeb.Viewer.HomeLive.Components, as: ViewerHome
+
+  @default_hero_seeds ~w(hero-cinema-1 hero-cinema-2 hero-cinema-3)
+  @default_landscape_seeds ~w(land-1 land-2 land-3 land-4 land-5 land-6)
+  @default_portrait_seeds ~w(port-1 port-2 port-3 port-4 port-5 port-6)
+  @default_creator_seeds ~w(crea-1 crea-2 crea-3 crea-4 crea-5)
+
+  @default_landscape_titles [
+    "Echoes of the North",
+    "Quiet Revolutions",
+    "After Hours in Hanoi",
+    "Field Notes",
+    "The Dust Sessions",
+    "Last Light"
+  ]
+
+  @default_portrait_titles [
+    "La Jetée",
+    "Le Mépris",
+    "Cléo de 5 à 7",
+    "Pierrot le Fou",
+    "L'Atalante",
+    "Hiroshima Mon Amour"
+  ]
+
+  @default_creator_titles [
+    "Solveig Duret",
+    "Marcus Thornton",
+    "Keiko Abe",
+    "Alma Sorin",
+    "Theo Kamau"
+  ]
+
+  @default_hero_headlines [
+    "A French cinema Sunday",
+    "New release weekend",
+    "Staff picks of the season"
+  ]
+
+  @default_hero_descriptions [
+    "Tune the accent and text-on-accent pairing against the hero CTA viewers actually use.",
+    "Verify the second slide's dot styling and arrow contrast match your accent.",
+    "Confirm typography and gradient overlay readability on a real cinematic still."
+  ]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -61,7 +106,9 @@ defmodule BobineWeb.Admin.AppearanceLive do
      |> assign(:preview_theme, theme)
      |> assign(:theme_form, theme_form)
      |> assign_catalog_state(org)
-     |> assign_preview_rows(org)}
+     |> assign_preview_rows(org)
+     |> assign_preview_hero_slides(org)
+     |> assign(:preview_expanded, false)}
   end
 
   @impl true
@@ -135,6 +182,18 @@ defmodule BobineWeb.Admin.AppearanceLive do
     end
   end
 
+  @impl true
+  def handle_event("toggle_preview_expanded", _params, socket) do
+    {:noreply, update(socket, :preview_expanded, &(!&1))}
+  end
+
+  # Cards rendered inside the preview emit viewer-side phx-clicks. Swallow
+  # them so the appearance preview stays interactive without mutating data.
+  @impl true
+  def handle_event(event, _params, socket)
+      when event in ~w(card_toggle_favorite card_add_to_watchlist card_add_to_queue dismiss_continue),
+      do: {:noreply, socket}
+
   defp save_theme(_scope, %Theme{id: nil}, params, %{id: org_id}) do
     Branding.create_theme(Map.put(params, "organization_id", org_id))
   end
@@ -163,6 +222,7 @@ defmodule BobineWeb.Admin.AppearanceLive do
          |> assign(:selected_preset, layout.preset_name)
          |> assign_catalog_state(org)
          |> assign_preview_rows(org)
+         |> assign_preview_hero_slides(org)
          |> put_flash(:info, apply_preset_message(seed_result, name))}
 
       {_, {:error, :validation, _}} ->
@@ -194,14 +254,186 @@ defmodule BobineWeb.Admin.AppearanceLive do
     |> assign(:catalog_empty?, row_count == 0)
   end
 
-  # Load the operator's configured rows once on mount and after preset
-  # apply/overwrite. Kept off `validate_appearance` on purpose — branding
-  # edits fire on every keystroke and these rows don't change during a
-  # form edit.
+  # Load the operator's configured rows + items once on mount and after
+  # preset apply/overwrite. Kept off `validate_appearance` on purpose —
+  # branding edits fire on every keystroke and these rows don't change
+  # during a form edit. When the org has no rows yet we synthesize a
+  # default catalog so the preview reflects the real viewer surface.
   defp assign_preview_rows(socket, org) do
-    %{results: rows} = Catalog.list_visible_rows(org, per_page: 6)
-    assign(socket, :preview_rows, rows)
+    rows_with_items =
+      org
+      |> Catalog.load_catalog_rows_with_items()
+      |> Enum.reject(&preview_skip_row?/1)
+      |> case do
+        [] -> default_preview_rows()
+        rows -> rows
+      end
+
+    assign(socket, :preview_rows, rows_with_items)
   end
+
+  defp preview_skip_row?(%{row: %{source_type: type}})
+       when type in [:welcome_text, :continue_watching],
+       do: true
+
+  defp preview_skip_row?(%{items: items}) when items == [], do: true
+  defp preview_skip_row?(_), do: false
+
+  defp assign_preview_hero_slides(socket, org) do
+    enriched =
+      case Catalog.get_hero_row(org) do
+        {:ok, %Row{visible: true} = hero_row} ->
+          Catalog.list_enriched_hero_slides(org, hero_row)
+
+        _ ->
+          []
+      end
+
+    slides = build_preview_hero_slides(enriched)
+
+    assign(socket, :preview_hero_slides, slides)
+  end
+
+  defp build_preview_hero_slides(enriched) do
+    enriched
+    |> Enum.take(4)
+    |> Enum.map(&normalize_preview_slide/1)
+    |> pad_with_defaults()
+  end
+
+  defp normalize_preview_slide(slide) do
+    %{
+      headline:
+        presence(Map.get(slide, :headline)) ||
+          presence(Map.get(slide, :video_title)) ||
+          List.first(@default_hero_headlines),
+      subheadline: Map.get(slide, :subheadline),
+      description:
+        presence(Map.get(slide, :description)) ||
+          presence(Map.get(slide, :video_description)) ||
+          List.first(@default_hero_descriptions),
+      brand_tag: presence(Map.get(slide, :brand_tag)) || "Featured",
+      primary_cta_label: presence(Map.get(slide, :primary_cta_label)) || "Watch now",
+      primary_cta_path: "#",
+      secondary_cta_label: presence(Map.get(slide, :secondary_cta_label)) || "More info",
+      secondary_cta_path: "#",
+      background_image_url:
+        presence(Map.get(slide, :background_image_url)) ||
+          picsum_url(List.first(@default_hero_seeds), 1600, 900),
+      title_logo_url: presence(Map.get(slide, :title_logo_url)),
+      channel_logo_url: Map.get(slide, :channel_logo_url),
+      show_headline: Map.get(slide, :show_headline, true),
+      show_subheadline: Map.get(slide, :show_subheadline, false),
+      show_description: Map.get(slide, :show_description, true),
+      show_brand_tag: Map.get(slide, :show_brand_tag, true),
+      show_primary_cta: Map.get(slide, :show_primary_cta, true),
+      show_secondary_cta: Map.get(slide, :show_secondary_cta, true)
+    }
+  end
+
+  defp pad_with_defaults(slides) when length(slides) >= 3, do: slides
+
+  defp pad_with_defaults(slides) do
+    needed = max(3 - length(slides), 0)
+
+    extras =
+      @default_hero_seeds
+      |> Enum.zip(Enum.zip(@default_hero_headlines, @default_hero_descriptions))
+      |> Enum.take(needed)
+      |> Enum.map(fn {seed, {headline, description}} ->
+        default_hero_slide(seed, headline, description)
+      end)
+
+    slides ++ extras
+  end
+
+  defp default_hero_slide(seed, headline, description) do
+    %{
+      headline: headline,
+      subheadline: nil,
+      description: description,
+      brand_tag: "Featured",
+      primary_cta_label: "Watch now",
+      primary_cta_path: "#",
+      secondary_cta_label: "More info",
+      secondary_cta_path: "#",
+      background_image_url: picsum_url(seed, 1600, 900),
+      title_logo_url: nil,
+      channel_logo_url: nil,
+      show_headline: true,
+      show_subheadline: false,
+      show_description: true,
+      show_brand_tag: true,
+      show_primary_cta: true,
+      show_secondary_cta: true
+    }
+  end
+
+  defp default_preview_rows do
+    [
+      %{
+        row: synthetic_row("hero-landscape", "Trending now", :recent, "landscape_episode"),
+        items: synthetic_videos(@default_landscape_seeds, @default_landscape_titles, :landscape),
+        view_all_path: nil
+      },
+      %{
+        row: synthetic_row("posters", "Critics' picks", :popularity, "poster_portrait"),
+        items: synthetic_videos(@default_portrait_seeds, @default_portrait_titles, :portrait),
+        view_all_path: nil
+      },
+      %{
+        row:
+          synthetic_row("creators", "Featured creators", :creator_showcase, "creator_identity"),
+        items: synthetic_videos(@default_creator_seeds, @default_creator_titles, :portrait, 1, 1),
+        view_all_path: nil
+      }
+    ]
+  end
+
+  defp synthetic_row(slug, title, source_type, card_variant) do
+    %Row{
+      id: "preview-row-#{slug}",
+      title: title,
+      source_type: source_type,
+      card_variant: card_variant,
+      show_details: true,
+      title_overlay: false,
+      visible: true,
+      position: 0,
+      max_items: 8
+    }
+  end
+
+  defp synthetic_videos(seeds, titles, aspect, ratio_w \\ nil, ratio_h \\ nil) do
+    {w, h} = thumb_dimensions(aspect, ratio_w, ratio_h)
+
+    seeds
+    |> Enum.zip(titles)
+    |> Enum.with_index()
+    |> Enum.map(fn {{seed, title}, idx} -> synthetic_video(seed, title, aspect, w, h, idx) end)
+  end
+
+  defp thumb_dimensions(:portrait, nil, nil), do: {400, 600}
+  defp thumb_dimensions(:landscape, nil, nil), do: {640, 360}
+  defp thumb_dimensions(_, w, h), do: {w * 200, h * 200}
+
+  defp synthetic_video(seed, title, aspect, w, h, idx) do
+    url = picsum_url(seed, w, h)
+
+    %Video{
+      id: "preview-video-#{seed}",
+      title: title,
+      slug: "preview-#{seed}",
+      description: "Sample synopsis for preview — viewer card description appears here.",
+      duration: 1500.0 + idx * 90,
+      mux_playback_id: nil,
+      portrait_thumbnail_url: if(aspect == :portrait, do: url, else: nil),
+      landscape_thumbnail_url: if(aspect == :landscape, do: url, else: nil)
+    }
+  end
+
+  defp picsum_url(seed, w, h),
+    do: "https://picsum.photos/seed/bobine-preview-#{seed}/#{w}/#{h}"
 
   defp maybe_derive_accent_variants(%{"accent_color_base" => base} = params)
        when is_binary(base) and base != "" do
@@ -386,8 +618,37 @@ defmodule BobineWeb.Admin.AppearanceLive do
                   form={@branding_form}
                   field={:accent_color_base}
                   label="Accent color"
-                  hint="Primary brand accent. Buttons, links, focus rings, and progress bars pull from this color."
+                  hint="Primary brand accent. Buttons, links, focus rings, hero CTAs, and progress bars pull from this color."
                 />
+
+                <details class="rounded border border-admin-border" data-test="accent-variants-drawer">
+                  <summary class="cursor-pointer px-3 py-2 text-sm">
+                    Accent variants
+                    <span class="ml-1 text-xs opacity-60">
+                      (auto-derived — leave blank to compute from accent color)
+                    </span>
+                  </summary>
+                  <div class="space-y-4 px-3 pb-3 pt-2">
+                    <.color_input
+                      form={@branding_form}
+                      field={:accent_color_hover}
+                      label="Accent (hover)"
+                      hint="Used on accent buttons and links on hover. Defaults to accent shifted +6% lightness."
+                    />
+                    <.color_input
+                      form={@branding_form}
+                      field={:accent_color_active}
+                      label="Accent (active)"
+                      hint="Used on accent buttons while pressed. Defaults to accent shifted -6% lightness."
+                    />
+                    <.color_input
+                      form={@branding_form}
+                      field={:accent_color_subtle}
+                      label="Accent (subtle)"
+                      hint="Tinted accent backgrounds — selection highlights, badge fills. Defaults to a darkened/desaturated accent."
+                    />
+                  </div>
+                </details>
 
                 <div style={display_font_style(@display_font_preview)}>
                   <.input
@@ -484,6 +745,24 @@ defmodule BobineWeb.Admin.AppearanceLive do
                   label="Nav Background"
                   hint="Top navigation bar fill. Often semi-transparent over the page background."
                 />
+                <.color_input
+                  form={@theme_form}
+                  field={:border_color}
+                  label="Border"
+                  hint="Hairline borders on cards, scrollbars, and content row dividers."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:divider_color}
+                  label="Divider"
+                  hint="Section dividers and inline rules between content blocks."
+                />
+                <.color_input
+                  form={@theme_form}
+                  field={:overlay_color}
+                  label="Overlay"
+                  hint="Backdrop fill for modals, dialogs, and pop-ups. Usually a translucent dark or light wash."
+                />
 
                 <h3 class="text-lg font-medium mt-6">Form Fields</h3>
                 <.color_input
@@ -517,11 +796,52 @@ defmodule BobineWeb.Admin.AppearanceLive do
             accent_preview={@accent_preview}
             display_font_preview={@display_font_preview}
             rows={@preview_rows}
+            hero_slides={@preview_hero_slides}
+            expanded={@preview_expanded}
           />
           <p class="mt-3 text-xs opacity-60">
             Reflects brand + surface color changes live.
           </p>
         </div>
+      </div>
+
+      <%!-- Full-screen canonical preview — renders through the same shared
+           viewer_home_body component as the real viewer home, so the two
+           cannot drift. --%>
+      <div
+        :if={@preview_expanded}
+        class="fixed inset-0 z-50 overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Full-size appearance preview"
+        data-test="preview-expanded-overlay"
+      >
+        <div
+          class="sv-root min-h-full"
+          style={
+            preview_style(%{
+              preview_theme: @preview_theme,
+              accent_preview: @accent_preview,
+              display_font_preview: @display_font_preview
+            })
+          }
+        >
+          <ViewerHome.viewer_home_body
+            hero_slides={@preview_hero_slides}
+            rows={@preview_rows}
+            hero_id="appearance-preview-hero"
+            catalog_rows_test="preview-expanded-catalog-rows"
+          />
+        </div>
+        <button
+          type="button"
+          phx-click="toggle_preview_expanded"
+          class="fixed top-4 right-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          aria-label="Close full-size preview"
+          data-test="close-preview-expanded"
+        >
+          <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
+        </button>
       </div>
     </BobineWeb.Components.AdminLayout.admin_layout>
     """
@@ -532,128 +852,79 @@ defmodule BobineWeb.Admin.AppearanceLive do
   attr :accent_preview, :string, default: nil
   attr :display_font_preview, :string, default: nil
   attr :rows, :list, default: []
+  attr :hero_slides, :list, default: []
+  attr :expanded, :boolean, default: false
 
   defp preview_panel(assigns) do
-    {hero, content_rows} = split_hero(assigns.rows)
-
-    assigns =
-      assigns
-      |> assign(:style, preview_style(assigns))
-      |> assign(:hero_row, hero)
-      |> assign(:content_rows, content_rows)
+    assigns = assign(assigns, :style, preview_style(assigns))
 
     ~H"""
-    <div
-      class="sv-preview-frame rounded-lg overflow-hidden border border-admin-border"
-      data-test="preview-frame"
-    >
-      <div class="sv-root" style={@style}>
-        <div style="padding: 12px 24px; background: var(--sv-nav-bg); display: flex; align-items: center; justify-content: space-between">
-          <span style="font-family: var(--sv-font-heading); font-weight: 600; color: var(--sv-text-primary)">
-            {@organization.name}
-          </span>
-          <span style="font-size: 0.75rem; font-family: var(--sv-font-body); color: var(--sv-text-secondary)">
-            Home &nbsp; Browse &nbsp; Collections
-          </span>
-        </div>
-
-        <.preview_hero row={@hero_row} />
-
+    <div class="relative">
+      <button
+        type="button"
+        phx-click="toggle_preview_expanded"
+        class="absolute top-2 right-2 z-10 rounded-md bg-black/60 p-1.5 text-white hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        aria-label={
+          if @expanded, do: "Close full-size preview", else: "Expand preview to full screen"
+        }
+        data-test="expand-preview-btn"
+      >
+        <.icon
+          name={if @expanded, do: "hero-arrows-pointing-in", else: "hero-arrows-pointing-out"}
+          class="size-4"
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        class="sv-preview-frame rounded-lg border border-admin-border overflow-hidden"
+        data-test="preview-frame"
+      >
         <div
-          :if={@content_rows == []}
-          style="padding: 24px; text-align: center; color: var(--sv-text-secondary); font-family: var(--sv-font-body); font-size: 0.875rem"
+          class="sv-root sv-preview-frame-inner"
+          style={"max-height: 720px; overflow-y: auto; " <> @style}
         >
-          No rows configured yet. Apply a preset above or add rows in Catalog.
-        </div>
-
-        <div
-          :for={row <- @content_rows}
-          style="padding: 12px 24px"
-          data-test={"preview-row-" <> row.id}
-        >
-          <div style="font-family: var(--sv-font-heading); font-size: 0.9rem; font-weight: 600; color: var(--sv-text-primary); margin-bottom: 8px">
-            {row.title}
+          <div
+            class="sv-preview-faux-nav"
+            style="padding: 12px 24px; background: var(--sv-nav-bg); display: flex; align-items: center; justify-content: space-between"
+          >
+            <span style="font-family: var(--sv-font-heading); font-weight: 600; color: var(--sv-text-primary)">
+              {@organization.name}
+            </span>
+            <span style="font-size: 0.75rem; font-family: var(--sv-font-body); color: var(--sv-text-secondary)">
+              Home &nbsp; Browse &nbsp; Collections
+            </span>
           </div>
-          <div style="display: flex; gap: 8px; overflow: hidden">
-            <div
-              :for={_i <- 1..preview_card_count(row)}
-              style={"flex-shrink: 0; width: #{preview_card_width(row)}px; background: var(--sv-card-bg); border-radius: 4px; overflow: hidden"}
-            >
-              <div style={"aspect-ratio: #{preview_aspect(row)}; background: var(--sv-bg-elevated)"} />
-              <div style="padding: 6px">
-                <div style="height: 8px; width: 80%; background: var(--sv-bg-elevated); border-radius: 2px" />
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <p style="padding: 0 24px 16px; font-family: var(--sv-font-body); font-size: 0.75rem; line-height: 1.5; color: var(--sv-text-secondary)">
-          Body font sample — synopses, curator notes, and descriptions pick up this typeface.
-        </p>
-      </div>
-    </div>
-    """
-  end
+          <ViewerHome.hero_carousel
+            :if={!@expanded}
+            id="appearance-inline-preview-hero"
+            slides={@hero_slides}
+            auto_advance_ms={0}
+          />
 
-  attr :row, :map, default: nil
-
-  defp preview_hero(assigns) do
-    ~H"""
-    <div style="min-height: 200px; background: linear-gradient(135deg, var(--sv-bg-secondary), var(--sv-bg-primary)); display: flex; align-items: flex-end; padding: 24px">
-      <div>
-        <div style="font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--sv-text-secondary); margin-bottom: 4px; font-family: var(--sv-font-body)">
-          {hero_label(@row)}
-        </div>
-        <div style="font-family: var(--font-display, var(--sv-font-heading)); font-size: 1.75rem; font-weight: 500; color: var(--sv-text-primary); letter-spacing: -0.01em; line-height: 1.1">
-          {hero_title(@row)}
-        </div>
-        <p style="font-family: var(--sv-font-body); font-size: 0.8125rem; line-height: 1.5; color: var(--sv-text-secondary); margin-top: 8px; max-width: 360px">
-          Your display font lives up here, your body font lives in this paragraph, and your accent is the button below.
-        </p>
-        <div style="margin-top: 10px">
-          <span style="display: inline-block; padding: 6px 16px; background: var(--sv-accent); color: var(--sv-text-on-accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500; font-family: var(--sv-font-heading)">
-            Watch now
-          </span>
+          <section
+            :if={!@expanded}
+            class="catalog-rows"
+            data-test="preview-catalog-rows"
+          >
+            <ViewerHome.content_row
+              :for={%{row: row, items: items} <- @rows}
+              row={row}
+              items={items}
+            />
+          </section>
         </div>
       </div>
     </div>
     """
   end
 
-  defp split_hero(rows) do
-    case Enum.split_with(rows, &(&1.source_type == :hero)) do
-      {[hero | _], content} -> {hero, content}
-      {[], content} -> {nil, content}
-    end
+  defp presence(value) when is_binary(value) do
+    value = String.trim(value)
+    if value == "", do: nil, else: value
   end
 
-  defp hero_label(nil), do: "Featured"
-  defp hero_label(%Row{title: title}) when is_binary(title) and title != "", do: title
-  defp hero_label(_), do: "Featured"
-
-  defp hero_title(nil), do: "A French cinema Sunday"
-  defp hero_title(_), do: "A French cinema Sunday"
-
-  # Map a row's card_variant to an aspect ratio + card width that matches
-  # the real viewer layout, so operators see the shape of their catalog.
-  defp preview_aspect(%Row{card_variant: variant}) do
-    case variant do
-      "poster_portrait" -> "2 / 3"
-      "creator_identity" -> "1 / 1"
-      "collection_editorial" -> "3 / 2"
-      "minimal_list_item" -> "2 / 3"
-      _ -> "16 / 9"
-    end
-  end
-
-  defp preview_card_width(%Row{card_variant: "poster_portrait"}), do: 64
-  defp preview_card_width(%Row{card_variant: "minimal_list_item"}), do: 64
-  defp preview_card_width(%Row{card_variant: "creator_identity"}), do: 72
-  defp preview_card_width(_), do: 100
-
-  defp preview_card_count(%Row{card_variant: "creator_identity"}), do: 5
-  defp preview_card_count(%Row{card_variant: "poster_portrait"}), do: 5
-  defp preview_card_count(_), do: 4
+  defp presence(value), do: value
 
   # Merge Theme-driven `--sv-*` vars with Organization-driven tokens so the
   # preview reflects both the Brand form (accent + display font) and the
@@ -722,27 +993,45 @@ defmodule BobineWeb.Admin.AppearanceLive do
           ?
         </span>
       </label>
-      <input
-        type="color"
-        name={@input_name}
-        value={@picker_value}
-        class="h-8 w-8 cursor-pointer rounded border border-admin-border"
+      <span
+        class="relative inline-flex h-8 w-8 cursor-pointer rounded border border-admin-border bg-[conic-gradient(at_50%_50%,_#fff,_#bbb,_#fff,_#bbb,_#fff)]"
         title={@hint}
-        oninput="this.parentElement.querySelector('input[type=text]').value = this.value"
-      />
+      >
+        <span
+          class="absolute inset-0 rounded"
+          style={"background: " <> swatch_color(@text_value)}
+          data-test={"color-swatch-" <> Atom.to_string(@field)}
+          aria-hidden="true"
+        />
+        <input
+          type="color"
+          value={@picker_value}
+          class="absolute inset-0 cursor-pointer opacity-0"
+          title={@hint}
+          aria-label={"Pick #{@label} (hex only)"}
+          oninput="var t=this.closest('[data-test^=color-input]').querySelector('input[type=text]'); t.value=this.value; t.dispatchEvent(new Event('input',{bubbles:true})); var s=this.previousElementSibling; if(s) s.style.background=this.value;"
+        />
+      </span>
       <input
         type="text"
         name={@input_name}
         value={@text_value}
-        class="rounded-md border border-admin-border bg-admin-card px-2 py-1 text-sm text-admin-fg focus:border-admin-accent focus:outline-none w-36"
-        placeholder="#000000"
+        class="rounded-md border border-admin-border bg-admin-card px-2 py-1 text-sm text-admin-fg focus:border-admin-accent focus:outline-none w-44"
+        placeholder="#000000 or oklch(...)"
         title={@hint}
-        oninput="var p = this.parentElement.querySelector('input[type=color]'); if (/^#[0-9a-fA-F]{6}$/.test(this.value)) p.value = this.value"
+        oninput="var w=this.closest('[data-test^=color-input]').querySelector('[data-test^=color-swatch]'); if(w) w.style.background=this.value || 'transparent'; var p=this.closest('[data-test^=color-input]').querySelector('input[type=color]'); if(/^#[0-9a-fA-F]{6}$/.test(this.value)) p.value=this.value;"
       />
       <p :for={msg <- @errors} class="text-sm text-red-500">{msg}</p>
     </div>
     """
   end
+
+  # Pass the raw value straight through as a CSS background. Both `#rrggbb`
+  # and `oklch(...)` are valid background values, so the swatch shows the
+  # operator's actual color regardless of format. Empty values fall back to
+  # transparent so the checkered pattern shows the cell is unset.
+  defp swatch_color(v) when is_binary(v) and v != "", do: v
+  defp swatch_color(_), do: "transparent"
 
   defp to_hex_picker_value(v) when is_binary(v) do
     case Regex.run(~r/^#[0-9a-fA-F]{6}$/, v) do

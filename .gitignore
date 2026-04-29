@@ -56,3 +56,6 @@ error.log
 .claude/worktrees/
 .claire/.playwright-mcp/
 .playwright-mcp/
+.claire/
+.claude/scheduled_tasks.lock
+.playwright-mcp/

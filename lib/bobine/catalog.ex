@@ -653,7 +653,7 @@ defmodule Bobine.Catalog do
         description: slide.description,
         primary_cta_label: slide.primary_cta_label,
         secondary_cta_label: slide.secondary_cta_label,
-        background_image_url: slide.background_image_url,
+        background_image_url: slide.background_image_url || mux_hero_thumbnail(video),
         title_logo_url: slide.title_logo_url,
         channel_logo_url: slide.channel_logo_url,
         show_headline: slide.show_headline,
