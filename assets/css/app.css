@@ -261,7 +261,8 @@
 
 /* Light-mode overrides for root surface/text tokens.
    Root tokens default to dark cinema palette; when user picks light theme
-   via the toggle, flip to a warm-paper light palette so non-admin pages
+   via the toggle (data-theme=light) OR when system mode is on and the OS
+   prefers light, flip to a warm-paper light palette so non-admin pages
    (auth, marketing) stay legible. Admin uses its own --color-admin-* scale. */
 [data-theme=light] {
   color-scheme: light;
@@ -282,6 +283,60 @@
 
   --color-accent-subtle: oklch(0.88 0.06 68);
   --color-accent-text: oklch(0.20 0.02 55);
+}
+
+/* System mode: no data-theme attr → follow OS preference.
+   Daisy already follows OS (prefersdark on dark theme), so the root tokens
+   must match or auth pages render dark surface under light daisy components. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --color-bg: oklch(0.98 0.005 82);
+    --color-surface: oklch(0.96 0.008 82);
+    --color-elevated: oklch(0.99 0.004 82);
+    --color-overlay: oklch(0.93 0.010 82);
+
+    --color-border: oklch(0.85 0.012 65);
+    --color-border-subtle: oklch(0.92 0.008 65);
+    --color-border-strong: oklch(0.72 0.014 65);
+
+    --color-text-primary: oklch(0.20 0.018 55);
+    --color-text-secondary: oklch(0.40 0.020 55);
+    --color-text-muted: oklch(0.55 0.016 55);
+    --color-text-disabled: oklch(0.70 0.010 55);
+
+    --color-accent-subtle: oklch(0.88 0.06 68);
+    --color-accent-text: oklch(0.20 0.02 55);
+  }
+
+  /* Admin chrome also follows OS when no explicit theme set. */
+  :root:not([data-theme]) {
+    --color-admin-bg: #fafafa;
+    --color-admin-card: #ffffff;
+    --color-admin-fg: #18181b;
+    --color-admin-muted: #71717a;
+    --color-admin-border: #d4d4d8;
+    --color-admin-accent: #b45309;
+    --color-admin-on-accent: #ffffff;
+  }
+}
+
+/* System mode + OS dark: daisy already picks dark via prefersdark.
+   Root tokens are already dark by default, so nothing to flip. But make
+   sure admin chrome flips to dark too so /super and /admin stay consistent. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+
+    --color-admin-bg: #18181b;
+    --color-admin-card: #27272a;
+    --color-admin-fg: #f4f4f5;
+    --color-admin-muted: #a1a1aa;
+    --color-admin-border: #3f3f46;
+    --color-admin-accent: #fbbf24;
+    --color-admin-on-accent: #18181b;
+  }
 }
 
 /* Global reduced-motion kill switch — non-negotiable. */
