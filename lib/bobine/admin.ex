@@ -344,8 +344,9 @@ defmodule Bobine.Admin do
   end
 
   defp active_subscriber_count do
-    Subscription
-    |> where(status: :active)
+    ViewerSubscription
+    |> where([s], s.status in ["active", "trialing"])
+    |> where([s], is_nil(s.deleted_at))
     |> Repo.aggregate(:count)
   end
 
@@ -507,18 +508,17 @@ defmodule Bobine.Admin do
           left_join: pp in PlatformPlan,
           as: :platform_plan,
           on: pp.id == ps.platform_plan_id,
-          left_join: sub in Subscription,
+          left_join: sub in ViewerSubscription,
           as: :subscription,
-          on: sub.organization_id == o.id and sub.status == :active,
+          on:
+            sub.organization_id == o.id and sub.status in ["active", "trialing"] and
+              is_nil(sub.deleted_at),
           left_join: v in Video,
           as: :video,
           on: v.organization_id == o.id,
-          left_join: ae in AnalyticsEvent,
-          as: :analytics_event,
-          on:
-            ae.organization_id == o.id and
-              ae.event_type == "video.play" and
-              ae.occurred_at >= ^seven_days_ago,
+          left_join: p in Progress,
+          as: :progress,
+          on: p.organization_id == o.id and p.updated_at >= ^seven_days_ago,
           group_by: [o.id, o.name, pp.id, pp.name, pp.amount, ps.status],
           select: %{
             id: o.id,
@@ -528,7 +528,7 @@ defmodule Bobine.Admin do
             subscriber_count: count(sub.id, :distinct),
             mrr_cents: coalesce(pp.amount, 0),
             video_count: count(v.id, :distinct),
-            active_viewers_last_7d: count(ae.viewer_id, :distinct),
+            active_viewers_last_7d: count(p.viewer_id, :distinct),
             status: ps.status
           }
 
