@@ -157,7 +157,7 @@ defmodule Bobine.AdminTest do
       org = insert(:organization)
       insert(:user)
       insert(:video, organization: org)
-      insert(:viewer_subscription, organization: org, status: "active")
+      insert(:viewer, organization: org, subscription_status: "active")
 
       stats = Admin.platform_stats()
       assert stats.total_organizations >= 1
@@ -168,19 +168,19 @@ defmodule Bobine.AdminTest do
 
     test "does not count cancelled subscriptions" do
       org = insert(:organization)
-      insert(:viewer_subscription, organization: org, status: "canceled")
+      insert(:viewer, organization: org, subscription_status: "canceled")
 
       stats = Admin.platform_stats()
-      # cancelled subscription should not be counted
-      cancelled_count =
+      # canceled viewer should not be counted
+      active_count =
         Bobine.Repo.aggregate(
-          Ecto.Query.from(s in Bobine.Billing.ViewerSubscription,
-            where: s.status in ["active", "trialing"] and is_nil(s.deleted_at)
+          Ecto.Query.from(v in Bobine.Viewers.Viewer,
+            where: v.subscription_status in ["active", "trial"]
           ),
           :count
         )
 
-      assert stats.total_subscribers == cancelled_count
+      assert stats.total_subscribers == active_count
     end
   end
 

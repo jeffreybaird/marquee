@@ -156,9 +156,9 @@ defmodule Bobine.Admin.AnalyticsTest do
     test "subscriber_count reflects active subscriptions for that org" do
       org = insert(:organization)
       other_org = insert(:organization)
-      insert(:viewer_subscription, organization: org, status: "active")
-      insert(:viewer_subscription, organization: org, status: "active")
-      insert(:viewer_subscription, organization: other_org, status: "active")
+      insert(:viewer, organization: org, subscription_status: "active")
+      insert(:viewer, organization: org, subscription_status: "active")
+      insert(:viewer, organization: other_org, subscription_status: "active")
 
       result = Admin.list_organizations_with_health(search: org.name)
       row = hd(result.results)

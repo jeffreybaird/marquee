@@ -344,9 +344,8 @@ defmodule Bobine.Admin do
   end
 
   defp active_subscriber_count do
-    ViewerSubscription
-    |> where([s], s.status in ["active", "trialing"])
-    |> where([s], is_nil(s.deleted_at))
+    Viewer
+    |> where([v], v.subscription_status in ["active", "trial"])
     |> Repo.aggregate(:count)
   end
 
@@ -508,11 +507,11 @@ defmodule Bobine.Admin do
           left_join: pp in PlatformPlan,
           as: :platform_plan,
           on: pp.id == ps.platform_plan_id,
-          left_join: sub in ViewerSubscription,
+          left_join: sub in Viewer,
           as: :subscription,
           on:
-            sub.organization_id == o.id and sub.status in ["active", "trialing"] and
-              is_nil(sub.deleted_at),
+            sub.organization_id == o.id and
+              sub.subscription_status in ["active", "trial"],
           left_join: v in Video,
           as: :video,
           on: v.organization_id == o.id,
