@@ -282,6 +282,8 @@ defmodule BobineWeb.Router do
       live "/browse/:source", ViewAllLive
       live "/collections/:slug", CollectionLive
       live "/events/:slug", LiveEventWatchLive
+      live "/podcasts", PodcastsLive
+      live "/podcasts/:slug", PodcastShowLive
     end
   end
 

@@ -46,9 +46,14 @@ defmodule Bobine.Podcasts do
   Exempt from doctest — hits the database.
   """
   def list_shows(%Organization{id: org_id}, opts \\ []) do
+    published = Keyword.get(opts, :published)
+
     Show
     |> where(organization_id: ^org_id)
     |> where([s], is_nil(s.deleted_at))
+    |> then(fn q ->
+      if published != nil, do: where(q, [s], s.published == ^published), else: q
+    end)
     |> order_by(asc: :title)
     |> Pagination.paginate(opts)
   end
