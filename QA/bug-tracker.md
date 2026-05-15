@@ -15,8 +15,6 @@
 
 #### Logged in Subscribed Viewer Homepage
 
-[] Continue watching isn't working
-
 ### Admin
 
 #### Appearance 

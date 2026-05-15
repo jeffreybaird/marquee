@@ -1,18 +1,3 @@
-Feature: Admin Dashboard
-
-  Background:
-    Given I am logged in as an operator
-
-  Scenario: Operator views the dashboard
-    When I navigate to /admin/
-    Then I see quick stats including subscriber count, video count, and MRR
-    And I see links to all admin sections
-
-  Scenario: Dashboard stats reflect current organization data
-    Given my organization has subscribers, videos, and revenue
-    When I view the dashboard
-    Then the displayed stats match the current organization data
-
 Feature: Landing Page Builder
 
   Background:
@@ -89,27 +74,3 @@ Feature: Landing Page Builder
     Then the video is uploaded to Mux
     And linked to that landing page section
 
-Feature: Organization Settings
-
-  Background:
-    Given I am logged in as an organization owner
-    And I am on the organization settings page
-
-  Scenario: Owner views Stripe Connect status
-    When I view the settings page
-    Then I see whether Stripe Connect is connected or pending
-
-  Scenario: Owner initiates Stripe Connect onboarding
-    Given Stripe Connect is not yet connected
-    When I click to connect my Stripe account
-    Then I am redirected to the Stripe OAuth flow
-
-Feature: Super Admin Dashboard
-
-  Background:
-    Given I am logged in as a super admin
-
-  Scenario: Super admin views the platform dashboard
-    When I navigate to /super/
-    Then I see platform-level stats
-    And I see links to organizations, users, analytics, and the audit log

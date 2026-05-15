@@ -6,7 +6,7 @@ Feature: Organization Audit Log
   Scenario: Operator views the audit log
     When I navigate to /admin/audit-log
     Then I see a chronological trail of all actions taken in my organization
-    Including who acted, when, what resource changed, and from which IP address
+    And who acted, when, what resource changed, and from which IP address
 
   Scenario: Operator filters audit log by actor
     Given the audit log has entries from multiple users
@@ -43,21 +43,3 @@ Feature: Organization Audit Log
     When I view the audit log entry for that change
     Then I can see both the impersonating user and the acted-as user
 
-Feature: Super Admin Platform Audit Log
-
-  Background:
-    Given I am logged in as a super admin
-
-  Scenario: Super admin views platform-wide audit log
-    When I navigate to /super/audit-log
-    Then I see audit events across all organizations
-
-  Scenario: Super admin filters platform audit log by organization
-    Given the platform audit log has entries from multiple organizations
-    When I filter by a specific organization
-    Then only entries from that organization are shown
-
-  Scenario: Super admin views super admin action in audit log
-    Given a super admin action such as granting super admin access occurred
-    When I view the platform audit log
-    Then that action appears as an audit entry with the super admin as actor
