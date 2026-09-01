@@ -21,6 +21,12 @@ variable "vpc_ip_range" {
   default     = null
 }
 
+variable "state_bucket_name" {
+  description = "Name of the Spaces bucket holding Terraform state and Litestream backups (created by infra-state). Assigned to the app's DO project by URN. Empty string skips the assignment."
+  type        = string
+  default     = ""
+}
+
 variable "database_backend" {
   description = "Which database the app uses: 'sqlite' (the default) provisions no DB at all — the app keeps a SQLite file on the droplet's local disk, replicated to Spaces by Litestream (see deploy/compose.sqlite.yaml). 'postgres' provisions a managed Postgres cluster here instead. 'none' is for a STATIC site (FRAMEWORK=zola), which has no data layer at all."
   type        = string
@@ -70,4 +76,10 @@ variable "dns_ttl" {
   description = "TTL (seconds) for the A record."
   type        = number
   default     = 300
+}
+
+variable "enable_staging" {
+  description = "Create the app's STAGING name (<record>-stg.<zone>, pointed at the same droplet) and, on the Postgres backend, its own database in the same cluster. A pull request against main stands an environment up behind that name and closing the PR tears it down. Ignored for a static site (database_backend = \"none\"), which has no server-side environment to build."
+  type        = bool
+  default     = true
 }
