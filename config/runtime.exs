@@ -200,8 +200,12 @@ if config_env() == :prod do
     config :marquee, Marquee.Mailer, adapter: Swoosh.Adapters.Logger, level: :warning
   end
 
+  # Empty string (an unset deploy var written as `MAILER_FROM=`) must not
+  # override the default, so guard it the same way as the API key.
+  mailer_from = System.get_env("MAILER_FROM")
+
   config :marquee,
-    mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
+    mailer_from: (mailer_from not in [nil, ""] && mailer_from) || "onboarding@resend.dev"
 
   #
   # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,

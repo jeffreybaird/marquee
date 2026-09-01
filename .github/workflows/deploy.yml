@@ -210,6 +210,7 @@ jobs:
           STRIPE_CONNECT_WEBHOOK_SECRET=${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
           RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+          MAILER_FROM=${{ vars.MAILER_FROM }}
           EOF
 
       - name: Write .env (SQLite)
