@@ -176,7 +176,17 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # The runner IP was just added to the DO firewall; propagation can lag
+          # a few seconds, during which ssh-keyscan cannot reach port 22 and
+          # exits 1 (fatal under `bash -e`). Retry until it returns a host key.
+          for attempt in $(seq 1 10); do
+            if ssh-keyscan -H "$HOST" 2>/dev/null | tee -a ~/.ssh/known_hosts | grep -q .; then
+              break
+            fi
+            echo "ssh-keyscan attempt $attempt found no key yet (firewall propagating); retrying..."
+            sleep 3
+          done
+          grep -q . ~/.ssh/known_hosts
 
       # .env carries the SHA-pinned image + runtime secrets. Built on the runner,
       # shipped to the droplet, never committed. (locked decision: secrets arrive
