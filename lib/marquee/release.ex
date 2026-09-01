@@ -53,6 +53,29 @@ defmodule Marquee.Release do
     Marquee.Content.reconcile_pending_mux_assets(opts)
   end
 
+  @doc """
+  Creates (or promotes) a super admin and prints a one-time magic-link login
+  URL for `host`, so platform access can be bootstrapped on a fresh deploy with
+  no mailer configured. The link is valid for 15 minutes.
+
+      docker compose --profile tools run --rm migrate \\
+        bin/marquee eval 'Marquee.Release.create_super_admin("me@example.com", "marquee.jeffreybaird.com")'
+  """
+  def create_super_admin(email, host) do
+    start_app()
+
+    case Marquee.Accounts.create_super_admin_with_login(email) do
+      {:ok, %{user: user, token: token}} ->
+        url = "https://#{host}/users/log-in/#{token}"
+        IO.puts("\nSuper admin ready: #{user.email}\nMagic login (15 min): #{url}\n")
+        {:ok, url}
+
+      {:error, _, _} = error ->
+        IO.puts("\nFailed to create super admin: #{inspect(error)}\n")
+        error
+    end
+  end
+
   defp repos do
     Application.fetch_env!(@app, :ecto_repos)
   end

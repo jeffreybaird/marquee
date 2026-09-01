@@ -249,6 +249,45 @@ defmodule Marquee.Accounts do
   end
 
   @doc """
+  Creates (or promotes) a super admin and returns a one-time magic-link login
+  token, bypassing email delivery.
+
+  Registers the user if the email is new, sets `is_super_admin`, and builds a
+  `"login"` token. Returns `{:ok, %{user: user, token: encoded_token}}`; the
+  caller turns the token into a `/users/log-in/:token` URL. Used by
+  `Marquee.Release.create_super_admin/2` to bootstrap platform access on a
+  fresh deploy where no mailer is configured.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_super_admin_with_login(email) when is_binary(email) do
+    with {:ok, user} <- upsert_super_admin(email) do
+      {encoded_token, user_token} = UserToken.build_email_token(user, "login")
+      Repo.insert!(user_token)
+      {:ok, %{user: user, token: encoded_token}}
+    end
+  end
+
+  defp upsert_super_admin(email) do
+    case get_user_by_email(email) do
+      nil ->
+        with {:ok, user} <- register_user(%{email: email}) do
+          promote_to_super_admin(user)
+        end
+
+      %User{} = user ->
+        promote_to_super_admin(user)
+    end
+  end
+
+  defp promote_to_super_admin(user) do
+    case user |> User.admin_changeset(%{is_super_admin: true}) |> Repo.update() do
+      {:ok, user} -> {:ok, user}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
   Registers a new user and creates an organization with the user as owner.
 
   The organization is seeded with the named theme preset (one of

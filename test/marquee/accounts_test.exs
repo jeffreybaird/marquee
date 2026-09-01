@@ -97,6 +97,32 @@ defmodule Marquee.AccountsTest do
     end
   end
 
+  describe "create_super_admin_with_login/1" do
+    test "registers a new super admin and returns a usable login token" do
+      email = unique_user_email()
+
+      {:ok, %{user: user, token: token}} = Accounts.create_super_admin_with_login(email)
+
+      assert user.email == email
+      assert user.is_super_admin
+      assert is_binary(token) and token != ""
+
+      # The token is a real "login" magic link that resolves back to the user.
+      {:ok, {logged_in, _tokens}} = Accounts.login_user_by_magic_link(token)
+      assert logged_in.id == user.id
+    end
+
+    test "promotes an existing user without creating a duplicate" do
+      %{email: email, id: id} = user_fixture()
+
+      {:ok, %{user: user}} = Accounts.create_super_admin_with_login(email)
+
+      assert user.id == id
+      assert user.is_super_admin
+      assert Accounts.get_user_by_email(email).is_super_admin
+    end
+  end
+
   describe "register_user_with_organization/3" do
     alias Marquee.Branding
     alias Marquee.Branding.Theme
