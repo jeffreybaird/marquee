@@ -633,6 +633,36 @@ defmodule Marquee.ContentTest do
       assert Repo.get!(Video, video.id).mux_status == "preparing"
     end
 
+    test "counts a raising Mux SDK call as failed and keeps going", %{org: org} do
+      # The Mux SDK raises (e.g. Mux.Exception on a 404) rather than returning
+      # an error tuple. A single raising asset must not abort the whole batch.
+      raising =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_raise_1",
+          mux_status: "preparing"
+        )
+
+      ready =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_ready_2",
+          mux_status: "preparing",
+          mux_playback_id: nil
+        )
+
+      expect(MockMuxClient, :get_asset, 2, fn
+        "asset_raise_1" -> raise "boom from Mux SDK"
+        "asset_ready_2" -> {:ok, %{"status" => "ready", "playback_ids" => []}}
+      end)
+
+      assert %{ready: 1, errored: 0, still_pending: 0, failed: 1} =
+               Content.reconcile_pending_mux_assets()
+
+      assert Repo.get!(Video, raising.id).mux_status == "preparing"
+      assert Repo.get!(Video, ready.id).mux_status == "ready"
+    end
+
     test "ignores videos that are already ready or lack an asset id", %{org: org} do
       insert(:video, organization: org, mux_status: "ready")
       insert(:video, organization: org, mux_status: "waiting", mux_asset_id: nil)

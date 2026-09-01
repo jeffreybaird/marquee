@@ -464,6 +464,18 @@ defmodule Marquee.Content do
 
         :failed
     end
+  rescue
+    # The Mux SDK raises (e.g. Mux.Exception) on some responses instead of
+    # returning an error tuple — a 404 for a deleted asset, an unexpected
+    # status. One bad asset must not abort the whole batch, so treat any raise
+    # as this asset failing and let the reduce move on.
+    error ->
+      Logger.warning("Mux reconcile raised for asset",
+        mux_asset_id: asset_id,
+        error: inspect(error, limit: :infinity)
+      )
+
+      :failed
   end
 
   defp mux_ready_metadata(asset) do
