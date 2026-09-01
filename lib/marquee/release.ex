@@ -37,6 +37,22 @@ defmodule Marquee.Release do
     Marquee.DemoSeeder.seed(opts)
   end
 
+  @doc """
+  Reconciles pending Mux assets against Mux's current state from a running
+  release (no Mix). Boots the full app, then delegates to
+  `Marquee.Content.reconcile_pending_mux_assets/1`.
+
+  Use after a bulk seed or a domain move, when assets finished processing while
+  no webhook endpoint was reachable, to flip them `preparing` -> `ready`.
+
+      docker compose --profile tools run --rm migrate \\
+        bin/marquee eval 'Marquee.Release.reconcile_mux()'
+  """
+  def reconcile_mux(opts \\ []) do
+    start_app()
+    Marquee.Content.reconcile_pending_mux_assets(opts)
+  end
+
   defp repos do
     Application.fetch_env!(@app, :ecto_repos)
   end

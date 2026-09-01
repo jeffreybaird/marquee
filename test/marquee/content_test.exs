@@ -536,4 +536,110 @@ defmodule Marquee.ContentTest do
       assert %Ecto.Changeset{} = Content.change_collection(collection)
     end
   end
+
+  describe "reconcile_pending_mux_assets/1" do
+    import Mox
+
+    alias Marquee.Content.Video
+
+    setup do
+      verify_on_exit!()
+      org = insert(:organization)
+      %{org: org}
+    end
+
+    test "flips a ready Mux asset to ready with playback metadata", %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_ready_1",
+          mux_status: "preparing",
+          mux_playback_id: nil
+        )
+
+      expect(MockMuxClient, :get_asset, fn "asset_ready_1" ->
+        {:ok,
+         %{
+           "status" => "ready",
+           "duration" => 42.0,
+           "max_stored_resolution" => "1080p",
+           "playback_ids" => [
+             %{"id" => "pb_public_1", "policy" => "public"},
+             %{"id" => "pb_signed_1", "policy" => "signed"}
+           ]
+         }}
+      end)
+
+      assert %{ready: 1, errored: 0, still_pending: 0, failed: 0} =
+               Content.reconcile_pending_mux_assets()
+
+      reloaded = Repo.get!(Video, video.id)
+      assert reloaded.mux_status == "ready"
+      assert reloaded.mux_playback_id == "pb_public_1"
+      assert reloaded.duration == 42.0
+    end
+
+    test "marks an errored Mux asset as errored", %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_err_1",
+          mux_status: "preparing"
+        )
+
+      expect(MockMuxClient, :get_asset, fn "asset_err_1" ->
+        {:ok, %{"status" => "errored", "errors" => %{"messages" => ["bad input"]}}}
+      end)
+
+      assert %{ready: 0, errored: 1, still_pending: 0, failed: 0} =
+               Content.reconcile_pending_mux_assets()
+
+      assert Repo.get!(Video, video.id).mux_status == "errored"
+    end
+
+    test "leaves a still-preparing asset pending", %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_prep_1",
+          mux_status: "preparing"
+        )
+
+      expect(MockMuxClient, :get_asset, fn "asset_prep_1" ->
+        {:ok, %{"status" => "preparing"}}
+      end)
+
+      assert %{ready: 0, errored: 0, still_pending: 1, failed: 0} =
+               Content.reconcile_pending_mux_assets()
+
+      assert Repo.get!(Video, video.id).mux_status == "preparing"
+    end
+
+    test "counts a Mux API error as failed without changing the video", %{org: org} do
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_fail_1",
+          mux_status: "preparing"
+        )
+
+      expect(MockMuxClient, :get_asset, fn "asset_fail_1" ->
+        {:error, :mux_error, %{type: :timeout, messages: ["boom"]}}
+      end)
+
+      assert %{ready: 0, errored: 0, still_pending: 0, failed: 1} =
+               Content.reconcile_pending_mux_assets()
+
+      assert Repo.get!(Video, video.id).mux_status == "preparing"
+    end
+
+    test "ignores videos that are already ready or lack an asset id", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready")
+      insert(:video, organization: org, mux_status: "waiting", mux_asset_id: nil)
+
+      # No get_asset expectation set — a call would fail verify_on_exit!.
+      assert %{ready: 0, errored: 0, still_pending: 0, failed: 0} =
+               Content.reconcile_pending_mux_assets()
+    end
+  end
 end

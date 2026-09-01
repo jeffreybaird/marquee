@@ -405,6 +405,78 @@ defmodule Marquee.Content do
     end
   end
 
+  @doc """
+  Reconciles videos still marked `waiting`/`preparing` against Mux's current
+  asset state. A catch-up for assets that finished processing while no webhook
+  endpoint was reachable (e.g. right after a domain move or a bulk seed).
+
+  For each pending video with a `mux_asset_id`, fetches the asset from Mux and
+  reuses the webhook paths — `mark_video_ready/2` on `ready`,
+  `mark_video_errored/2` on `errored` — so the same events and validations
+  apply. Returns a summary map of counts.
+
+  Exempt from doctest — hits the database and the Mux API.
+  """
+  def reconcile_pending_mux_assets(opts \\ []) do
+    Marquee.Otel.with_span "marquee.content.reconcile_pending_mux_assets" do
+      limit = Keyword.get(opts, :limit, 500)
+
+      pending =
+        Repo.all(
+          from v in Video,
+            where:
+              not is_nil(v.mux_asset_id) and v.mux_status in ^~w(waiting preparing) and
+                is_nil(v.deleted_at),
+            select: v.mux_asset_id,
+            limit: ^limit
+        )
+
+      Enum.reduce(pending, %{ready: 0, errored: 0, still_pending: 0, failed: 0}, fn asset_id,
+                                                                                    acc ->
+        acc
+        |> Map.update!(reconcile_one_mux_asset(asset_id), &(&1 + 1))
+      end)
+    end
+  end
+
+  defp reconcile_one_mux_asset(asset_id) do
+    case mux_client().get_asset(asset_id) do
+      {:ok, %{"status" => "ready"} = asset} ->
+        case mark_video_ready(asset_id, mux_ready_metadata(asset)) do
+          {:ok, _} -> :ready
+          _ -> :failed
+        end
+
+      {:ok, %{"status" => "errored"} = asset} ->
+        case mark_video_errored(asset_id, asset["errors"]) do
+          {:ok, _} -> :errored
+          _ -> :failed
+        end
+
+      {:ok, _asset} ->
+        :still_pending
+
+      {:error, :mux_error, details} ->
+        Logger.warning("Mux reconcile get_asset failed",
+          mux_asset_id: asset_id,
+          details: inspect(details, limit: :infinity)
+        )
+
+        :failed
+    end
+  end
+
+  defp mux_ready_metadata(asset) do
+    playback_ids = asset["playback_ids"] || []
+    public_playback = Enum.find(playback_ids, &(&1["policy"] == "public"))
+
+    %{
+      duration: asset["duration"],
+      max_resolution: asset["max_stored_resolution"],
+      playback_id: public_playback && public_playback["id"]
+    }
+  end
+
   ## -----------------------------------------------------------------------
   ## Video CRUD
   ## -----------------------------------------------------------------------

@@ -11,4 +11,14 @@ defmodule Marquee.ReleaseTest do
       end
     end
   end
+
+  describe "reconcile_mux/1" do
+    test "boots the app and delegates to Content, returning a summary" do
+      # No pending Mux assets in this sandbox, so no external call is made and
+      # the summary is all zeros — proving reconcile_mux/1 boots the app and
+      # forwards to Content.reconcile_pending_mux_assets/1.
+      assert %{ready: 0, errored: 0, still_pending: 0, failed: 0} =
+               Marquee.Release.reconcile_mux()
+    end
+  end
 end
