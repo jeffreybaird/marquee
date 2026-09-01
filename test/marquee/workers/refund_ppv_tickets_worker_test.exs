@@ -49,12 +49,14 @@ defmodule Marquee.Workers.RefundPpvTicketsWorkerTest do
       t1 = ticket_with_payment_intent(event, viewer1, "pi_1111")
       t2 = ticket_with_payment_intent(event, viewer2, "pi_2222")
 
-      expect(Marquee.Billing.MockStripeClient, :create_refund, fn "pi_1111", _opts ->
-        {:ok, %{id: "re_1111"}}
-      end)
-
-      expect(Marquee.Billing.MockStripeClient, :create_refund, fn "pi_2222", _opts ->
-        {:ok, %{id: "re_2222"}}
+      # The worker fetches tickets without an ORDER BY, so it may refund t2
+      # before t1. Two separate ordered `expect`s would force pi_1111 to be the
+      # first call and flake when the order differs; a single count-2
+      # expectation with a clause per payment intent asserts exactly two refunds
+      # with the right ids, order-independently.
+      expect(Marquee.Billing.MockStripeClient, :create_refund, 2, fn
+        "pi_1111", _opts -> {:ok, %{id: "re_1111"}}
+        "pi_2222", _opts -> {:ok, %{id: "re_2222"}}
       end)
 
       assert :ok =
