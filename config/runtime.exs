@@ -117,7 +117,11 @@ if config_env() == :prod do
 
   config :marquee, Marquee.Repo,
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    # Default 5 (not Phoenix's 10): the managed Postgres tier caps usable
+    # connections near ~22, and a blue/green swap runs both colors at once
+    # (2 x pool) alongside Oban + the migrate runner. 5 keeps the sum well
+    # under the cap; raise POOL_SIZE once on a larger DB plan.
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
     # For machines with several cores, consider starting multiple pools of `pool_size`
     # pool_count: 4,
     socket_options: maybe_ipv6

@@ -279,7 +279,7 @@ jobs:
       - name: Run migrations (gate before traffic)
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
-            "cd '$STACK_DIR' && docker compose run --rm migrate bin/${{ needs.build.outputs.app_name }} eval '${{ needs.build.outputs.module }}.Release.migrate()'"
+            "cd '$STACK_DIR' && docker compose run --rm -e POOL_SIZE=2 migrate bin/${{ needs.build.outputs.app_name }} eval '${{ needs.build.outputs.module }}.Release.migrate()'"
 
       # Health-checked blue/green swap (story 7.2): start the idle color from
       # the new image, wait for its healthcheck, only then stop the old color.
