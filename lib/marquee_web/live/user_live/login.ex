@@ -25,7 +25,7 @@ defmodule MarqueeWeb.UserLive.Login do
           </.header>
         </div>
 
-        <div :if={local_mail_adapter?()} class="alert alert-info">
+        <div :if={dev_mailbox_available?()} class="alert alert-info">
           <.icon name="hero-information-circle" class="size-6 shrink-0" />
           <div>
             <p>You are running the local mail adapter.</p>
@@ -139,6 +139,14 @@ defmodule MarqueeWeb.UserLive.Login do
      socket
      |> put_flash(:info, info)
      |> push_navigate(to: ~p"/users/log-in")}
+  end
+
+  # The banner links to /dev/mailbox, which the router mounts only when
+  # :dev_routes is set (dev). It must never render in prod — where the mailer
+  # can also fall back to the local adapter — so gate on both the dev-routes
+  # flag and the local adapter actually being in use.
+  defp dev_mailbox_available? do
+    Application.get_env(:marquee, :dev_routes, false) and local_mail_adapter?()
   end
 
   defp local_mail_adapter? do
