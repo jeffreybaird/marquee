@@ -42,7 +42,13 @@ docker compose up -d --remove-orphans --wait "$new"
 # The guard matters: an EMPTY list would make `up -d` mean "every service",
 # starting the idle color and defeating the swap. The Postgres stack has no
 # non-color services at all.
-extra="$(docker compose config --services | grep -vxE 'app_(blue|green)' | tr '\n' ' ')"
+#
+# `|| true`: when every service IS a color (the Postgres stack), grep matches
+# nothing and exits 1. Under `set -euo pipefail` that non-zero would propagate
+# out of the command substitution and abort the swap here — BEFORE the old color
+# is stopped — leaving both colors live behind the shared edge alias. The old
+# color stays up serving stale config while the deploy reports failure.
+extra="$(docker compose config --services | grep -vxE 'app_(blue|green)' | tr '\n' ' ' || true)"
 
 if [ -n "$(printf '%s' "$extra" | tr -d ' ')" ]; then
   # Unquoted on purpose: $extra is a word list of service names, not one argument.
@@ -71,7 +77,7 @@ fi
 #   - services behind a profile (migrate) — compose already omits those from
 #     `config --services`
 #   - the idle color, deliberately removed just above; only "$new" should exist
-expected="$(docker compose config --services | grep -vxE 'app_(blue|green)'; printf '%s\n' "$new")"
+expected="$({ docker compose config --services | grep -vxE 'app_(blue|green)' || true; printf '%s\n' "$new"; })"
 present="$(docker compose ps -a --services)"
 
 missing=""
