@@ -74,6 +74,20 @@ defmodule Marquee.Buffers.ProgressBufferTest do
       assert progress.position == 55.0
     end
 
+    test "does not auto-flush to Postgres without an explicit flush" do
+      # With flush_interval_ms: :infinity (test config) the background timer is
+      # disabled, so a buffered update must NOT reach Postgres on its own — it is
+      # the out-of-band timer flush that raced sandbox teardown ("client exited").
+      org = insert(:organization)
+      user = insert(:user)
+      _membership = insert(:membership, organization: org, user: user)
+      video = insert(:video, organization: org)
+
+      :ok = ProgressBuffer.update(org.id, user.id, video.id, 55.0)
+
+      assert Repo.get_by(Progress, user_id: user.id, video_id: video.id) == nil
+    end
+
     test "clears buffer after flush" do
       org = insert(:organization)
       user = insert(:user)

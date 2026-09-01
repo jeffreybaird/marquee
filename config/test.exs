@@ -80,3 +80,10 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# ProgressBuffer flushes to Repo from its own global process. A background flush
+# on the 30s timer races test teardown and disconnects the shared sandbox
+# connection ("client exited"), failing a random async: false test. Tests drive
+# flushing explicitly via ProgressBuffer.flush/0 (sandbox-safe), so disable the
+# timer here. Production keeps the default 30s interval.
+config :marquee, Marquee.Buffers.ProgressBuffer, flush_interval_ms: :infinity

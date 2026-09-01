@@ -11,7 +11,7 @@ defmodule Marquee.Buffers.ProgressBuffer do
   alias Marquee.Engagement.Progress
   alias Marquee.Repo
 
-  @flush_interval_ms 30_000
+  @default_flush_interval_ms 30_000
   @table :progress_buffer
   @user :user
   @viewer :viewer
@@ -124,14 +124,14 @@ defmodule Marquee.Buffers.ProgressBuffer do
       write_concurrency: true
     ])
 
-    schedule_flush()
+    maybe_schedule_flush()
     {:ok, %{}}
   end
 
   @impl true
   def handle_info(:flush, state) do
     do_flush()
-    schedule_flush()
+    maybe_schedule_flush()
     {:noreply, state}
   end
 
@@ -141,8 +141,21 @@ defmodule Marquee.Buffers.ProgressBuffer do
     {:reply, :ok, state}
   end
 
-  defp schedule_flush do
-    Process.send_after(self(), :flush, @flush_interval_ms)
+  # Skips scheduling when the interval is :infinity (test), so the buffer never
+  # writes to Repo out-of-band. A background flush from this global process —
+  # which holds no sandbox connection — races test teardown and disconnects the
+  # shared sandbox connection ("client exited"). Tests flush explicitly via the
+  # sandbox-safe flush/0 call instead.
+  defp maybe_schedule_flush do
+    case flush_interval_ms() do
+      :infinity -> :ok
+      ms when is_integer(ms) -> Process.send_after(self(), :flush, ms)
+    end
+  end
+
+  defp flush_interval_ms do
+    Application.get_env(:marquee, __MODULE__, [])[:flush_interval_ms] ||
+      @default_flush_interval_ms
   end
 
   defp do_flush do
