@@ -7,9 +7,15 @@ defmodule MarqueeWeb.Admin.DashboardLive do
 
   use MarqueeWeb, :live_view
 
+  alias MarqueeWeb.Admin.OnboardingLive
+
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Dashboard")}
+    if OnboardingLive.pending?(socket.assigns[:organization], socket.assigns[:current_membership]) do
+      {:ok, push_navigate(socket, to: ~p"/admin/onboarding")}
+    else
+      {:ok, assign(socket, page_title: "Dashboard")}
+    end
   end
 
   @impl true

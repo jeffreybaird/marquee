@@ -131,6 +131,7 @@ defmodule MarqueeWeb.Router do
         {MarqueeWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", DashboardLive
+      live "/onboarding", OnboardingLive
       live "/content", ContentLive
       live "/collections", CollectionsLive
       live "/series", SeriesLive

@@ -10,7 +10,11 @@ defmodule Marquee.Factory do
     %Marquee.Accounts.Organization{
       name: sequence(:org_name, &"Test Org #{&1}"),
       slug: sequence(:org_slug, &"test-org-#{&1}"),
-      template: "default"
+      template: "default",
+      # Factory orgs are "established" by default so the new-admin onboarding
+      # wizard doesn't intercept unrelated dashboard specs. Onboarding tests
+      # opt into a fresh org with `onboarding_completed_at: nil`.
+      onboarding_completed_at: ~U[2026-01-01 00:00:00Z]
     }
   end
 
