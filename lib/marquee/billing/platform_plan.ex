@@ -28,12 +28,19 @@ defmodule Marquee.Billing.PlatformPlan do
     field :usage_tier, Ecto.Enum, values: [:basic, :super, :premium]
     field :business_tier, Ecto.Enum, values: [:individual, :small_business, :enterprise]
 
-    # Usage limits (nil = unlimited)
+    # Usage limits (nil or -1 = unlimited)
     field :max_videos, :integer
     field :max_monthly_views, :integer
     field :max_storage_gb, :integer
     field :max_team_seats, :integer
     field :max_webhook_endpoints, :integer
+    # Total video duration the plan permits, in seconds (nil or -1 = unlimited).
+    # This is the trial's "hours of video" cap — default 5h (18000s), settable per plan.
+    field :max_total_duration_seconds, :integer
+    # Maximum number of end-user viewers the plan permits (nil or -1 = unlimited).
+    field :max_viewers, :integer
+    # Whether the plan permits configuring a custom domain.
+    field :allow_custom_domain, :boolean, default: false
 
     # Feature flags this plan enables
     field :enabled_features, {:array, :string}, default: []
@@ -63,6 +70,9 @@ defmodule Marquee.Billing.PlatformPlan do
     :max_storage_gb,
     :max_team_seats,
     :max_webhook_endpoints,
+    :max_total_duration_seconds,
+    :max_viewers,
+    :allow_custom_domain,
     :enabled_features,
     :description,
     :highlight,
