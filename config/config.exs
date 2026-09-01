@@ -171,7 +171,8 @@ config :marquee, Oban,
        {"0 */6 * * *", Marquee.Workers.AnalyticsComputer, args: %{"dispatch" => true}},
        {"*/15 * * * *", Marquee.Workers.DropOffAggregator},
        {"*/15 * * * *", Marquee.Workers.MarkEventsDidNotOccurWorker},
-       {"*/15 * * * *", Marquee.Workers.PodcastFeedSync}
+       {"*/15 * * * *", Marquee.Workers.PodcastFeedSync},
+       {"0 3 * * *", Marquee.Workers.ExpireTrialsWorker}
      ]}
   ],
   queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3]
