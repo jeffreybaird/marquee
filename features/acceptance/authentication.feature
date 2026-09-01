@@ -1,7 +1,7 @@
 Feature: Operator Authentication
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Operator registers with a new organization
     Given I am an unauthenticated user

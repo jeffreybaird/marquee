@@ -1,10 +1,10 @@
-defmodule Bobine.BillingFixtures do
+defmodule Marquee.BillingFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Billing` context.
+  entities via the `Marquee.Billing` context.
   """
 
-  import Bobine.Factory
+  import Marquee.Factory
 
   @doc """
   Generate a plan.
@@ -23,7 +23,7 @@ defmodule Bobine.BillingFixtures do
         stripe_product_id: "some stripe_product_id",
         organization_id: org.id
       })
-      |> Bobine.Billing.create_plan()
+      |> Marquee.Billing.create_plan()
 
     plan
   end
@@ -46,7 +46,7 @@ defmodule Bobine.BillingFixtures do
         user_id: user.id,
         plan_id: plan.id
       })
-      |> Bobine.Billing.create_subscription()
+      |> Marquee.Billing.create_subscription()
 
     subscription
   end

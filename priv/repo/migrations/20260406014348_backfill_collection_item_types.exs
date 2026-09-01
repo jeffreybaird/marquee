@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.BackfillCollectionItemTypes do
+defmodule Marquee.Repo.Migrations.BackfillCollectionItemTypes do
   use Ecto.Migration
 
   def up do

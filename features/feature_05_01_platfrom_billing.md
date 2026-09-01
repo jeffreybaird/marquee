@@ -1,7 +1,7 @@
-# Task: Feature 05b — Platform Billing (Org Subscribes to Bobine)
+# Task: Feature 05b — Platform Billing (Org Subscribes to Marquee)
 
-This feature handles how organizations pay Bobine for platform access. It's
-a standard Stripe Subscription against Bobine's own Stripe account — no
+This feature handles how organizations pay Marquee for platform access. It's
+a standard Stripe Subscription against Marquee's own Stripe account — no
 Connect involved. The plan determines the org's usage limits and feature
 access via the feature flags system.
 
@@ -42,7 +42,7 @@ This task has 7 parts. Do them in order. Run `mix test` after each part.
 | `enterprise_premium` | premium | enterprise | unlimited videos, unlimited views, unlimited seats |
 
 These limits are illustrative — the actual numbers and prices will be
-configured by Bobine admins. The important thing is the schema supports
+configured by Marquee admins. The important thing is the schema supports
 them and the enforcement layer reads from the plan configuration.
 
 ### Feature access by business tier
@@ -56,7 +56,7 @@ them and the enforcement layer reads from the plan configuration.
 | Priority support | no | no | yes |
 | API access | no | yes | yes |
 | Custom email domain | no | no | yes |
-| White-label (no Bobine branding in footer) | no | no | yes |
+| White-label (no Marquee branding in footer) | no | no | yes |
 | Webhook endpoints | 1 | 5 | unlimited |
 | Analytics export | basic | full | full + API |
 
@@ -72,8 +72,8 @@ This should already exist from initial scaffolding. Verify or update:
 schema "platform_plans" do
   field :name, :string                     # "Individual Basic", "Enterprise Premium"
   field :slug, :string                     # "individual_basic", "enterprise_premium"
-  field :stripe_product_id, :string        # Stripe Product ID on Bobine's account
-  field :stripe_price_id, :string          # Stripe Price ID on Bobine's account
+  field :stripe_product_id, :string        # Stripe Product ID on Marquee's account
+  field :stripe_price_id, :string          # Stripe Price ID on Marquee's account
 
   # Pricing
   field :amount, :integer                  # Monthly price in cents
@@ -112,7 +112,7 @@ Migration:
 - Unique index on `[:usage_tier, :business_tier]` (one plan per grid cell)
 - Index on `[:active]`
 
-### Important: these are Bobine-level records, NOT tenant-scoped
+### Important: these are Marquee-level records, NOT tenant-scoped
 
 Platform plans have NO `organization_id`. They are global records managed by
 super admins. Every org sees the same plan options.
@@ -129,7 +129,7 @@ schema "platform_subscriptions" do
   belongs_to :platform_plan, PlatformPlan
 
   field :stripe_subscription_id, :string
-  field :stripe_customer_id, :string       # Stripe Customer for the org on Bobine's account
+  field :stripe_customer_id, :string       # Stripe Customer for the org on Marquee's account
   field :status, :string                   # "active", "trialing", "past_due", "canceled", "unpaid"
   field :current_period_start, :utc_datetime
   field :current_period_end, :utc_datetime
@@ -151,8 +151,8 @@ Migration:
 
 ## Part 4: Platform Billing Context
 
-Create `Bobine.PlatformBilling` (or add to a `Bobine.Admin.Billing` namespace)
-to keep it separate from the viewer billing in `Bobine.Billing`:
+Create `Marquee.PlatformBilling` (or add to a `Marquee.Admin.Billing` namespace)
+to keep it separate from the viewer billing in `Marquee.Billing`:
 
 ### Plan management (super admin)
 
@@ -162,7 +162,7 @@ def get_platform_plan(id)
 def get_platform_plan!(id)
 def get_platform_plan_by_slug(slug)
 
-def create_platform_plan(attrs)   # Creates Stripe Product + Price on Bobine's account
+def create_platform_plan(attrs)   # Creates Stripe Product + Price on Marquee's account
 def update_platform_plan(plan, attrs)
 def deactivate_platform_plan(plan)
 ```
@@ -178,11 +178,11 @@ def get_subscription(organization)
 
 @doc "Creates a checkout session for an org to subscribe to a platform plan."
 def create_org_checkout(organization, platform_plan, user) do
-  # This hits Bobine's own Stripe account (NOT Connect)
+  # This hits Marquee's own Stripe account (NOT Connect)
   # user is the operator initiating the checkout
 
-  Telemetry.with_span "bobine.platform_billing.create_checkout",
-    %{"bobine.org.id" => organization.id} do
+  Telemetry.with_span "marquee.platform_billing.create_checkout",
+    %{"marquee.org.id" => organization.id} do
 
     params = %{
       mode: "subscription",
@@ -196,7 +196,7 @@ def create_org_checkout(organization, platform_plan, user) do
       }
     }
 
-    # This does NOT use Connect — it's a direct charge to Bobine's account
+    # This does NOT use Connect — it's a direct charge to Marquee's account
     stripe_client().create_checkout_session(params)
   end
 end
@@ -248,10 +248,10 @@ update immediately:
 
 ### Usage limit enforcement
 
-Create `Bobine.PlatformBilling.UsageLimits`:
+Create `Marquee.PlatformBilling.UsageLimits`:
 
 ```elixir
-defmodule Bobine.PlatformBilling.UsageLimits do
+defmodule Marquee.PlatformBilling.UsageLimits do
   @doc """
   Checks if the org can perform an action given their plan limits.
 
@@ -342,7 +342,7 @@ end
 ## Part 5: Platform Webhook Processing
 
 Platform subscription webhooks come to the same `/webhooks/stripe` endpoint
-but WITHOUT a `Stripe-Account` header (they're direct events on Bobine's
+but WITHOUT a `Stripe-Account` header (they're direct events on Marquee's
 account, not connected account events).
 
 ### Update StripeWebhookProcessor
@@ -358,7 +358,7 @@ end
 
 # Platform event (org subscription) — new handlers
 defp handle_event("checkout.session.completed", session, nil) do
-  # Platform checkout — org subscribing to Bobine
+  # Platform checkout — org subscribing to Marquee
   org_id = session["metadata"]["organization_id"]
   plan_id = session["metadata"]["platform_plan_id"]
 
@@ -425,14 +425,14 @@ end
 When an org's payment fails, you do NOT immediately kill their platform.
 Their viewers are paying customers who would lose access. Instead:
 
-1. Show a warning banner in the admin dashboard: "Your Bobine payment is
+1. Show a warning banner in the admin dashboard: "Your Marquee payment is
    overdue. Update your payment method to avoid service interruption."
 2. Stripe retries automatically over ~3 weeks
 3. If all retries fail and the subscription is canceled:
    - Downgrade the org to free/default limits
    - Disable premium features (sync feature flags)
    - Do NOT delete their data or stop their viewers' subscriptions
-   - Show an urgent banner: "Your Bobine subscription has been canceled.
+   - Show an urgent banner: "Your Marquee subscription has been canceled.
      Subscribe to restore full access."
 4. Viewers continue to have access to already-published content (the org
    paid for it). The org just can't upload new videos or use gated features.
@@ -451,7 +451,7 @@ larger — an org going dark affects all their viewers.
 - Grid layout: usage tier on one axis, business tier on the other
 - Each plan card shows: name, price, key limits, feature list
 - Current selection highlighted
-- "Subscribe" button → Stripe Checkout on Bobine's account
+- "Subscribe" button → Stripe Checkout on Marquee's account
 
 **Active subscription:**
 - Current plan highlighted with "Current plan" badge
@@ -532,7 +532,7 @@ always know where they stand.
 
 ### Context tests
 
-**`test/bobine/platform_billing/platform_billing_test.exs`**
+**`test/marquee/platform_billing/platform_billing_test.exs`**
 
 Plan management:
 - `list_platform_plans/1` returns all active plans
@@ -542,7 +542,7 @@ Plan management:
 
 Subscription:
 - `create_org_checkout/3` returns Stripe Checkout Session (mock)
-- `create_org_checkout/3` uses Bobine's Stripe account (NOT Connect)
+- `create_org_checkout/3` uses Marquee's Stripe account (NOT Connect)
 - `create_subscription_from_checkout/3` creates PlatformSubscription
 - `get_subscription/1` returns org's active subscription
 - `change_plan/2` updates subscription to new plan
@@ -554,7 +554,7 @@ Feature syncing:
 - Downgrading plan removes feature flags
 - Canceling subscription clears feature flags to default
 
-**`test/bobine/platform_billing/usage_limits_test.exs`**
+**`test/marquee/platform_billing/usage_limits_test.exs`**
 
 - `can_upload_video?/1` returns true when under limit
 - `can_upload_video?/1` returns false when at limit
@@ -564,7 +564,7 @@ Feature syncing:
 - `video_limit_status/1` returns current count and limit
 - Org with no subscription gets default free limits
 
-**`test/bobine/platform_billing/enforcement_test.exs`**
+**`test/marquee/platform_billing/enforcement_test.exs`**
 
 These test that limits are actually enforced in the context functions:
 
@@ -576,7 +576,7 @@ These test that limits are actually enforced in the context functions:
 
 ### Webhook processor tests
 
-**`test/bobine/workers/stripe_webhook_processor_platform_test.exs`**
+**`test/marquee/workers/stripe_webhook_processor_platform_test.exs`**
 
 - Platform `checkout.session.completed` creates subscription and syncs features
 - Platform `customer.subscription.updated` syncs features on plan change
@@ -632,7 +632,7 @@ end
 
 ### LiveView tests
 
-**`test/bobine_web/live/admin/billing_live_test.exs`**
+**`test/marquee_web/live/admin/billing_live_test.exs`**
 
 - Plan grid shows all 9 active plans
 - Current plan is highlighted when org has subscription
@@ -642,7 +642,7 @@ end
 - Change plan shows upgrade/downgrade options
 - "Manage subscription" creates portal session (mock)
 
-**`test/bobine_web/live/super/plans_live_test.exs`**
+**`test/marquee_web/live/super/plans_live_test.exs`**
 
 - Lists all platform plans
 - Edit plan updates fields
@@ -688,9 +688,9 @@ platform_plans = [
 
 - [ ] `PlatformPlan` schema with usage tier, business tier, limits, and feature list
 - [ ] All 9 plans seeded with realistic limits and pricing
-- [ ] `PlatformSubscription` schema tracking org's Bobine subscription
+- [ ] `PlatformSubscription` schema tracking org's Marquee subscription
 - [ ] `PlatformBilling` context with checkout, portal, plan change, cancellation
-- [ ] Checkout creates session on Bobine's Stripe account (NOT Connect)
+- [ ] Checkout creates session on Marquee's Stripe account (NOT Connect)
 - [ ] Feature flag syncing: plan change → org features updated immediately
 - [ ] Feature flags cleared on subscription cancellation
 - [ ] `UsageLimits` module checking video, seat, and endpoint limits

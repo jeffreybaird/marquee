@@ -22,7 +22,7 @@ This task has 8 parts. Do them in order. Run `mix test` after each part.
 ### Why separate identities
 
 The `User` schema is for **operators** — people who manage organizations via
-the Bobine admin dashboard. They have `Memberships` with roles, they might
+the Marquee admin dashboard. They have `Memberships` with roles, they might
 manage multiple orgs, and their identity is platform-level.
 
 The `Viewer` schema is for **customers of an org** — people who sign up on a
@@ -143,13 +143,13 @@ work during the transition.
 Build a parallel auth system for viewers. This mirrors the structure of
 `phx.gen.auth` but is completely independent.
 
-### Create `Bobine.Viewers` context
+### Create `Marquee.Viewers` context
 
 This is a new top-level context — NOT under `Accounts`. The separation is
 intentional: `Accounts` manages operators, `Viewers` manages viewers.
 
 ```elixir
-defmodule Bobine.Viewers do
+defmodule Marquee.Viewers do
   @moduledoc """
   Context for viewer identity and authentication. Viewers are customers of
   an organization — completely separate from the operator User/Membership
@@ -195,8 +195,8 @@ end
 
 ```elixir
 def register_viewer(organization, attrs) do
-  Telemetry.with_span "bobine.viewers.register",
-    %{"bobine.org.id" => organization.id} do
+  Telemetry.with_span "marquee.viewers.register",
+    %{"marquee.org.id" => organization.id} do
 
     changeset = Viewer.registration_changeset(%Viewer{organization_id: organization.id}, attrs)
 
@@ -232,7 +232,7 @@ def deliver_viewer_magic_link(organization, email) do
       {token, viewer_token} = ViewerToken.build_magic_link_token(viewer)
       Repo.insert!(viewer_token)
       # Send email with magic link
-      BobineWeb.ViewerNotifier.deliver_magic_link(viewer, token, organization)
+      MarqueeWeb.ViewerNotifier.deliver_magic_link(viewer, token, organization)
       {:ok, :sent}
   end
 end
@@ -260,7 +260,7 @@ end
 
 ### ViewerToken module
 
-`lib/bobine/viewers/viewer_token.ex` — parallel to the existing UserToken
+`lib/marquee/viewers/viewer_token.ex` — parallel to the existing UserToken
 but for viewers. Implements:
 
 - `build_session_token/1` — creates a session token for a viewer
@@ -289,16 +289,16 @@ sessions. This prevents any possibility of session confusion.
 :viewer_token
 ```
 
-### Create `BobineWeb.Hooks.AssignViewerScope`
+### Create `MarqueeWeb.Hooks.AssignViewerScope`
 
 A new on_mount hook specifically for viewer-facing routes:
 
 ```elixir
-defmodule BobineWeb.Hooks.AssignViewerScope do
+defmodule MarqueeWeb.Hooks.AssignViewerScope do
   import Phoenix.LiveView
   import Phoenix.Component
 
-  alias Bobine.Viewers
+  alias Marquee.Viewers
 
   def on_mount(:optional_auth, _params, session, socket) do
     viewer = get_viewer_from_session(session)
@@ -340,7 +340,7 @@ No ambiguity. No shared struct. No possibility of confusion.
 
 ### Viewer auth controller
 
-Create `lib/bobine_web/controllers/viewer_session_controller.ex`:
+Create `lib/marquee_web/controllers/viewer_session_controller.ex`:
 
 Handles:
 - `POST /viewer-session` — creates viewer session from magic link token
@@ -356,8 +356,8 @@ This is separate from the existing operator session controller.
 ### Subscription access helper
 
 ```elixir
-defmodule Bobine.Viewers.SubscriptionAccess do
-  alias Bobine.Viewers.Viewer
+defmodule Marquee.Viewers.SubscriptionAccess do
+  alias Marquee.Viewers.Viewer
 
   @doc """
   Determines if a viewer has active access to gated content.
@@ -387,10 +387,10 @@ end
 ### Gating hook for LiveView
 
 ```elixir
-defmodule BobineWeb.Hooks.RequireSubscription do
+defmodule MarqueeWeb.Hooks.RequireSubscription do
   import Phoenix.LiveView
 
-  alias Bobine.Viewers.SubscriptionAccess
+  alias Marquee.Viewers.SubscriptionAccess
 
   def on_mount(:require_subscription, _params, _session, socket) do
     viewer = socket.assigns[:current_viewer]
@@ -430,8 +430,8 @@ Values: `"public"`, `"free_with_account"`, `"subscribers_only"`
 Content access check:
 
 ```elixir
-defmodule Bobine.Content.AccessControl do
-  alias Bobine.Viewers.SubscriptionAccess
+defmodule Marquee.Content.AccessControl do
+  alias Marquee.Viewers.SubscriptionAccess
 
   def can_watch?(video, viewer) do
     case video.visibility do
@@ -460,7 +460,7 @@ with their own session handling and hooks.
 # ──────────────────────────────────────
 
 # Operator auth
-scope "/admin", BobineWeb.Admin do
+scope "/admin", MarqueeWeb.Admin do
   pipe_through [:browser, :set_organization]
 
   get "/login", SessionController, :new
@@ -471,9 +471,9 @@ end
 # Operator dashboard
 live_session :admin,
   on_mount: [
-    {BobineWeb.Hooks.AssignScope, :require_authenticated},
+    {MarqueeWeb.Hooks.AssignScope, :require_authenticated},
   ] do
-  scope "/admin", BobineWeb.Admin do
+  scope "/admin", MarqueeWeb.Admin do
     pipe_through [:browser, :set_organization, :require_admin]
 
     live "/", DashboardLive
@@ -484,7 +484,7 @@ end
 
 # Super admin (unchanged)
 live_session :super_admin, ... do
-  scope "/super", BobineWeb.Super do
+  scope "/super", MarqueeWeb.Super do
     # ...
   end
 end
@@ -494,7 +494,7 @@ end
 # ──────────────────────────────────────
 
 # Viewer auth
-scope "/", BobineWeb.Viewer do
+scope "/", MarqueeWeb.Viewer do
   pipe_through [:browser, :set_organization]
 
   get "/magic-link/:token", SessionController, :magic_link
@@ -504,8 +504,8 @@ end
 
 # Viewer registration and login
 live_session :viewer_auth,
-  on_mount: [{BobineWeb.Hooks.AssignViewerScope, :optional_auth}] do
-  scope "/", BobineWeb.Viewer do
+  on_mount: [{MarqueeWeb.Hooks.AssignViewerScope, :optional_auth}] do
+  scope "/", MarqueeWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
     live "/register", RegisterLive
@@ -515,8 +515,8 @@ end
 
 # Public viewer pages (no auth required)
 live_session :viewer_public,
-  on_mount: [{BobineWeb.Hooks.AssignViewerScope, :optional_auth}] do
-  scope "/", BobineWeb.Viewer do
+  on_mount: [{MarqueeWeb.Hooks.AssignViewerScope, :optional_auth}] do
+  scope "/", MarqueeWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
     live "/", HomeLive
@@ -527,8 +527,8 @@ end
 
 # Authenticated viewer pages (login required, no subscription)
 live_session :viewer_authenticated,
-  on_mount: [{BobineWeb.Hooks.AssignViewerScope, :require_authenticated}] do
-  scope "/", BobineWeb.Viewer do
+  on_mount: [{MarqueeWeb.Hooks.AssignViewerScope, :require_authenticated}] do
+  scope "/", MarqueeWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
     live "/account", AccountLive
@@ -539,10 +539,10 @@ end
 # Subscribed viewer pages (login + subscription required)
 live_session :viewer_subscribed,
   on_mount: [
-    {BobineWeb.Hooks.AssignViewerScope, :require_authenticated},
-    {BobineWeb.Hooks.RequireSubscription, :require_subscription}
+    {MarqueeWeb.Hooks.AssignViewerScope, :require_authenticated},
+    {MarqueeWeb.Hooks.RequireSubscription, :require_subscription}
   ] do
-  scope "/", BobineWeb.Viewer do
+  scope "/", MarqueeWeb.Viewer do
     pipe_through [:browser, :set_organization]
 
     live "/watch/:id", WatchLive
@@ -551,7 +551,7 @@ live_session :viewer_subscribed,
 end
 
 # Webhooks (unchanged)
-scope "/webhooks", BobineWeb do
+scope "/webhooks", MarqueeWeb do
   pipe_through :api
   post "/mux", WebhookController, :mux
   post "/stripe", WebhookController, :stripe
@@ -713,7 +713,7 @@ When "View as viewer" is clicked:
 4. A persistent banner appears at the top of every viewer page:
    "Viewing as [viewer email]. [Stop viewing]"
 5. The banner uses a visually distinct style (e.g. amber background with the
-   Bobine brand accent) so it's impossible to forget you're impersonating.
+   Marquee brand accent) so it's impossible to forget you're impersonating.
 6. "Stop viewing" clears the impersonation session keys and redirects to
    `impersonating_return_path`
 
@@ -814,7 +814,7 @@ field :__impersonating__, :boolean, virtual: true, default: false
 
 ### Context tests
 
-**`test/bobine/viewers/viewers_test.exs`**
+**`test/marquee/viewers/viewers_test.exs`**
 
 Registration:
 - `register_viewer/2` with valid attrs creates viewer
@@ -855,7 +855,7 @@ Actions:
 - All actions broadcast events
 - All actions write audit logs
 
-**`test/bobine/viewers/subscription_access_test.exs`**
+**`test/marquee/viewers/subscription_access_test.exs`**
 - `has_access?/1` true for active
 - `has_access?/1` true for trial within expiry
 - `has_access?/1` false for expired trial
@@ -864,7 +864,7 @@ Actions:
 - `has_access?/1` false for canceled
 - `has_access?/1` false for expired
 
-**`test/bobine/content/access_control_test.exs`**
+**`test/marquee/content/access_control_test.exs`**
 - `can_watch?/2` public video — accessible with nil viewer
 - `can_watch?/2` free_with_account — accessible with any viewer
 - `can_watch?/2` free_with_account — not accessible with nil viewer
@@ -874,7 +874,7 @@ Actions:
 
 ### Hook and plug tests
 
-**`test/bobine_web/hooks/assign_viewer_scope_test.exs`**
+**`test/marquee_web/hooks/assign_viewer_scope_test.exs`**
 - Optional auth with valid session assigns viewer
 - Optional auth without session assigns nil
 - Require authenticated with valid session passes
@@ -882,7 +882,7 @@ Actions:
 - Suspended viewer redirected with error
 - Banned viewer redirected with error
 
-**`test/bobine_web/hooks/require_subscription_test.exs`**
+**`test/marquee_web/hooks/require_subscription_test.exs`**
 - Active subscriber passes
 - No viewer redirects to /login
 - Suspended viewer redirected
@@ -892,24 +892,24 @@ Actions:
 
 ### LiveView tests
 
-**`test/bobine_web/live/viewer/register_live_test.exs`**
+**`test/marquee_web/live/viewer/register_live_test.exs`**
 - Page renders with org name
 - Valid registration creates viewer, shows confirmation
 - Duplicate email shows same confirmation (no enumeration)
 - Missing email shows validation error
 - Registration on org A does not create viewer on org B
 
-**`test/bobine_web/live/viewer/login_live_test.exs`**
+**`test/marquee_web/live/viewer/login_live_test.exs`**
 - Page renders
 - Submit shows "check your email" regardless of email existence
 - Magic link login creates session and redirects
 
-**`test/bobine_web/live/viewer/account_live_test.exs`**
+**`test/marquee_web/live/viewer/account_live_test.exs`**
 - Shows display name and subscription status
 - Display name editable
 - Delete account soft-deletes and redirects
 
-**`test/bobine_web/live/viewer/watch_live_test.exs` (update existing)**
+**`test/marquee_web/live/viewer/watch_live_test.exs` (update existing)**
 - Public video accessible without viewer session
 - Free-with-account redirects to /login when no viewer session
 - Free-with-account accessible with any authenticated viewer
@@ -918,7 +918,7 @@ Actions:
 - Suspended viewer cannot watch gated content
 - Banned viewer cannot watch gated content
 
-**`test/bobine_web/live/admin/members_live_test.exs` (extend)**
+**`test/marquee_web/live/admin/members_live_test.exs` (extend)**
 - Viewer tab shows viewer accounts
 - Search filters by email/name
 - Subscription and status filters work
@@ -932,7 +932,7 @@ Actions:
 
 ### Viewer impersonation tests
 
-**`test/bobine_web/hooks/viewer_impersonation_test.exs`**
+**`test/marquee_web/hooks/viewer_impersonation_test.exs`**
 - Super admin can impersonate any viewer on any org
 - Org operator with viewer_support+ can impersonate viewers on their org
 - Org operator with editor role CANNOT impersonate viewers
@@ -949,7 +949,7 @@ Actions:
 
 ### Critical isolation tests
 
-**`test/bobine/viewers/isolation_test.exs`**
+**`test/marquee/viewers/isolation_test.exs`**
 
 These are the most important tests in this feature:
 
@@ -978,7 +978,7 @@ Update `priv/repo/seeds.exs`:
 
 - [ ] `Viewer` schema — fully separate from `User`, with email and auth fields
 - [ ] `ViewerToken` schema — separate token table from `UserToken`
-- [ ] `Bobine.Viewers` context with registration, auth, CRUD, and operator actions
+- [ ] `Marquee.Viewers` context with registration, auth, CRUD, and operator actions
 - [ ] `SubscriptionAccess` module with `has_access?/1`
 - [ ] `Content.AccessControl` module with `can_watch?/2`
 - [ ] Video `visibility` field (public, free_with_account, subscribers_only)

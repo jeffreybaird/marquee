@@ -1,7 +1,7 @@
 Feature: Stripe Webhook Processing
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
     And Stripe webhook signature verification is configured
 
   Scenario: Stripe sends subscription created event

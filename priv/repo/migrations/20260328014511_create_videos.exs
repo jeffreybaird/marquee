@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateVideos do
+defmodule Marquee.Repo.Migrations.CreateVideos do
   use Ecto.Migration
 
   def change do

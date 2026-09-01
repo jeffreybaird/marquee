@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.MakeUserIdNullableForViewerEngagement do
+defmodule Marquee.Repo.Migrations.MakeUserIdNullableForViewerEngagement do
   use Ecto.Migration
 
   def change do

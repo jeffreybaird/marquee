@@ -1,11 +1,11 @@
 ---
 name: feature_02_02_opentel
-description: Use when implementing or reviewing OpenTelemetry tracing, metrics, instrumentation, or telemetry configuration across Phoenix, Ecto, Oban, and outbound integrations in Bobine.
+description: Use when implementing or reviewing OpenTelemetry tracing, metrics, instrumentation, or telemetry configuration across Phoenix, Ecto, Oban, and outbound integrations in Marquee.
 ---
 
 # Task: Feature 2.2 — OpenTelemetry Instrumentation
 
-Instrument the entire Bobine application with OpenTelemetry, treating traces
+Instrument the entire Marquee application with OpenTelemetry, treating traces
 and metrics as first-class citizens. Every request, query, background job, and
 external API call should produce telemetry data that can be shipped to any
 OTel-compatible backend.
@@ -47,7 +47,7 @@ Run `mix deps.get`.
 config :opentelemetry,
   resource: [
     service: [
-      name: "bobine",
+      name: "marquee",
       version: Mix.Project.config()[:version]
     ]
   ],
@@ -94,21 +94,21 @@ make it configurable and document it.
 
 ### Install telemetry handlers in `application.ex`
 
-Add to the `start/2` function in `lib/bobine/application.ex`, BEFORE the
+Add to the `start/2` function in `lib/marquee/application.ex`, BEFORE the
 supervision tree starts:
 
 ```elixir
 def start(_type, _args) do
   # OpenTelemetry auto-instrumentation — must be called before supervision tree
   OpentelemetryPhoenix.setup(adapter: :bandit)
-  OpentelemetryEcto.setup([:bobine, :repo])
+  OpentelemetryEcto.setup([:marquee, :repo])
   OpentelemetryOban.setup()
 
   children = [
     # ... existing children
   ]
 
-  opts = [strategy: :one_for_one, name: Bobine.Supervisor]
+  opts = [strategy: :one_for_one, name: Marquee.Supervisor]
   Supervisor.start_link(children, opts)
 end
 ```
@@ -146,27 +146,27 @@ configured for dev, you should see trace output in the terminal. Verify:
 ## Part 3: Custom Spans for Domain Operations
 
 Auto-instrumentation covers the infrastructure layer. Custom spans cover your
-business logic — the things specific to Bobine that you need visibility into.
+business logic — the things specific to Marquee that you need visibility into.
 
-### Create `lib/bobine/telemetry.ex`
+### Create `lib/marquee/telemetry.ex`
 
 A helper module for creating spans with consistent naming and attributes:
 
 ```elixir
-defmodule Bobine.Telemetry do
+defmodule Marquee.Telemetry do
   @moduledoc """
-  Helpers for creating OpenTelemetry spans in Bobine business logic.
-  All span names follow the convention: bobine.<context>.<operation>
+  Helpers for creating OpenTelemetry spans in Marquee business logic.
+  All span names follow the convention: marquee.<context>.<operation>
   """
 
   require OpenTelemetry.Tracer, as: Tracer
 
   @doc """
-  Wraps a function in a named span with standard Bobine attributes.
+  Wraps a function in a named span with standard Marquee attributes.
 
   ## Example
 
-      Bobine.Telemetry.with_span("bobine.content.create_video", %{org_id: org.id}) do
+      Marquee.Telemetry.with_span("marquee.content.create_video", %{org_id: org.id}) do
         do_create_video(scope, attrs)
       end
   """
@@ -203,8 +203,8 @@ defmodule Bobine.Telemetry do
   """
   def set_org_attributes(%{id: org_id, slug: slug}) do
     Tracer.set_attributes([
-      {"bobine.org.id", org_id},
-      {"bobine.org.slug", slug}
+      {"marquee.org.id", org_id},
+      {"marquee.org.slug", slug}
     ])
   end
 
@@ -215,8 +215,8 @@ defmodule Bobine.Telemetry do
   """
   def set_user_attributes(%{id: user_id, email: email}) do
     Tracer.set_attributes([
-      {"bobine.user.id", user_id},
-      {"bobine.user.email", email}
+      {"marquee.user.id", user_id},
+      {"marquee.user.email", email}
     ])
   end
 
@@ -229,12 +229,12 @@ end
 Add custom spans to key operations across all contexts. The pattern:
 
 ```elixir
-defmodule Bobine.Content do
-  require Bobine.Telemetry
+defmodule Marquee.Content do
+  require Marquee.Telemetry
 
   def create_video(scope, attrs) do
-    Bobine.Telemetry.with_span "bobine.content.create_video",
-      %{"bobine.org.id" => scope.organization.id} do
+    Marquee.Telemetry.with_span "marquee.content.create_video",
+      %{"marquee.org.id" => scope.organization.id} do
       with {:ok, video} <- do_create_video(scope, attrs) do
         Events.broadcast(scope, {:video_created, video})
         {:ok, video}
@@ -243,8 +243,8 @@ defmodule Bobine.Content do
   end
 
   def list_videos(organization, opts \\ []) do
-    Bobine.Telemetry.with_span "bobine.content.list_videos",
-      %{"bobine.org.id" => organization.id, "page" => Keyword.get(opts, :page, 1)} do
+    Marquee.Telemetry.with_span "marquee.content.list_videos",
+      %{"marquee.org.id" => organization.id, "page" => Keyword.get(opts, :page, 1)} do
       # ... existing implementation
     end
   end
@@ -280,16 +280,16 @@ At minimum, wrap these in custom spans:
 Follow OpenTelemetry semantic conventions:
 
 ```
-bobine.<context>.<operation>
+marquee.<context>.<operation>
 
-bobine.content.create_video
-bobine.content.list_videos
-bobine.billing.create_checkout
-bobine.billing.cancel_subscription
-bobine.admin.export_organization_data
-bobine.webhooks.dispatch
-bobine.mux.create_upload_url
-bobine.stripe.create_subscription
+marquee.content.create_video
+marquee.content.list_videos
+marquee.billing.create_checkout
+marquee.billing.cancel_subscription
+marquee.admin.export_organization_data
+marquee.webhooks.dispatch
+marquee.mux.create_upload_url
+marquee.stripe.create_subscription
 ```
 
 ---
@@ -303,15 +303,15 @@ The span should include: the Mux API endpoint, the HTTP method, the response
 status, the latency, and the idempotency key.
 
 ```elixir
-defmodule Bobine.Content.MuxClient do
+defmodule Marquee.Content.MuxClient do
   require OpenTelemetry.Tracer, as: Tracer
 
   @impl true
   def create_upload_url(params) do
-    Tracer.with_span "bobine.mux.create_upload_url" do
+    Tracer.with_span "marquee.mux.create_upload_url" do
       Tracer.set_attributes([
         {"mux.operation", "create_upload_url"},
-        {"bobine.org.id", params[:organization_id]}
+        {"marquee.org.id", params[:organization_id]}
       ])
 
       case do_mux_request(params) do
@@ -336,14 +336,14 @@ Same pattern as Mux. Every Stripe API call gets a span with:
 - `stripe.idempotency_key` — the key used (for debugging retries)
 
 ```elixir
-defmodule Bobine.Billing.StripeClient do
+defmodule Marquee.Billing.StripeClient do
   require OpenTelemetry.Tracer, as: Tracer
 
   @impl true
   def create_subscription(customer_id, price_id) do
-    key = Bobine.Idempotency.key("create_subscription", customer_id, price_id)
+    key = Marquee.Idempotency.key("create_subscription", customer_id, price_id)
 
-    Tracer.with_span "bobine.stripe.create_subscription" do
+    Tracer.with_span "marquee.stripe.create_subscription" do
       Tracer.set_attributes([
         {"stripe.operation", "create_subscription"},
         {"stripe.idempotency_key", key}
@@ -376,12 +376,12 @@ def enqueue_mux_webhook(payload) do
   propagated = :otel_propagator_text_map.inject(ctx, [])
 
   %{payload: payload, trace_context: Map.new(propagated)}
-  |> Bobine.Workers.MuxWebhookProcessor.new()
+  |> Marquee.Workers.MuxWebhookProcessor.new()
   |> Oban.insert()
 end
 
 # In the worker — restore trace context
-defmodule Bobine.Workers.MuxWebhookProcessor do
+defmodule Marquee.Workers.MuxWebhookProcessor do
   use Oban.Worker
 
   require OpenTelemetry.Tracer, as: Tracer
@@ -391,7 +391,7 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     # Restore parent trace context
     :otel_propagator_text_map.extract(ctx)
 
-    Tracer.with_span "bobine.worker.mux_webhook_processor" do
+    Tracer.with_span "marquee.worker.mux_webhook_processor" do
       # ... process webhook
     end
   end
@@ -406,22 +406,22 @@ writes and side effects the worker triggers.
 
 ## Part 5: Metrics
 
-### Create `lib/bobine/metrics.ex`
+### Create `lib/marquee/metrics.ex`
 
-Define custom metrics for Bobine-specific business signals using
+Define custom metrics for Marquee-specific business signals using
 `:telemetry.execute/3`:
 
 ```elixir
-defmodule Bobine.Metrics do
+defmodule Marquee.Metrics do
   @moduledoc """
-  Custom metrics for Bobine business operations.
+  Custom metrics for Marquee business operations.
   Emits :telemetry events that can be consumed by any metrics backend.
   """
 
   @doc "Record a video view event"
   def video_viewed(org_id, video_id) do
     :telemetry.execute(
-      [:bobine, :video, :viewed],
+      [:marquee, :video, :viewed],
       %{count: 1},
       %{org_id: org_id, video_id: video_id}
     )
@@ -430,7 +430,7 @@ defmodule Bobine.Metrics do
   @doc "Record a subscription created event"
   def subscription_created(org_id, plan_name) do
     :telemetry.execute(
-      [:bobine, :subscription, :created],
+      [:marquee, :subscription, :created],
       %{count: 1},
       %{org_id: org_id, plan: plan_name}
     )
@@ -439,7 +439,7 @@ defmodule Bobine.Metrics do
   @doc "Record a subscription canceled event"
   def subscription_canceled(org_id, plan_name) do
     :telemetry.execute(
-      [:bobine, :subscription, :canceled],
+      [:marquee, :subscription, :canceled],
       %{count: 1},
       %{org_id: org_id, plan: plan_name}
     )
@@ -448,7 +448,7 @@ defmodule Bobine.Metrics do
   @doc "Record video upload initiated"
   def video_upload_initiated(org_id) do
     :telemetry.execute(
-      [:bobine, :video, :upload_initiated],
+      [:marquee, :video, :upload_initiated],
       %{count: 1},
       %{org_id: org_id}
     )
@@ -457,7 +457,7 @@ defmodule Bobine.Metrics do
   @doc "Record external API call duration"
   def external_api_call(service, operation, duration_ms, status) do
     :telemetry.execute(
-      [:bobine, :external_api, :call],
+      [:marquee, :external_api, :call],
       %{duration: duration_ms},
       %{service: service, operation: operation, status: status}
     )
@@ -466,7 +466,7 @@ defmodule Bobine.Metrics do
   @doc "Record webhook delivery attempt"
   def webhook_delivered(org_id, event_type, status) do
     :telemetry.execute(
-      [:bobine, :webhook, :delivered],
+      [:marquee, :webhook, :delivered],
       %{count: 1},
       %{org_id: org_id, event_type: event_type, status: status}
     )
@@ -474,25 +474,25 @@ defmodule Bobine.Metrics do
 end
 ```
 
-### Create `lib/bobine/telemetry_handler.ex`
+### Create `lib/marquee/telemetry_handler.ex`
 
 Attach handlers that convert `:telemetry` events into OpenTelemetry metrics:
 
 ```elixir
-defmodule Bobine.TelemetryHandler do
+defmodule Marquee.TelemetryHandler do
   @moduledoc """
-  Attaches :telemetry handlers for Bobine custom metrics and converts
+  Attaches :telemetry handlers for Marquee custom metrics and converts
   them to OpenTelemetry metric observations.
   """
 
   def setup do
     events = [
-      [:bobine, :video, :viewed],
-      [:bobine, :video, :upload_initiated],
-      [:bobine, :subscription, :created],
-      [:bobine, :subscription, :canceled],
-      [:bobine, :external_api, :call],
-      [:bobine, :webhook, :delivered],
+      [:marquee, :video, :viewed],
+      [:marquee, :video, :upload_initiated],
+      [:marquee, :subscription, :created],
+      [:marquee, :subscription, :canceled],
+      [:marquee, :external_api, :call],
+      [:marquee, :webhook, :delivered],
       # Phoenix built-in events
       [:phoenix, :endpoint, :stop],
       [:phoenix, :live_view, :mount, :stop],
@@ -500,14 +500,14 @@ defmodule Bobine.TelemetryHandler do
     ]
 
     :telemetry.attach_many(
-      "bobine-metrics-handler",
+      "marquee-metrics-handler",
       events,
       &handle_event/4,
       nil
     )
   end
 
-  def handle_event([:bobine | _rest] = event, measurements, metadata, _config) do
+  def handle_event([:marquee | _rest] = event, measurements, metadata, _config) do
     # Log structured metric data
     require Logger
 
@@ -547,7 +547,7 @@ end
 
 ### Call setup in `application.ex`
 
-Add `Bobine.TelemetryHandler.setup()` in the `start/2` function, alongside
+Add `Marquee.TelemetryHandler.setup()` in the `start/2` function, alongside
 the OpenTelemetry auto-instrumentation setup.
 
 ### Instrument context functions with metrics
@@ -556,8 +556,8 @@ Add metric calls alongside event broadcasts in context functions:
 
 ```elixir
 def create_video(scope, attrs) do
-  Bobine.Telemetry.with_span "bobine.content.create_video",
-    %{"bobine.org.id" => scope.organization.id} do
+  Marquee.Telemetry.with_span "marquee.content.create_video",
+    %{"marquee.org.id" => scope.organization.id} do
     with {:ok, video} <- do_create_video(scope, attrs) do
       Events.broadcast(scope, {:video_created, video})
       Metrics.video_upload_initiated(scope.organization.id)
@@ -581,7 +581,7 @@ config :logger, :default_handler,
 
 # Or if using a simpler approach:
 config :logger, :default_formatter,
-  format: {Bobine.LogFormatter, :format},
+  format: {Marquee.LogFormatter, :format},
   metadata: [:request_id, :trace_id, :span_id, :org_id, :user_id]
 ```
 
@@ -611,7 +611,7 @@ def call(conn, _opts) do
     org_slug: get_in(scope, [:organization, :slug])
   )
 
-  Bobine.RequestContext.put(%{
+  Marquee.RequestContext.put(%{
     # ... existing fields
   })
 
@@ -664,24 +664,24 @@ wrapping a function in `with_span` must not change its return value or behavior.
 ### Test the Metrics module
 
 ```elixir
-defmodule Bobine.MetricsTest do
+defmodule Marquee.MetricsTest do
   use ExUnit.Case, async: true
 
   test "video_viewed/2 emits telemetry event" do
-    ref = :telemetry_test.attach_event_handlers(self(), [[:bobine, :video, :viewed]])
+    ref = :telemetry_test.attach_event_handlers(self(), [[:marquee, :video, :viewed]])
 
-    Bobine.Metrics.video_viewed("org_123", "video_456")
+    Marquee.Metrics.video_viewed("org_123", "video_456")
 
-    assert_received {[:bobine, :video, :viewed], ^ref, %{count: 1},
+    assert_received {[:marquee, :video, :viewed], ^ref, %{count: 1},
                      %{org_id: "org_123", video_id: "video_456"}}
   end
 
   test "external_api_call/4 emits telemetry event with duration" do
-    ref = :telemetry_test.attach_event_handlers(self(), [[:bobine, :external_api, :call]])
+    ref = :telemetry_test.attach_event_handlers(self(), [[:marquee, :external_api, :call]])
 
-    Bobine.Metrics.external_api_call("mux", "create_asset", 150, :ok)
+    Marquee.Metrics.external_api_call("mux", "create_asset", 150, :ok)
 
-    assert_received {[:bobine, :external_api, :call], ^ref, %{duration: 150},
+    assert_received {[:marquee, :external_api, :call], ^ref, %{duration: 150},
                      %{service: "mux", operation: "create_asset", status: :ok}}
   end
 end
@@ -690,13 +690,13 @@ end
 ### Test the Telemetry helper
 
 ```elixir
-defmodule Bobine.TelemetryTest do
+defmodule Marquee.TelemetryTest do
   use ExUnit.Case, async: true
 
-  require Bobine.Telemetry
+  require Marquee.Telemetry
 
   test "with_span returns the wrapped function's result" do
-    result = Bobine.Telemetry.with_span "test.span" do
+    result = Marquee.Telemetry.with_span "test.span" do
       {:ok, "hello"}
     end
 
@@ -704,7 +704,7 @@ defmodule Bobine.TelemetryTest do
   end
 
   test "with_span passes through error tuples" do
-    result = Bobine.Telemetry.with_span "test.span" do
+    result = Marquee.Telemetry.with_span "test.span" do
       {:error, :not_found}
     end
 
@@ -720,12 +720,12 @@ end
 - [ ] OpenTelemetry dependencies installed and configured
 - [ ] Dev exports to stdout, test exports nothing, prod exports to OTLP endpoint
 - [ ] Auto-instrumentation active for Phoenix, Ecto, and Oban
-- [ ] `Bobine.Telemetry` helper module with `with_span` macro
+- [ ] `Marquee.Telemetry` helper module with `with_span` macro
 - [ ] Custom spans on all key context operations with consistent naming
 - [ ] MuxClient and StripeClient produce spans with service-specific attributes
 - [ ] Trace context propagates from HTTP requests through Oban jobs
-- [ ] `Bobine.Metrics` module emitting `:telemetry` events for business metrics
-- [ ] `Bobine.TelemetryHandler` attaching handlers for custom and Phoenix events
+- [ ] `Marquee.Metrics` module emitting `:telemetry` events for business metrics
+- [ ] `Marquee.TelemetryHandler` attaching handlers for custom and Phoenix events
 - [ ] Logger configured with trace_id, span_id, org_id, user_id metadata
 - [ ] Oban workers set Logger metadata with org_id at start of perform
 - [ ] All existing tests pass unchanged

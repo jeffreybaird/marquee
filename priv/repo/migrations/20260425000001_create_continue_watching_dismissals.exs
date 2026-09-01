@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateContinueWatchingDismissals do
+defmodule Marquee.Repo.Migrations.CreateContinueWatchingDismissals do
   use Ecto.Migration
 
   def change do

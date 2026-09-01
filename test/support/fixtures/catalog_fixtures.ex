@@ -1,7 +1,7 @@
-defmodule Bobine.CatalogFixtures do
+defmodule Marquee.CatalogFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Catalog` context.
+  entities via the `Marquee.Catalog` context.
   """
 
   @doc """
@@ -18,7 +18,7 @@ defmodule Bobine.CatalogFixtures do
         max_items: 20
       })
 
-    {:ok, row} = Bobine.Catalog.create_row(scope, attrs)
+    {:ok, row} = Marquee.Catalog.create_row(scope, attrs)
     row
   end
 end

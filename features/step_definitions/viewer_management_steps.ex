@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.ViewerManagement do
+defmodule MarqueeFeatures.Steps.ViewerManagement do
   @moduledoc """
   Step definitions for viewer_management.feature.
 
@@ -17,13 +17,13 @@ defmodule BobineFeatures.Steps.ViewerManagement do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Accounts.Scope
-  alias Bobine.Repo
-  alias Bobine.Viewers.Viewer
-  alias BobineWeb.WallabyCase
+  alias Marquee.Accounts.Scope
+  alias Marquee.Repo
+  alias Marquee.Viewers.Viewer
+  alias MarqueeWeb.WallabyCase
 
   given_ "I am logged in as an operator with viewer management permissions", fn world ->
     log_in_operator(world, :owner)
@@ -168,7 +168,7 @@ defmodule BobineFeatures.Steps.ViewerManagement do
     # row-level grant button. Use the context call to keep this scenario
     # honest until a date-picker lands.
     expires_at = DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.truncate(:second)
-    {:ok, viewer} = Bobine.Viewers.grant_access(world.scope, world.viewer, expires_at)
+    {:ok, viewer} = Marquee.Viewers.grant_access(world.scope, world.viewer, expires_at)
     Map.merge(world, %{viewer: viewer, expires_at: expires_at})
   end
 

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddStripeConnectToOrganizations do
+defmodule Marquee.Repo.Migrations.AddStripeConnectToOrganizations do
   use Ecto.Migration
 
   def change do

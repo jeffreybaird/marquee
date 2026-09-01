@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddPlanFieldsForViewerBilling do
+defmodule Marquee.Repo.Migrations.AddPlanFieldsForViewerBilling do
   use Ecto.Migration
 
   def change do

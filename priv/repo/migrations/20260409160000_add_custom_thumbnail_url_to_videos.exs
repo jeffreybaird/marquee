@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddCustomThumbnailUrlToVideos do
+defmodule Marquee.Repo.Migrations.AddCustomThumbnailUrlToVideos do
   use Ecto.Migration
 
   def change do

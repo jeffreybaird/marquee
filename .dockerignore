@@ -16,6 +16,11 @@ cover
 .dialyzer
 priv/static/
 
+# Deploy tooling — runs on the runner and the droplet, never inside the image
+infra
+deploy
+.github
+
 # Secrets / env
 .env
 *.env

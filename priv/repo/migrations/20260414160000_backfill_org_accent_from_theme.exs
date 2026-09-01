@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.BackfillOrgAccentFromTheme do
+defmodule Marquee.Repo.Migrations.BackfillOrgAccentFromTheme do
   use Ecto.Migration
 
   @moduledoc """

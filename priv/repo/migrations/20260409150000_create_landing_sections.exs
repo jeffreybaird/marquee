@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateLandingSections do
+defmodule Marquee.Repo.Migrations.CreateLandingSections do
   use Ecto.Migration
 
   def change do

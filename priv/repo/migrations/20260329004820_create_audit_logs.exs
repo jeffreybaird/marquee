@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateAuditLogs do
+defmodule Marquee.Repo.Migrations.CreateAuditLogs do
   use Ecto.Migration
 
   def change do

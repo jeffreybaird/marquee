@@ -1,6 +1,6 @@
 ---
 name: brand-system
-description: Use when designing Bobine-branded interfaces, admin pages, marketing surfaces, or shared visual language where the platform brand rather than a tenant brand should guide UI decisions.
+description: Use when designing Marquee-branded interfaces, admin pages, marketing surfaces, or shared visual language where the platform brand rather than a tenant brand should guide UI decisions.
 ---
 
 # Brand System
@@ -12,8 +12,8 @@ dashboard, viewer-facing pages, marketing pages, or any visual output.
 
 ## Brand Context
 
-Bobine is a B2B video OTT platform. End users (viewers) never see the Bobine
-brand — they see the tenant's brand. The Bobine brand exists on the operator
+Marquee is a B2B video OTT platform. End users (viewers) never see the Marquee
+brand — they see the tenant's brand. The Marquee brand exists on the operator
 dashboard, the super admin panel, the marketing site, and sales materials.
 
 The brand builds trust with creators and media companies. It signals taste
@@ -100,7 +100,7 @@ Never use bold (700+). Never use ultra-light.
 
 ### Rules
 
-- Brand name is always lowercase: `bobine`, never `Bobine` or `BOBINE`
+- Brand name is always lowercase: `marquee`, never `Marquee` or `MARQUEE`
 - Slight negative tracking for headlines: `letter-spacing: -0.01em` to `-0.02em`
 - Line height in UI: `1.4` to `1.6`
 - Typography carries hierarchy — not color or decoration
@@ -153,7 +153,7 @@ page, you're overusing it. Pull back.
 
 ### Dark mode
 
-The Bobine brand palette is inherently warm and light. If a dark mode is
+The Marquee brand palette is inherently warm and light. If a dark mode is
 needed for the admin dashboard, invert with warm dark tones:
 
 ```css
@@ -322,20 +322,20 @@ feel like a trusted tool, not a social media product.
 
 ## Per-Tenant Theming Boundary
 
-The Bobine brand system applies to:
+The Marquee brand system applies to:
 - Operator dashboard (`/admin/*`)
 - Super admin panel (`/super/*`)
 - Marketing site
 - Login/registration pages
-- Email communications from Bobine
+- Email communications from Marquee
 
-The Bobine brand system does NOT apply to:
+The Marquee brand system does NOT apply to:
 - Viewer-facing pages (those use the tenant's theme via CSS custom properties)
 - Tenant email communications
 
 When building viewer-facing templates, use the `--sv-*` CSS custom properties
 from the tenant's theme (see `.claude/branding-and-theming.md`), not the
-Bobine brand palette. The viewer should never know Bobine exists.
+Marquee brand palette. The viewer should never know Marquee exists.
 
 ---
 
@@ -345,7 +345,7 @@ When generating any UI:
 
 - [ ] No pure black (#000000) or pure white (#FFFFFF) used anywhere
 - [ ] Typography uses only weight 400 and 500
-- [ ] Brand name written as lowercase `bobine`
+- [ ] Brand name written as lowercase `marquee`
 - [ ] Spacing uses only values from the scale (8/16/24/32/48/64)
 - [ ] Accent amber used sparingly — max 1-2 instances per page
 - [ ] Layout is not dense — clear visual breathing room
@@ -354,4 +354,4 @@ When generating any UI:
 - [ ] UI copy is direct, calm, no hype, no exclamation points
 - [ ] No gradients, no shadows (or very subtle), no decorative elements
 - [ ] Any UI reads clearly in under 3 seconds
-- [ ] Viewer-facing pages use tenant theme, not Bobine brand colors
+- [ ] Viewer-facing pages use tenant theme, not Marquee brand colors

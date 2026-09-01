@@ -1,6 +1,6 @@
 # Task: Implement Super Admin Panel for Platform Management
 
-This feature adds a Bobine platform-level admin interface that sits above the
+This feature adds a Marquee platform-level admin interface that sits above the
 tenant layer. Super admins manage organizations, onboard new tenants, and monitor
 platform health. This is completely separate from the per-org operator dashboard.
 
@@ -32,7 +32,7 @@ end
 
 ### Update User schema
 
-Add the field to `lib/bobine/accounts/user.ex`:
+Add the field to `lib/marquee/accounts/user.ex`:
 
 ```elixir
 field :is_super_admin, :boolean, default: false
@@ -54,13 +54,13 @@ boolean on User is clean and unambiguous.
 
 ## Part 2: Build the RequireSuperAdmin Plug
 
-Create `lib/bobine_web/plugs/require_super_admin.ex`.
+Create `lib/marquee_web/plugs/require_super_admin.ex`.
 
 This plug checks `current_scope.user.is_super_admin`. It does NOT check
 organization or membership — super admin routes are org-independent.
 
 ```elixir
-defmodule BobineWeb.Plugs.RequireSuperAdmin do
+defmodule MarqueeWeb.Plugs.RequireSuperAdmin do
   import Plug.Conn
   import Phoenix.Controller, only: [put_flash: 3, redirect: 2]
 
@@ -91,10 +91,10 @@ end
 
 ### LiveView on_mount hook
 
-Create `lib/bobine_web/hooks/require_super_admin.ex` for LiveView routes:
+Create `lib/marquee_web/hooks/require_super_admin.ex` for LiveView routes:
 
 ```elixir
-defmodule BobineWeb.Hooks.RequireSuperAdmin do
+defmodule MarqueeWeb.Hooks.RequireSuperAdmin do
   import Phoenix.LiveView
   import Phoenix.Component
 
@@ -117,7 +117,7 @@ end
 
 ## Part 3: Super Admin Context
 
-Create a new context module: `lib/bobine/admin.ex`
+Create a new context module: `lib/marquee/admin.ex`
 
 This context provides platform-level queries that intentionally cross tenant
 boundaries. Every function in this module should have a comment acknowledging
@@ -127,7 +127,7 @@ are acceptable.
 ### Functions to implement
 
 ```elixir
-defmodule Bobine.Admin do
+defmodule Marquee.Admin do
   @moduledoc """
   Platform-level admin context. Functions in this module intentionally
   query across all tenants. They are only callable from super admin
@@ -208,7 +208,7 @@ end
 
 ## Part 4: Wire Up Super Admin Routes
 
-Update `lib/bobine_web/router.ex`.
+Update `lib/marquee_web/router.ex`.
 
 Super admin routes live at `/super` and do NOT go through the `set_organization`
 pipeline. They are org-independent.
@@ -217,10 +217,10 @@ pipeline. They are org-independent.
 # Super admin routes — no org resolution, requires super admin
 live_session :super_admin,
   on_mount: [
-    {BobineWeb.Hooks.AssignScope, :require_authenticated},
-    {BobineWeb.Hooks.RequireSuperAdmin, :require_super_admin}
+    {MarqueeWeb.Hooks.AssignScope, :require_authenticated},
+    {MarqueeWeb.Hooks.RequireSuperAdmin, :require_super_admin}
   ] do
-  scope "/super", BobineWeb.Super do
+  scope "/super", MarqueeWeb.Super do
     pipe_through [:browser, :require_authenticated_user]
 
     live "/", DashboardLive
@@ -245,10 +245,10 @@ operate above the tenant layer. The `current_scope` will have a `user` but no
 
 ### Super admin layout component
 
-Create `lib/bobine_web/components/super_layout.ex` — similar to the admin layout
+Create `lib/marquee_web/components/super_layout.ex` — similar to the admin layout
 but with its own sidebar navigation. Visually distinguish it from the org admin
 dashboard so there's no confusion about which context you're in. Use a different
-accent color or a "Bobine Platform" header.
+accent color or a "Marquee Platform" header.
 
 Sidebar links:
 - Dashboard (`/super`)
@@ -362,7 +362,7 @@ in every org to troubleshoot customer issues.
 
 ## Part 6: Tests
 
-### Context tests (`test/bobine/admin/admin_test.exs`)
+### Context tests (`test/marquee/admin/admin_test.exs`)
 
 - `list_organizations/0` returns all orgs
 - `list_organizations/1` with search filters by name
@@ -377,7 +377,7 @@ in every org to troubleshoot customer issues.
 - `grant_super_admin/1` sets the flag
 - `revoke_super_admin/1` clears the flag
 
-### Plug tests (`test/bobine_web/plugs/require_super_admin_test.exs`)
+### Plug tests (`test/marquee_web/plugs/require_super_admin_test.exs`)
 
 - Super admin user can access protected route
 - Regular user is redirected
@@ -385,19 +385,19 @@ in every org to troubleshoot customer issues.
 
 ### LiveView tests
 
-`test/bobine_web/live/super/dashboard_live_test.exs`
+`test/marquee_web/live/super/dashboard_live_test.exs`
 - Super admin can access dashboard
 - Non-super-admin user is redirected
 - Unauthenticated user is redirected
 - Dashboard displays platform stats with correct counts
 
-`test/bobine_web/live/super/organizations_live_test.exs`
+`test/marquee_web/live/super/organizations_live_test.exs`
 - Lists all organizations
 - Search filters results
 - "New Organization" button is visible
 - Non-super-admin cannot access
 
-`test/bobine_web/live/super/organization_new_live_test.exs`
+`test/marquee_web/live/super/organization_new_live_test.exs`
 - Creates org with valid data → redirects to show page
 - Creates default theme for the new org
 - Creates owner membership for the specified email
@@ -405,13 +405,13 @@ in every org to troubleshoot customer issues.
 - Shows validation errors for missing required fields
 - Shows error for duplicate slug
 
-`test/bobine_web/live/super/organization_show_live_test.exs`
+`test/marquee_web/live/super/organization_show_live_test.exs`
 - Displays org details
 - Shows member list
 - Impersonate button is present
 - Non-super-admin cannot access
 
-`test/bobine_web/live/super/users_live_test.exs`
+`test/marquee_web/live/super/users_live_test.exs`
 - Lists all users
 - Shows super admin badge for super admins
 - Grant super admin action works
@@ -429,7 +429,7 @@ in every org to troubleshoot customer issues.
 ### Update seed script
 
 Update `priv/repo/seeds.exs` to also create:
-- A super admin user (email: `super@bobine.dev`, `is_super_admin: true`)
+- A super admin user (email: `super@marquee.dev`, `is_super_admin: true`)
 - A second organization (name: "Test Channel", slug: "test-channel") with its
   own owner, theme, and a couple of members — so the super admin dashboard
   has meaningful data to display
@@ -441,7 +441,7 @@ Update `priv/repo/seeds.exs` to also create:
 - [ ] `is_super_admin` boolean on User schema, with migration
 - [ ] `admin_changeset/2` on User for setting super admin flag (not in public changeset)
 - [ ] `RequireSuperAdmin` plug and LiveView on_mount hook
-- [ ] `Bobine.Admin` context with all listed functions
+- [ ] `Marquee.Admin` context with all listed functions
 - [ ] Super admin routes at `/super` — no org resolution in pipeline
 - [ ] Super admin layout component with distinct visual identity
 - [ ] DashboardLive showing platform stats

@@ -123,7 +123,7 @@ end
 ### Correct: PubSub handler updates a single assign
 
 ```elixir
-def handle_info({:bobine_event, {:video_ready, video}, _scope}, socket) do
+def handle_info({:marquee_event, {:video_ready, video}, _scope}, socket) do
   {:noreply, update_video_in_list(socket, video)}
 end
 

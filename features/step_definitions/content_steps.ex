@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Content do
+defmodule MarqueeFeatures.Steps.Content do
   @moduledoc """
   Video-related step definitions for content_management.feature.
 
@@ -12,10 +12,10 @@ defmodule BobineFeatures.Steps.Content do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Content
+  alias Marquee.Content
 
   # ---- Setup --------------------------------------------------------------
 

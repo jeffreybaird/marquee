@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddPolymorphicRefsToCollectionItems do
+defmodule Marquee.Repo.Migrations.AddPolymorphicRefsToCollectionItems do
   use Ecto.Migration
 
   def change do

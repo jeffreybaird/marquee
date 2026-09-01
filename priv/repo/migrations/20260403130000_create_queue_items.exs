@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateQueueItems do
+defmodule Marquee.Repo.Migrations.CreateQueueItems do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateTags do
+defmodule Marquee.Repo.Migrations.CreateTags do
   use Ecto.Migration
 
   def change do

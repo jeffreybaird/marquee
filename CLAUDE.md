@@ -1,4 +1,4 @@
-# CLAUDE.md — Bobine
+# CLAUDE.md — Marquee
 
 Claude Code read this every session. Follow all rules no exception unless user override for specific task.
 
@@ -7,7 +7,7 @@ Domain rules + detail patterns live `.claude/`. Load relevant file when work in 
 - `.claude/multi-tenancy.md` — tenant scoping, query patterns, test isolation
 - `.claude/mux-integration.md` — Mux client, webhooks, asset conventions
 - `.claude/stripe-integration.md` — Stripe client, subscriptions, webhooks
-- `.claude/deployment.md` — Fly.io, CI/CD, secrets, releases
+- `.claude/deployment.md` — DigitalOcean droplet + Terraform, CI/CD, secrets, releases
 - `.claude/rbac.md` — roles, enforcement, plugs
 - `.claude/branding-and-theming.md` — CSS variables, templates, per-tenant styling
 - `.claude/typescript-hooks.md` — hook conventions, file structure, events
@@ -24,7 +24,7 @@ Domain rules + detail patterns live `.claude/`. Load relevant file when work in 
 
 ## Project Overview
 
-Bobine = multi-tenant SaaS OTT video platform. Elixir / Phoenix 1.8 / LiveView. Businesses (tenants) use operator dashboard to manage video, configure branded viewer site, monetize via subscriptions. Video = Mux. Billing = Stripe Connect.
+Marquee = multi-tenant SaaS OTT video platform. Elixir / Phoenix 1.8 / LiveView. Businesses (tenants) use operator dashboard to manage video, configure branded viewer site, monetize via subscriptions. Video = Mux. Billing = Stripe Connect.
 
 ### Architecture Summary
 
@@ -36,7 +36,7 @@ Bobine = multi-tenant SaaS OTT video platform. Elixir / Phoenix 1.8 / LiveView. 
 - **Video:** Mux Elixir SDK. Never serve video bytes.
 - **Billing:** Stripe Connect for viewer subs. Stripe direct for org platform subs. SaaS fee + txn fee revenue.
 - **Background jobs:** Oban. Queues split by criticality.
-- **Deployment:** Fly.io. Erlang cluster via dns_cluster.
+- **Deployment:** DigitalOcean droplet, Terraform in `infra/`, Caddy + blue/green compose. Single node — no Erlang cluster.
 
 ### Context Modules
 
@@ -66,7 +66,7 @@ Detail patterns + code: `.claude/architecture-decisions.md`, `.claude/scalabilit
 
 ### 1. Protect Postgres from the Hot Path
 
-Never write high-frequency data direct to Postgres. Playback progress, analytics events, any op fire more than once per viewer per minute must go through write buffer (`Bobine.Buffer` behaviour) — batch + flush periodic. Caller never know buffered vs direct — same interface.
+Never write high-frequency data direct to Postgres. Playback progress, analytics events, any op fire more than once per viewer per minute must go through write buffer (`Marquee.Buffer` behaviour) — batch + flush periodic. Caller never know buffered vs direct — same interface.
 
 See `.claude/scalability.md` for buffer pattern + which ops need it.
 
@@ -76,7 +76,7 @@ Structure context functions so reads route to DB replica, writes hit primary. Ne
 
 ### 3. Cache Frequently-Read, Infrequently-Written Data
 
-Org resolution, themes, row config, video metadata, subscription status go through `Bobine.Cache`. Cache impl = ETS/Cachex today, swap to Redis later. Invalidation via event system — operator updates resource → event broadcast triggers cache invalidation across Fly cluster.
+Org resolution, themes, row config, video metadata, subscription status go through `Marquee.Cache`. Cache impl = ETS/Cachex today, swap to Redis later. Invalidation via event system — operator updates resource → event broadcast triggers cache invalidation. Single node today; keep invalidation broadcast-based so it still works when a second node exists.
 
 See `.claude/scalability.md` for what cache + key conventions.
 
@@ -98,13 +98,13 @@ Oban queues: `critical` (payments), `default` (webhooks, notifications), `mux`, 
 
 ### 7. Emit Events, Don't Inline Side Effects
 
-Context functions broadcast events via `Bobine.Events`. Side effects (audit log, webhook dispatch, analytics, notifications, cache invalidation) handled by subscribers, not inline. New side effect = new subscriber, not modify existing code.
+Context functions broadcast events via `Marquee.Events`. Side effects (audit log, webhook dispatch, analytics, notifications, cache invalidation) handled by subscribers, not inline. New side effect = new subscriber, not modify existing code.
 
 See `.claude/architecture-decisions.md` for event broadcasting pattern.
 
 ### 8. Instrument Everything
 
-Every context mutation gets OpenTelemetry span. Every external API call gets span with service attrs. Every Oban worker restores trace context from enqueuing request. Every business-significant event emits metric via `Bobine.Metrics`. Every log line use structured metadata with `trace_id`, `span_id`, `org_id`, `user_id`.
+Every context mutation gets OpenTelemetry span. Every external API call gets span with service attrs. Every Oban worker restores trace context from enqueuing request. Every business-significant event emits metric via `Marquee.Metrics`. Every log line use structured metadata with `trace_id`, `span_id`, `org_id`, `user_id`.
 
 See `.claude/observability.md` for span naming, metric conventions, logging rules.
 
@@ -114,7 +114,7 @@ DB queries indexed + paginated. Background jobs queue-separated. Cache keys org-
 
 ### 10. Design Interfaces for Tomorrow, Implement for Today
 
-Use behaviours (`Bobine.Buffer`, `Bobine.Cache`, `Bobine.Content.MuxClientBehaviour`) so impls swap without change callers. Consistent error tuples so future API layer maps clean to HTTP. Pagination params on every list function even if UI no paginate yet. Feature flags to gate by plan tier.
+Use behaviours (`Marquee.Buffer`, `Marquee.Cache`, `Marquee.Content.MuxClientBehaviour`) so impls swap without change callers. Consistent error tuples so future API layer maps clean to HTTP. Pagination params on every list function even if UI no paginate yet. Feature flags to gate by plan tier.
 
 ---
 
@@ -145,7 +145,7 @@ Every user-facing feature must have a Gherkin scenario in `features/`. This is n
 
 **Running cucumber:**
 ```bash
-mix bobine.cucumber        # acceptance suite (context-level, no browser)
+mix marquee.cucumber        # acceptance suite (context-level, no browser)
 mix test --only e2e        # Wallaby suite (browser-required flows only)
 ```
 
@@ -231,7 +231,7 @@ Every create, update, delete logged via event system + `AuditSubscriber`. Audit 
 
 Before **every commit**:
 
-- Run `mix bobine.verify`
+- Run `mix marquee.verify`
 - Run `mix test`
 
 No commit if checks fail.

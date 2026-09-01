@@ -1,7 +1,7 @@
 Feature: Live Event Google Calendar Link
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Google Calendar URL is built with correct event details
     Given a scheduled event with a title, slug, start time, and description

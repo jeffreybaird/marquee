@@ -1,10 +1,10 @@
-defmodule Bobine.ContentFixtures do
+defmodule Marquee.ContentFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Content` context.
+  entities via the `Marquee.Content` context.
   """
 
-  import Bobine.Factory
+  import Marquee.Factory
 
   @doc """
   Generate a video.
@@ -27,7 +27,7 @@ defmodule Bobine.ContentFixtures do
         title: "some title",
         organization_id: org.id
       })
-      |> Bobine.Content.create_video()
+      |> Marquee.Content.create_video()
 
     video
   end
@@ -44,7 +44,7 @@ defmodule Bobine.ContentFixtures do
         title: "some title"
       })
 
-    {:ok, collection} = Bobine.Content.create_collection(scope, attrs)
+    {:ok, collection} = Marquee.Content.create_collection(scope, attrs)
     collection
   end
 end

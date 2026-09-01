@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddLogosToHeroSlides do
+defmodule Marquee.Repo.Migrations.AddLogosToHeroSlides do
   use Ecto.Migration
 
   def change do

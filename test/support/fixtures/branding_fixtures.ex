@@ -1,10 +1,10 @@
-defmodule Bobine.BrandingFixtures do
+defmodule Marquee.BrandingFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Branding` context.
+  entities via the `Marquee.Branding` context.
   """
 
-  import Bobine.Factory
+  import Marquee.Factory
 
   @doc """
   Generate a theme.
@@ -30,7 +30,7 @@ defmodule Bobine.BrandingFixtures do
         text_primary: "some text_primary",
         text_secondary: "some text_secondary"
       })
-      |> Bobine.Branding.create_theme()
+      |> Marquee.Branding.create_theme()
 
     theme
   end

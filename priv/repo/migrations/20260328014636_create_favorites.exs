@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateFavorites do
+defmodule Marquee.Repo.Migrations.CreateFavorites do
   use Ecto.Migration
 
   def change do

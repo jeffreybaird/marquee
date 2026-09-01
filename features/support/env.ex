@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Support.Env do
+defmodule MarqueeFeatures.Support.Env do
   @moduledoc """
   Scenario-level setup for Wallaby E2E step definitions.
 
@@ -14,14 +14,14 @@ defmodule BobineFeatures.Support.Env do
 
   before_all_ fn ->
     {:ok, _} = Application.ensure_all_started(:wallaby)
-    Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, :manual)
+    Ecto.Adapters.SQL.Sandbox.mode(Marquee.Repo, :manual)
   end
 
   before_ fn world ->
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Bobine.Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, {:shared, self()})
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Marquee.Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(Marquee.Repo, {:shared, self()})
 
-    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Bobine.Repo, self())
+    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Marquee.Repo, self())
     {:ok, session} = Wallaby.start_session(metadata: metadata)
 
     Map.put(world, :session, session)
@@ -32,7 +32,7 @@ defmodule BobineFeatures.Support.Env do
       Wallaby.end_session(session)
     end
 
-    Ecto.Adapters.SQL.Sandbox.checkin(Bobine.Repo)
+    Ecto.Adapters.SQL.Sandbox.checkin(Marquee.Repo)
     world
   end
 end

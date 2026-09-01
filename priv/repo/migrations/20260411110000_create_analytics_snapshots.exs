@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateAnalyticsSnapshots do
+defmodule Marquee.Repo.Migrations.CreateAnalyticsSnapshots do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateNotifications do
+defmodule Marquee.Repo.Migrations.CreateNotifications do
   use Ecto.Migration
 
   def change do

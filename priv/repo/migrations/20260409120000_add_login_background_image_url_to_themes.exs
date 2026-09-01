@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddLoginBackgroundImageUrlToThemes do
+defmodule Marquee.Repo.Migrations.AddLoginBackgroundImageUrlToThemes do
   use Ecto.Migration
 
   def change do

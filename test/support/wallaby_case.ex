@@ -1,4 +1,4 @@
-defmodule BobineWeb.WallabyCase do
+defmodule MarqueeWeb.WallabyCase do
   @moduledoc false
   use ExUnit.CaseTemplate
 
@@ -6,23 +6,23 @@ defmodule BobineWeb.WallabyCase do
     quote do
       use Wallaby.DSL
       import Wallaby.Query
-      import Bobine.Factory
-      import BobineWeb.WallabyCase, only: [log_in_session: 2, log_in_session: 3]
+      import Marquee.Factory
+      import MarqueeWeb.WallabyCase, only: [log_in_session: 2, log_in_session: 3]
 
-      alias BobineWeb.Endpoint
+      alias MarqueeWeb.Endpoint
 
-      @endpoint BobineWeb.Endpoint
+      @endpoint MarqueeWeb.Endpoint
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Bobine.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Marquee.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Marquee.Repo, {:shared, self()})
     end
 
-    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Bobine.Repo, self())
+    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Marquee.Repo, self())
     {:ok, session} = Wallaby.start_session(metadata: metadata)
     {:ok, session: session}
   end
@@ -35,7 +35,7 @@ defmodule BobineWeb.WallabyCase do
   re-seeded by visiting a page with `?org=slug` AFTER the new session is created.
   """
   def log_in_session(session, user, org) do
-    import Bobine.AccountsFixtures, only: [generate_user_magic_link_token: 1]
+    import Marquee.AccountsFixtures, only: [generate_user_magic_link_token: 1]
 
     {encoded_token, _raw_token} = generate_user_magic_link_token(user)
 
@@ -66,7 +66,7 @@ defmodule BobineWeb.WallabyCase do
   Use for tests that don't require org resolution (e.g. auth page tests).
   """
   def log_in_session(session, user) do
-    import Bobine.AccountsFixtures, only: [generate_user_magic_link_token: 1]
+    import Marquee.AccountsFixtures, only: [generate_user_magic_link_token: 1]
 
     {encoded_token, _raw_token} = generate_user_magic_link_token(user)
 

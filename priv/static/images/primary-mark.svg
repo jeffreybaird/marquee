@@ -18,5 +18,5 @@
         <circle cx="38" cy="36" r="28" class="stroke" stroke-width="2" opacity="0.35"/>
     </g>
 
-    <text class="text" x="112" y="70">bobine</text>
+    <text class="text" x="112" y="70">marquee</text>
 </svg>

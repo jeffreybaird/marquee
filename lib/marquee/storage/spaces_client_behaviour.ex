@@ -1,0 +1,44 @@
+defmodule Marquee.Storage.SpacesClientBehaviour do
+  @moduledoc """
+  Contract for the DigitalOcean Spaces client.
+
+  The real implementation is `Marquee.Storage.SpacesClient`; tests
+  inject `Marquee.Storage.MockSpacesClient` (defined via Mox) via
+  `config :marquee, Marquee.Storage, client: ...`.
+
+  The client's only job is to produce presigned PUT URLs — it never
+  touches file bytes. The browser uploads directly to Spaces using the
+  URL we hand it, which keeps Phoenix out of the upload hot path.
+  """
+
+  @type presign_opts :: [
+          key: String.t(),
+          content_type: String.t(),
+          expires_in: pos_integer(),
+          max_size: pos_integer()
+        ]
+
+  @type presigned :: %{
+          required(:presigned_url) => String.t(),
+          required(:public_url) => String.t(),
+          required(:key) => String.t(),
+          required(:expires_at) => DateTime.t(),
+          optional(:headers) => %{String.t() => String.t()}
+        }
+
+  @callback presign_put(presign_opts()) ::
+              {:ok, presigned()} | {:error, atom() | binary()}
+
+  @callback put_object(key :: String.t(), body :: iodata(), content_type :: String.t()) ::
+              :ok | {:error, atom() | binary()}
+
+  @callback head_object(key :: String.t()) ::
+              {:ok, %{content_type: String.t() | nil, size: integer() | nil}}
+              | {:error, :not_found}
+              | {:error, atom() | binary()}
+
+  @callback download_object(key :: String.t()) ::
+              {:ok, %{body: binary(), content_type: String.t() | nil}}
+              | {:error, :not_found}
+              | {:error, atom() | binary()}
+end

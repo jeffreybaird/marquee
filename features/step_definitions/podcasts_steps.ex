@@ -1,22 +1,22 @@
-defmodule BobineFeatures.Steps.Podcasts do
+defmodule MarqueeFeatures.Steps.Podcasts do
   @moduledoc """
   Acceptance steps for premium podcast shows. Drives the public
-  Bobine.Podcasts API rather than the operator UI — the operator and
+  Marquee.Podcasts API rather than the operator UI — the operator and
   subscriber LiveViews are exercised separately by the
   podcasts_live_test.exs / Wallaby suites. Keeping the cucumber surface
-  context-level lets it run inside the no-server `mix bobine.cucumber`
+  context-level lets it run inside the no-server `mix marquee.cucumber`
   pipeline.
   """
 
   use Cucumberex.DSL
 
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Accounts.Scope
-  alias Bobine.Podcasts
-  alias Bobine.Podcasts.{Episode, FeedToken}
-  alias Bobine.Repo
+  alias Marquee.Accounts.Scope
+  alias Marquee.Podcasts
+  alias Marquee.Podcasts.{Episode, FeedToken}
+  alias Marquee.Repo
 
   # ---- Operator setup -----------------------------------------------------
 
@@ -131,7 +131,7 @@ defmodule BobineFeatures.Steps.Podcasts do
     audio_url_fun = fn %Episode{id: id} -> "https://test.example/audio/#{id}.mp3" end
 
     xml =
-      Bobine.Podcasts.FeedXml.render(
+      Marquee.Podcasts.FeedXml.render(
         world.show,
         token,
         Podcasts.list_published_episodes(world.show),

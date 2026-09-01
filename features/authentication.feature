@@ -1,7 +1,7 @@
 Feature: Operator Authentication
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Operator registers and confirms a new organization via magic link
     Given I am an unauthenticated user

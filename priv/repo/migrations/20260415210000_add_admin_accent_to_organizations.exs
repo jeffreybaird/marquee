@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddAdminAccentToOrganizations do
+defmodule Marquee.Repo.Migrations.AddAdminAccentToOrganizations do
   use Ecto.Migration
 
   def change do

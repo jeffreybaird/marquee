@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddAuditLogQueryIndexes do
+defmodule Marquee.Repo.Migrations.AddAuditLogQueryIndexes do
   use Ecto.Migration
 
   def change do

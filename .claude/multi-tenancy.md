@@ -6,7 +6,7 @@ Load this file when working on any feature that touches tenant-scoped data.
 
 ## Core Principle
 
-Bobine is a shared-schema multi-tenant application. Every tenant (organization)
+Marquee is a shared-schema multi-tenant application. Every tenant (organization)
 shares the same Postgres database and the same tables. Isolation is enforced at the
 application layer, not the database layer.
 
@@ -23,7 +23,7 @@ system-level tables (e.g. Oban jobs, global feature flags).
 ```elixir
 # ✅ CORRECT — every tenant table
 schema "videos" do
-  belongs_to :organization, Bobine.Accounts.Organization
+  belongs_to :organization, Marquee.Accounts.Organization
   field :title, :string
   # ...
   timestamps()
@@ -112,7 +112,7 @@ functions, clearly namespaced and documented:
 
 ```elixir
 # Acceptable — clearly marked as system-level
-defmodule Bobine.Admin do
+defmodule Marquee.Admin do
   @doc "System-level: returns all organizations. Not for tenant use."
   def list_all_organizations do
     Repo.all(Organization)
@@ -144,7 +144,7 @@ resolve the tenant themselves.
 
 ```elixir
 # In the router
-live_session :viewer, on_mount: [{BobineWeb.Hooks.AssignOrganization, :assign}] do
+live_session :viewer, on_mount: [{MarqueeWeb.Hooks.AssignOrganization, :assign}] do
   live "/", HomeLive
   live "/watch/:id", WatchLive
 end

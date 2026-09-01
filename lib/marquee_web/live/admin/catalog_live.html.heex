@@ -1,0 +1,52 @@
+<MarqueeWeb.Components.AdminLayout.admin_layout
+  current_path={@current_path}
+  organization={@organization}
+  current_user={@current_user}
+  impersonating={@impersonating}
+>
+  <%!-- Persistent MuxUploader hook — lives outside picker sheet so it survives re-renders --%>
+  <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
+  <.header>Catalog</.header>
+  <%= if @selected_row && @row_videos != [] || (@selected_row && @selected_row.source_type == :curated && @preview_videos == []) do %>
+    <.row_items_view
+      row={@selected_row}
+      videos={@row_videos}
+      can_manage={@can_manage}
+      show_video_picker={@show_video_picker}
+      available_videos={@available_videos}
+    />
+  <% else %>
+    <%!-- Hero editor section --%>
+    <.hero_editor
+      hero_row={@hero_row}
+      hero_slides={@hero_slides}
+      can_manage={@can_manage}
+      show_hero_video_picker={@show_hero_video_picker}
+      hero_available_videos={@hero_available_videos}
+      hero_save_status={@hero_save_status}
+      hero_collapsed={@hero_collapsed}
+      hero_expanded_slide={@hero_expanded_slide}
+      hero_picker_tab={@hero_picker_tab}
+      hero_upload_file={@hero_upload_file}
+      hero_uploading={@hero_uploading}
+      hero_upload_percent={@hero_upload_percent}
+      hero_replacing_slide_id={@hero_replacing_slide_id}
+    />
+
+    <div class="divider my-8" />
+
+    <%!-- Regular rows list --%>
+    <.rows_list_view
+      rows={@rows}
+      can_manage={@can_manage}
+      show_form={@show_form}
+      form={@form}
+      editing_row={@editing_row}
+      source_types={@source_types}
+      collections={@collections}
+      tags={@tags}
+      selected_row={@selected_row}
+      preview_videos={@preview_videos}
+    />
+  <% end %>
+</MarqueeWeb.Components.AdminLayout.admin_layout>

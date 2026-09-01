@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.MakeCollectionTypeNullable do
+defmodule Marquee.Repo.Migrations.MakeCollectionTypeNullable do
   use Ecto.Migration
 
   def change do

@@ -1,7 +1,7 @@
 # Brand System
 
 This file is the authoritative reference for all viewer-facing frontend work
-on Bobine. Every stage prompt references this file. Before writing any code,
+on Marquee. Every stage prompt references this file. Before writing any code,
 read this file in full. Then read the existing codebase to understand its
 conventions before placing or naming anything.
 
@@ -9,7 +9,7 @@ conventions before placing or naming anything.
 
 ## Identity
 
-Bobine is a multi-tenant SaaS OTT white-label video streaming platform.
+Marquee is a multi-tenant SaaS OTT white-label video streaming platform.
 Name: French for "film reel/spool." Nod to Rochester NY's Kodak heritage.
 
 Aesthetic: warm French cinema — Rohmer palette, Nouvelle Vague typography.

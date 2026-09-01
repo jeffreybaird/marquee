@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateLiveEventChatBans do
+defmodule Marquee.Repo.Migrations.CreateLiveEventChatBans do
   use Ecto.Migration
 
   def change do

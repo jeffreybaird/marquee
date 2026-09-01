@@ -1,4 +1,4 @@
-defmodule Bobine.DataCase do
+defmodule Marquee.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -10,7 +10,7 @@ defmodule Bobine.DataCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use Bobine.DataCase, async: true`, although
+  by setting `use Marquee.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,18 +20,18 @@ defmodule Bobine.DataCase do
 
   using do
     quote do
-      alias Bobine.Repo
+      alias Marquee.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import Bobine.DataCase
-      import Bobine.Factory
+      import Marquee.DataCase
+      import Marquee.Factory
     end
   end
 
   setup tags do
-    Bobine.DataCase.setup_sandbox(tags)
+    Marquee.DataCase.setup_sandbox(tags)
     :ok
   end
 
@@ -39,7 +39,7 @@ defmodule Bobine.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Bobine.Repo, shared: not tags[:async])
+    pid = Sandbox.start_owner!(Marquee.Repo, shared: not tags[:async])
     on_exit(fn -> Sandbox.stop_owner(pid) end)
   end
 

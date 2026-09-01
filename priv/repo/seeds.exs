@@ -1,7 +1,7 @@
-alias Bobine.Repo
-alias Bobine.Accounts
-alias Bobine.Accounts.{Organization, Membership, User}
-alias Bobine.Branding
+alias Marquee.Repo
+alias Marquee.Accounts
+alias Marquee.Accounts.{Organization, Membership, User}
+alias Marquee.Branding
 
 # ---------------------------------------------------------------------------
 # Helper: create or fetch organization + theme
@@ -15,7 +15,7 @@ create_org = fn name, slug ->
   org = Repo.get_by!(Organization, slug: slug)
   IO.puts("Organization: #{org.name} (slug: #{org.slug})")
 
-  unless Repo.get_by(Bobine.Branding.Theme, organization_id: org.id) do
+  unless Repo.get_by(Marquee.Branding.Theme, organization_id: org.id) do
     {:ok, _theme} =
       Branding.create_theme(%{
         organization_id: org.id,
@@ -109,9 +109,9 @@ create_user_with_membership.("editor@test-channel.localhost", :editor, test_org)
 # ---------------------------------------------------------------------------
 
 super_admin =
-  case Accounts.get_user_by_email("super@bobine.dev") do
+  case Accounts.get_user_by_email("super@marquee.dev") do
     nil ->
-      {:ok, user} = Accounts.register_user(%{email: "super@bobine.dev"})
+      {:ok, user} = Accounts.register_user(%{email: "super@marquee.dev"})
       user = Repo.update!(User.confirm_changeset(user))
       {:ok, user} = user |> User.admin_changeset(%{is_super_admin: true}) |> Repo.update()
       user
@@ -124,8 +124,8 @@ super_admin =
 # Viewers on Demo Studio
 # ---------------------------------------------------------------------------
 
-alias Bobine.Viewers
-alias Bobine.Viewers.Viewer
+alias Marquee.Viewers
+alias Marquee.Viewers.Viewer
 
 create_viewer = fn email, display_name, subscription_status, status, org ->
   case Viewers.get_viewer_by_email(org, email) do
@@ -172,7 +172,7 @@ create_viewer.("zoe@example.com", "Zoe", "trial", :active, test_org)
 # Platform Plans (the 3x3 grid)
 # ---------------------------------------------------------------------------
 
-alias Bobine.Billing.PlatformPlan
+alias Marquee.Billing.PlatformPlan
 
 platform_plans = [
   %{
@@ -365,7 +365,7 @@ Viewer login:
   (alice has active subscription, bob has trial, carol has none)
 
 Super admin panel:
-  Visit http://localhost:4000/users/log-in and log in as super@bobine.dev.
+  Visit http://localhost:4000/users/log-in and log in as super@marquee.dev.
   Then go to http://localhost:4000/super
 
 Magic links are delivered to http://localhost:4000/dev/mailbox in dev.

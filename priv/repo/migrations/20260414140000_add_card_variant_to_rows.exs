@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddCardVariantToRows do
+defmodule Marquee.Repo.Migrations.AddCardVariantToRows do
   use Ecto.Migration
 
   def change do

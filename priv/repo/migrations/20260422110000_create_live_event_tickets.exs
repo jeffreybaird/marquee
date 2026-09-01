@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateLiveEventTickets do
+defmodule Marquee.Repo.Migrations.CreateLiveEventTickets do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateViewerSubscriptionsAndAddStripeCustomerId do
+defmodule Marquee.Repo.Migrations.CreateViewerSubscriptionsAndAddStripeCustomerId do
   use Ecto.Migration
 
   def change do

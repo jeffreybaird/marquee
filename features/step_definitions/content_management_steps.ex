@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.ContentManagement do
+defmodule MarqueeFeatures.Steps.ContentManagement do
   @moduledoc """
   Step definitions for content_management.feature.
 
@@ -12,12 +12,12 @@ defmodule BobineFeatures.Steps.ContentManagement do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Content
-  alias Bobine.Content.Tag
-  alias Bobine.Repo
+  alias Marquee.Content
+  alias Marquee.Content.Tag
+  alias Marquee.Repo
 
   # ---- Tags ---------------------------------------------------------------
 

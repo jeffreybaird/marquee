@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Use when writing, organizing, or reviewing tests, test infrastructure, fixtures, mocks, LiveView tests, or end-to-end coverage for Bobine.
+description: Use when writing, organizing, or reviewing tests, test infrastructure, fixtures, mocks, LiveView tests, or end-to-end coverage for Marquee.
 ---
 
 # Testing
@@ -14,7 +14,7 @@ test coverage.
 
 ```
 test/
-├── bobine/                           # Unit & context tests
+├── marquee/                           # Unit & context tests
 │   ├── accounts/
 │   ├── content/
 │   ├── billing/
@@ -24,7 +24,7 @@ test/
 │   ├── branding/
 │   ├── webhooks/
 │   └── workers/                      # Oban worker tests
-├── bobine_web/
+├── marquee_web/
 │   ├── live/                         # LiveViewTest integration tests
 │   │   ├── admin/
 │   │   └── viewer/
@@ -147,30 +147,30 @@ Naming convention for `data-test` values:
 
 ### DataCase
 
-All context/unit tests use `Bobine.DataCase` which sets up the Ecto sandbox.
+All context/unit tests use `Marquee.DataCase` which sets up the Ecto sandbox.
 
 ```elixir
-defmodule Bobine.DataCase do
+defmodule Marquee.DataCase do
   use ExUnit.CaseTemplate
 
   using do
     quote do
-      alias Bobine.Repo
+      alias Marquee.Repo
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import Bobine.DataCase
-      import Bobine.Factory
+      import Marquee.DataCase
+      import Marquee.Factory
     end
   end
 
   setup tags do
-    Bobine.DataCase.setup_sandbox(tags)
+    Marquee.DataCase.setup_sandbox(tags)
     :ok
   end
 
   def setup_sandbox(tags) do
-    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Bobine.Repo, shared: not tags[:async])
+    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Marquee.Repo, shared: not tags[:async])
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
   end
 
@@ -186,26 +186,26 @@ end
 
 ### ConnCase
 
-Integration and LiveView tests use `BobineWeb.ConnCase`.
+Integration and LiveView tests use `MarqueeWeb.ConnCase`.
 
 ```elixir
-defmodule BobineWeb.ConnCase do
+defmodule MarqueeWeb.ConnCase do
   use ExUnit.CaseTemplate
 
   using do
     quote do
-      @endpoint BobineWeb.Endpoint
-      use BobineWeb, :verified_routes
+      @endpoint MarqueeWeb.Endpoint
+      use MarqueeWeb, :verified_routes
       import Plug.Conn
       import Phoenix.ConnTest
       import Phoenix.LiveViewTest
-      import Bobine.Factory
-      import BobineWeb.ConnCase
+      import Marquee.Factory
+      import MarqueeWeb.ConnCase
     end
   end
 
   setup tags do
-    Bobine.DataCase.setup_sandbox(tags)
+    Marquee.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
@@ -230,30 +230,30 @@ end
 
 ### WallabyCase
 
-Browser-based E2E tests use `BobineWeb.WallabyCase`.
+Browser-based E2E tests use `MarqueeWeb.WallabyCase`.
 
 ```elixir
-defmodule BobineWeb.WallabyCase do
+defmodule MarqueeWeb.WallabyCase do
   use ExUnit.CaseTemplate
 
   using do
     quote do
       use Wallaby.DSL
       import Wallaby.Query
-      import Bobine.Factory
+      import Marquee.Factory
 
-      @endpoint BobineWeb.Endpoint
+      @endpoint MarqueeWeb.Endpoint
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Bobine.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Marquee.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Marquee.Repo, {:shared, self()})
     end
 
-    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Bobine.Repo, self())
+    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Marquee.Repo, self())
     {:ok, session} = Wallaby.start_session(metadata: metadata)
     {:ok, session: session}
   end
@@ -268,24 +268,24 @@ Use `ExMachina` for test data. Every tenant-scoped factory must include an
 `organization` association.
 
 ```elixir
-defmodule Bobine.Factory do
-  use ExMachina.Ecto, repo: Bobine.Repo
+defmodule Marquee.Factory do
+  use ExMachina.Ecto, repo: Marquee.Repo
 
   def organization_factory do
-    %Bobine.Accounts.Organization{
+    %Marquee.Accounts.Organization{
       name: sequence(:name, &"Test Org #{&1}"),
       slug: sequence(:slug, &"test-org-#{&1}"),
     }
   end
 
   def user_factory do
-    %Bobine.Accounts.User{
+    %Marquee.Accounts.User{
       email: sequence(:email, &"user-#{&1}@example.com"),
     }
   end
 
   def membership_factory do
-    %Bobine.Accounts.Membership{
+    %Marquee.Accounts.Membership{
       user: build(:user),
       organization: build(:organization),
       role: :editor,
@@ -293,7 +293,7 @@ defmodule Bobine.Factory do
   end
 
   def video_factory do
-    %Bobine.Content.Video{
+    %Marquee.Content.Video{
       organization: build(:organization),
       title: sequence(:title, &"Video #{&1}"),
       mux_asset_id: sequence(:mux_asset_id, &"asset_#{&1}"),
@@ -303,7 +303,7 @@ defmodule Bobine.Factory do
   end
 
   def plan_factory do
-    %Bobine.Billing.Plan{
+    %Marquee.Billing.Plan{
       organization: build(:organization),
       name: "Monthly",
       stripe_price_id: sequence(:stripe_price_id, &"price_#{&1}"),
@@ -313,7 +313,7 @@ defmodule Bobine.Factory do
   end
 
   def subscription_factory do
-    %Bobine.Billing.Subscription{
+    %Marquee.Billing.Subscription{
       organization: build(:organization),
       user: build(:user),
       plan: build(:plan),
@@ -323,7 +323,7 @@ defmodule Bobine.Factory do
   end
 
   def theme_factory do
-    %Bobine.Branding.Theme{
+    %Marquee.Branding.Theme{
       organization: build(:organization),
       brand_primary: "#1a73e8",
       brand_secondary: "#174ea6",
@@ -334,7 +334,7 @@ defmodule Bobine.Factory do
   end
 
   def row_factory do
-    %Bobine.Catalog.Row{
+    %Marquee.Catalog.Row{
       organization: build(:organization),
       title: sequence(:title, &"Row #{&1}"),
       source_type: :curated,
@@ -344,7 +344,7 @@ defmodule Bobine.Factory do
   end
 
   def watchlist_item_factory do
-    %Bobine.Engagement.WatchlistItem{
+    %Marquee.Engagement.WatchlistItem{
       organization: build(:organization),
       user: build(:user),
       video: build(:video),
@@ -363,17 +363,17 @@ end
 
 ```elixir
 # test/support/mocks.ex
-Mox.defmock(Bobine.Content.MockMuxClient,
-  for: Bobine.Content.MuxClientBehaviour)
+Mox.defmock(Marquee.Content.MockMuxClient,
+  for: Marquee.Content.MuxClientBehaviour)
 
-Mox.defmock(Bobine.Billing.MockStripeClient,
-  for: Bobine.Billing.StripeClientBehaviour)
+Mox.defmock(Marquee.Billing.MockStripeClient,
+  for: Marquee.Billing.StripeClientBehaviour)
 ```
 
 ```elixir
 # config/test.exs
-config :bobine, :mux_client, Bobine.Content.MockMuxClient
-config :bobine, :stripe_client, Bobine.Billing.MockStripeClient
+config :marquee, :mux_client, Marquee.Content.MockMuxClient
+config :marquee, :stripe_client, Marquee.Billing.MockStripeClient
 ```
 
 ### Usage pattern
@@ -412,7 +412,7 @@ end
 Use `Oban.Testing` to assert jobs are enqueued and to execute them in tests.
 
 ```elixir
-use Oban.Testing, repo: Bobine.Repo
+use Oban.Testing, repo: Marquee.Repo
 
 test "webhook controller enqueues processing job" do
   conn = build_conn()
@@ -420,7 +420,7 @@ test "webhook controller enqueues processing job" do
   |> post("/webhooks/mux", Jason.encode!(%{type: "video.asset.ready", ...}))
 
   assert response(conn, 200)
-  assert_enqueued(worker: Bobine.Workers.MuxWebhookProcessor)
+  assert_enqueued(worker: Marquee.Workers.MuxWebhookProcessor)
 end
 ```
 
@@ -480,10 +480,10 @@ mix test
 mix test --cover
 
 # Run a specific file
-mix test test/bobine/content/content_test.exs
+mix test test/marquee/content/content_test.exs
 
 # Run a specific test by line number
-mix test test/bobine/content/content_test.exs:42
+mix test test/marquee/content/content_test.exs:42
 
 # Run only E2E tests (requires Chrome + ChromeDriver)
 mix test --only e2e

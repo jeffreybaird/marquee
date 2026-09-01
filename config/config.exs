@@ -7,22 +7,22 @@
 # General application configuration
 import Config
 
-config :bobine, :scopes,
+config :marquee, :scopes,
   user: [
     default: true,
-    module: Bobine.Accounts.Scope,
+    module: Marquee.Accounts.Scope,
     assign_key: :current_scope,
     access_path: [:user, :id],
     schema_key: :user_id,
     schema_type: :binary_id,
     schema_table: :users,
-    test_data_fixture: Bobine.AccountsFixtures,
+    test_data_fixture: Marquee.AccountsFixtures,
     test_setup_helper: :register_and_log_in_user
   ]
 
-config :bobine,
+config :marquee,
   env: config_env(),
-  ecto_repos: [Bobine.Repo],
+  ecto_repos: [Marquee.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
 # Org resolution strategy. `:query_param` reads `?org=slug` and persists the
@@ -30,17 +30,17 @@ config :bobine,
 # resolves the org from the request host only. Currently all environments use
 # `:query_param`; production may switch to `:hostname` once wildcard subdomains
 # are wired up.
-config :bobine, :org_resolution, :query_param
+config :marquee, :org_resolution, :query_param
 
 # Configure the endpoint
-config :bobine, BobineWeb.Endpoint,
+config :marquee, MarqueeWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: BobineWeb.ErrorHTML, json: BobineWeb.ErrorJSON],
+    formats: [html: MarqueeWeb.ErrorHTML, json: MarqueeWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Bobine.PubSub,
+  pubsub_server: Marquee.PubSub,
   live_view: [
     signing_salt: "EgHZc0pV",
     # Start with a shorter idle hibernation window so passive viewer sessions
@@ -56,12 +56,12 @@ config :bobine, BobineWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :bobine, Bobine.Mailer, adapter: Swoosh.Adapters.Local
+config :marquee, Marquee.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  bobine: [
+  marquee: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -71,7 +71,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.12",
-  bobine: [
+  marquee: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css
@@ -162,16 +162,16 @@ config :logger, :default_formatter,
   ]
 
 # Configure Oban
-config :bobine, Oban,
-  repo: Bobine.Repo,
+config :marquee, Oban,
+  repo: Marquee.Repo,
   plugins: [
     Oban.Plugins.Pruner,
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 */6 * * *", Bobine.Workers.AnalyticsComputer, args: %{"dispatch" => true}},
-       {"*/15 * * * *", Bobine.Workers.DropOffAggregator},
-       {"*/15 * * * *", Bobine.Workers.MarkEventsDidNotOccurWorker},
-       {"*/15 * * * *", Bobine.Workers.PodcastFeedSync}
+       {"0 */6 * * *", Marquee.Workers.AnalyticsComputer, args: %{"dispatch" => true}},
+       {"*/15 * * * *", Marquee.Workers.DropOffAggregator},
+       {"*/15 * * * *", Marquee.Workers.MarkEventsDidNotOccurWorker},
+       {"*/15 * * * *", Marquee.Workers.PodcastFeedSync}
      ]}
   ],
   queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3]
@@ -180,7 +180,7 @@ config :bobine, Oban,
 config :opentelemetry,
   resource: [
     service: [
-      name: "bobine",
+      name: "marquee",
       version: Mix.Project.config()[:version]
     ]
   ],
@@ -194,15 +194,15 @@ config :phoenix, :json_library, Jason
 # environment-specific overrides live in `runtime.exs`; this block sets
 # defaults shared across environments.
 #
-# The production bucket is `bobine` in region `nyc3`, hence the
+# The production bucket is `marquee` in region `nyc3`, hence the
 # `nyc3.digitaloceanspaces.com` endpoint. Images are uploaded directly
-# from the browser via presigned PUT URLs (see Bobine.Storage).
-config :bobine, Bobine.Storage,
-  client: Bobine.Storage.SpacesClient,
-  bucket: "bobine",
+# from the browser via presigned PUT URLs (see Marquee.Storage).
+config :marquee, Marquee.Storage,
+  client: Marquee.Storage.SpacesClient,
+  bucket: "marquee",
   region: "nyc3",
   host: "nyc3.digitaloceanspaces.com",
-  public_url_base: "https://bobine.nyc3.digitaloceanspaces.com"
+  public_url_base: "https://marquee.nyc3.digitaloceanspaces.com"
 
 config :ex_aws,
   json_codec: Jason,

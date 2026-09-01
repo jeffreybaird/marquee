@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.ContentManagementFeature do
+defmodule Marquee.Repo.Migrations.ContentManagementFeature do
   use Ecto.Migration
 
   def change do

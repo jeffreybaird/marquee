@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddPolymorphicRefsToWatchlistItems do
+defmodule Marquee.Repo.Migrations.AddPolymorphicRefsToWatchlistItems do
   use Ecto.Migration
 
   def change do

@@ -7,7 +7,7 @@ or access control enforcement.
 
 ## Roles
 
-Bobine uses a flat role model per organization membership. A user's role
+Marquee uses a flat role model per organization membership. A user's role
 is stored on the `Membership` join table between `User` and `Organization`.
 
 | Role             | Content | Team Mgmt | Analytics | Billing | Delete Org |
@@ -28,8 +28,8 @@ an `admin` can do, and so on.
 
 ```elixir
 schema "memberships" do
-  belongs_to :user, Bobine.Accounts.User
-  belongs_to :organization, Bobine.Accounts.Organization
+  belongs_to :user, Marquee.Accounts.User
+  belongs_to :organization, Marquee.Accounts.Organization
   field :role, Ecto.Enum, values: [:owner, :admin, :editor, :viewer_support]
   timestamps()
 end
@@ -53,13 +53,13 @@ directly in the controller.
 
 ```elixir
 # In router — applies to all routes in this scope
-scope "/admin/settings", BobineWeb.Admin do
+scope "/admin/settings", MarqueeWeb.Admin do
   pipe_through [:browser, :require_auth, :set_organization, :require_role_admin]
   # ...
 end
 
 # The plug
-defmodule BobineWeb.Plugs.RequireRole do
+defmodule MarqueeWeb.Plugs.RequireRole do
   import Plug.Conn
   import Phoenix.Controller, only: [put_flash: 3, redirect: 2]
 

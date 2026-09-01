@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddFormFieldColorsToThemes do
+defmodule Marquee.Repo.Migrations.AddFormFieldColorsToThemes do
   use Ecto.Migration
 
   def change do

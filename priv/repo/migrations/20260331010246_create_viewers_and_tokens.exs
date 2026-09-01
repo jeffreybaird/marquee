@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateViewersAndTokens do
+defmodule Marquee.Repo.Migrations.CreateViewersAndTokens do
   use Ecto.Migration
 
   def change do

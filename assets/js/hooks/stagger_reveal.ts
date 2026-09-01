@@ -1,7 +1,7 @@
 /**
  * StaggerReveal hook
  *
- * Used by: BobineWeb.Components.Rows scroll tracks.
+ * Used by: MarqueeWeb.Components.Rows scroll tracks.
  *
  * Entrance animation: each direct child starts at opacity 0 +
  * translateY 12px and transitions to visible with a 50ms stagger

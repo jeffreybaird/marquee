@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddNewSeasonToSeries do
+defmodule Marquee.Repo.Migrations.AddNewSeasonToSeries do
   use Ecto.Migration
 
   def change do

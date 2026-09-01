@@ -76,7 +76,7 @@ mix ecto.gen.migration create_collections_and_collection_items
 
 ### Content context functions
 
-Add to `Bobine.Content` (or create `Bobine.Content.Collections` if the context
+Add to `Marquee.Content` (or create `Marquee.Content.Collections` if the context
 is getting large — but keep it under the `Content` namespace):
 
 ```elixir
@@ -224,7 +224,7 @@ end
 
 ### Catalog context functions
 
-Create `Bobine.Catalog`:
+Create `Marquee.Catalog`:
 
 ```elixir
 # Rows
@@ -420,7 +420,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 
 ### Context tests
 
-**`test/bobine/content/collections_test.exs`**
+**`test/marquee/content/collections_test.exs`**
 - `list_collections/2` returns only the org's collections
 - `list_collections/2` excludes soft-deleted collections
 - `list_collections/2` returns pagination struct
@@ -436,7 +436,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 - `reorder_collection_videos/3` updates positions
 - `list_collection_videos/3` returns videos in position order
 
-**`test/bobine/content/tags_test.exs`**
+**`test/marquee/content/tags_test.exs`**
 - `list_tags/2` returns only the org's tags
 - `create_tag/2` normalizes name to lowercase
 - `create_tag/2` with duplicate name returns error
@@ -445,7 +445,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 - `untag_video/3` removes association
 - `list_videos_by_tag/3` returns correct videos
 
-**`test/bobine/catalog/catalog_test.exs`**
+**`test/marquee/catalog/catalog_test.exs`**
 - `list_rows/2` returns rows in position order
 - `create_row/2` with all source types succeeds
 - `delete_row/2` soft-deletes
@@ -463,7 +463,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 
 ### LiveView tests
 
-**`test/bobine_web/live/admin/collections_live_test.exs`**
+**`test/marquee_web/live/admin/collections_live_test.exs`**
 - Page renders collection list
 - Empty state when no collections
 - Create collection with valid data
@@ -476,7 +476,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 - Editor role can manage collections
 - Viewer_support role has read-only access
 
-**`test/bobine_web/live/admin/catalog_live_test.exs`**
+**`test/marquee_web/live/admin/catalog_live_test.exs`**
 - Page renders row list in position order
 - Create curated row
 - Create collection-based row with source selection
@@ -504,7 +504,7 @@ Build out `/admin/catalog` as the homepage layout builder.
 - [ ] Catalog rows admin page with source type selection and preview
 - [ ] Reorder functions use single-transaction position updates
 - [ ] All context functions wrapped in OTel spans
-- [ ] All mutations broadcast events via `Bobine.Events`
+- [ ] All mutations broadcast events via `Marquee.Events`
 - [ ] All mutations generate audit log entries
 - [ ] All list functions return pagination structs
 - [ ] All error returns use tagged tuples

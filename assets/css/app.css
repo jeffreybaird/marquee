@@ -4,7 +4,7 @@
 @import "tailwindcss" source(none);
 @source "../css";
 @source "../js";
-@source "../../lib/bobine_web";
+@source "../../lib/marquee_web";
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
@@ -103,7 +103,7 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* =========================================================================
-   Bobine design tokens — warm French cinema palette.
+   Marquee design tokens — warm French cinema palette.
    All colors OKLCH. Tenant overrides apply via inline <style> block in
    root layout (accent + display font). See .claude/brand-system.md.
    ========================================================================= */
@@ -142,7 +142,7 @@
   /* =========================================================================
      Admin chrome — 7 tokens, auto light/dark, always readable.
      No tenant override. Surfaces use neutral zinc scale; accent is fixed
-     Bobine brand. Both modes pass WCAG AA for normal text.
+     Marquee brand. Both modes pass WCAG AA for normal text.
      ========================================================================= */
   --color-admin-bg: #fafafa;
   --color-admin-card: #ffffff;
@@ -839,7 +839,7 @@
 
 /* Per-row card variant aspect overrides. Applied via data-card-variant on
    the row wrapper so operators' variant choice in /admin/catalog changes
-   the visible card shape. See Bobine.Catalog.Row.card_variant. */
+   the visible card shape. See Marquee.Catalog.Row.card_variant. */
 .content-row-items[data-card-variant="poster_portrait"] .sv-card-thumb {
   aspect-ratio: 2 / 3;
 }
@@ -3389,7 +3389,7 @@ details[open] .sv-faq-question::after {
 }
 
 /* -------------------------------------------------------------------------
- * Admin: reusable image upload control (Bobine.Storage → DO Spaces)
+ * Admin: reusable image upload control (Marquee.Storage → DO Spaces)
  * ------------------------------------------------------------------------- */
 
 .sv-image-upload {

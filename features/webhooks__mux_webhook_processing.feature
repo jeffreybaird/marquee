@@ -1,7 +1,7 @@
 Feature: Mux Webhook Processing
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
     And Mux webhook signature verification is configured
 
   Scenario: Mux sends asset ready event

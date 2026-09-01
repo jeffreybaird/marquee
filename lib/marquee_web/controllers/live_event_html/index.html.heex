@@ -1,0 +1,137 @@
+<MarqueeWeb.Components.ViewerLayout.viewer_layout
+  organization={@organization}
+  current_viewer={@current_viewer}
+  impersonating_viewer={@impersonating_viewer}
+  current_path="/events"
+  theme={@theme}
+  flash={@flash}
+>
+  <div class="sv-page-content" data-test="events-index">
+    <header class="sv-page-header">
+      <h1 class="sv-page-title">Live Events</h1>
+      <p class="sv-events-subtitle">
+        Streams happening now, coming up, and recently aired.
+      </p>
+    </header>
+
+    <%!-- Live Now --%>
+    <section
+      :if={@live_now != []}
+      aria-label="Live now"
+      class="sv-events-section"
+      data-test="live-now-section"
+    >
+      <h2 class="sv-section-title">Live Now</h2>
+      <ul class="sv-events-list" role="list">
+        <li
+          :for={event <- @live_now}
+          class="sv-event-card sv-event-card--live"
+          data-test="event-card"
+        >
+          <a href={~p"/events/#{event.slug}"} class="sv-event-card-link" data-test="event-link">
+            <div class="sv-event-cover" aria-hidden="true">
+              <MarqueeWeb.Components.ViewerComponents.live_event_preview event={event} />
+              <span class="sv-event-badge sv-event-badge--live" aria-label="Live now">LIVE</span>
+            </div>
+            <div class="sv-event-info">
+              <p class="sv-event-title">{event.title}</p>
+              <p :if={event.description} class="sv-event-description">{event.description}</p>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <%!-- Upcoming --%>
+    <section
+      :if={@upcoming != []}
+      aria-label="Upcoming events"
+      class="sv-events-section"
+      data-test="upcoming-section"
+    >
+      <h2 class="sv-section-title">Upcoming</h2>
+      <ul class="sv-events-list" role="list">
+        <li :for={event <- @upcoming} class="sv-event-card" data-test="event-card">
+          <a href={~p"/events/#{event.slug}"} class="sv-event-card-link" data-test="event-link">
+            <div class="sv-event-cover" aria-hidden="true">
+              <img
+                :if={event.cover_image_url}
+                src={event.cover_image_url}
+                alt=""
+                class="sv-event-cover-img"
+              />
+              <div
+                :if={!event.cover_image_url}
+                class="sv-event-cover-placeholder"
+                aria-hidden="true"
+              />
+            </div>
+            <div class="sv-event-info">
+              <p class="sv-event-title">{event.title}</p>
+              <p class="sv-event-meta">
+                <time datetime={DateTime.to_iso8601(event.scheduled_start_at)}>
+                  {Calendar.strftime(event.scheduled_start_at, "%b %-d, %Y at %-I:%M %p UTC")}
+                </time>
+              </p>
+              <p :if={event.description} class="sv-event-description">{event.description}</p>
+            </div>
+          </a>
+          <a
+            href={~p"/events/#{event.slug}/calendar.ics"}
+            class="sv-event-calendar-link"
+            aria-label={"Add #{event.title} to calendar"}
+            data-test="calendar-download"
+          >
+            Add to calendar
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <%!-- Past --%>
+    <section
+      :if={@past != []}
+      aria-label="Past events"
+      class="sv-events-section"
+      data-test="past-section"
+    >
+      <h2 class="sv-section-title">Past Events</h2>
+      <ul class="sv-events-list" role="list">
+        <li :for={event <- @past} class="sv-event-card sv-event-card--past" data-test="event-card">
+          <a href={~p"/events/#{event.slug}"} class="sv-event-card-link" data-test="event-link">
+            <div class="sv-event-cover" aria-hidden="true">
+              <img
+                :if={event.cover_image_url}
+                src={event.cover_image_url}
+                alt=""
+                class="sv-event-cover-img"
+              />
+              <div
+                :if={!event.cover_image_url}
+                class="sv-event-cover-placeholder"
+                aria-hidden="true"
+              />
+            </div>
+            <div class="sv-event-info">
+              <p class="sv-event-title">{event.title}</p>
+              <p class="sv-event-meta">
+                <time datetime={DateTime.to_iso8601(event.scheduled_start_at)}>
+                  {Calendar.strftime(event.scheduled_start_at, "%b %-d, %Y")}
+                </time>
+              </p>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <%!-- Empty state --%>
+    <div
+      :if={@live_now == [] and @upcoming == [] and @past == []}
+      class="sv-empty-state"
+      data-test="no-events"
+    >
+      <p>No live events scheduled.</p>
+    </div>
+  </div>
+</MarqueeWeb.Components.ViewerLayout.viewer_layout>

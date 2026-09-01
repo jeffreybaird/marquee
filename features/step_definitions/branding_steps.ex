@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Branding do
+defmodule MarqueeFeatures.Steps.Branding do
   @moduledoc """
   Step definitions for branding.feature.
 
@@ -14,8 +14,8 @@ defmodule BobineFeatures.Steps.Branding do
   import Wallaby.Query
   import ExUnit.Assertions
 
-  alias Bobine.Branding
-  alias Bobine.Catalog
+  alias Marquee.Branding
+  alias Marquee.Catalog
 
   # Pick a preset the app ships. Midnight and daybreak are first-class
   # in the feature wording; either one exercises the same code path.

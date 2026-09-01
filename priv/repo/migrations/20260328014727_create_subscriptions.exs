@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateSubscriptions do
+defmodule Marquee.Repo.Migrations.CreateSubscriptions do
   use Ecto.Migration
 
   def change do

@@ -1,7 +1,7 @@
 Feature: Live Event Listing (Viewer)
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Viewer sees live, upcoming, and past events grouped by status
     Given an organization has a live event, a scheduled event, and an ended event

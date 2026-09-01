@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Catalog do
+defmodule MarqueeFeatures.Steps.Catalog do
   @moduledoc """
   Step definitions for catalog.feature.
 
@@ -13,10 +13,10 @@ defmodule BobineFeatures.Steps.Catalog do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Catalog
+  alias Marquee.Catalog
 
   # ---- Create row ---------------------------------------------------------
 

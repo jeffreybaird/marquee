@@ -28,7 +28,7 @@ end
 
 ### Usage
 
-Call `Bobine.Audit.log/4` at the end of every mutating context function:
+Call `Marquee.Audit.log/4` at the end of every mutating context function:
 
 ```elixir
 def update_video(scope, video, attrs) do
@@ -55,15 +55,15 @@ Use `resource.verb` format: `video.created`, `video.updated`, `video.deleted`,
 
 ## Request Context
 
-A `Bobine.RequestContext` module stores per-process context that is available
+A `Marquee.RequestContext` module stores per-process context that is available
 everywhere without passing it through function signatures.
 
 ### Set in a plug
 
 ```elixir
-defmodule BobineWeb.Plugs.SetRequestContext do
+defmodule MarqueeWeb.Plugs.SetRequestContext do
   def call(conn, _opts) do
-    Bobine.RequestContext.put(%{
+    Marquee.RequestContext.put(%{
       request_id: Logger.metadata()[:request_id],
       ip: to_string(:inet_parse.ntoa(conn.remote_ip)),
       user_agent: Plug.Conn.get_req_header(conn, "user-agent") |> List.first(),
@@ -77,7 +77,7 @@ end
 ### Access anywhere
 
 ```elixir
-ctx = Bobine.RequestContext.current()
+ctx = Marquee.RequestContext.current()
 ctx.request_id  # for structured logs
 ctx.ip          # for audit logs
 ctx.scope       # for the current user/org
@@ -239,7 +239,7 @@ not inline in the context function.
 ```elixir
 def create_video(scope, attrs) do
   with {:ok, video} <- do_create_video(scope, attrs) do
-    Bobine.Events.broadcast(scope, {:video_created, video})
+    Marquee.Events.broadcast(scope, {:video_created, video})
     {:ok, video}
   end
 end
@@ -248,7 +248,7 @@ end
 ### Subscribing
 
 ```elixir
-defmodule Bobine.Events.AuditSubscriber do
+defmodule Marquee.Events.AuditSubscriber do
   @events [:video_created, :video_updated, :video_deleted,
            :member_invited, :member_removed, :subscription_canceled]
 
@@ -257,7 +257,7 @@ defmodule Bobine.Events.AuditSubscriber do
   end
 end
 
-defmodule Bobine.Events.WebhookSubscriber do
+defmodule Marquee.Events.WebhookSubscriber do
   def handle_event(scope, {event, resource}) do
     Webhooks.dispatch(scope.organization, event, resource)
   end
@@ -266,19 +266,19 @@ end
 
 ### Implementation
 
-Use Phoenix PubSub for in-process event distribution. The `Bobine.Events`
+Use Phoenix PubSub for in-process event distribution. The `Marquee.Events`
 module is a thin wrapper:
 
 ```elixir
-defmodule Bobine.Events do
+defmodule Marquee.Events do
   def broadcast(scope, event) do
     Phoenix.PubSub.broadcast(
-      Bobine.PubSub,
+      Marquee.PubSub,
       "events:#{scope.organization.id}",
       {event, scope}
     )
     # Also broadcast to global topic for platform-wide listeners
-    Phoenix.PubSub.broadcast(Bobine.PubSub, "events:global", {event, scope})
+    Phoenix.PubSub.broadcast(Marquee.PubSub, "events:global", {event, scope})
   end
 end
 ```
@@ -303,7 +303,7 @@ Every call to Mux or Stripe must include an idempotency key.
 ### Pattern
 
 ```elixir
-defmodule Bobine.Content.MuxClient do
+defmodule Marquee.Content.MuxClient do
   @impl true
   def create_upload_url(params) do
     key = idempotency_key("create_upload", params.organization_id, params.title)
@@ -339,16 +339,16 @@ field :features, :map, default: %{}
 ### Helper
 
 ```elixir
-defmodule Bobine.Features do
+defmodule Marquee.Features do
   @doc """
   Checks if a feature is enabled for the given organization.
 
       iex> org = %Organization{features: %{"live_streaming" => true}}
-      iex> Bobine.Features.enabled?(org, :live_streaming)
+      iex> Marquee.Features.enabled?(org, :live_streaming)
       true
 
       iex> org = %Organization{features: %{}}
-      iex> Bobine.Features.enabled?(org, :live_streaming)
+      iex> Marquee.Features.enabled?(org, :live_streaming)
       false
   """
   def enabled?(%Organization{features: features}, feature) do
@@ -425,7 +425,7 @@ atoms. This prepares for a future public API without rewriting the context layer
 
 ## Tenant Data Export
 
-Maintain a `Bobine.Admin.export_organization_data/1` function that exports
+Maintain a `Marquee.Admin.export_organization_data/1` function that exports
 all data for an organization. Keep it updated as new schemas are added.
 
 ### What to export
@@ -468,7 +468,7 @@ and fair scheduling.
 
 ```elixir
 %{organization_id: org.id, video_id: video.id, payload: payload}
-|> Bobine.Workers.MuxWebhookProcessor.new()
+|> Marquee.Workers.MuxWebhookProcessor.new()
 |> Oban.insert()
 ```
 
@@ -491,7 +491,7 @@ When adding a new feature, verify:
 - [ ] New schema has `organization_id` if it's tenant-scoped
 - [ ] Context list functions accept `opts \\ []` with pagination
 - [ ] Context list functions filter out soft-deleted records by default
-- [ ] Context mutation functions broadcast events via `Bobine.Events`
+- [ ] Context mutation functions broadcast events via `Marquee.Events`
 - [ ] Context mutation functions return specific error atoms, not strings
 - [ ] External API calls include idempotency keys
 - [ ] Oban jobs include `organization_id` in args

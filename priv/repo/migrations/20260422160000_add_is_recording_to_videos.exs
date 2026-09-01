@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddIsRecordingToVideos do
+defmodule Marquee.Repo.Migrations.AddIsRecordingToVideos do
   use Ecto.Migration
 
   def change do

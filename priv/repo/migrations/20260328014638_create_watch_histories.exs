@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateWatchHistories do
+defmodule Marquee.Repo.Migrations.CreateWatchHistories do
   use Ecto.Migration
 
   def change do

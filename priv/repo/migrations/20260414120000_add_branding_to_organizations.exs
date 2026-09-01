@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddBrandingToOrganizations do
+defmodule Marquee.Repo.Migrations.AddBrandingToOrganizations do
   use Ecto.Migration
 
   def change do

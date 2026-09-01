@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateCoupons do
+defmodule Marquee.Repo.Migrations.CreateCoupons do
   use Ecto.Migration
 
   def change do

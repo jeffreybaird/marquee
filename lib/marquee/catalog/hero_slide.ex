@@ -1,0 +1,90 @@
+defmodule Marquee.Catalog.HeroSlide do
+  @moduledoc """
+  Schema for hero carousel slides.
+
+  Each slide belongs to a hero-type catalog row and links to a video.
+  Operators can override text fields (headline, subheadline, etc.) — blanks
+  fall back to the linked video's defaults at render time.
+
+  Hard limit: 4 slides per hero row, enforced by position check constraint
+  (0–3) and the context function `create_hero_slide/3`.
+  """
+
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "hero_slides" do
+    belongs_to :organization, Marquee.Accounts.Organization
+    belongs_to :row, Marquee.Catalog.Row
+    belongs_to :video, Marquee.Content.Video
+
+    field :position, :integer, default: 0
+
+    # Custom overlay text
+    field :headline, :string
+    field :subheadline, :string
+    field :brand_tag, :string
+    field :description, :string
+    field :primary_cta_label, :string
+    field :secondary_cta_label, :string
+
+    # Per-element visibility toggles (all default true for back-compat).
+    field :show_headline, :boolean, default: true
+    field :show_subheadline, :boolean, default: true
+    field :show_description, :boolean, default: true
+    field :show_brand_tag, :boolean, default: true
+    field :show_primary_cta, :boolean, default: true
+    field :show_secondary_cta, :boolean, default: true
+
+    # Optional custom background image
+    field :background_image_url, :string
+
+    # Optional branded title artwork rendered instead of the `:headline` text.
+    # When present, the viewer hero renders the image and the text headline
+    # is hidden (accessible label is preserved via `alt`).
+    field :title_logo_url, :string
+
+    # Optional small network / studio logo anchored top-left of the slide
+    # (e.g. NBC, Dick Wolf), rendered above the title logo.
+    field :channel_logo_url, :string
+
+    field :deleted_at, :utc_datetime
+
+    timestamps(type: :utc_datetime)
+  end
+
+  @doc false
+  def changeset(slide, attrs) do
+    slide
+    |> cast(attrs, [
+      :organization_id,
+      :row_id,
+      :video_id,
+      :position,
+      :headline,
+      :subheadline,
+      :brand_tag,
+      :description,
+      :primary_cta_label,
+      :secondary_cta_label,
+      :background_image_url,
+      :title_logo_url,
+      :channel_logo_url,
+      :show_headline,
+      :show_subheadline,
+      :show_description,
+      :show_brand_tag,
+      :show_primary_cta,
+      :show_secondary_cta
+    ])
+    |> validate_required([:organization_id, :row_id, :video_id])
+    |> validate_number(:position, greater_than_or_equal_to: 0, less_than_or_equal_to: 3)
+    |> unique_constraint([:row_id, :video_id])
+    |> check_constraint(:position, name: :position_range)
+    |> foreign_key_constraint(:organization_id)
+    |> foreign_key_constraint(:row_id)
+    |> foreign_key_constraint(:video_id)
+  end
+end

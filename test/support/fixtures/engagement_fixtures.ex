@@ -1,10 +1,10 @@
-defmodule Bobine.EngagementFixtures do
+defmodule Marquee.EngagementFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Engagement` context.
+  entities via the `Marquee.Engagement` context.
   """
 
-  import Bobine.Factory
+  import Marquee.Factory
 
   @doc """
   Generate a watchlist_item.
@@ -23,7 +23,7 @@ defmodule Bobine.EngagementFixtures do
         user_id: user.id,
         video_id: video.id
       })
-      |> Bobine.Engagement.create_watchlist_item()
+      |> Marquee.Engagement.create_watchlist_item()
 
     watchlist_item
   end

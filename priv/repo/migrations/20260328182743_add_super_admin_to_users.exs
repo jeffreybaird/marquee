@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddSuperAdminToUsers do
+defmodule Marquee.Repo.Migrations.AddSuperAdminToUsers do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateLiveEventReminders do
+defmodule Marquee.Repo.Migrations.CreateLiveEventReminders do
   use Ecto.Migration
 
   def change do

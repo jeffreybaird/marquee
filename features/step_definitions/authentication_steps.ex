@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Authentication do
+defmodule MarqueeFeatures.Steps.Authentication do
   @moduledoc """
   Step definitions for authentication.feature.
 
@@ -12,13 +12,13 @@ defmodule BobineFeatures.Steps.Authentication do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Accounts
-  alias Bobine.AccountsFixtures
-  alias Bobine.Organizations.Organization
-  alias Bobine.Repo
+  alias Marquee.Accounts
+  alias Marquee.AccountsFixtures
+  alias Marquee.Organizations.Organization
+  alias Marquee.Repo
 
   # ---- Registration -------------------------------------------------------
 

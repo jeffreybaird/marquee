@@ -8,7 +8,7 @@
  *
  * Dataset attributes:
  *   - data-playback-id: Mux playback ID
- *   - data-video-id: Bobine video ID
+ *   - data-video-id: Marquee video ID
  *   - data-resume-position: Seconds to seek to on load
  *
  * Events sent to server:

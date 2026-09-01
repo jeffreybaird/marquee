@@ -7,14 +7,14 @@ Mux webhook processing.
 
 ## Client Architecture
 
-### Single entry point: `Bobine.Content.MuxClient`
+### Single entry point: `Marquee.Content.MuxClient`
 
 All Mux API calls go through this module. No other module in the codebase may
 call the Mux SDK directly.
 
 ```elixir
-defmodule Bobine.Content.MuxClient do
-  @behaviour Bobine.Content.MuxClientBehaviour
+defmodule Marquee.Content.MuxClient do
+  @behaviour Marquee.Content.MuxClientBehaviour
 
   @impl true
   def create_asset(params) do
@@ -43,7 +43,7 @@ end
 The behaviour defines the contract. Tests swap in a mock via Mox.
 
 ```elixir
-defmodule Bobine.Content.MuxClientBehaviour do
+defmodule Marquee.Content.MuxClientBehaviour do
   @callback create_asset(map()) :: {:ok, map()} | {:error, term()}
   @callback create_upload_url(map()) :: {:ok, String.t()} | {:error, term()}
   @callback delete_asset(String.t()) :: :ok | {:error, term()}
@@ -57,7 +57,7 @@ Always resolve the client module from config so tests can inject the mock:
 
 ```elixir
 defp mux_client do
-  Application.get_env(:stream_vane, :mux_client, Bobine.Content.MuxClient)
+  Application.get_env(:stream_vane, :mux_client, Marquee.Content.MuxClient)
 end
 ```
 
@@ -103,7 +103,7 @@ The video upload flow uses Mux direct uploads:
 4. Mux sends a `video.upload.asset_ready` webhook when processing is complete
 5. The `MuxWebhookProcessor` Oban worker updates the video's status and metadata
 
-### Important: video bytes never pass through Bobine
+### Important: video bytes never pass through Marquee
 
 The upload goes directly from the browser to Mux. Our server only brokers the
 upload URL. This keeps our bandwidth costs zero for video transfer.
@@ -136,7 +136,7 @@ It does not process the webhook synchronously.
 def mux(conn, params) do
   with :ok <- verify_mux_signature(conn) do
     %{payload: params}
-    |> Bobine.Workers.MuxWebhookProcessor.new()
+    |> Marquee.Workers.MuxWebhookProcessor.new()
     |> Oban.insert()
 
     send_resp(conn, 200, "ok")

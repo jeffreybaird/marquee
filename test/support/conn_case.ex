@@ -1,4 +1,4 @@
-defmodule BobineWeb.ConnCase do
+defmodule MarqueeWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,36 +11,36 @@ defmodule BobineWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use BobineWeb.ConnCase, async: true`, although
+  by setting `use MarqueeWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
   use ExUnit.CaseTemplate
 
-  alias Bobine.Accounts
-  alias Bobine.Accounts.{Membership, Scope, User}
-  alias Bobine.AccountsFixtures
-  alias Bobine.Repo
-  alias Bobine.Viewers
-  alias Bobine.Viewers.Viewer
+  alias Marquee.Accounts
+  alias Marquee.Accounts.{Membership, Scope, User}
+  alias Marquee.AccountsFixtures
+  alias Marquee.Repo
+  alias Marquee.Viewers
+  alias Marquee.Viewers.Viewer
 
   using do
     quote do
       # The default endpoint for testing
-      @endpoint BobineWeb.Endpoint
+      @endpoint MarqueeWeb.Endpoint
 
-      use BobineWeb, :verified_routes
+      use MarqueeWeb, :verified_routes
 
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import BobineWeb.ConnCase
-      import Bobine.Factory
+      import MarqueeWeb.ConnCase
+      import Marquee.Factory
     end
   end
 
   setup tags do
-    Bobine.DataCase.setup_sandbox(tags)
+    Marquee.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 

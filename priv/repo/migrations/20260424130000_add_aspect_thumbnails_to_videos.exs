@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddAspectThumbnailsToVideos do
+defmodule Marquee.Repo.Migrations.AddAspectThumbnailsToVideos do
   use Ecto.Migration
 
   def change do

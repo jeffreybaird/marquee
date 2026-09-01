@@ -9,7 +9,7 @@ every operation that matters to the business must be observable.
 ## Principles
 
 1. **Every context mutation gets a span.** If a function creates, updates, or
-   deletes something, wrap it in `Bobine.Telemetry.with_span/3`.
+   deletes something, wrap it in `Marquee.Telemetry.with_span/3`.
 
 2. **Every external API call gets a span.** Mux, Stripe, and any future
    third-party call must produce a span with service-specific attributes.
@@ -30,32 +30,32 @@ every operation that matters to the business must be observable.
 ## Span Naming Convention
 
 ```
-bobine.<context>.<operation>
+marquee.<context>.<operation>
 ```
 
 Examples:
-- `bobine.content.create_video`
-- `bobine.content.list_videos`
-- `bobine.billing.create_checkout`
-- `bobine.billing.cancel_subscription`
-- `bobine.engagement.add_to_watchlist`
-- `bobine.catalog.reorder_rows`
-- `bobine.admin.create_organization`
-- `bobine.admin.export_organization_data`
-- `bobine.webhooks.dispatch`
-- `bobine.imports.process_subscriber`
+- `marquee.content.create_video`
+- `marquee.content.list_videos`
+- `marquee.billing.create_checkout`
+- `marquee.billing.cancel_subscription`
+- `marquee.engagement.add_to_watchlist`
+- `marquee.catalog.reorder_rows`
+- `marquee.admin.create_organization`
+- `marquee.admin.export_organization_data`
+- `marquee.webhooks.dispatch`
+- `marquee.imports.process_subscriber`
 
 External services use the service name:
-- `bobine.mux.create_upload_url`
-- `bobine.mux.get_asset`
-- `bobine.stripe.create_subscription`
-- `bobine.stripe.create_checkout_session`
+- `marquee.mux.create_upload_url`
+- `marquee.mux.get_asset`
+- `marquee.stripe.create_subscription`
+- `marquee.stripe.create_checkout_session`
 
 Oban workers:
-- `bobine.worker.mux_webhook_processor`
-- `bobine.worker.stripe_webhook_processor`
-- `bobine.worker.webhook_delivery`
-- `bobine.worker.analytics_aggregation`
+- `marquee.worker.mux_webhook_processor`
+- `marquee.worker.stripe_webhook_processor`
+- `marquee.worker.webhook_delivery`
+- `marquee.worker.analytics_aggregation`
 
 ---
 
@@ -65,8 +65,8 @@ Oban workers:
 
 ```elixir
 %{
-  "bobine.org.id" => organization.id,
-  "bobine.org.slug" => organization.slug
+  "marquee.org.id" => organization.id,
+  "marquee.org.slug" => organization.slug
 }
 ```
 
@@ -74,7 +74,7 @@ Oban workers:
 
 ```elixir
 %{
-  "bobine.user.id" => user.id
+  "marquee.user.id" => user.id
 }
 ```
 
@@ -88,8 +88,8 @@ for trace correlation. PII in the telemetry pipeline creates compliance risk.
 %{
   "http.method" => "POST",
   "http.status_code" => 200,
-  "bobine.idempotency_key" => key,
-  "bobine.service" => "mux" | "stripe"
+  "marquee.idempotency_key" => key,
+  "marquee.service" => "mux" | "stripe"
 }
 ```
 
@@ -97,8 +97,8 @@ for trace correlation. PII in the telemetry pipeline creates compliance risk.
 
 ```elixir
 %{
-  "bobine.org.id" => org_id,
-  "bobine.worker" => "MuxWebhookProcessor",
+  "marquee.org.id" => org_id,
+  "marquee.worker" => "MuxWebhookProcessor",
   "oban.queue" => "mux",
   "oban.attempt" => attempt
 }
@@ -121,8 +121,8 @@ Tracer.set_attribute("error.type", error_atom_to_string(reason))
 
 ```elixir
 def create_video(scope, attrs) do
-  Bobine.Telemetry.with_span "bobine.content.create_video",
-    %{"bobine.org.id" => scope.organization.id} do
+  Marquee.Telemetry.with_span "marquee.content.create_video",
+    %{"marquee.org.id" => scope.organization.id} do
     with {:ok, video} <- do_create_video(scope, attrs) do
       Events.broadcast(scope, {:video_created, video})
       Metrics.video_upload_initiated(scope.organization.id)
@@ -136,8 +136,8 @@ end
 
 ```elixir
 def list_videos(organization, opts \\ []) do
-  Bobine.Telemetry.with_span "bobine.content.list_videos",
-    %{"bobine.org.id" => organization.id, "page" => Keyword.get(opts, :page, 1)} do
+  Marquee.Telemetry.with_span "marquee.content.list_videos",
+    %{"marquee.org.id" => organization.id, "page" => Keyword.get(opts, :page, 1)} do
     # ... query with pagination
   end
 end
@@ -153,11 +153,11 @@ the Ecto auto-instrumentation covers it.
 def create_upload_url(params) do
   key = Idempotency.key("create_upload", params.org_id, params.title)
 
-  Tracer.with_span "bobine.mux.create_upload_url" do
+  Tracer.with_span "marquee.mux.create_upload_url" do
     Tracer.set_attributes([
-      {"bobine.service", "mux"},
-      {"bobine.idempotency_key", key},
-      {"bobine.org.id", params.org_id}
+      {"marquee.service", "mux"},
+      {"marquee.idempotency_key", key},
+      {"marquee.org.id", params.org_id}
     ])
 
     case do_mux_request(params, key) do
@@ -195,7 +195,7 @@ end
 ### Restore context in the worker
 
 ```elixir
-defmodule Bobine.Workers.MuxWebhookProcessor do
+defmodule Marquee.Workers.MuxWebhookProcessor do
   use Oban.Worker, queue: :mux
 
   require OpenTelemetry.Tracer, as: Tracer
@@ -210,8 +210,8 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
     # Set Logger metadata for structured logs
     Logger.metadata(org_id: args["organization_id"])
 
-    Tracer.with_span "bobine.worker.mux_webhook_processor",
-      %{"bobine.org.id" => args["organization_id"], "oban.attempt" => attempt} do
+    Tracer.with_span "marquee.worker.mux_webhook_processor",
+      %{"marquee.org.id" => args["organization_id"], "oban.attempt" => attempt} do
       # ... process webhook
     end
   end
@@ -241,18 +241,18 @@ time, or alert on. Key signals:
 
 ### How to emit
 
-Use `Bobine.Metrics` module. Every function emits a `:telemetry` event:
+Use `Marquee.Metrics` module. Every function emits a `:telemetry` event:
 
 ```elixir
-Bobine.Metrics.video_viewed(org_id, video_id)
+Marquee.Metrics.video_viewed(org_id, video_id)
 ```
 
 ### Adding new metrics
 
 When a new feature introduces a business-significant event:
 
-1. Add a function to `Bobine.Metrics` that calls `:telemetry.execute/3`
-2. Add the event to the handler list in `Bobine.TelemetryHandler.setup/0`
+1. Add a function to `Marquee.Metrics` that calls `:telemetry.execute/3`
+2. Add the event to the handler list in `Marquee.TelemetryHandler.setup/0`
 3. Add a test that verifies the telemetry event is emitted
 
 ---
@@ -340,7 +340,7 @@ Logger.metadata(
 Set when handling a message:
 
 ```elixir
-def handle_info({:bobine_event, {_action, _resource}, scope}, state) do
+def handle_info({:marquee_event, {_action, _resource}, scope}, state) do
   Logger.metadata(
     org_id: scope.organization && scope.organization.id,
     user_id: scope.user && scope.user.id
@@ -356,9 +356,9 @@ end
 
 ### What to test
 
-- `Bobine.Metrics` functions emit the correct `:telemetry` events with
+- `Marquee.Metrics` functions emit the correct `:telemetry` events with
   the correct measurements and metadata. Use `:telemetry_test.attach_event_handlers/2`.
-- `Bobine.Telemetry.with_span/3` passes through return values unchanged —
+- `Marquee.Telemetry.with_span/3` passes through return values unchanged —
   both success and error tuples.
 - Custom instrumentation does not change the behavior of the wrapped function.
 
@@ -385,37 +385,37 @@ produce LiveView-specific spans instead.
 
 ### SpanEnrichment on_mount hook
 
-`BobineWeb.Hooks.SpanEnrichment` runs as the **last** `on_mount` hook in
+`MarqueeWeb.Hooks.SpanEnrichment` runs as the **last** `on_mount` hook in
 every `live_session`. It enriches the current span with:
 
-- `bobine.liveview.module` — the LiveView module name (e.g. `BobineWeb.Admin.ContentLive`)
-- `bobine.liveview.connected` — `true` on connected mount, `false` on static render
-- `bobine.org.id` — the current tenant's ID (if resolved)
-- `bobine.org.slug` — the current tenant's slug (if resolved)
-- `bobine.user.id` — the current operator user's ID (if authenticated)
+- `marquee.liveview.module` — the LiveView module name (e.g. `MarqueeWeb.Admin.ContentLive`)
+- `marquee.liveview.connected` — `true` on connected mount, `false` on static render
+- `marquee.org.id` — the current tenant's ID (if resolved)
+- `marquee.org.slug` — the current tenant's slug (if resolved)
+- `marquee.user.id` — the current operator user's ID (if authenticated)
 
 This hook must always be listed **after** `AssignScope` (or equivalent)
 in the `on_mount` list so that `current_scope` is populated.
 
 ### TelemetryOrgPlug for controller requests
 
-`BobineWeb.Plugs.TelemetryOrgPlug` runs in the `:set_organization` pipeline
-after `SetOrganization`. It sets `bobine.org.id`, `bobine.org.slug`, and
-`bobine.user.id` on the current span for all non-LiveView HTTP requests
+`MarqueeWeb.Plugs.TelemetryOrgPlug` runs in the `:set_organization` pipeline
+after `SetOrganization`. It sets `marquee.org.id`, `marquee.org.slug`, and
+`marquee.user.id` on the current span for all non-LiveView HTTP requests
 that resolve an organization.
 
 ---
 
 ## Mux Span Conventions
 
-All Mux API calls produce spans named `bobine.mux.<operation>`. The
+All Mux API calls produce spans named `marquee.mux.<operation>`. The
 `MuxClient` module instruments every call with:
 
 | Attribute | Description |
 |---|---|
-| `bobine.service` | Always `"mux"` |
-| `bobine.mux.operation` | The operation name (e.g. `"create_direct_upload"`) |
-| `bobine.org.id` | Tenant ID, read from Logger metadata |
+| `marquee.service` | Always `"mux"` |
+| `marquee.mux.operation` | The operation name (e.g. `"create_direct_upload"`) |
+| `marquee.org.id` | Tenant ID, read from Logger metadata |
 | `http.status_code` | HTTP status on success |
 | `duration_ms` | Client-side latency in milliseconds |
 
@@ -424,9 +424,9 @@ On error, the span status is set to `:error` with the reason.
 ### Filtering Mux spans in Grafana
 
 ```
-{resource.service.name="bobine" && span.bobine.service = "mux"}
-{resource.service.name="bobine" && span.bobine.service = "mux" && duration > 500ms}
-{resource.service.name="bobine" && span.bobine.mux.operation = "create_direct_upload"}
+{resource.service.name="marquee" && span.marquee.service = "mux"}
+{resource.service.name="marquee" && span.marquee.service = "mux" && duration > 500ms}
+{resource.service.name="marquee" && span.marquee.mux.operation = "create_direct_upload"}
 ```
 
 ---
@@ -434,13 +434,13 @@ On error, the span status is set to `:error` with the reason.
 ## Oban Worker Org Attribution
 
 Every Oban worker that has `organization_id` in its args **must** call
-`Tracer.set_attributes([{"bobine.org.id", org_id}])` at the start of
+`Tracer.set_attributes([{"marquee.org.id", org_id}])` at the start of
 `perform/1`. This enables per-tenant filtering of background job traces.
 
 ```elixir
 def perform(%Oban.Job{args: %{"organization_id" => org_id} = _args}) do
   Logger.metadata(org_id: org_id)
-  Tracer.set_attributes([{"bobine.org.id", org_id}])
+  Tracer.set_attributes([{"marquee.org.id", org_id}])
   # ... rest of worker logic
 end
 ```
@@ -455,12 +455,12 @@ org_id is known.
 
 When adding a new feature, verify:
 
-- [ ] Context mutations wrapped in `Bobine.Telemetry.with_span/3`
-- [ ] Span name follows `bobine.<context>.<operation>` convention
-- [ ] Span attributes include `bobine.org.id` for org-scoped operations
+- [ ] Context mutations wrapped in `Marquee.Telemetry.with_span/3`
+- [ ] Span name follows `marquee.<context>.<operation>` convention
+- [ ] Span attributes include `marquee.org.id` for org-scoped operations
 - [ ] External API calls produce spans with service, status, and idempotency key
 - [ ] Oban workers restore trace context and set Logger metadata
-- [ ] Business-significant events emit metrics via `Bobine.Metrics`
+- [ ] Business-significant events emit metrics via `Marquee.Metrics`
 - [ ] New metrics added to `TelemetryHandler.setup/0` event list
 - [ ] Logger calls use structured metadata, not string interpolation
 - [ ] Error paths set span status to `:error` with reason

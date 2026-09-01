@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.DropRowsFromLayouts do
+defmodule Marquee.Repo.Migrations.DropRowsFromLayouts do
   use Ecto.Migration
 
   def change do

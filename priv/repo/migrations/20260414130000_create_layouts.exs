@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateLayouts do
+defmodule Marquee.Repo.Migrations.CreateLayouts do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Analytics do
+defmodule MarqueeFeatures.Steps.Analytics do
   @moduledoc """
   Step definitions for analytics.feature.
 
@@ -98,7 +98,7 @@ defmodule BobineFeatures.Steps.Analytics do
   end
 
   given_ "the content performance table has multiple pages", fn world ->
-    # `mix bobine.cucumber` against an empty test DB won't naturally
+    # `mix marquee.cucumber` against an empty test DB won't naturally
     # produce paginated content. The pagination markup only renders
     # when total > per_page, so this scenario stays best-effort: when
     # there's no data, the next-page button isn't in the DOM and the

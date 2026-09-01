@@ -48,14 +48,14 @@ mix phx.gen.schema Audit.Log audit_logs \
 - `belongs_to :user` (optional)
 - `timestamps(type: :utc_datetime, updated_at: false)`
 
-### Build `Bobine.Audit` module
+### Build `Marquee.Audit` module
 
 ```elixir
-defmodule Bobine.Audit do
+defmodule Marquee.Audit do
   @moduledoc "Append-only audit log for all mutating operations."
 
-  alias Bobine.Audit.Log
-  alias Bobine.Repo
+  alias Marquee.Audit.Log
+  alias Marquee.Repo
 
   @doc """
   Logs an auditable action.
@@ -96,7 +96,7 @@ defmodule Bobine.Audit do
   defp resource_id(_), do: nil
 
   defp build_metadata(scope) do
-    base = case Bobine.RequestContext.current() do
+    base = case Marquee.RequestContext.current() do
       nil -> %{}
       ctx -> Map.take(ctx, [:request_id, :ip, :user_agent])
     end
@@ -114,7 +114,7 @@ end
 
 ### Tests
 
-`test/bobine/audit/audit_test.exs`
+`test/marquee/audit/audit_test.exs`
 - `log/4` creates an audit log with all fields populated
 - `log/4` with nil scope creates a log with nil user and org
 - `log/4` correctly extracts resource type and ID from structs
@@ -124,16 +124,16 @@ end
 
 ## Part 2: Request Context Module
 
-### Create `lib/bobine/request_context.ex`
+### Create `lib/marquee/request_context.ex`
 
 ```elixir
-defmodule Bobine.RequestContext do
+defmodule Marquee.RequestContext do
   @moduledoc """
   Per-process request context. Set in a plug, available everywhere
   without passing through function signatures.
   """
 
-  @key :bobine_request_context
+  @key :marquee_request_context
 
   def put(attrs) when is_map(attrs) do
     Process.put(@key, attrs)
@@ -152,16 +152,16 @@ defmodule Bobine.RequestContext do
 end
 ```
 
-### Create `lib/bobine_web/plugs/set_request_context.ex`
+### Create `lib/marquee_web/plugs/set_request_context.ex`
 
 ```elixir
-defmodule BobineWeb.Plugs.SetRequestContext do
+defmodule MarqueeWeb.Plugs.SetRequestContext do
   import Plug.Conn
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    Bobine.RequestContext.put(%{
+    Marquee.RequestContext.put(%{
       request_id: Logger.metadata()[:request_id],
       ip: conn.remote_ip |> :inet.ntoa() |> to_string(),
       user_agent: get_req_header(conn, "user-agent") |> List.first(),
@@ -174,12 +174,12 @@ end
 
 ### Wire into router
 
-Add `plug BobineWeb.Plugs.SetRequestContext` to the `:browser` pipeline, AFTER
+Add `plug MarqueeWeb.Plugs.SetRequestContext` to the `:browser` pipeline, AFTER
 the auth and org resolution plugs so the scope is available.
 
 ### Tests
 
-`test/bobine_web/plugs/set_request_context_test.exs`
+`test/marquee_web/plugs/set_request_context_test.exs`
 - Sets request context with request_id, ip, and user_agent
 - Context is accessible via `RequestContext.current/0` within the request
 - Returns nil when no context has been set
@@ -317,7 +317,7 @@ The return shape changes from a bare list to a pagination struct:
 ### Create a pagination helper
 
 ```elixir
-defmodule Bobine.Pagination do
+defmodule Marquee.Pagination do
   @max_per_page 100
   @default_per_page 25
 
@@ -329,9 +329,9 @@ defmodule Bobine.Pagination do
       query
       |> limit(^per_page)
       |> offset(^((page - 1) * per_page))
-      |> Bobine.Repo.all()
+      |> Marquee.Repo.all()
 
-    total = Bobine.Repo.aggregate(query, :count)
+    total = Marquee.Repo.aggregate(query, :count)
 
     %{
       results: results,
@@ -395,10 +395,10 @@ For each paginated function:
 
 ## Part 5: Event Broadcasting
 
-### Create `lib/bobine/events.ex`
+### Create `lib/marquee/events.ex`
 
 ```elixir
-defmodule Bobine.Events do
+defmodule Marquee.Events do
   @moduledoc """
   Event broadcasting for side effects. Context functions broadcast events;
   subscribers handle audit logging, webhook dispatch, analytics, and
@@ -412,24 +412,24 @@ defmodule Bobine.Events do
     end
 
     Phoenix.PubSub.broadcast(
-      Bobine.PubSub,
+      Marquee.PubSub,
       "events:#{org_id}",
-      {:bobine_event, event, scope}
+      {:marquee_event, event, scope}
     )
 
     Phoenix.PubSub.broadcast(
-      Bobine.PubSub,
+      Marquee.PubSub,
       "events:global",
-      {:bobine_event, event, scope}
+      {:marquee_event, event, scope}
     )
   end
 
   def subscribe(organization_id) do
-    Phoenix.PubSub.subscribe(Bobine.PubSub, "events:#{organization_id}")
+    Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{organization_id}")
   end
 
   def subscribe_global do
-    Phoenix.PubSub.subscribe(Bobine.PubSub, "events:global")
+    Phoenix.PubSub.subscribe(Marquee.PubSub, "events:global")
   end
 end
 ```
@@ -437,7 +437,7 @@ end
 ### Create audit subscriber
 
 ```elixir
-defmodule Bobine.Events.AuditSubscriber do
+defmodule Marquee.Events.AuditSubscriber do
   use GenServer
 
   def start_link(_opts) do
@@ -445,12 +445,12 @@ defmodule Bobine.Events.AuditSubscriber do
   end
 
   def init(:ok) do
-    Bobine.Events.subscribe_global()
+    Marquee.Events.subscribe_global()
     {:ok, %{}}
   end
 
-  def handle_info({:bobine_event, {action, resource}, scope}, state) do
-    Bobine.Audit.log(scope, format_action(action), resource)
+  def handle_info({:marquee_event, {action, resource}, scope}, state) do
+    Marquee.Audit.log(scope, format_action(action), resource)
     {:noreply, state}
   end
 
@@ -569,21 +569,21 @@ end
 field :features, :map, default: %{}
 ```
 
-### Create `lib/bobine/features.ex`
+### Create `lib/marquee/features.ex`
 
 ```elixir
-defmodule Bobine.Features do
-  alias Bobine.Accounts.Organization
+defmodule Marquee.Features do
+  alias Marquee.Accounts.Organization
 
   @doc """
   Checks if a feature is enabled for the given organization.
 
-      iex> org = %Bobine.Accounts.Organization{features: %{"live_streaming" => true}}
-      iex> Bobine.Features.enabled?(org, :live_streaming)
+      iex> org = %Marquee.Accounts.Organization{features: %{"live_streaming" => true}}
+      iex> Marquee.Features.enabled?(org, :live_streaming)
       true
 
-      iex> org = %Bobine.Accounts.Organization{features: %{}}
-      iex> Bobine.Features.enabled?(org, :live_streaming)
+      iex> org = %Marquee.Accounts.Organization{features: %{}}
+      iex> Marquee.Features.enabled?(org, :live_streaming)
       false
   """
   def enabled?(%Organization{features: features}, feature) do
@@ -617,14 +617,14 @@ section where the super admin can toggle features on/off for the org.
 
 ## Part 8: Idempotency Key Helper and Oban Job Tagging
 
-### Create `lib/bobine/idempotency.ex`
+### Create `lib/marquee/idempotency.ex`
 
 ```elixir
-defmodule Bobine.Idempotency do
+defmodule Marquee.Idempotency do
   @doc """
   Generates a deterministic idempotency key for external API calls.
 
-      iex> Bobine.Idempotency.key("create_upload", "org_123", "video_456")
+      iex> Marquee.Idempotency.key("create_upload", "org_123", "video_456")
       "create_upload:org_123:video_456:" <> Date.to_string(Date.utc_today())
   """
   def key(operation, org_id, resource_id) do
@@ -651,7 +651,7 @@ verify each one.
 
 ## Part 9: Update Tenant Data Export
 
-### Create or update `Bobine.Admin.export_organization_data/1`
+### Create or update `Marquee.Admin.export_organization_data/1`
 
 This function must export every tenant-scoped table. For now it returns a map:
 
@@ -695,22 +695,22 @@ Exports include everything including deleted data, with `deleted_at` timestamps.
 
 ## Definition of Done
 
-- [ ] Audit log schema, migration, and `Bobine.Audit` module
-- [ ] `Bobine.RequestContext` module and `SetRequestContext` plug in pipeline
+- [ ] Audit log schema, migration, and `Marquee.Audit` module
+- [ ] `Marquee.RequestContext` module and `SetRequestContext` plug in pipeline
 - [ ] `deleted_at` on all user-facing content schemas
 - [ ] All list queries filter soft-deleted records
 - [ ] All delete functions use soft delete
 - [ ] Restore functions exist for each soft-deletable schema
 - [ ] All list functions accept `opts \\ []` with pagination
-- [ ] `Bobine.Pagination` helper module
+- [ ] `Marquee.Pagination` helper module
 - [ ] LiveViews updated to handle pagination return shape
-- [ ] `Bobine.Events` module with PubSub broadcasting
+- [ ] `Marquee.Events` module with PubSub broadcasting
 - [ ] `AuditSubscriber` GenServer in supervision tree
 - [ ] All mutating context functions broadcast events
 - [ ] All error tuples standardized to tagged atoms
-- [ ] `Bobine.Features` module with `enabled?/2`
+- [ ] `Marquee.Features` module with `enabled?/2`
 - [ ] `features` JSONB column on organizations
-- [ ] `Bobine.Idempotency` key helper
+- [ ] `Marquee.Idempotency` key helper
 - [ ] All Oban jobs include `organization_id` in args
 - [ ] `export_organization_data/1` covers all tenant-scoped tables
 - [ ] All existing tests pass (updated only for intentional API changes)

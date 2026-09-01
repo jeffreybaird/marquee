@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateChatMessages do
+defmodule Marquee.Repo.Migrations.CreateChatMessages do
   use Ecto.Migration
 
   def change do

@@ -1,6 +1,6 @@
 # Frontend Map
 
-Quick-reference for navigating Bobine's frontend layer. Covers routes, LiveViews,
+Quick-reference for navigating Marquee's frontend layer. Covers routes, LiveViews,
 components, JS hooks, and layout hierarchy.
 
 ---
@@ -91,7 +91,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 |------------------------------------|--------------------------------|-------|
 | `/webhooks/mux`                    | `WebhookController`            | Mux webhook receiver |
 | `/webhooks/stripe`                 | `WebhookController`            | Stripe webhook receiver |
-| `/health`                          | `HealthController`             | Fly.io health check |
+| `/health`                          | `HealthController`             | app-level health check |
 | `/super/organizations/:id/impersonate` | `ImpersonationController` | Start impersonation (POST) |
 | `/super/impersonate`               | `ImpersonationController`      | Stop impersonation (DELETE) |
 | `/admin/settings/stripe/return`    | `StripeConnectController`      | Stripe Connect OAuth return |
@@ -104,12 +104,12 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 
 | Module                          | File                                     | Purpose |
 |---------------------------------|------------------------------------------|---------|
-| `BobineWeb.CoreComponents`      | `components/core_components.ex`          | Phoenix-generated: tables, forms, inputs, modals, icons. Tailwind + daisyUI. |
-| `BobineWeb.Components.ViewerComponents` | `components/viewer_components.ex` | Viewer UI: `content_card`, `content_row`, `video_player`, `empty_state`, `badge`, `gate_overlay`, `skeleton_row`, `sv_button`. All use `--sv-*` CSS vars. |
-| `BobineWeb.Components.ViewerLayout` | `components/viewer_layout.ex`        | Viewer shell: `viewer_layout` (header, nav, mobile nav, theme injection, impersonation banner). |
-| `BobineWeb.Components.AdminLayout` | `components/admin_layout.ex`          | Admin shell: `admin_layout` (sidebar nav, responsive, impersonation banner). |
-| `BobineWeb.Components.SuperLayout` | `components/super_layout.ex`          | Super admin shell: `super_layout` (dark sidebar). |
-| `BobineWeb.Layouts`             | `components/layouts.ex`                  | Root layout, app layout, flash group. Embeds `layouts/root.html.heex`. |
+| `MarqueeWeb.CoreComponents`      | `components/core_components.ex`          | Phoenix-generated: tables, forms, inputs, modals, icons. Tailwind + daisyUI. |
+| `MarqueeWeb.Components.ViewerComponents` | `components/viewer_components.ex` | Viewer UI: `content_card`, `content_row`, `video_player`, `empty_state`, `badge`, `gate_overlay`, `skeleton_row`, `sv_button`. All use `--sv-*` CSS vars. |
+| `MarqueeWeb.Components.ViewerLayout` | `components/viewer_layout.ex`        | Viewer shell: `viewer_layout` (header, nav, mobile nav, theme injection, impersonation banner). |
+| `MarqueeWeb.Components.AdminLayout` | `components/admin_layout.ex`          | Admin shell: `admin_layout` (sidebar nav, responsive, impersonation banner). |
+| `MarqueeWeb.Components.SuperLayout` | `components/super_layout.ex`          | Super admin shell: `super_layout` (dark sidebar). |
+| `MarqueeWeb.Layouts`             | `components/layouts.ex`                  | Root layout, app layout, flash group. Embeds `layouts/root.html.heex`. |
 
 ---
 
@@ -132,7 +132,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 
 ## Shared Behavior: CardActions
 
-`BobineWeb.Viewer.CardActions` (`live/viewer/card_actions.ex`) is a `__using__` macro
+`MarqueeWeb.Viewer.CardActions` (`live/viewer/card_actions.ex`) is a `__using__` macro
 included by most viewer LiveViews that render `content_card` components. It provides:
 
 - `on_mount` callback that loads engagement state (`favorited_ids`, `watchlisted_ids`, `queued_ids`)

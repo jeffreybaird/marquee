@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddViewerThemeFieldsToThemes do
+defmodule Marquee.Repo.Migrations.AddViewerThemeFieldsToThemes do
   use Ecto.Migration
 
   def change do

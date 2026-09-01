@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreatePlaybackDropOffs do
+defmodule Marquee.Repo.Migrations.CreatePlaybackDropOffs do
   use Ecto.Migration
 
   def change do

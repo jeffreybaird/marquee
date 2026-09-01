@@ -1,15 +1,15 @@
-Mox.defmock(Bobine.Content.MockMuxClient,
-  for: Bobine.Content.MuxClientBehaviour
+Mox.defmock(Marquee.Content.MockMuxClient,
+  for: Marquee.Content.MuxClientBehaviour
 )
 
-Mox.defmock(Bobine.Billing.MockStripeClient,
-  for: Bobine.Billing.StripeClientBehaviour
+Mox.defmock(Marquee.Billing.MockStripeClient,
+  for: Marquee.Billing.StripeClientBehaviour
 )
 
-Mox.defmock(Bobine.Storage.MockSpacesClient,
-  for: Bobine.Storage.SpacesClientBehaviour
+Mox.defmock(Marquee.Storage.MockSpacesClient,
+  for: Marquee.Storage.SpacesClientBehaviour
 )
 
-Mox.defmock(Bobine.Podcasts.MockRemoteFeedClient,
-  for: Bobine.Podcasts.RemoteFeedClient
+Mox.defmock(Marquee.Podcasts.MockRemoteFeedClient,
+  for: Marquee.Podcasts.RemoteFeedClient
 )

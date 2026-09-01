@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.ChangeSeasonSlugUniquenessToSeriesScope do
+defmodule Marquee.Repo.Migrations.ChangeSeasonSlugUniquenessToSeriesScope do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddCardDisplayOptionsToRows do
+defmodule Marquee.Repo.Migrations.AddCardDisplayOptionsToRows do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.AdminDashboard do
+defmodule MarqueeFeatures.Steps.AdminDashboard do
   @moduledoc """
   Step definitions for admin_dashboard.feature.
 
@@ -16,9 +16,9 @@ defmodule BobineFeatures.Steps.AdminDashboard do
   import Wallaby.Query
   import ExUnit.Assertions
 
-  alias Bobine.LandingPage
-  alias Bobine.LandingPage.LandingSection
-  alias Bobine.Repo
+  alias Marquee.LandingPage
+  alias Marquee.LandingPage.LandingSection
+  alias Marquee.Repo
 
   # ---- Navigation ---------------------------------------------------------
 

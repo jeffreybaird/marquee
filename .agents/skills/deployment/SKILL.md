@@ -1,6 +1,6 @@
 ---
 name: deployment
-description: Use when working on Fly.io deployment, Dockerfiles, release scripts, environment configuration, secrets management, CI/CD, or production runtime setup for Bobine.
+description: Use when working on Fly.io deployment, Dockerfiles, release scripts, environment configuration, secrets management, CI/CD, or production runtime setup for Marquee.
 ---
 
 # Deployment
@@ -12,7 +12,7 @@ release scripts, or environment configuration.
 
 ## Platform: Fly.io
 
-Bobine deploys to Fly.io. Configuration lives in `fly.toml` at the project
+Marquee deploys to Fly.io. Configuration lives in `fly.toml` at the project
 root.
 
 ### Why Fly.io
@@ -73,11 +73,11 @@ config :stream_vane, :mux_token_id, System.get_env("MUX_TOKEN_ID")
 
 ### The Release module is required
 
-`Bobine.Release.migrate/0` must exist and work correctly. It is called by
+`Marquee.Release.migrate/0` must exist and work correctly. It is called by
 the Fly deployment process before the service starts.
 
 ```elixir
-defmodule Bobine.Release do
+defmodule Marquee.Release do
   @app :stream_vane
 
   def migrate do
@@ -104,7 +104,7 @@ not present in a compiled release.
 
 ```shell
 # ✅ CORRECT — release command
-/app/bin/stream_vane eval "Bobine.Release.migrate()"
+/app/bin/stream_vane eval "Marquee.Release.migrate()"
 
 # ❌ WRONG — requires Mix
 mix ecto.migrate
@@ -118,14 +118,14 @@ mix ecto.migrate
 
 ```toml
 [env]
-  PHX_HOST = "Bobine.com"
+  PHX_HOST = "Marquee.com"
   ECTO_IPV6 = "true"
   ERL_AFLAGS = "-proto_dist inet6_tcp"
-  DNS_CLUSTER_QUERY = "Bobine.internal"
+  DNS_CLUSTER_QUERY = "Marquee.internal"
   RELEASE_DISTRIBUTION = "name"
 
 [deploy]
-  release_command = "/app/bin/stream_vane eval Bobine.Release.migrate"
+  release_command = "/app/bin/stream_vane eval Marquee.Release.migrate"
 ```
 
 ### Clustering
@@ -137,7 +137,7 @@ tree. Fly's internal DNS resolves `<app-name>.internal` to all running instances
 # In application.ex
 children = [
   {DNSCluster, query: Application.get_env(:stream_vane, :dns_cluster_query) || :ignore},
-  {Phoenix.PubSub, name: Bobine.PubSub},
+  {Phoenix.PubSub, name: Marquee.PubSub},
   # ...
 ]
 ```

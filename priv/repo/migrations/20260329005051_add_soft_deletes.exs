@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddSoftDeletes do
+defmodule Marquee.Repo.Migrations.AddSoftDeletes do
   use Ecto.Migration
 
   def change do

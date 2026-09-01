@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.AuditLogging do
+defmodule MarqueeFeatures.Steps.AuditLogging do
   @moduledoc """
   Step definitions for audit_logging.feature.
 
@@ -15,11 +15,11 @@ defmodule BobineFeatures.Steps.AuditLogging do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Audit
-  alias Bobine.Accounts.Scope
+  alias Marquee.Audit
+  alias Marquee.Accounts.Scope
 
   given_ "I am logged in as an organization owner or admin", fn world ->
     org = insert(:organization)
@@ -27,7 +27,7 @@ defmodule BobineFeatures.Steps.AuditLogging do
     membership = insert(:membership, user: user, organization: org, role: :owner)
     scope = Scope.for_user(user) |> Scope.with_organization(org, membership)
 
-    session = BobineWeb.WallabyCase.log_in_session(world.session, user, org)
+    session = MarqueeWeb.WallabyCase.log_in_session(world.session, user, org)
 
     Map.merge(world, %{
       session: session,
@@ -48,7 +48,7 @@ defmodule BobineFeatures.Steps.AuditLogging do
       Scope.for_user(other_user)
       |> Scope.with_organization(
         world.org,
-        Bobine.Repo.get_by!(Bobine.Accounts.Membership,
+        Marquee.Repo.get_by!(Marquee.Accounts.Membership,
           user_id: other_user.id,
           organization_id: world.org.id
         )
@@ -236,6 +236,6 @@ defmodule BobineFeatures.Steps.AuditLogging do
   # `resource_type/1` is the cheapest way to seed entries with arbitrary
   # type strings.
   defp build_resource(type, id \\ Ecto.UUID.generate()) do
-    %{__struct__: Module.concat([Bobine.AuditFakeResource, type]), id: id}
+    %{__struct__: Module.concat([Marquee.AuditFakeResource, type]), id: id}
   end
 end

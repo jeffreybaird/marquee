@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddCompositeIndexToProgresses do
+defmodule Marquee.Repo.Migrations.AddCompositeIndexToProgresses do
   use Ecto.Migration
 
   def change do

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.FixUserIdNotNullOnEngagementTables do
+defmodule Marquee.Repo.Migrations.FixUserIdNotNullOnEngagementTables do
   use Ecto.Migration
 
   def change do

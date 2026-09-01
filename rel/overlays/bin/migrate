@@ -2,4 +2,4 @@
 set -eu
 
 cd -P -- "$(dirname -- "$0")"
-exec ./bobine eval Bobine.Release.migrate
+exec ./marquee eval Marquee.Release.migrate

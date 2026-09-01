@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddFeaturesToOrganizations do
+defmodule Marquee.Repo.Migrations.AddFeaturesToOrganizations do
   use Ecto.Migration
 
   def change do

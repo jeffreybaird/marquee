@@ -5,7 +5,7 @@ Feature: Premium Podcast Shows
   into their podcast app; if their access changes, the URL stops working.
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Operator creates a direct-upload podcast show
     Given I am logged in as an operator with content management permissions

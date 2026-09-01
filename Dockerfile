@@ -93,8 +93,8 @@ ENV MIX_ENV="prod"
 ENV PHX_SERVER=true
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/bobine ./
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/marquee ./
 
 USER nobody
 
-CMD ["/app/bin/bobine", "start"]
+CMD ["/app/bin/marquee", "start"]

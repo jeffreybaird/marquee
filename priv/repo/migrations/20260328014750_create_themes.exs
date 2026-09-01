@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateThemes do
+defmodule Marquee.Repo.Migrations.CreateThemes do
   use Ecto.Migration
 
   def change do

@@ -1,7 +1,7 @@
 Feature: Live Event Calendar Export
 
   Background:
-    Given the Bobine platform is running
+    Given the Marquee platform is running
 
   Scenario: Viewer downloads an ICS file for a scheduled event
     Given an organization has a scheduled event with a known slug and start time

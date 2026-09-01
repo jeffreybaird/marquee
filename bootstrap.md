@@ -1,4 +1,4 @@
-# Bobine — Project Bootstrap Commands
+# Marquee — Project Bootstrap Commands
 # Run these in order. Read the comments before each block.
 
 # ============================================================================
@@ -282,7 +282,7 @@ mix ecto.gen.migration add_oban_jobs_table
 # Add Oban config to config/config.exs:
 #
 #   config :stream_vane, Oban,
-#     repo: Bobine.Repo,
+#     repo: Marquee.Repo,
 #     plugins: [Oban.Plugins.Pruner],
 #     queues: [default: 10, webhooks: 5, mux: 5, stripe: 5, analytics: 3]
 #
@@ -305,11 +305,11 @@ git commit -m "Configure Oban with job queues"
 #
 # Update test/test_helper.exs to include:
 #   ExUnit.start()
-#   Ecto.Adapters.SQL.Sandbox.mode(Bobine.Repo, :manual)
+#   Ecto.Adapters.SQL.Sandbox.mode(Marquee.Repo, :manual)
 #
 # Update config/test.exs:
-#   config :stream_vane, :mux_client, Bobine.Content.MockMuxClient
-#   config :stream_vane, :stripe_client, Bobine.Billing.MockStripeClient
+#   config :stream_vane, :mux_client, Marquee.Content.MockMuxClient
+#   config :stream_vane, :stripe_client, Marquee.Billing.MockStripeClient
 
 git add -A
 git commit -m "Set up test infrastructure: factories, mocks"
@@ -365,7 +365,7 @@ git commit -m "Add Fly.io deployment configuration"
 #
 # Then push to GitHub:
 
-git remote add origin git@github.com:jeffreybaird/bobine.git
+git remote add origin git@github.com:jeffreybaird/marquee.git
 git push -u origin main
 
 # ============================================================================

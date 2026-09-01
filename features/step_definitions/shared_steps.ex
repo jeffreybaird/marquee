@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Shared do
+defmodule MarqueeFeatures.Steps.Shared do
   @moduledoc """
   Cross-feature step definitions: login, navigation, generic assertions.
 
@@ -9,15 +9,15 @@ defmodule BobineFeatures.Steps.Shared do
   use Cucumberex.DSL
 
   use Wallaby.DSL
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Accounts.Scope
-  alias BobineWeb.WallabyCase
+  alias Marquee.Accounts.Scope
+  alias MarqueeWeb.WallabyCase
 
   # ---- Background ---------------------------------------------------------
 
-  given_ "the Bobine platform is running", fn world ->
+  given_ "the Marquee platform is running", fn world ->
     world
   end
 

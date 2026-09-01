@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.AddCompositeIndexToWatchlistItems do
+defmodule Marquee.Repo.Migrations.AddCompositeIndexToWatchlistItems do
   use Ecto.Migration
 
   def change do

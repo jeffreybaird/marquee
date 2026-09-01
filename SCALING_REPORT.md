@@ -15,13 +15,13 @@
 
 ## Changes made
 
-- Refactored `BobineWeb.Viewer.WatchLive` to use a lighter bootstrap:
+- Refactored `MarqueeWeb.Viewer.WatchLive` to use a lighter bootstrap:
   - watch video lookup is still explicit and scoped
   - related videos now use a dedicated cached watch query instead of paginated listing
   - queue state now starts as count-only and hydrates lazily when the queue panel is opened
   - watch state for favorited/watchlist/queue count/resume position uses a compact watch-session lookup
 - Moved viewer playback progress off the hot write path:
-  - `Bobine.Buffers.ProgressBuffer` now supports viewer-scoped buffering
+  - `Marquee.Buffers.ProgressBuffer` now supports viewer-scoped buffering
   - `Engagement.update_progress/5` buffers viewer progress instead of writing directly to Postgres
   - `Engagement.get_progress/3` reads buffered viewer progress first so reconnects still resume accurately
   - `Engagement.mark_completed/3` now removes any stale buffered entry before writing completion state
@@ -34,7 +34,7 @@
   - watch event volume telemetry
   - PubSub broadcast volume telemetry
   - LiveView mount/handle-event metrics tagged by view
-  - fixed duplicate global broadcasts in `Bobine.Events`
+  - fixed duplicate global broadcasts in `Marquee.Events`
 - Added cached theme resolution for LiveView mount paths.
 - Hardened Fly defaults for websocket traffic:
   - disabled scale-to-zero
@@ -63,8 +63,8 @@
 3. Measure:
    - LiveView mount rate and latency
    - websocket message rate per node
-   - `bobine.watch.mount.*` and `bobine.watch.event.*`
-   - `bobine.pubsub.broadcast.*`
+   - `marquee.watch.mount.*` and `marquee.watch.event.*`
+   - `marquee.pubsub.broadcast.*`
    - Repo query latency and queue time on watch requests
    - progress buffer flush batch size and flush latency
    - per-node memory growth and reductions from LiveView hibernation

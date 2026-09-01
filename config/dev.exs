@@ -1,11 +1,11 @@
 import Config
 
 # Configure your database
-config :bobine, Bobine.Repo,
+config :marquee, Marquee.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "bobine_dev",
+  database: "marquee_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 40
@@ -16,7 +16,7 @@ config :bobine, Bobine.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :bobine, BobineWeb.Endpoint,
+config :marquee, MarqueeWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
@@ -26,8 +26,8 @@ config :bobine, BobineWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "W6bQ5juXA07IHNT2Apm7mIAxVt6vFnWxmMZgxii+oDs10nnkmjNfgPv/5Q4MO39l",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:bobine, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:bobine, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:marquee, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:marquee, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -54,7 +54,7 @@ config :bobine, BobineWeb.Endpoint,
 # different ports.
 
 # Reload browser tabs when matching files change.
-config :bobine, BobineWeb.Endpoint,
+config :marquee, MarqueeWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
@@ -63,21 +63,21 @@ config :bobine, BobineWeb.Endpoint,
       # Gettext translations
       ~r"priv/gettext/.*\.po$",
       # Router, Controllers, LiveViews and LiveComponents
-      ~r"lib/bobine_web/router\.ex$",
-      ~r"lib/bobine_web/(controllers|live|components)/.*\.(ex|heex)$"
+      ~r"lib/marquee_web/router\.ex$",
+      ~r"lib/marquee_web/(controllers|live|components)/.*\.(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :bobine, dev_routes: true
+config :marquee, dev_routes: true
 
 # Store uploaded files on the local filesystem instead of DigitalOcean
 # Spaces. Files land under `priv/static/uploads/` (gitignored) and are
 # served by Plug.Static at `/uploads/<key>`. URLs are relative so they
 # work across tenant subdomains. URLs written to the database while this
 # client is active are dev-only — do not copy a dev DB to staging/prod.
-config :bobine, Bobine.Storage,
-  client: Bobine.Storage.LocalClient,
+config :marquee, Marquee.Storage,
+  client: Marquee.Storage.LocalClient,
   bucket: "dev-local",
   region: "local",
   host: "localhost",
@@ -108,14 +108,14 @@ config :opentelemetry,
 
 # Mux CORS origin — use wildcard for dev since subdomains vary
 # (e.g. demo.localhost:4000, test-channel.localhost:4000)
-config :bobine, cors_origin: "*"
+config :marquee, cors_origin: "*"
 
 # Use Mux basic quality in dev. This is the lowest supported quality tier and
 # is the closest match to the desired 720p/dev behavior.
-config :bobine, mux_video_quality: "basic"
+config :marquee, mux_video_quality: "basic"
 
-# BobineBot stats file path for dev dashboard
-config :bobine, :bot_stats_file, "../bobine_bot/stats.jsonl"
+# MarqueeBot stats file path for dev dashboard
+config :marquee, :bot_stats_file, "../marquee_bot/stats.jsonl"
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

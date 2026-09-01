@@ -1,6 +1,6 @@
 ---
 name: scalability
-description: Use when designing viewer-facing, high-traffic, or high-frequency features that need batching, caching, query discipline, and long-term scalability planning in Bobine.
+description: Use when designing viewer-facing, high-traffic, or high-frequency features that need batching, caching, query discipline, and long-term scalability planning in Marquee.
 ---
 
 # Scalability
@@ -41,7 +41,7 @@ write directly to `Repo`. Use a write buffer that batches and flushes.
 **Pattern: Write Buffer**
 
 ```elixir
-defmodule Bobine.Buffer do
+defmodule Marquee.Buffer do
   @moduledoc """
   Behaviour for write buffers that batch high-frequency operations
   and flush periodically.
@@ -60,7 +60,7 @@ store later without changing any caller.
 ```elixir
 # Context function stays clean — callers never know about the buffer
 def update_progress(scope, video_id, position) do
-  Bobine.Buffers.ProgressBuffer.write(
+  Marquee.Buffers.ProgressBuffer.write(
     {scope.user.id, video_id},
     %{position: position, updated_at: DateTime.utc_now()}
   )
@@ -79,7 +79,7 @@ end
 
 # ✅ CORRECT — buffer and batch flush
 def record_view(scope, video_id) do
-  Bobine.Buffers.AnalyticsBuffer.write(
+  Marquee.Buffers.AnalyticsBuffer.write(
     :video_view,
     %{org_id: scope.organization.id, user_id: scope.user.id,
       video_id: video_id, occurred_at: DateTime.utc_now()}
@@ -155,7 +155,7 @@ mount as targeted LiveView components within the static page.
   <h1><%= @video.title %></h1>
 
   <%!-- LiveView island for the interactive player + progress --%>
-  <%= live_render(@conn, BobineWeb.Viewer.PlayerComponent,
+  <%= live_render(@conn, MarqueeWeb.Viewer.PlayerComponent,
     session: %{"video_id" => @video.id, "org_id" => @organization.id}
   ) %>
 
@@ -224,10 +224,10 @@ an edit, it must be cached.
 
 ### Cache implementation
 
-Use a `Bobine.Cache` behaviour with a default ETS/Cachex implementation:
+Use a `Marquee.Cache` behaviour with a default ETS/Cachex implementation:
 
 ```elixir
-defmodule Bobine.Cache do
+defmodule Marquee.Cache do
   @callback fetch(key :: String.t(), opts :: keyword(), fallback :: fun()) ::
     term()
   @callback invalidate(key :: String.t()) :: :ok
@@ -251,7 +251,7 @@ When an operator updates a cached resource, the event broadcast triggers
 cache invalidation across the cluster:
 
 ```elixir
-defmodule Bobine.Events.CacheSubscriber do
+defmodule Marquee.Events.CacheSubscriber do
   def handle_event(_scope, {:theme_updated, theme}) do
     Cache.invalidate("theme:#{theme.organization_id}")
   end
@@ -331,7 +331,7 @@ as long as you follow the topic design rules above.
 ### Queue hierarchy
 
 ```elixir
-config :bobine, Oban,
+config :marquee, Oban,
   queues: [
     critical: 10,    # Subscription changes, payment processing
     default: 20,     # Webhook delivery, notifications, email
@@ -376,7 +376,7 @@ other tenants.
 Build a rate limit plug now, even if the limits are generous:
 
 ```elixir
-defmodule BobineWeb.Plugs.RateLimit do
+defmodule MarqueeWeb.Plugs.RateLimit do
   @moduledoc """
   Token bucket rate limiter. Configurable per route and per tenant.
   Default implementation uses ETS. Swappable to Redis at scale.

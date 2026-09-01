@@ -1,6 +1,6 @@
 ---
 name: feature_01_multi_tenant_resolution
-description: Use when implementing or reviewing the foundational multi-tenant scope resolution flow, organization-aware auth scope wiring, and the initial admin dashboard shell for Bobine.
+description: Use when implementing or reviewing the foundational multi-tenant scope resolution flow, organization-aware auth scope wiring, and the initial admin dashboard shell for Marquee.
 ---
 
 # Task: Implement Multi-Tenant Resolution and Admin Dashboard Shell
@@ -17,10 +17,10 @@ nothing is broken before proceeding.
 ## Part 1: Extend the Phoenix 1.8 Scope to Include Organization
 
 Phoenix 1.8's `phx.gen.auth` generated a `Scope` struct at
-`lib/bobine/accounts/scope.ex` that holds the current user. Extend it to also
+`lib/marquee/accounts/scope.ex` that holds the current user. Extend it to also
 carry the current organization and membership.
 
-### Modify `lib/bobine/accounts/scope.ex`
+### Modify `lib/marquee/accounts/scope.ex`
 
 The scope struct should contain:
 - `user` — the authenticated `%User{}` (already exists from gen.auth)
@@ -48,7 +48,7 @@ functions receive the scope and use it for query scoping and authorization.
 
 ## Part 2: Build the SetOrganization Plug
 
-Create `lib/bobine_web/plugs/set_organization.ex`.
+Create `lib/marquee_web/plugs/set_organization.ex`.
 
 This plug resolves the current tenant from the request and adds the organization
 and membership to the scope.
@@ -62,17 +62,17 @@ and membership to the scope.
 ### For local development
 
 In dev, the host will be `localhost` with no subdomain. Support a fallback
-mechanism for development: check for an `x-bobine-org` header, or a `?org=slug`
+mechanism for development: check for an `x-marquee-org` header, or a `?org=slug`
 query parameter, or default to the first organization in the database. Gate this
 behind `Mix.env() == :dev` — it must never be available in production.
 
 ### Implementation
 
 ```elixir
-defmodule BobineWeb.Plugs.SetOrganization do
+defmodule MarqueeWeb.Plugs.SetOrganization do
   import Plug.Conn
   import Phoenix.Controller, only: [put_flash: 3]
-  alias Bobine.Accounts
+  alias Marquee.Accounts
 
   def init(opts), do: opts
 
@@ -135,7 +135,7 @@ possible and full unit tests including the "not found" cases.
 
 ## Part 3: Build the RequireRole Plug
 
-Create `lib/bobine_web/plugs/require_role.ex`.
+Create `lib/marquee_web/plugs/require_role.ex`.
 
 This plug checks whether the current user's membership has a sufficient role
 to access the route. It reads the minimum required role from the plug options.
@@ -143,10 +143,10 @@ to access the route. It reads the minimum required role from the plug options.
 ### Implementation
 
 ```elixir
-defmodule BobineWeb.Plugs.RequireRole do
+defmodule MarqueeWeb.Plugs.RequireRole do
   import Plug.Conn
   import Phoenix.Controller, only: [put_flash: 3, redirect: 2]
-  alias Bobine.Accounts
+  alias Marquee.Accounts
 
   def init(opts), do: opts
 
@@ -193,7 +193,7 @@ Write doctests for `role_at_least?/2` covering every role combination.
 
 ## Part 4: Wire Up the Router
 
-Update `lib/bobine_web/router.ex` to create the admin pipeline and route structure.
+Update `lib/marquee_web/router.ex` to create the admin pipeline and route structure.
 
 ### Pipelines
 
@@ -201,11 +201,11 @@ Add these pipeline definitions:
 
 ```elixir
 pipeline :set_organization do
-  plug BobineWeb.Plugs.SetOrganization
+  plug MarqueeWeb.Plugs.SetOrganization
 end
 
 pipeline :require_admin do
-  plug BobineWeb.Plugs.RequireRole, minimum_role: :viewer_support
+  plug MarqueeWeb.Plugs.RequireRole, minimum_role: :viewer_support
 end
 ```
 
@@ -213,14 +213,14 @@ end
 
 ```elixir
 # Public viewer routes (org resolved, no auth required)
-scope "/", BobineWeb.Viewer do
+scope "/", MarqueeWeb.Viewer do
   pipe_through [:browser, :set_organization]
 
   live "/", HomeLive
 end
 
 # Authenticated viewer routes (org resolved, auth required, subscription checked)
-scope "/", BobineWeb.Viewer do
+scope "/", MarqueeWeb.Viewer do
   pipe_through [:browser, :set_organization, :require_authenticated_user]
 
   live "/watch/:id", WatchLive
@@ -229,7 +229,7 @@ scope "/", BobineWeb.Viewer do
 end
 
 # Admin routes (org resolved, auth required, role checked)
-scope "/admin", BobineWeb.Admin do
+scope "/admin", MarqueeWeb.Admin do
   pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
 
   live "/", DashboardLive
@@ -243,7 +243,7 @@ scope "/admin", BobineWeb.Admin do
 end
 
 # Webhook receiver routes (no auth, no session, raw body)
-scope "/webhooks", BobineWeb do
+scope "/webhooks", MarqueeWeb do
   pipe_through :api
 
   post "/mux", WebhookController, :mux
@@ -253,13 +253,13 @@ end
 
 ### LiveView on_mount
 
-Create a `BobineWeb.Hooks.AssignScope` module that reads the scope from the
+Create a `MarqueeWeb.Hooks.AssignScope` module that reads the scope from the
 session and assigns it to the socket on mount. Wire it into the live_session
 blocks in the router:
 
 ```elixir
 live_session :admin,
-  on_mount: [{BobineWeb.Hooks.AssignScope, :require_authenticated}] do
+  on_mount: [{MarqueeWeb.Hooks.AssignScope, :require_authenticated}] do
   # admin routes here
 end
 ```
@@ -282,7 +282,7 @@ skeleton in place.
 
 ### Admin layout component
 
-Create `lib/bobine_web/components/admin_layout.ex` — a function component that
+Create `lib/marquee_web/components/admin_layout.ex` — a function component that
 renders the admin sidebar navigation and a content area.
 
 The sidebar should include links to:
@@ -305,21 +305,21 @@ layout (header or sidebar top).
 Create these files, each rendering a minimal page with the admin layout:
 
 ```
-lib/bobine_web/live/admin/dashboard_live.ex
-lib/bobine_web/live/admin/content_live.ex
-lib/bobine_web/live/admin/catalog_live.ex
-lib/bobine_web/live/admin/analytics_live.ex
-lib/bobine_web/live/admin/branding_live.ex
-lib/bobine_web/live/admin/members_live.ex
-lib/bobine_web/live/admin/webhooks_live.ex
-lib/bobine_web/live/admin/settings_live.ex
+lib/marquee_web/live/admin/dashboard_live.ex
+lib/marquee_web/live/admin/content_live.ex
+lib/marquee_web/live/admin/catalog_live.ex
+lib/marquee_web/live/admin/analytics_live.ex
+lib/marquee_web/live/admin/branding_live.ex
+lib/marquee_web/live/admin/members_live.ex
+lib/marquee_web/live/admin/webhooks_live.ex
+lib/marquee_web/live/admin/settings_live.ex
 ```
 
 Each should follow this pattern:
 
 ```elixir
-defmodule BobineWeb.Admin.ContentLive do
-  use BobineWeb, :live_view
+defmodule MarqueeWeb.Admin.ContentLive do
+  use MarqueeWeb, :live_view
 
   @impl true
   def mount(_params, _session, socket) do
@@ -329,14 +329,14 @@ defmodule BobineWeb.Admin.ContentLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <BobineWeb.Components.AdminLayout.admin_layout
+    <MarqueeWeb.Components.AdminLayout.admin_layout
       current_path={@current_path}
       organization={@organization}
       current_user={@current_user}
     >
       <.header>Content</.header>
       <p>Content management coming soon.</p>
-    </BobineWeb.Components.AdminLayout.admin_layout>
+    </MarqueeWeb.Components.AdminLayout.admin_layout>
     """
   end
 end
@@ -347,10 +347,10 @@ end
 Also create minimal placeholders for:
 
 ```
-lib/bobine_web/live/viewer/home_live.ex
-lib/bobine_web/live/viewer/watch_live.ex
-lib/bobine_web/live/viewer/watchlist_live.ex
-lib/bobine_web/live/viewer/account_live.ex
+lib/marquee_web/live/viewer/home_live.ex
+lib/marquee_web/live/viewer/watch_live.ex
+lib/marquee_web/live/viewer/watchlist_live.ex
+lib/marquee_web/live/viewer/account_live.ex
 ```
 
 These just need to render the page title with the org's name. They'll be built
@@ -379,7 +379,7 @@ Write the following tests:
 
 **Plug tests:**
 
-`test/bobine_web/plugs/set_organization_test.exs`
+`test/marquee_web/plugs/set_organization_test.exs`
 - Resolves org by custom domain
 - Resolves org by subdomain
 - Returns 404 when no org matches
@@ -387,7 +387,7 @@ Write the following tests:
 - Updates scope with membership when user is a member
 - Handles authenticated user who is not a member of the org
 
-`test/bobine_web/plugs/require_role_test.exs`
+`test/marquee_web/plugs/require_role_test.exs`
 - Allows access when role meets minimum
 - Denies access when role is below minimum
 - Redirects unauthenticated users
@@ -396,7 +396,7 @@ Write the following tests:
 
 **Context tests:**
 
-`test/bobine/accounts/accounts_test.exs` (extend existing)
+`test/marquee/accounts/accounts_test.exs` (extend existing)
 - `get_organization_by_slug/1` — found and not found
 - `get_organization_by_custom_domain/1` — found, not found, nil domain
 - `get_membership/2` — found, not found, wrong org
@@ -404,7 +404,7 @@ Write the following tests:
 
 **LiveView tests:**
 
-`test/bobine_web/live/admin/dashboard_live_test.exs`
+`test/marquee_web/live/admin/dashboard_live_test.exs`
 - Admin can access dashboard
 - Editor can access dashboard
 - viewer_support can access dashboard

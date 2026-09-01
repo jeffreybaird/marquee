@@ -1,4 +1,4 @@
-defmodule BobineFeatures.Steps.Webhooks do
+defmodule MarqueeFeatures.Steps.Webhooks do
   @moduledoc """
   Step definitions for webhooks.feature.
 
@@ -18,17 +18,17 @@ defmodule BobineFeatures.Steps.Webhooks do
 
   import Plug.Conn
   import Phoenix.ConnTest
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Repo
+  alias Marquee.Repo
 
-  @endpoint BobineWeb.Endpoint
+  @endpoint MarqueeWeb.Endpoint
 
   @mux_secret "test-mux-webhook-secret-for-cucumber"
 
   given_ "Mux webhook signature verification is configured", fn world ->
-    Application.put_env(:bobine, :mux_webhook_secret, @mux_secret)
+    Application.put_env(:marquee, :mux_webhook_secret, @mux_secret)
     Map.put(world, :mux_secret, @mux_secret)
   end
 
@@ -98,7 +98,7 @@ defmodule BobineFeatures.Steps.Webhooks do
   end
 
   when_ "Mux POSTs a webhook with an invalid Mux-Signature header", fn world ->
-    Application.put_env(:bobine, :mux_webhook_secret, @mux_secret)
+    Application.put_env(:marquee, :mux_webhook_secret, @mux_secret)
 
     payload = Jason.encode!(%{"type" => "video.asset.ready", "data" => %{"id" => "asset_x"}})
 
@@ -137,7 +137,7 @@ defmodule BobineFeatures.Steps.Webhooks do
   end
 
   then_ "an async processing job is enqueued", fn world ->
-    # `config :bobine, Oban, testing: :inline` runs jobs synchronously
+    # `config :marquee, Oban, testing: :inline` runs jobs synchronously
     # within the request — by the time the response returned, the job
     # has already executed. The contract here is that the request
     # succeeded; the worker behavior is asserted by the next steps.
@@ -162,10 +162,10 @@ defmodule BobineFeatures.Steps.Webhooks do
   end
 
   then_ "the operator sees the status change in real time without refreshing", fn world ->
-    # The status broadcast goes through Bobine.Events / PubSub. From a
+    # The status broadcast goes through Marquee.Events / PubSub. From a
     # pure HTTP-driven scenario, the contract that holds end-to-end is
     # the DB write covered above; PubSub delivery is unit-tested in
-    # bobine/events tests. Pass-through.
+    # marquee/events tests. Pass-through.
     world
   end
 

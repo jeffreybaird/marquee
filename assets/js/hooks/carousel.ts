@@ -1,7 +1,7 @@
 /**
  * Carousel hook
  *
- * Used by: BobineWeb.Components.Rows scrollable rows (content, continue
+ * Used by: MarqueeWeb.Components.Rows scrollable rows (content, continue
  * watching, series, creator showcase, editorial spotlight).
  *
  * Drag-to-scroll with momentum. Arrow buttons scroll by ~75% of

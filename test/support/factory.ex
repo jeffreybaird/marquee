@@ -1,13 +1,13 @@
-defmodule Bobine.Factory do
+defmodule Marquee.Factory do
   @moduledoc false
-  use ExMachina.Ecto, repo: Bobine.Repo
+  use ExMachina.Ecto, repo: Marquee.Repo
 
   # -------------------------------------------------------------------------
   # Accounts
   # -------------------------------------------------------------------------
 
   def organization_factory do
-    %Bobine.Accounts.Organization{
+    %Marquee.Accounts.Organization{
       name: sequence(:org_name, &"Test Org #{&1}"),
       slug: sequence(:org_slug, &"test-org-#{&1}"),
       template: "default"
@@ -15,7 +15,7 @@ defmodule Bobine.Factory do
   end
 
   def user_factory do
-    %Bobine.Accounts.User{
+    %Marquee.Accounts.User{
       email: sequence(:email, &"user-#{&1}@example.com"),
       confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
       is_super_admin: false
@@ -23,7 +23,7 @@ defmodule Bobine.Factory do
   end
 
   def super_admin_factory do
-    %Bobine.Accounts.User{
+    %Marquee.Accounts.User{
       email: sequence(:email, &"super-#{&1}@example.com"),
       confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
       is_super_admin: true
@@ -31,7 +31,7 @@ defmodule Bobine.Factory do
   end
 
   def membership_factory do
-    %Bobine.Accounts.Membership{
+    %Marquee.Accounts.Membership{
       user: build(:user),
       organization: build(:organization),
       role: :editor
@@ -39,7 +39,7 @@ defmodule Bobine.Factory do
   end
 
   def layout_factory do
-    %Bobine.Catalog.Layout{
+    %Marquee.Catalog.Layout{
       organization: build(:organization),
       preset_name: "catalog_cinema",
       default_browse_card_variant: "poster_portrait"
@@ -51,7 +51,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def viewer_factory do
-    %Bobine.Viewers.Viewer{
+    %Marquee.Viewers.Viewer{
       organization: build(:organization),
       email: sequence(:viewer_email, &"viewer-#{&1}@example.com"),
       display_name: sequence(:viewer_name, &"Viewer #{&1}"),
@@ -73,7 +73,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def video_factory do
-    %Bobine.Content.Video{
+    %Marquee.Content.Video{
       organization: build(:organization),
       title: sequence(:video_title, &"Video #{&1}"),
       slug: sequence(:video_slug, &"video-#{&1}"),
@@ -85,7 +85,7 @@ defmodule Bobine.Factory do
   end
 
   def collection_factory do
-    %Bobine.Content.Collection{
+    %Marquee.Content.Collection{
       organization: build(:organization),
       title: sequence(:collection_title, &"Collection #{&1}"),
       slug: sequence(:collection_slug, &"collection-#{&1}"),
@@ -95,7 +95,7 @@ defmodule Bobine.Factory do
   end
 
   def collection_item_factory do
-    %Bobine.Content.CollectionItem{
+    %Marquee.Content.CollectionItem{
       organization: build(:organization),
       collection: build(:collection),
       video: build(:video),
@@ -105,7 +105,7 @@ defmodule Bobine.Factory do
   end
 
   def tag_factory do
-    %Bobine.Content.Tag{
+    %Marquee.Content.Tag{
       organization: build(:organization),
       name: sequence(:tag_name, &"tag-#{&1}"),
       slug: sequence(:tag_slug, &"tag-#{&1}")
@@ -113,7 +113,7 @@ defmodule Bobine.Factory do
   end
 
   def video_tag_factory do
-    %Bobine.Content.VideoTag{
+    %Marquee.Content.VideoTag{
       organization: build(:organization),
       video: build(:video),
       tag: build(:tag)
@@ -121,7 +121,7 @@ defmodule Bobine.Factory do
   end
 
   def series_factory do
-    %Bobine.Content.Series{
+    %Marquee.Content.Series{
       organization: build(:organization),
       title: sequence(:series_title, &"Test Series #{&1}"),
       slug: sequence(:series_slug, &"test-series-#{&1}"),
@@ -131,7 +131,7 @@ defmodule Bobine.Factory do
   end
 
   def season_factory do
-    %Bobine.Content.Season{
+    %Marquee.Content.Season{
       organization: build(:organization),
       series: build(:series),
       title: sequence(:season_title, &"Season #{&1}"),
@@ -143,7 +143,7 @@ defmodule Bobine.Factory do
   end
 
   def episode_factory do
-    %Bobine.Content.Episode{
+    %Marquee.Content.Episode{
       organization: build(:organization),
       season: build(:season),
       video: build(:video),
@@ -156,7 +156,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def row_factory do
-    %Bobine.Catalog.Row{
+    %Marquee.Catalog.Row{
       organization: build(:organization),
       title: sequence(:row_title, &"Row #{&1}"),
       source_type: :curated,
@@ -167,7 +167,7 @@ defmodule Bobine.Factory do
   end
 
   def hero_row_factory do
-    %Bobine.Catalog.Row{
+    %Marquee.Catalog.Row{
       organization: build(:organization),
       title: "Hero",
       source_type: :hero,
@@ -178,7 +178,7 @@ defmodule Bobine.Factory do
   end
 
   def hero_slide_factory do
-    %Bobine.Catalog.HeroSlide{
+    %Marquee.Catalog.HeroSlide{
       organization: build(:organization),
       row: build(:hero_row),
       video: build(:video),
@@ -187,7 +187,7 @@ defmodule Bobine.Factory do
   end
 
   def row_item_factory do
-    %Bobine.Catalog.RowItem{
+    %Marquee.Catalog.RowItem{
       organization: build(:organization),
       row: build(:row),
       video: build(:video),
@@ -200,7 +200,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def landing_section_factory do
-    %Bobine.LandingPage.LandingSection{
+    %Marquee.LandingPage.LandingSection{
       organization: build(:organization),
       section_type: :header_text,
       position: sequence(:landing_section_position, & &1),
@@ -214,7 +214,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def queue_item_factory do
-    %Bobine.Engagement.QueueItem{
+    %Marquee.Engagement.QueueItem{
       organization: build(:organization),
       viewer: build(:viewer),
       video: build(:video),
@@ -225,7 +225,7 @@ defmodule Bobine.Factory do
   end
 
   def watchlist_item_factory do
-    %Bobine.Engagement.WatchlistItem{
+    %Marquee.Engagement.WatchlistItem{
       organization: build(:organization),
       user: build(:user),
       video: build(:video),
@@ -234,7 +234,7 @@ defmodule Bobine.Factory do
   end
 
   def favorite_factory do
-    %Bobine.Engagement.Favorite{
+    %Marquee.Engagement.Favorite{
       organization: build(:organization),
       user: build(:user),
       video: build(:video)
@@ -242,7 +242,7 @@ defmodule Bobine.Factory do
   end
 
   def watch_history_factory do
-    %Bobine.Engagement.WatchHistory{
+    %Marquee.Engagement.WatchHistory{
       organization: build(:organization),
       user: build(:user),
       video: build(:video),
@@ -251,7 +251,7 @@ defmodule Bobine.Factory do
   end
 
   def progress_factory do
-    %Bobine.Engagement.Progress{
+    %Marquee.Engagement.Progress{
       organization: build(:organization),
       user: build(:user),
       video: build(:video),
@@ -261,7 +261,7 @@ defmodule Bobine.Factory do
   end
 
   def continue_watching_dismissal_factory do
-    %Bobine.Engagement.ContinueWatchingDismissal{
+    %Marquee.Engagement.ContinueWatchingDismissal{
       organization: build(:organization),
       viewer: build(:viewer),
       video: build(:video),
@@ -270,7 +270,7 @@ defmodule Bobine.Factory do
   end
 
   def playback_drop_off_factory do
-    %Bobine.Engagement.PlaybackDropOff{
+    %Marquee.Engagement.PlaybackDropOff{
       organization: build(:organization),
       video: build(:video),
       viewer: build(:viewer),
@@ -282,7 +282,7 @@ defmodule Bobine.Factory do
   end
 
   def video_drop_off_bucket_factory do
-    %Bobine.Engagement.VideoDropOffBucket{
+    %Marquee.Engagement.VideoDropOffBucket{
       organization: build(:organization),
       video: build(:video),
       bucket: 0,
@@ -295,7 +295,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def plan_factory do
-    %Bobine.Billing.Plan{
+    %Marquee.Billing.Plan{
       organization: build(:organization),
       name: sequence(:plan_name, &"Plan #{&1}"),
       stripe_price_id: sequence(:stripe_price_id, &"price_#{&1}"),
@@ -307,7 +307,7 @@ defmodule Bobine.Factory do
   end
 
   def subscription_factory do
-    %Bobine.Billing.Subscription{
+    %Marquee.Billing.Subscription{
       organization: build(:organization),
       user: build(:user),
       plan: build(:plan),
@@ -319,7 +319,7 @@ defmodule Bobine.Factory do
   end
 
   def coupon_factory do
-    %Bobine.Billing.Coupon{
+    %Marquee.Billing.Coupon{
       organization: build(:organization),
       code: sequence(:coupon_code, &"CODE#{&1}"),
       name: sequence(:coupon_name, &"Coupon #{&1}"),
@@ -332,7 +332,7 @@ defmodule Bobine.Factory do
   end
 
   def viewer_subscription_factory do
-    %Bobine.Billing.ViewerSubscription{
+    %Marquee.Billing.ViewerSubscription{
       organization: build(:organization),
       viewer: build(:viewer),
       stripe_subscription_id: sequence(:viewer_sub_id, &"sub_viewer_#{&1}"),
@@ -344,7 +344,7 @@ defmodule Bobine.Factory do
   end
 
   def platform_plan_factory do
-    %Bobine.Billing.PlatformPlan{
+    %Marquee.Billing.PlatformPlan{
       name: sequence(:platform_plan_name, &"Platform Plan #{&1}"),
       slug: sequence(:platform_plan_slug, &"platform-plan-#{&1}"),
       stripe_price_id: sequence(:platform_price_id, &"price_platform_#{&1}"),
@@ -365,7 +365,7 @@ defmodule Bobine.Factory do
   end
 
   def platform_subscription_factory do
-    %Bobine.Billing.PlatformSubscription{
+    %Marquee.Billing.PlatformSubscription{
       organization: build(:organization),
       platform_plan: build(:platform_plan),
       stripe_subscription_id: sequence(:platform_sub_id, &"sub_platform_#{&1}"),
@@ -381,7 +381,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def theme_factory do
-    %Bobine.Branding.Theme{
+    %Marquee.Branding.Theme{
       organization: build(:organization),
       brand_primary: "#1a73e8",
       brand_secondary: "#174ea6",
@@ -410,7 +410,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def audit_log_factory do
-    %Bobine.Audit.Log{
+    %Marquee.Audit.Log{
       organization: build(:organization),
       user: build(:user),
       action: sequence(:audit_action, &"resource.action_#{&1}"),
@@ -426,7 +426,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def analytics_event_factory do
-    %Bobine.Analytics.Event{
+    %Marquee.Analytics.Event{
       organization: build(:organization),
       event_type: "video.play",
       occurred_at: DateTime.utc_now() |> DateTime.truncate(:second)
@@ -434,7 +434,7 @@ defmodule Bobine.Factory do
   end
 
   def analytics_snapshot_factory do
-    %Bobine.Analytics.Snapshot{
+    %Marquee.Analytics.Snapshot{
       organization: build(:organization),
       period_date: Date.utc_today() |> Date.add(-1),
       metric_type: "daily_subscribers",
@@ -448,7 +448,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def notification_factory do
-    %Bobine.Notifications.Notification{
+    %Marquee.Notifications.Notification{
       organization: build(:organization),
       title: sequence(:notification_title, &"Notification #{&1}"),
       body: "This is a notification body.",
@@ -462,7 +462,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def live_event_factory do
-    %Bobine.Streaming.LiveEvent{
+    %Marquee.Streaming.LiveEvent{
       organization: build(:organization),
       title: sequence(:live_event_title, &"Live Event #{&1}"),
       slug: sequence(:live_event_slug, &"live-event-#{&1}"),
@@ -479,7 +479,7 @@ defmodule Bobine.Factory do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
     event = build(:live_event)
 
-    %Bobine.Streaming.LiveEventTicket{
+    %Marquee.Streaming.LiveEventTicket{
       organization: event.organization,
       live_event: event,
       viewer: build(:viewer),
@@ -490,7 +490,7 @@ defmodule Bobine.Factory do
   end
 
   def chat_message_factory do
-    %Bobine.Streaming.ChatMessage{
+    %Marquee.Streaming.ChatMessage{
       organization: build(:organization),
       live_event: build(:live_event),
       viewer: build(:viewer),
@@ -499,7 +499,7 @@ defmodule Bobine.Factory do
   end
 
   def live_event_chat_ban_factory do
-    %Bobine.Streaming.LiveEventChatBan{
+    %Marquee.Streaming.LiveEventChatBan{
       organization: build(:organization),
       live_event: build(:live_event),
       viewer: build(:viewer),
@@ -508,7 +508,7 @@ defmodule Bobine.Factory do
   end
 
   def live_event_reminder_factory do
-    %Bobine.Streaming.LiveEventReminder{
+    %Marquee.Streaming.LiveEventReminder{
       organization: build(:organization),
       live_event: build(:live_event),
       viewer: build(:viewer)
@@ -520,7 +520,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def podcast_show_factory do
-    %Bobine.Podcasts.Show{
+    %Marquee.Podcasts.Show{
       organization: build(:organization),
       title: sequence(:show_title, &"Show #{&1}"),
       slug: sequence(:show_slug, &"show-#{&1}"),
@@ -549,7 +549,7 @@ defmodule Bobine.Factory do
     show = build(:podcast_show)
     plan = build(:plan, organization: show.organization)
 
-    %Bobine.Podcasts.ShowTier{
+    %Marquee.Podcasts.ShowTier{
       organization: show.organization,
       show: show,
       plan: plan
@@ -559,7 +559,7 @@ defmodule Bobine.Factory do
   def podcast_episode_factory do
     show = build(:podcast_show)
 
-    %Bobine.Podcasts.Episode{
+    %Marquee.Podcasts.Episode{
       organization: show.organization,
       show: show,
       guid: sequence(:episode_guid, &"guid-#{&1}"),
@@ -581,7 +581,7 @@ defmodule Bobine.Factory do
     show = build(:podcast_show)
     viewer = build(:subscribed_viewer, organization: show.organization)
 
-    %Bobine.Podcasts.FeedToken{
+    %Marquee.Podcasts.FeedToken{
       organization: show.organization,
       show: show,
       viewer: viewer,
@@ -600,7 +600,7 @@ defmodule Bobine.Factory do
   # -------------------------------------------------------------------------
 
   def webhook_endpoint_factory do
-    %Bobine.Webhooks.Endpoint{
+    %Marquee.Webhooks.Endpoint{
       organization: build(:organization),
       url: sequence(:webhook_url, &"https://example.com/webhooks/#{&1}"),
       secret: sequence(:webhook_secret, &"whsec_#{&1}"),
@@ -610,7 +610,7 @@ defmodule Bobine.Factory do
   end
 
   def webhook_delivery_factory do
-    %Bobine.Webhooks.Delivery{
+    %Marquee.Webhooks.Delivery{
       endpoint: build(:webhook_endpoint),
       event_type: "video.published",
       payload: %{"event" => "video.published"},

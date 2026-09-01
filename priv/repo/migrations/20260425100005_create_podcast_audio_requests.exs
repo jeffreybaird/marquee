@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreatePodcastAudioRequests do
+defmodule Marquee.Repo.Migrations.CreatePodcastAudioRequests do
   use Ecto.Migration
 
   def change do

@@ -1,6 +1,6 @@
 ---
 name: typescript-hooks
-description: Use when working on LiveView hooks, TypeScript assets, client-side browser behavior, Mux player integration, or other front-end hook code in Bobine.
+description: Use when working on LiveView hooks, TypeScript assets, client-side browser behavior, Mux player integration, or other front-end hook code in Marquee.
 ---
 
 # TypeScript Hooks

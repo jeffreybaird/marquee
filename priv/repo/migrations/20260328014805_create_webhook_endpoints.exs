@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateWebhookEndpoints do
+defmodule Marquee.Repo.Migrations.CreateWebhookEndpoints do
   use Ecto.Migration
 
   def change do

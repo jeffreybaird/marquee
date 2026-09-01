@@ -1,22 +1,56 @@
 # Deployment
 
-Load this file when working on CI/CD, Fly.io configuration, Dockerfiles,
-release scripts, or environment configuration.
+Load this file when working on CI/CD, Terraform, Dockerfiles, release scripts,
+or environment configuration.
 
 ---
 
-## Platform: Fly.io
+## Platform: DigitalOcean droplet (push-button-deploy)
 
-Bobine deploys to Fly.io. Configuration lives in `fly.toml` at the project
-root.
+Marquee deploys with the **push-button-deploy** process (`~/src/push-button-deploy`):
+a single Ubuntu droplet running Docker Compose behind Caddy, provisioned by
+Terraform roots that live in this repo under `infra/`.
 
-### Why Fly.io
+| Concern | Implementation |
+|---|---|
+| Compute | One DO droplet running Docker Compose |
+| TLS | Caddy, automatic Let's Encrypt issuance + renewal |
+| Database | DO Managed Postgres, private VPC only, TLS `verify_peer` against the cluster CA |
+| DNS | DNSimple A record pointing at a reserved IP that survives droplet recreation |
+| Images | Built on GitHub amd64 runners, pushed to DO Container Registry, SHA-pinned |
+| Deploys | Push to `main`: test → build → migrate (gated) → health-checked blue/green swap |
+| Rollback | `gh workflow run rollback.yml -f tag=<previous sha>` — pins a prior image, no rebuild |
+| Terraform state | Versioned DO Spaces bucket (S3-compatible backend) |
+| Secrets | Never in cloud-init or droplet metadata — they arrive over SSH at deploy time |
 
-- Native Elixir clustering via DNS-based node discovery (`dns_cluster`)
-- Per-second billing on compute
-- Multi-region deployment with a single command
-- Managed Postgres with automatic failover
-- LiveView WebSocket connections benefit from low-latency edge routing
+Fly.io is gone: no `fly.toml`, no `flyctl` step, no `FLY_*` handling in
+`rel/env.sh.eex`.
+
+### Terraform roots (`infra/`)
+
+```
+infra/state/        the Spaces bucket holding the other roots' state (own state is local)
+infra/persistent/   VPC, reserved IP, managed Postgres, DNSimple A record — prevent_destroy
+infra/app/          droplet, reserved-IP assignment, firewall — disposable
+```
+
+Destroying `infra/app` never touches data: the DB firewall trusts a *tag* the
+droplet wears, not the droplet itself. See `infra/README.md`.
+
+Marquee is **Postgres-only**. Always run the bootstrap with
+`DATABASE_BACKEND=postgres`; the tool's default is `sqlite`, which would ask
+Terraform to tear the cluster down.
+
+### Droplet layout
+
+- `/root/caddy/` — the host-owned shared edge proxy (one per droplet), importing
+  a site file per app.
+- `/root/apps/marquee/` — this app's stack: its own compose project, volumes, and
+  a `app_blue`/`app_green` pair publishing `marquee-blue` / `marquee-green`
+  aliases on the shared `edge` network for Caddy to dial.
+
+Port 22 is closed to the world. CI punches a temporary `/32` hole for its own
+runner IP at the start of each deploy and revokes it in an `always()` step.
 
 ---
 
@@ -24,43 +58,56 @@ root.
 
 ### Never commit secrets
 
-All production secrets live in Fly secrets (`fly secrets set KEY=VALUE`) and in
-GitHub Actions Secrets. They must never appear in source code, `config/` files,
-or be logged.
+Production secrets live in **GitHub Actions Secrets and Variables**. The deploy
+workflow writes them into a mode-600 `.env` on the runner, ships it to the
+droplet over SSH, and compose loads it. Nothing secret is in the image, in
+cloud-init, or in droplet metadata.
 
-### Required environment variables
+An unset name interpolates to nothing, so `deploy.yml` strips `NAME=` lines
+before shipping — `""` is truthy in Elixir and would otherwise configure Mux,
+Stripe or Spaces with blank credentials instead of leaving them off.
 
-| Variable                | Set In         | Purpose                          |
-|-------------------------|----------------|----------------------------------|
-| `DATABASE_URL`          | Fly (auto)     | Postgres connection string       |
-| `SECRET_KEY_BASE`       | Fly + GH       | Phoenix secret key               |
-| `PHX_HOST`              | Fly + GH       | Primary hostname                 |
-| `MUX_TOKEN_ID`          | Fly + GH       | Mux API credential               |
-| `MUX_TOKEN_SECRET`      | Fly + GH       | Mux API credential               |
-| `MUX_WEBHOOK_SECRET`    | Fly            | Mux webhook signing secret       |
-| `STRIPE_SECRET_KEY`     | Fly + GH       | Stripe API key                   |
-| `STRIPE_WEBHOOK_SECRET` | Fly            | Stripe webhook signing secret    |
-| `RELEASE_COOKIE`        | Fly            | Erlang distribution cookie       |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Fly     | Grafana Cloud OTLP gateway URL (optional) |
-| `OTEL_EXPORTER_OTLP_AUTH_HEADER` | Fly  | `Basic <base64(instance_id:api_token)>` (optional) |
-| `GRAFANA_LOKI_URL`    | Fly (log ship)   | Grafana Cloud Loki push URL for log shipping       |
-| `GRAFANA_LOKI_TOKEN`  | Fly (log ship)   | Grafana Cloud Loki auth token                      |
-| `RESEND_API_KEY`        | Fly            | Resend API key for transactional email |
-| `MAILER_FROM`           | Fly            | From address for emails (optional, defaults to onboarding@resend.dev) |
+### Required repo configuration
+
+| Name | Kind | Purpose |
+|---|---|---|
+| `DIGITALOCEAN_ACCESS_TOKEN` | secret | registry + firewall ops |
+| `SSH_PRIVATE_KEY` | secret | deploy key for the droplet |
+| `DATABASE_URL` | secret | Postgres over the private VPC |
+| `DATABASE_CA_CERT` | secret | cluster CA, shipped as `db-ca.pem` |
+| `SECRET_KEY_BASE` | secret | Phoenix secret |
+| `DOCR_REGISTRY` | var | DO Container Registry name |
+| `DOMAIN` | var | public FQDN (matches the A record and cert) |
+| `DROPLET_HOST` | var | reserved IP to SSH into |
+| `FIREWALL_ID` | var | firewall to hole-punch |
+| `APP_SLUG` | var | stack dir / compose project / Caddy site file / network aliases |
+
+Marquee's own runtime configuration, all optional (an unset name disables that
+integration): secrets `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`,
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`,
+`SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`, `RESEND_API_KEY`,
+`PEXELS_API_KEY`, `OTEL_EXPORTER_OTLP_AUTH_HEADER`, `GRAFANA_LOKI_AUTH`; vars
+`POOL_SIZE`, `SPACES_BUCKET`, `SPACES_REGION`, `SPACES_HOST`,
+`SPACES_PUBLIC_URL_BASE`, `MAILER_FROM`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
+`GRAFANA_LOKI_URL`.
+
+`PHX_SERVER`, `PHX_HOST`, `PORT` and `DATABASE_CA_FILE` are set by
+`deploy/compose.yaml`, not by the `.env`.
 
 ### `config/runtime.exs` is the only place for prod config
 
-All production configuration reads from `System.fetch_env!/1`. Use
-`System.fetch_env!` (bang) not `System.get_env` so missing vars fail loudly
-at boot rather than silently misbehaving.
+The two values the app cannot boot without — `DATABASE_URL` and
+`SECRET_KEY_BASE` — raise at boot when missing. Everything else is guarded by
+`if System.get_env(...)` so the feature switches off rather than half-configures.
 
-```elixir
-# ✅ CORRECT — fails loudly if missing
-config :stream_vane, :mux_token_id, System.fetch_env!("MUX_TOKEN_ID")
+### Database TLS is not optional
 
-# ❌ WRONG — silently nil if missing
-config :stream_vane, :mux_token_id, System.get_env("MUX_TOKEN_ID")
-```
+DO managed Postgres rejects non-TLS connections and Ecto does **not** infer TLS
+from the URL. The block at the bottom of `config/runtime.exs` (marker:
+`push-button-deploy: database TLS`) is appended last so Config merging makes it
+the Repo's effective `:ssl`. With `DATABASE_CA_FILE` set (the deploy mounts
+`db-ca.pem`) the server certificate is fully verified; without it the connection
+is encrypted but unverified. Do not move that block above the Repo config.
 
 ---
 
@@ -68,142 +115,88 @@ config :stream_vane, :mux_token_id, System.get_env("MUX_TOKEN_ID")
 
 ### The Release module is required
 
-`Bobine.Release.migrate/0` must exist and work correctly. It is called by
-the Fly deployment process before the service starts.
-
-```elixir
-defmodule Bobine.Release do
-  @app :stream_vane
-
-  def migrate do
-    load_app()
-    for repo <- repos() do
-      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
-    end
-  end
-
-  def rollback(repo, version) do
-    load_app()
-    {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
-  end
-
-  defp repos, do: Application.fetch_env!(@app, :ecto_repos)
-  defp load_app, do: Application.ensure_all_started(:ssl)
-end
-```
+`Marquee.Release.migrate/0` must exist and work. The deploy runs it as a one-off
+container **before** traffic switches, so a failed migration leaves the old
+release serving.
 
 ### Never use `mix` in production
 
-Release commands only. `mix ecto.migrate` requires the Mix toolchain which is
+Release commands only. `mix ecto.migrate` requires the Mix toolchain, which is
 not present in a compiled release.
 
 ```shell
-# ✅ CORRECT — release command
-/app/bin/stream_vane eval "Bobine.Release.migrate()"
+# ✅ CORRECT — release command, what deploy.yml runs
+docker compose run --rm migrate bin/marquee eval 'Marquee.Release.migrate()'
 
 # ❌ WRONG — requires Mix
 mix ecto.migrate
 ```
 
----
-
-## Fly.io Configuration
-
-### `fly.toml` essentials
-
-```toml
-[env]
-  PHX_HOST = "Bobine.com"
-  ECTO_IPV6 = "true"
-  ERL_AFLAGS = "-proto_dist inet6_tcp"
-  DNS_CLUSTER_QUERY = "Bobine.internal"
-  RELEASE_DISTRIBUTION = "name"
-
-[deploy]
-  release_command = "/app/bin/stream_vane eval Bobine.Release.migrate"
-```
-
 ### Clustering
 
-Erlang clustering is configured via `dns_cluster` in the application supervision
-tree. Fly's internal DNS resolves `<app-name>.internal` to all running instances.
-
-```elixir
-# In application.ex
-children = [
-  {DNSCluster, query: Application.get_env(:stream_vane, :dns_cluster_query) || :ignore},
-  {Phoenix.PubSub, name: Bobine.PubSub},
-  # ...
-]
-```
+There is no clustering on a single droplet: `DNS_CLUSTER_QUERY` is unset, so
+`DNSCluster` starts with `:ignore`. `rel/env.sh.eex` names the node after the
+container hostname, which is unique per color. Anything that assumed a cluster
+(PubSub fan-out across nodes, cache invalidation across machines) now runs
+in one node — revisit it before adding a second droplet.
 
 ### Health checks
 
-Fly health checks should hit a lightweight endpoint that confirms the app is
-running and the database is reachable. Do not use a LiveView route for health
-checks.
-
-```elixir
-# A simple plug-based health check
-get "/health", HealthController, :check
-```
+Compose healthchecks the container by opening a TCP connection to the endpoint
+on port 4000 and reading a status line — the slim runtime image has no curl or
+wget. `GET /health` (`HealthController`) remains the app-level check.
 
 ---
 
 ## CI/CD: GitHub Actions
 
-### Workflow structure
+Two workflows, plus a manual rollback:
 
-```yaml
-# .github/workflows/deploy.yml
-name: CI & Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        # ...
-    steps:
-      - uses: actions/checkout@v4
-      - uses: erlef/setup-beam@v1
-      - run: mix deps.get
-      - run: mix compile --warnings-as-errors
-      - run: mix format --check-formatted
-      - run: mix credo --strict
-      - run: mix dialyzer
-      - run: npx tsc --noEmit --project assets/tsconfig.json
-      - run: mix test
-      - run: mix assets.deploy
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-```
+- **`ci.yml`** — the full quality gate on every push and PR: format check,
+  `mix compile --warnings-as-errors`, `mix test --exclude e2e`, then a separate
+  `e2e` job that provisions Chrome/chromedriver and runs `mix test --only e2e`.
+- **`deploy.yml`** — push to `main`: `mix test --exclude e2e` (deploy's own
+  red-tests-block-the-deploy gate) → build and push a SHA-pinned image to DOCR →
+  ship `.env` and stack files over SSH → run migrations → blue/green swap.
+  `workflow_dispatch` redeploys `main` without a commit, which is how a changed
+  repo *variable* reaches the droplet.
+- **`rollback.yml`** — `gh workflow run rollback.yml -f tag=<sha>` pins a prior
+  image and re-swaps. No rebuild, no migration.
 
 ### Rules
 
-- The `deploy` job must declare `needs: test` — deploys never run if tests fail
-- `mix compile --warnings-as-errors` treats warnings as failures
-- `mix credo --strict` enforces code quality
-- `npx tsc --noEmit` type-checks TypeScript hooks without emitting files
-- `mix assets.deploy` compiles assets in CI, not on the server
-- Migrations run via the `release_command` in `fly.toml`, before the new
-  version starts serving traffic
-- The `--remote-only` flag on `flyctl deploy` uses Fly's remote builder,
-  avoiding architecture mismatches (especially on Apple Silicon)
+- Deploy jobs declare `needs:` on the test job — deploys never run if tests fail
+- Migrations run as a gated one-off container before the swap, never after
+- One deploy at a time: the `concurrency` group queues rather than cancels, so
+  an in-flight migration is never interrupted
+- The runner's SSH hole is revoked in an `always()` step
+- `deploy.yml`, `rollback.yml`, `Dockerfile`, `.dockerignore` and `deploy/*` are
+  **copied unconditionally** by `bootstrap.sh`. They carry local modifications
+  (see the header note in `deploy.yml`); re-apply them after any bootstrap
+  re-run. Only `infra/` is seed-once.
+
+### Day 2
+
+| Want | Do |
+|---|---|
+| Deploy | `git push` to `main` |
+| Watch a deploy | `gh run watch` |
+| Roll back | `gh workflow run rollback.yml -f tag=<previous sha>` |
+| Change infrastructure | edit `infra/…`, commit, `DATABASE_BACKEND=postgres ~/src/push-button-deploy/bootstrap.sh .` |
+| Recreate the droplet | `terraform -chdir=infra/app destroy` then re-run the bootstrap — DB, IP, DNS, certs survive |
+| SSH to the box | `ssh root@<reserved-ip>` (only from an IP in `SSH_CIDRS`) |
+
+---
+
+## Known gap: per-tenant domains
+
+`deploy/site.caddy.tmpl` issues a certificate for **one** domain — the `DOMAIN`
+repo variable. Tenant subdomains (`<slug>.<domain>`) and custom domains are not
+covered. Serving them needs either a wildcard certificate (DNS-01 via the
+DNSimple provider, which means a custom Caddy build) or Caddy on-demand TLS with
+an `ask` endpoint that answers whether a hostname belongs to a live
+organization. Neither exists yet; add the endpoint before pointing customer
+domains at the droplet.
 
 ---
 
@@ -211,9 +204,13 @@ jobs:
 
 - **No `mix` commands on the server** — use release commands only
 - **No secrets in `config/config.exs` or `config/prod.exs`** — runtime only
-- **No deploys that skip tests** — the `needs: test` gate is not optional
-- **No direct pushes that bypass the workflow** — always push to `main` and
-  let the workflow run
+- **No secrets in cloud-init, droplet metadata, or the image** — they arrive
+  over SSH at deploy time
+- **No deploys that skip tests** — the `needs:` gate is not optional
+- **No migrations after the swap** — the gate runs before traffic moves
+- **No `terraform.tfvars`** — tfvars outrank `TF_VAR_*` env and would silently
+  override what the bootstrap passes in
+- **No committed Terraform state** — `infra/.gitignore` covers state, backend
+  pointers and real tfvars
 - **No hardcoded hostnames** — `PHX_HOST` comes from the environment
-- **No ignoring IPv6 settings** — Fly's internal network is IPv6, the
-  `ECTO_IPV6` and `ERL_AFLAGS` settings are not optional
+- **No `DATABASE_BACKEND=sqlite`** — it would plan the managed cluster away

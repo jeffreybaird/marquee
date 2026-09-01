@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.UpdatePlatformPlansAndSubscriptions do
+defmodule Marquee.Repo.Migrations.UpdatePlatformPlansAndSubscriptions do
   use Ecto.Migration
 
   def change do

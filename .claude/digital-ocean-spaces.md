@@ -8,11 +8,11 @@ Phoenix server.
 This file is for operators setting up the storage layer. Application
 code lives in:
 
-- `lib/bobine/storage.ex` — the context
-- `lib/bobine/storage/spaces_client_behaviour.ex` — the mockable contract
-- `lib/bobine/storage/spaces_client.ex` — the real client (wraps `ex_aws_s3`)
-- `lib/bobine_web/live/admin/image_upload_handlers.ex` — the shared LiveView macro
-- `lib/bobine_web/components/admin_components.ex` — the `image_upload_field/1` UI
+- `lib/marquee/storage.ex` — the context
+- `lib/marquee/storage/spaces_client_behaviour.ex` — the mockable contract
+- `lib/marquee/storage/spaces_client.ex` — the real client (wraps `ex_aws_s3`)
+- `lib/marquee_web/live/admin/image_upload_handlers.ex` — the shared LiveView macro
+- `lib/marquee_web/components/admin_components.ex` — the `image_upload_field/1` UI
 - `assets/js/hooks/spaces_uploader.ts` — the JS hook that PUTs to Spaces
 
 ## Environment variables
@@ -25,10 +25,10 @@ Fly secrets.
 | --- | --- | --- | --- |
 | `SPACES_ACCESS_KEY_ID` | yes (non-test) | `DO00ABCD1234EFGH5678` | Generated in the DO control panel under **API → Spaces access keys** |
 | `SPACES_SECRET_ACCESS_KEY` | yes (non-test) | `abcdefg…` | The matching secret (shown once at creation time) |
-| `SPACES_BUCKET` | no | `bobine` | Bucket name. Defaults to `"bobine"` (compiled default in `config.exs`) |
+| `SPACES_BUCKET` | no | `marquee` | Bucket name. Defaults to `"marquee"` (compiled default in `config.exs`) |
 | `SPACES_REGION` | no | `nyc3` | Region slug |
 | `SPACES_HOST` | no | `nyc3.digitaloceanspaces.com` | S3 endpoint host |
-| `SPACES_PUBLIC_URL_BASE` | no | `https://cdn.bobine.io` | Override if you put a CDN in front of the bucket |
+| `SPACES_PUBLIC_URL_BASE` | no | `https://cdn.marquee.io` | Override if you put a CDN in front of the bucket |
 
 ## Bucket CORS policy
 
@@ -44,8 +44,8 @@ URLs will not get CORS headers back and the browser fires a bare
 [
   {
     "AllowedOrigins": [
-      "https://*.bobine.io",
-      "https://bobine.io",
+      "https://*.marquee.io",
+      "https://marquee.io",
       "http://localhost:4000",
       "http://*.localhost:4000"
     ],
@@ -99,14 +99,14 @@ upload files with the same name.
 Presigned URLs are valid for **15 minutes** by default. That's the
 time window between the operator picking a file and the browser
 finishing the PUT. If a user has a very large file on a slow connection
-they'll need to re-pick; we can raise this in `Bobine.Storage` if
+they'll need to re-pick; we can raise this in `Marquee.Storage` if
 needed.
 
 ## Testing
 
 Tests never touch real Spaces. `config/test.exs` sets
-`client: Bobine.Storage.MockSpacesClient`, a Mox-defined stub. Use
+`client: Marquee.Storage.MockSpacesClient`, a Mox-defined stub. Use
 `expect/3` in test setup to control what the client returns — see
-`test/bobine/storage_test.exs` and
-`test/bobine_web/live/admin/series_live_image_upload_test.exs` for
+`test/marquee/storage_test.exs` and
+`test/marquee_web/live/admin/series_live_image_upload_test.exs` for
 examples.

@@ -4,7 +4,7 @@
  * Used by: Admin.ContentLive
  *
  * Handles direct video upload from browser to Mux.
- * Video bytes never touch Bobine's servers.
+ * Video bytes never touch Marquee's servers.
  *
  * This hook lives on a persistent element outside the upload modal.
  * It captures selected files when they change, so file references

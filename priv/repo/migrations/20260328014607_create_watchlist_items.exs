@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateWatchlistItems do
+defmodule Marquee.Repo.Migrations.CreateWatchlistItems do
   use Ecto.Migration
 
   def change do

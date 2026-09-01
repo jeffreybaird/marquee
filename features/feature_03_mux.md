@@ -1,6 +1,6 @@
 # Task: Feature 03 — Mux Video Upload and Playback
 
-This feature turns Bobine from an admin shell into a functioning video platform.
+This feature turns Marquee from an admin shell into a functioning video platform.
 Operators upload videos, Mux encodes them, viewers watch them. This is the core
 value proposition.
 
@@ -16,10 +16,10 @@ This task has 7 parts. Do them in order. Run `mix test` after each part.
 
 ### Create the behaviour
 
-`lib/bobine/content/mux_client_behaviour.ex`:
+`lib/marquee/content/mux_client_behaviour.ex`:
 
 ```elixir
-defmodule Bobine.Content.MuxClientBehaviour do
+defmodule Marquee.Content.MuxClientBehaviour do
   @callback create_direct_upload(map()) :: {:ok, map()} | {:error, :mux_error, term()}
   @callback get_asset(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
   @callback delete_asset(String.t()) :: :ok | {:error, :mux_error, term()}
@@ -29,7 +29,7 @@ end
 
 ### Create the real client
 
-`lib/bobine/content/mux_client.ex`:
+`lib/marquee/content/mux_client.ex`:
 
 Implements `MuxClientBehaviour`. Uses the Mux Elixir SDK (`Mux` hex package).
 Reads credentials from application config:
@@ -37,16 +37,16 @@ Reads credentials from application config:
 ```elixir
 defp config do
   %{
-    token_id: Application.fetch_env!(:bobine, :mux_token_id),
-    token_secret: Application.fetch_env!(:bobine, :mux_token_secret)
+    token_id: Application.fetch_env!(:marquee, :mux_token_id),
+    token_secret: Application.fetch_env!(:marquee, :mux_token_secret)
   }
 end
 ```
 
 **Every function must:**
-- Be wrapped in a `Bobine.Telemetry.with_span` with name `bobine.mux.<operation>`
-- Include an idempotency key via `Bobine.Idempotency`
-- Set span attributes for `bobine.service: "mux"` and the operation name
+- Be wrapped in a `Marquee.Telemetry.with_span` with name `marquee.mux.<operation>`
+- Include an idempotency key via `Marquee.Idempotency`
+- Set span attributes for `marquee.service: "mux"` and the operation name
 - Return `{:error, :mux_error, details}` on failure (never raise)
 - Log at `info` on success and `error` on failure with structured metadata
 
@@ -59,7 +59,7 @@ Creates a Mux direct upload URL. Params include:
 Returns `{:ok, %{upload_id: id, upload_url: url}}`.
 
 The upload URL is what the browser sends the video file directly to. Video
-bytes never pass through Bobine's servers.
+bytes never pass through Marquee's servers.
 
 ### `get_asset/1`
 
@@ -74,10 +74,10 @@ Deletes a Mux asset. Used when an operator deletes a video.
 
 ```elixir
 # config/config.exs
-config :bobine, :mux_client, Bobine.Content.MuxClient
+config :marquee, :mux_client, Marquee.Content.MuxClient
 
 # config/test.exs
-config :bobine, :mux_client, Bobine.Content.MockMuxClient
+config :marquee, :mux_client, Marquee.Content.MockMuxClient
 ```
 
 ### Create the mock
@@ -85,8 +85,8 @@ config :bobine, :mux_client, Bobine.Content.MockMuxClient
 `test/support/mocks.ex` — add:
 
 ```elixir
-Mox.defmock(Bobine.Content.MockMuxClient,
-  for: Bobine.Content.MuxClientBehaviour)
+Mox.defmock(Marquee.Content.MockMuxClient,
+  for: Marquee.Content.MuxClientBehaviour)
 ```
 
 ### Accessing the client
@@ -95,7 +95,7 @@ All content context functions resolve the client from config:
 
 ```elixir
 defp mux_client do
-  Application.get_env(:bobine, :mux_client, Bobine.Content.MuxClient)
+  Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
 end
 ```
 
@@ -107,8 +107,8 @@ end
 
 ```elixir
 def create_upload_url(scope, attrs) do
-  Telemetry.with_span "bobine.content.create_upload_url",
-    %{"bobine.org.id" => scope.organization.id} do
+  Telemetry.with_span "marquee.content.create_upload_url",
+    %{"marquee.org.id" => scope.organization.id} do
 
     with {:ok, upload} <- mux_client().create_direct_upload(%{
            cors_origin: build_cors_origin(scope.organization),
@@ -159,7 +159,7 @@ live updates via PubSub.
 
 ### Webhook controller
 
-Update `lib/bobine_web/controllers/webhook_controller.ex` to handle Mux
+Update `lib/marquee_web/controllers/webhook_controller.ex` to handle Mux
 webhooks. The controller must:
 
 1. Read the raw request body for signature verification
@@ -194,17 +194,17 @@ defp enqueue_mux_webhook(payload) do
   trace_ctx = :otel_propagator_text_map.inject(:otel_ctx.get_current(), [])
 
   %{payload: payload, trace_context: Map.new(trace_ctx)}
-  |> Bobine.Workers.MuxWebhookProcessor.new()
+  |> Marquee.Workers.MuxWebhookProcessor.new()
   |> Oban.insert()
 end
 ```
 
 ### Mux webhook processor worker
 
-`lib/bobine/workers/mux_webhook_processor.ex`:
+`lib/marquee/workers/mux_webhook_processor.ex`:
 
 ```elixir
-defmodule Bobine.Workers.MuxWebhookProcessor do
+defmodule Marquee.Workers.MuxWebhookProcessor do
   use Oban.Worker,
     queue: :mux,
     unique: [period: 60, fields: [:args], keys: [:payload]]
@@ -221,7 +221,7 @@ defmodule Bobine.Workers.MuxWebhookProcessor do
 
     Logger.metadata(event_type: payload["type"])
 
-    Tracer.with_span "bobine.worker.mux_webhook_processor" do
+    Tracer.with_span "marquee.worker.mux_webhook_processor" do
       handle_event(payload["type"], payload["data"])
     end
   end
@@ -273,7 +273,7 @@ Each of these must:
 Ensure `router.ex` has:
 
 ```elixir
-scope "/webhooks", BobineWeb do
+scope "/webhooks", MarqueeWeb do
   pipe_through :api
   post "/mux", WebhookController, :mux
 end
@@ -285,7 +285,7 @@ The `:api` pipeline must NOT include CSRF protection or session handling.
 
 ## Part 4: Content Management LiveView (Admin)
 
-Build out `lib/bobine_web/live/admin/content_live.ex` from its placeholder
+Build out `lib/marquee_web/live/admin/content_live.ex` from its placeholder
 into a functional content management page.
 
 ### Index view (`/admin/content`)
@@ -308,14 +308,14 @@ to the org's event topic in `mount/3`:
 
 ```elixir
 if connected?(socket) do
-  Bobine.Events.subscribe(socket.assigns.organization.id)
+  Marquee.Events.subscribe(socket.assigns.organization.id)
 end
 ```
 
 Handle the event:
 
 ```elixir
-def handle_info({:bobine_event, {:video_ready, video}, _scope}, socket) do
+def handle_info({:marquee_event, {:video_ready, video}, _scope}, socket) do
   # Update the video in the list
   {:noreply, update_video_in_list(socket, video)}
 end
@@ -360,7 +360,7 @@ Add a confirmation dialog before delete.
 
 ## Part 5: Video Player Page (Viewer)
 
-Build out `lib/bobine_web/live/viewer/watch_live.ex` from its placeholder.
+Build out `lib/marquee_web/live/viewer/watch_live.ex` from its placeholder.
 
 ### Architecture: Static shell with LiveView island
 
@@ -414,7 +414,7 @@ def handle_event("playback_progress", %{"position" => pos}, socket) do
 end
 ```
 
-The `Engagement.update_progress/3` function writes to `Bobine.Buffers.ProgressBuffer`,
+The `Engagement.update_progress/3` function writes to `Marquee.Buffers.ProgressBuffer`,
 not to `Repo`. See `.claude/scalability.md` for the buffer pattern.
 
 For now, a simple ETS-backed buffer with a GenServer flush every 30 seconds
@@ -448,7 +448,7 @@ Handles the direct upload to Mux from the browser. Uses the
  * MuxUploader hook
  *
  * Handles direct video upload from browser to Mux.
- * Video bytes never touch Bobine's servers.
+ * Video bytes never touch Marquee's servers.
  *
  * Events received from server:
  *   - "start_upload" { upload_url: string, video_id: string }
@@ -531,7 +531,7 @@ LiveView server.
  *
  * DOM attributes read:
  *   - data-playback-id: Mux playback ID
- *   - data-video-id: Bobine video ID
+ *   - data-video-id: Marquee video ID
  *   - data-resume-position: Seconds to seek to on load
  *   - data-accent-color: Brand primary color for the player
  *
@@ -632,7 +632,7 @@ Add to the root layout `<head>`:
 
 ### MuxClient tests (with Mox)
 
-`test/bobine/content/mux_client_test.exs`
+`test/marquee/content/mux_client_test.exs`
 
 These test the Content context functions, not the Mux client itself (which
 is mocked).
@@ -657,7 +657,7 @@ end
 
 ### Webhook processor tests
 
-`test/bobine/workers/mux_webhook_processor_test.exs`
+`test/marquee/workers/mux_webhook_processor_test.exs`
 
 Test each webhook event type:
 
@@ -703,7 +703,7 @@ end
 
 ### Content LiveView tests
 
-`test/bobine_web/live/admin/content_live_test.exs`
+`test/marquee_web/live/admin/content_live_test.exs`
 
 - Page renders video list for the organization
 - Empty state shown when no videos exist
@@ -717,7 +717,7 @@ end
 
 ### Watch LiveView tests
 
-`test/bobine_web/live/viewer/watch_live_test.exs`
+`test/marquee_web/live/viewer/watch_live_test.exs`
 
 - Page renders video title and player element
 - Non-existent video redirects to home
@@ -729,7 +729,7 @@ end
 
 ### Webhook controller tests
 
-`test/bobine_web/controllers/webhook_controller_test.exs`
+`test/marquee_web/controllers/webhook_controller_test.exs`
 
 - Valid Mux webhook is accepted and job is enqueued
 - Invalid signature returns 400

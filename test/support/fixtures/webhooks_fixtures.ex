@@ -1,10 +1,10 @@
-defmodule Bobine.WebhooksFixtures do
+defmodule Marquee.WebhooksFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Bobine.Webhooks` context.
+  entities via the `Marquee.Webhooks` context.
   """
 
-  import Bobine.Factory
+  import Marquee.Factory
 
   @doc """
   Generate a endpoint.
@@ -21,7 +21,7 @@ defmodule Bobine.WebhooksFixtures do
         secret: "some secret",
         url: "some url"
       })
-      |> Bobine.Webhooks.create_endpoint()
+      |> Marquee.Webhooks.create_endpoint()
 
     endpoint
   end

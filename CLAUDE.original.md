@@ -1,4 +1,4 @@
-# CLAUDE.md — Bobine
+# CLAUDE.md — Marquee
 
 This file is read automatically by Claude Code on every session. Follow all rules
 here without exception unless the user explicitly overrides one for a specific task.
@@ -26,7 +26,7 @@ file(s) when working in a specific area:
 
 ## Project Overview
 
-Bobine is a multi-tenant SaaS OTT video platform built with Elixir / Phoenix
+Marquee is a multi-tenant SaaS OTT video platform built with Elixir / Phoenix
 1.8 / LiveView. Businesses (tenants) use an operator dashboard to manage video
 content, configure their branded viewer-facing site, and monetize via
 subscriptions. Video infrastructure is powered by Mux. Billing is powered by
@@ -81,7 +81,7 @@ For detailed patterns and code examples, see `.claude/architecture-decisions.md`
 
 Never write high-frequency data directly to Postgres. Playback progress,
 analytics events, and any operation that fires more than once per viewer per
-minute must go through a write buffer (`Bobine.Buffer` behaviour) that
+minute must go through a write buffer (`Marquee.Buffer` behaviour) that
 batches and flushes periodically. Context function callers must never know
 whether the write is buffered or direct — the interface is the same.
 
@@ -98,7 +98,7 @@ read-replica routing as a configuration change, not a rewrite.
 ### 3. Cache Frequently-Read, Infrequently-Written Data
 
 Organization resolution, themes, row configuration, video metadata, and
-subscription status must go through `Bobine.Cache`. The cache implementation
+subscription status must go through `Marquee.Cache`. The cache implementation
 is ETS/Cachex today, swappable to Redis later. Invalidation happens via the
 event system — when an operator updates a resource, the event broadcast
 triggers cache invalidation across the Fly cluster.
@@ -134,7 +134,7 @@ Oban job must include `organization_id` in its args.
 
 ### 7. Emit Events, Don't Inline Side Effects
 
-Context functions broadcast events via `Bobine.Events`. Side effects (audit
+Context functions broadcast events via `Marquee.Events`. Side effects (audit
 logging, webhook dispatch, analytics, notifications, cache invalidation) are
 handled by subscribers, not inline in the context function. Adding a new side
 effect means adding a new subscriber, not modifying existing code.
@@ -146,7 +146,7 @@ See `.claude/architecture-decisions.md` for the event broadcasting pattern.
 Every context mutation gets an OpenTelemetry span. Every external API call
 gets a span with service-specific attributes. Every Oban worker restores
 trace context from the enqueuing request. Every business-significant event
-emits a metric via `Bobine.Metrics`. Every log line uses structured metadata
+emits a metric via `Marquee.Metrics`. Every log line uses structured metadata
 with `trace_id`, `span_id`, `org_id`, and `user_id`.
 
 See `.claude/observability.md` for span naming, metric conventions, and
@@ -161,7 +161,7 @@ must not slow down other orgs' page loads.
 
 ### 10. Design Interfaces for Tomorrow, Implement for Today
 
-Use behaviours (`Bobine.Buffer`, `Bobine.Cache`, `Bobine.Content.MuxClientBehaviour`)
+Use behaviours (`Marquee.Buffer`, `Marquee.Cache`, `Marquee.Content.MuxClientBehaviour`)
 so implementations can be swapped without changing callers. Use consistent
 error tuples so a future API layer maps cleanly to HTTP responses. Use
 pagination parameters on every list function even if the UI doesn't paginate
@@ -269,7 +269,7 @@ changed, and from which IP — including impersonation context.
 
 Before **every commit**:
 
-- Run `mix bobine.verify`
+- Run `mix marquee.verify`
 - Run `mix test`
 
 Do not commit if checks fail.

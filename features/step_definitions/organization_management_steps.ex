@@ -1,11 +1,11 @@
-defmodule BobineFeatures.Steps.OrganizationManagement do
+defmodule MarqueeFeatures.Steps.OrganizationManagement do
   @moduledoc """
   Step definitions for organization_management.feature.
 
   Coverage:
   - Super Admin Organization Management feature: list / create / edit
     are Wallaby-driven against the /super/organizations LiveViews. Soft
-    delete + restore drop to the `Bobine.Admin` context because the
+    delete + restore drop to the `Marquee.Admin` context because the
     super admin LiveView does not yet expose UI controls for those
     actions (the moduledoc on OrganizationShowLive mentions them but
     no buttons are rendered). Impersonation drives the real form POST
@@ -16,7 +16,7 @@ defmodule BobineFeatures.Steps.OrganizationManagement do
   Not covered in this round:
   - Team Membership Management feature. The /admin/members "Team" tab
     currently renders "Team member management coming soon." There is
-    no `Bobine.Accounts.invite_member/3` or `delete_membership/1`
+    no `Marquee.Accounts.invite_member/3` or `delete_membership/1`
     public API yet, so step definitions would either drive an unbuilt
     UI or invent context functions. Left undefined intentionally; will
     surface as pending until the team mgmt LiveView ships.
@@ -26,13 +26,13 @@ defmodule BobineFeatures.Steps.OrganizationManagement do
 
   use Wallaby.DSL
   import Wallaby.Query
-  import Bobine.Factory
+  import Marquee.Factory
   import ExUnit.Assertions
 
-  alias Bobine.Admin
-  alias Bobine.Accounts.{Organization, User}
-  alias Bobine.Repo
-  alias BobineWeb.WallabyCase
+  alias Marquee.Admin
+  alias Marquee.Accounts.{Organization, User}
+  alias Marquee.Repo
+  alias MarqueeWeb.WallabyCase
 
   # ---- Login --------------------------------------------------------------
 
@@ -203,7 +203,7 @@ defmodule BobineFeatures.Steps.OrganizationManagement do
     user = Repo.get_by!(User, email: "owner@example.com")
     org = world[:created_org] || Repo.get_by!(Organization, slug: "new-cucumber-org")
 
-    membership = Bobine.Accounts.get_membership(org, user)
+    membership = Marquee.Accounts.get_membership(org, user)
     assert membership, "expected owner membership for #{user.email} on #{org.slug}"
     assert membership.role == :owner
 
@@ -277,7 +277,7 @@ defmodule BobineFeatures.Steps.OrganizationManagement do
     # AuditSubscriber fires on event broadcast; wait briefly for the async
     # write then look for an entry mentioning the promoted user.
     Process.sleep(200)
-    %{results: entries} = Bobine.Audit.list_all(%{}, per_page: 50)
+    %{results: entries} = Marquee.Audit.list_all(%{}, per_page: 50)
 
     assert Enum.any?(entries, fn e ->
              e.action in ["super_admin.granted", "user.super_admin_granted"] and
@@ -296,7 +296,7 @@ defmodule BobineFeatures.Steps.OrganizationManagement do
 
   then_ "the revocation is recorded in the audit log", fn world ->
     Process.sleep(200)
-    %{results: entries} = Bobine.Audit.list_all(%{}, per_page: 50)
+    %{results: entries} = Marquee.Audit.list_all(%{}, per_page: 50)
 
     assert Enum.any?(entries, fn e ->
              e.action in ["super_admin.revoked", "user.super_admin_revoked"] and

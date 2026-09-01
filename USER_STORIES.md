@@ -1,4 +1,4 @@
-# Bobine — User Stories
+# Marquee — User Stories
 
 Derived from code inventory (lib/, routes, contexts, workers) cross-checked against Gherkin scenarios in `features/`. Each story lists role, goal, value. **Coverage** flags whether a Cucumber scenario exists.
 
@@ -156,7 +156,7 @@ Legend: ✅ covered · ⚠️ partial · ❌ missing
 ## 6. Live Events & Streaming
 
 ### Operator
-- **LE-OP-1** Create / edit / delete live event (title, schedule, access level, recording config). ⚠️ (admin scenarios missing in features; code in `lib/bobine_web/live/admin/live_event_live/`)
+- **LE-OP-1** Create / edit / delete live event (title, schedule, access level, recording config). ⚠️ (admin scenarios missing in features; code in `lib/marquee_web/live/admin/live_event_live/`)
 - **LE-OP-2** Moderate chat (ban viewers). ❌
 
 ### Viewer

@@ -1,4 +1,4 @@
-defmodule Bobine.Repo.Migrations.CreateAnalyticsEvents do
+defmodule Marquee.Repo.Migrations.CreateAnalyticsEvents do
   use Ecto.Migration
 
   def change do

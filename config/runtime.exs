@@ -12,7 +12,7 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/bobine start
+#     PHX_SERVER=true bin/marquee start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
@@ -27,16 +27,16 @@ if config_env() == :dev and File.exists?(".env") do
 end
 
 if System.get_env("PHX_SERVER") do
-  config :bobine, BobineWeb.Endpoint, server: true
+  config :marquee, MarqueeWeb.Endpoint, server: true
 end
 
 if config_env() != :test do
-  config :bobine, BobineWeb.Endpoint,
+  config :marquee, MarqueeWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
   # Mux credentials — read from env vars (set via .env in dev, Fly secrets in prod)
   if mux_token_id = System.get_env("MUX_TOKEN_ID") do
-    config :bobine,
+    config :marquee,
       mux_token_id: mux_token_id,
       mux_token_secret: System.get_env("MUX_TOKEN_SECRET"),
       mux_webhook_secret: System.get_env("MUX_WEBHOOK_SECRET")
@@ -48,11 +48,11 @@ if config_env() != :test do
   end
 
   if stripe_webhook_secret = System.get_env("STRIPE_WEBHOOK_SECRET") do
-    config :bobine, :stripe_webhook_secret, stripe_webhook_secret
+    config :marquee, :stripe_webhook_secret, stripe_webhook_secret
   end
 
   if stripe_connect_webhook_secret = System.get_env("STRIPE_CONNECT_WEBHOOK_SECRET") do
-    config :bobine, :stripe_connect_webhook_secret, stripe_connect_webhook_secret
+    config :marquee, :stripe_connect_webhook_secret, stripe_connect_webhook_secret
   end
 
   # DigitalOcean Spaces (S3-compatible) credentials. Required for image
@@ -66,7 +66,7 @@ if config_env() != :test do
 
   # Allow env-time override of the bucket / region for staging buckets, etc.
   if spaces_bucket = System.get_env("SPACES_BUCKET") do
-    config :bobine, Bobine.Storage,
+    config :marquee, Marquee.Storage,
       bucket: spaces_bucket,
       region: System.get_env("SPACES_REGION", "nyc3"),
       host: System.get_env("SPACES_HOST", "nyc3.digitaloceanspaces.com"),
@@ -101,7 +101,7 @@ if config_env() == :prod do
 
   # Grafana Cloud Loki — ship logs directly from the app
   if loki_url = System.get_env("GRAFANA_LOKI_URL") do
-    config :bobine,
+    config :marquee,
       grafana_loki_url: loki_url,
       grafana_loki_auth: System.get_env("GRAFANA_LOKI_AUTH")
   end
@@ -115,8 +115,7 @@ if config_env() == :prod do
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
-  config :bobine, Bobine.Repo,
-    # ssl: true,
+  config :marquee, Marquee.Repo,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     # For machines with several cores, consider starting multiple pools of `pool_size`
@@ -137,9 +136,9 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
-  config :bobine, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  config :marquee, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :bobine, BobineWeb.Endpoint,
+  config :marquee, MarqueeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Enable IPv6 and bind on all interfaces.
@@ -155,7 +154,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :bobine, BobineWeb.Endpoint,
+  #     config :marquee, MarqueeWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -177,18 +176,18 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your config/prod.exs,
   # ensuring no data is ever sent via http, always redirecting to https:
   #
-  #     config :bobine, BobineWeb.Endpoint,
+  #     config :marquee, MarqueeWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
   # Transactional email via Resend (optional — falls back to local adapter if not set)
   if resend_key = System.get_env("RESEND_API_KEY") do
-    config :bobine, Bobine.Mailer,
+    config :marquee, Marquee.Mailer,
       adapter: Swoosh.Adapters.Resend,
       api_key: resend_key
 
-    config :bobine,
+    config :marquee,
       mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
   end
 
@@ -200,4 +199,29 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+end
+
+# == push-button-deploy: database TLS ==
+# Appended by ensure-db-tls.sh — managed Postgres requires TLS, and Ecto does
+# not infer it from the URL. Appended last so Config merging makes this the
+# Repo's effective :ssl value. When the deploy delivers the cluster CA
+# (DATABASE_CA_FILE), the server certificate is fully verified; without it the
+# connection is still encrypted, just not verified.
+if config_env() == :prod do
+  config :marquee, Marquee.Repo,
+    ssl:
+      (case System.get_env("DATABASE_CA_FILE") do
+         nil ->
+           [verify: :verify_none]
+
+         cacertfile ->
+           [
+             verify: :verify_peer,
+             cacertfile: cacertfile,
+             depth: 3,
+             customize_hostname_check: [
+               match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+             ]
+           ]
+       end)
 end
