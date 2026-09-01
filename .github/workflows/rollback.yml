@@ -86,10 +86,9 @@ jobs:
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # Identical .env contract to deploy.yml, IMAGE pinned to the chosen tag.
-      # LOCAL MODIFICATION: SQLite branches removed (Marquee is Postgres-only) and
-      # Marquee's runtime configuration shipped. Keep this list in step with
-      # deploy.yml — a rollback that drops a secret is an outage of its own.
-      - name: Write .env (pinned image)
+      # DB-specific lines branch on vars.DATABASE_BACKEND (empty = postgres).
+      - name: Write .env (Postgres, pinned image)
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           umask 077
           cat > .env <<EOF
@@ -98,32 +97,28 @@ jobs:
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
-          POOL_SIZE=${{ vars.POOL_SIZE }}
-          MUX_TOKEN_ID=${{ secrets.MUX_TOKEN_ID }}
-          MUX_TOKEN_SECRET=${{ secrets.MUX_TOKEN_SECRET }}
-          MUX_WEBHOOK_SECRET=${{ secrets.MUX_WEBHOOK_SECRET }}
-          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_CONNECT_WEBHOOK_SECRET=${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
-          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
-          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
-          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
-          SPACES_REGION=${{ vars.SPACES_REGION }}
-          SPACES_HOST=${{ vars.SPACES_HOST }}
-          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
-          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-          MAILER_FROM=${{ vars.MAILER_FROM }}
-          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
-          OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_AUTH_HEADER=${{ secrets.OTEL_EXPORTER_OTLP_AUTH_HEADER }}
-          GRAFANA_LOKI_URL=${{ vars.GRAFANA_LOKI_URL }}
-          GRAFANA_LOKI_AUTH=${{ secrets.GRAFANA_LOKI_AUTH }}
           EOF
-          # See deploy.yml: "" is truthy in Elixir, so an unset name must not
-          # reach runtime.exs as an empty value.
-          sed -i '/^[A-Z_0-9]*=$/d' .env
+
+      - name: Write .env (SQLite, pinned image)
+        if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
+        run: |
+          umask 077
+          cat > .env <<EOF
+          IMAGE=${{ steps.meta.outputs.image }}:${TAG}
+          DOMAIN=${{ vars.DOMAIN }}
+          APP_SLUG=${APP_SLUG}
+          SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
+          DATABASE_PATH=${{ vars.DATABASE_PATH }}
+          LITESTREAM_ACCESS_KEY_ID=${{ secrets.LITESTREAM_ACCESS_KEY_ID }}
+          LITESTREAM_SECRET_ACCESS_KEY=${{ secrets.LITESTREAM_SECRET_ACCESS_KEY }}
+          BACKUP_BUCKET=${{ vars.BACKUP_BUCKET }}
+          BACKUP_ENDPOINT=${{ vars.BACKUP_ENDPOINT }}
+          BACKUP_REGION=${{ vars.BACKUP_REGION }}
+          BACKUP_PATH=${{ vars.BACKUP_PATH }}
+          EOF
 
       - name: Write db-ca.pem
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           printf '%s\n' "${{ secrets.DATABASE_CA_CERT }}" > db-ca.pem
           chmod 644 db-ca.pem
@@ -145,10 +140,18 @@ jobs:
             deploy/Caddyfile deploy/site.caddy.tmpl deploy/edge.sh \
             root@"$HOST":/root/caddy/
 
-      - name: Copy stack files + .env to droplet
+      - name: Copy stack files + .env to droplet (Postgres)
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
             deploy/compose.yaml deploy/swap.sh db-ca.pem .env \
+            root@"$HOST":"$STACK_DIR"/
+
+      - name: Copy stack files + .env to droplet (SQLite)
+        if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            deploy/compose.yaml deploy/swap.sh deploy/litestream.yml .env \
             root@"$HOST":"$STACK_DIR"/
 
       - name: Prepare shared edge (network, Caddy, route)

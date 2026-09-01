@@ -4,39 +4,14 @@
 # Runs on GitHub's native amd64 runners — no QEMU, unlike a local Apple-Silicon
 # cross-build.
 #
-# LOCAL MODIFICATIONS — this file differs from the push-button-deploy template:
-#   * the test gate runs `mix test --exclude e2e` (ci.yml owns the browser suite)
-#   * the SQLite branches are removed; Marquee is Postgres-only
-#   * .env carries Marquee's runtime configuration (Mux, Stripe, Spaces, mail,
-#     telemetry) on top of the two secrets the template ships
-# `bootstrap.sh` COPIES this file unconditionally, so a bootstrap re-run
-# overwrites these edits. Re-apply them afterwards (same for Dockerfile,
-# .dockerignore, deploy/*, rollback.yml — only infra/ is seed-once).
-#
 # Required repo config (seeded by bootstrap, story 6.2):
 #   secret DIGITALOCEAN_ACCESS_TOKEN  - DO API token (registry + droplet)
-#   secret SSH_PRIVATE_KEY            - deploy key matching the droplet's
-#   secret DATABASE_URL               - ecto:// over the private VPC
-#   secret DATABASE_CA_CERT           - managed-cluster CA (TLS verify_peer)
-#   secret SECRET_KEY_BASE            - Phoenix secret
 #   var    DOCR_REGISTRY              - DO Container Registry name
-#   var    DOMAIN                     - public FQDN (matches the A record/cert)
-#   var    DROPLET_HOST               - reserved IP / host to SSH into
 #   var    FIREWALL_ID                - droplet firewall (temporary SSH hole-punch)
 #   var    APP_SLUG                   - this app's slug on the droplet; keeps the
 #                                       stack dir, compose project, Caddy site
 #                                       file and network aliases from colliding
 #                                       with any other app on the same host
-#
-# Marquee-specific (all optional — an unset name disables that integration):
-#   secrets MUX_TOKEN_ID, MUX_TOKEN_SECRET, MUX_WEBHOOK_SECRET,
-#           STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-#           STRIPE_CONNECT_WEBHOOK_SECRET, SPACES_ACCESS_KEY_ID,
-#           SPACES_SECRET_ACCESS_KEY, RESEND_API_KEY, PEXELS_API_KEY,
-#           OTEL_EXPORTER_OTLP_AUTH_HEADER, GRAFANA_LOKI_AUTH
-#   vars    POOL_SIZE, SPACES_BUCKET, SPACES_REGION, SPACES_HOST,
-#           SPACES_PUBLIC_URL_BASE, MAILER_FROM,
-#           OTEL_EXPORTER_OTLP_ENDPOINT, GRAFANA_LOKI_URL
 name: deploy
 
 on:
@@ -106,17 +81,12 @@ jobs:
           restore-keys: |
             mix-test-${{ runner.os }}-${{ steps.vers.outputs.elixir }}-${{ steps.vers.outputs.otp }}-
 
-      # The `mix test` alias runs ecto.create + ecto.migrate first; config/test.exs
-      # expects postgres:postgres@localhost (the service above).
-      #
-      # e2e is excluded here on purpose: those specs drive a real browser through
-      # Wallaby/chromedriver, which ci.yml provisions in its own `e2e` job. This
-      # gate is the deploy's own red-tests-block-the-deploy check, not a
-      # replacement for CI.
+      # The generated `mix test` alias runs ecto.create + ecto.migrate first;
+      # config/test.exs expects postgres:postgres@localhost (the service above).
       - name: Run tests
         run: |
           mix deps.get
-          mix test --exclude e2e
+          mix test
 
   build:
     needs: test
@@ -212,12 +182,8 @@ jobs:
       # shipped to the droplet, never committed. (locked decision: secrets arrive
       # over SSH at deploy time, never in cloud-init/metadata.) The DB-specific
       # lines differ by backend (vars.DATABASE_BACKEND; empty = postgres).
-      # LOCAL MODIFICATION (see the header note): the SQLite branch is gone and
-      # Marquee's own runtime configuration is shipped alongside the two secrets
-      # the template writes. Every name below is read by config/runtime.exs; the
-      # optional ones are guarded there by `if System.get_env(...)`, so an unset
-      # secret disables that integration rather than crashing the boot.
-      - name: Write .env
+      - name: Write .env (Postgres)
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           umask 077
           cat > .env <<EOF
@@ -226,36 +192,30 @@ jobs:
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
-          POOL_SIZE=${{ vars.POOL_SIZE }}
-          MUX_TOKEN_ID=${{ secrets.MUX_TOKEN_ID }}
-          MUX_TOKEN_SECRET=${{ secrets.MUX_TOKEN_SECRET }}
-          MUX_WEBHOOK_SECRET=${{ secrets.MUX_WEBHOOK_SECRET }}
-          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_CONNECT_WEBHOOK_SECRET=${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
-          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
-          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
-          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
-          SPACES_REGION=${{ vars.SPACES_REGION }}
-          SPACES_HOST=${{ vars.SPACES_HOST }}
-          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
-          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-          MAILER_FROM=${{ vars.MAILER_FROM }}
-          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
-          OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
-          OTEL_EXPORTER_OTLP_AUTH_HEADER=${{ secrets.OTEL_EXPORTER_OTLP_AUTH_HEADER }}
-          GRAFANA_LOKI_URL=${{ vars.GRAFANA_LOKI_URL }}
-          GRAFANA_LOKI_AUTH=${{ secrets.GRAFANA_LOKI_AUTH }}
           EOF
-          # An unset secret/variable interpolates to nothing, leaving `NAME=`.
-          # Elixir treats "" as truthy, so runtime.exs would configure Mux/Stripe/
-          # Spaces with blank credentials instead of leaving them off. Drop the
-          # empties so "not configured" really means not configured.
-          sed -i '/^[A-Z_0-9]*=$/d' .env
 
-      # The DB cluster CA — public cert material (the container reads it as
-      # 'nobody', so NOT umask 077). Lets the app verify the server cert.
+      - name: Write .env (SQLite)
+        if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
+        run: |
+          umask 077
+          cat > .env <<EOF
+          IMAGE=${IMAGE}
+          DOMAIN=${{ vars.DOMAIN }}
+          APP_SLUG=${APP_SLUG}
+          SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
+          DATABASE_PATH=${{ vars.DATABASE_PATH }}
+          LITESTREAM_ACCESS_KEY_ID=${{ secrets.LITESTREAM_ACCESS_KEY_ID }}
+          LITESTREAM_SECRET_ACCESS_KEY=${{ secrets.LITESTREAM_SECRET_ACCESS_KEY }}
+          BACKUP_BUCKET=${{ vars.BACKUP_BUCKET }}
+          BACKUP_ENDPOINT=${{ vars.BACKUP_ENDPOINT }}
+          BACKUP_REGION=${{ vars.BACKUP_REGION }}
+          BACKUP_PATH=${{ vars.BACKUP_PATH }}
+          EOF
+
+      # Postgres only: the DB cluster CA — public cert material (the container
+      # reads it as 'nobody', so NOT umask 077). Lets the app verify the server cert.
       - name: Write db-ca.pem
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           printf '%s\n' "${{ secrets.DATABASE_CA_CERT }}" > db-ca.pem
           chmod 644 db-ca.pem
@@ -277,10 +237,18 @@ jobs:
             deploy/Caddyfile deploy/site.caddy.tmpl deploy/edge.sh \
             root@"$HOST":/root/caddy/
 
-      - name: Copy stack files + .env to droplet
+      - name: Copy stack files + .env to droplet (Postgres)
+        if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
             deploy/compose.yaml deploy/swap.sh db-ca.pem .env \
+            root@"$HOST":"$STACK_DIR"/
+
+      - name: Copy stack files + .env to droplet (SQLite)
+        if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            deploy/compose.yaml deploy/swap.sh deploy/litestream.yml .env \
             root@"$HOST":"$STACK_DIR"/
 
       # Shared network + shared Caddy + this app's route, before the app starts.
