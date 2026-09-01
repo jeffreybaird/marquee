@@ -14,6 +14,8 @@ defmodule Marquee.Content.Collection do
     field :cover_image_url, :string
     field :position, :integer, default: 0
     field :visible, :boolean, default: true
+    # Starter/sample content seeded at signup; removable in one click.
+    field :is_sample, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     # Legacy fields kept for migration compatibility
@@ -36,6 +38,7 @@ defmodule Marquee.Content.Collection do
       :cover_image_url,
       :position,
       :visible,
+      :is_sample,
       :organization_id,
       :type,
       :parent_id

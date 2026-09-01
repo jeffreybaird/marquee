@@ -28,6 +28,9 @@ defmodule Marquee.Content.Video do
     field :landscape_thumbnail_url, :string
 
     field :is_recording, :boolean, default: false
+    # Starter/sample content seeded at signup. Exempt from the trial
+    # total-duration cap and removable via "clear sample content".
+    field :is_sample, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     belongs_to :organization, Marquee.Accounts.Organization
@@ -56,6 +59,7 @@ defmodule Marquee.Content.Video do
       :portrait_thumbnail_url,
       :landscape_thumbnail_url,
       :is_recording,
+      :is_sample,
       :organization_id
     ])
     |> validate_required([:title, :slug, :organization_id])

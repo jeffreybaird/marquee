@@ -672,4 +672,44 @@ defmodule Marquee.ContentTest do
                Content.reconcile_pending_mux_assets()
     end
   end
+
+  describe "total_ready_duration/1" do
+    setup do
+      %{org: insert(:organization)}
+    end
+
+    test "sums ready, non-deleted, non-sample video durations", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready", duration: 100.0)
+      insert(:video, organization: org, mux_status: "ready", duration: 50.5)
+
+      assert Content.total_ready_duration(org) == 150.5
+    end
+
+    test "excludes sample content from the total", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready", duration: 100.0)
+      insert(:video, organization: org, mux_status: "ready", duration: 9000.0, is_sample: true)
+
+      assert Content.total_ready_duration(org) == 100.0
+    end
+
+    test "excludes non-ready and soft-deleted videos", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready", duration: 100.0)
+      insert(:video, organization: org, mux_status: "preparing", duration: 500.0)
+
+      insert(:video,
+        organization: org,
+        mux_status: "ready",
+        duration: 500.0,
+        deleted_at: ~U[2026-01-01 00:00:00Z]
+      )
+
+      assert Content.total_ready_duration(org) == 100.0
+    end
+
+    test "returns 0.0 when the org has no counted videos", %{org: org} do
+      insert(:video, organization: org, mux_status: "ready", duration: 42.0, is_sample: true)
+
+      assert Content.total_ready_duration(org) == 0.0
+    end
+  end
 end

@@ -47,6 +47,8 @@ defmodule Marquee.Catalog.Row do
     # When :show_details is false, render the card's title overlaid on the
     # thumbnail instead. Ignored when :show_details is true.
     field :title_overlay, :boolean, default: false
+    # Starter/sample content seeded at signup; removable in one click.
+    field :is_sample, :boolean, default: false
     field :deleted_at, :utc_datetime
 
     has_many :row_items, Marquee.Catalog.RowItem
@@ -92,6 +94,7 @@ defmodule Marquee.Catalog.Row do
       :max_items,
       :show_details,
       :title_overlay,
+      :is_sample,
       :organization_id
     ])
     |> validate_required([:title, :source_type, :organization_id])

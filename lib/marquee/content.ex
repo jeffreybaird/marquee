@@ -217,6 +217,8 @@ defmodule Marquee.Content do
 
   Used to enforce a plan's total-duration cap. Videos only carry a duration
   once Mux has processed them, so this reflects known (post-processing) totals.
+  Sample/starter content (`is_sample`) is excluded so seeded guide videos never
+  count against the trial cap.
 
   Exempt from doctest — hits the database.
   """
@@ -225,6 +227,7 @@ defmodule Marquee.Content do
     |> where(organization_id: ^org_id)
     |> where([v], is_nil(v.deleted_at))
     |> where([v], v.mux_status == "ready")
+    |> where([v], not v.is_sample)
     |> Repo.aggregate(:sum, :duration)
     |> case do
       nil -> 0.0
