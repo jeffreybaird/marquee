@@ -81,6 +81,69 @@ defmodule Marquee.PlatformBilling.TrialTest do
 
       refute PlatformBilling.soft_locked?(org)
     end
+
+    test "stays true after the worker flips a lapsed trial to past_due" do
+      org = insert(:organization)
+      past = DateTime.utc_now() |> DateTime.add(-1, :day) |> DateTime.truncate(:second)
+
+      insert(:platform_subscription,
+        organization: org,
+        platform_plan: nil,
+        stripe_subscription_id: nil,
+        status: :past_due,
+        trial_end: past
+      )
+
+      assert PlatformBilling.soft_locked?(org)
+    end
+
+    test "false for a paid subscription that went past_due (payment failure)" do
+      org = insert(:organization)
+      insert(:platform_subscription, organization: org, status: :past_due)
+
+      refute PlatformBilling.soft_locked?(org)
+    end
+  end
+
+  describe "trial_status/1" do
+    test "nil for an org with no subscription" do
+      assert PlatformBilling.trial_status(insert(:organization)) == nil
+    end
+
+    test "nil for a paid subscription" do
+      org = insert(:organization)
+      insert(:platform_subscription, organization: org, status: :active)
+
+      assert PlatformBilling.trial_status(org) == nil
+    end
+
+    test "active with days_left for a live trial" do
+      org = insert(:organization)
+      {:ok, _sub} = PlatformBilling.start_trial(org)
+
+      status = PlatformBilling.trial_status(org)
+
+      assert status.state == :active
+      assert status.days_left > 0 and status.days_left <= PlatformBilling.trial_days()
+    end
+
+    test "expired for an elapsed trial" do
+      org = insert(:organization)
+      past = DateTime.utc_now() |> DateTime.add(-1, :day) |> DateTime.truncate(:second)
+
+      insert(:platform_subscription,
+        organization: org,
+        platform_plan: nil,
+        stripe_subscription_id: nil,
+        status: :past_due,
+        trial_end: past
+      )
+
+      status = PlatformBilling.trial_status(org)
+
+      assert status.state == :expired
+      assert status.days_left == 0
+    end
   end
 
   describe "list_expirable_trials/1 and expire_trial/1" do

@@ -781,9 +781,56 @@ defmodule Marquee.PlatformBilling do
   """
   def soft_locked?(%Organization{} = organization) do
     case get_subscription(organization) do
-      {:ok, sub} -> trial_expired?(sub)
+      {:ok, sub} -> lapsed_trial?(sub)
       _ -> false
     end
+  end
+
+  # A trial is lapsed either before the expiry worker runs (still :trialing but
+  # past trial_end) or after it (:past_due with no Stripe subscription — a trial
+  # never has one). A :past_due WITH a stripe_subscription_id is a failed paid
+  # payment, a different billing state, not a soft-locked trial.
+  defp lapsed_trial?(%PlatformSubscription{status: :trialing} = sub), do: trial_expired?(sub)
+
+  defp lapsed_trial?(%PlatformSubscription{status: :past_due, stripe_subscription_id: nil}),
+    do: true
+
+  defp lapsed_trial?(%PlatformSubscription{}), do: false
+
+  @doc """
+  Summarizes an org's trial for UI, or `nil` if the org is not on a trial.
+
+  Returns `%{state: :active | :expired, days_left: n, trial_end: datetime}`.
+  `days_left` is 0 once the window has elapsed.
+
+  Exempt from doctest — hits the database.
+  """
+  def trial_status(%Organization{} = organization) do
+    case get_subscription(organization) do
+      {:ok, %PlatformSubscription{status: :trialing} = sub} ->
+        build_trial_status(sub)
+
+      {:ok, %PlatformSubscription{status: :past_due, stripe_subscription_id: nil} = sub} ->
+        %{state: :expired, days_left: 0, trial_end: sub.trial_end}
+
+      _ ->
+        nil
+    end
+  end
+
+  defp build_trial_status(%PlatformSubscription{} = sub) do
+    if trial_expired?(sub) do
+      %{state: :expired, days_left: 0, trial_end: sub.trial_end}
+    else
+      %{state: :active, days_left: trial_days_left(sub), trial_end: sub.trial_end}
+    end
+  end
+
+  defp trial_days_left(%PlatformSubscription{trial_end: nil}), do: nil
+
+  defp trial_days_left(%PlatformSubscription{trial_end: trial_end}) do
+    seconds = DateTime.diff(trial_end, DateTime.utc_now(), :second)
+    max(ceil(seconds / 86_400), 0)
   end
 
   @doc """
