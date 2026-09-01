@@ -1,0 +1,15 @@
+# Terraform working files — never commit these.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Real variable files may hold tokens; the .example files are safe to commit.
+*.tfvars
+!*.tfvars.example
+
+# Written by bootstrap.sh/teardown.sh from the project's env (bucket + endpoint).
+backend.hcl
+
+# Written by teardown.sh while it lifts a prevent_destroy guard.
+teardown_override.tf
