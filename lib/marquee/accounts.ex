@@ -6,6 +6,7 @@ defmodule Marquee.Accounts do
   import Ecto.Query, warn: false
   alias Marquee.Branding
   alias Marquee.Branding.Theme
+  alias Marquee.PlatformBilling
   alias Marquee.Repo
 
   alias Marquee.Accounts.{Membership, Organization, User, UserNotifier, UserToken}
@@ -292,7 +293,9 @@ defmodule Marquee.Accounts do
 
   The organization is seeded with the named theme preset (one of
   `Marquee.Branding.Theme.preset_keys/0`) and the user is assigned the `:owner`
-  role. When `theme_preset` is omitted, the platform default preset is used.
+  role. When `theme_preset` is omitted, the platform default preset is used. A
+  self-service trial subscription is started for the new org (no payment info
+  required; see `Marquee.PlatformBilling.start_trial/1`).
 
   Exempt from doctest — hits the database.
   """
@@ -306,7 +309,8 @@ defmodule Marquee.Accounts do
            {:ok, _membership} <-
              %Membership{}
              |> Membership.changeset(%{user_id: user.id, organization_id: org.id, role: :owner})
-             |> Repo.insert() do
+             |> Repo.insert(),
+           {:ok, _subscription} <- PlatformBilling.start_trial(org) do
         {user, org}
       else
         {:error, :validation, changeset} -> Repo.rollback(changeset)

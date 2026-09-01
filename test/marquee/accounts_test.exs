@@ -191,6 +191,20 @@ defmodule Marquee.AccountsTest do
 
       assert theme.background == default.background
     end
+
+    test "starts a trialing subscription for the new org (no payment info)" do
+      email = unique_user_email()
+
+      {:ok, _user, org} =
+        Accounts.register_user_with_organization(%{email: email}, "Trial Signup Org")
+
+      assert {:ok, sub} = Marquee.PlatformBilling.get_subscription(org)
+      assert sub.status == :trialing
+      assert sub.platform_plan_id == nil
+      assert sub.stripe_subscription_id == nil
+      assert sub.stripe_customer_id == nil
+      assert sub.trial_end
+    end
   end
 
   describe "sudo_mode?/2" do

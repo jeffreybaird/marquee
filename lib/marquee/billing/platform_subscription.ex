@@ -29,10 +29,13 @@ defmodule Marquee.Billing.PlatformSubscription do
     timestamps(type: :utc_datetime)
   end
 
-  # stripe_subscription_id is optional: a trialing subscription is created at
-  # signup with no Stripe subscription yet (payment is deferred to day 30).
-  @required_fields [:organization_id, :platform_plan_id, :status]
+  # stripe_subscription_id and platform_plan_id are optional: a trialing
+  # subscription is created at signup with no Stripe subscription yet (payment
+  # deferred to day 30) and no plan row (trial limits come from
+  # PlatformBilling.trial_plan/0, mirroring default_free_plan/0).
+  @required_fields [:organization_id, :status]
   @optional_fields [
+    :platform_plan_id,
     :stripe_subscription_id,
     :stripe_customer_id,
     :current_period_start,

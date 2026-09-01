@@ -67,6 +67,31 @@ defmodule Marquee.ViewersTest do
       assert {:error, :validation, changeset} = Viewers.register_viewer(org, attrs)
       assert "must have the @ sign and no spaces" in errors_on(changeset).email
     end
+
+    test "blocks registration once the plan viewer cap is reached", %{org: org} do
+      plan = insert(:platform_plan, max_viewers: 1)
+      insert(:platform_subscription, organization: org, platform_plan: plan)
+
+      assert {:ok, _viewer} = Viewers.register_viewer(org, %{email: "first@example.com"})
+
+      assert {:error, :plan_limit_reached, %{reached: true}} =
+               Viewers.register_viewer(org, %{email: "second@example.com"})
+    end
+
+    test "blocks registration when the org's trial has expired", %{org: org} do
+      past = DateTime.utc_now() |> DateTime.add(-1, :day) |> DateTime.truncate(:second)
+
+      insert(:platform_subscription,
+        organization: org,
+        platform_plan: nil,
+        stripe_subscription_id: nil,
+        status: :trialing,
+        trial_end: past
+      )
+
+      assert {:error, :trial_expired, %{trial_end: %DateTime{}}} =
+               Viewers.register_viewer(org, %{email: "late@example.com"})
+    end
   end
 
   ## -----------------------------------------------------------------------

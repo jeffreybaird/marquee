@@ -24,9 +24,27 @@ defmodule Marquee.Billing.PlatformSubscriptionTest do
       refute changeset.valid?
       errors = errors_on(changeset)
       assert errors[:organization_id]
-      assert errors[:platform_plan_id]
-      assert errors[:stripe_subscription_id]
       assert errors[:status]
+    end
+
+    # platform_plan_id and stripe_subscription_id are intentionally optional so a
+    # trialing subscription can be created at signup with no Stripe subscription
+    # and no plan row (trial limits come from PlatformBilling.trial_plan/0).
+    test "valid trial changeset without plan or stripe subscription" do
+      org = insert(:organization)
+
+      attrs = %{
+        organization_id: org.id,
+        status: :trialing,
+        trial_start: DateTime.utc_now() |> DateTime.truncate(:second),
+        trial_end: DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
+      }
+
+      changeset = PlatformSubscription.changeset(%PlatformSubscription{}, attrs)
+
+      assert changeset.valid?
+      refute errors_on(changeset)[:platform_plan_id]
+      refute errors_on(changeset)[:stripe_subscription_id]
     end
 
     test "enforces unique constraint on organization_id" do

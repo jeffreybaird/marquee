@@ -206,11 +206,29 @@ defmodule Marquee.Content do
   Exempt from doctest — calls Mux API.
   """
   def create_upload_url(scope, attrs, opts \\ []) do
-    if UsageLimits.can_upload_video?(scope.organization) do
-      do_create_upload_url(scope, attrs, opts)
-    else
-      limit_status = UsageLimits.video_limit_status(scope.organization)
-      {:error, :plan_limit_reached, limit_status}
+    case UsageLimits.check_upload(scope.organization) do
+      :ok -> do_create_upload_url(scope, attrs, opts)
+      {:error, _reason, _meta} = error -> error
+    end
+  end
+
+  @doc """
+  Sums the duration (in seconds) of an organization's ready, non-deleted videos.
+
+  Used to enforce a plan's total-duration cap. Videos only carry a duration
+  once Mux has processed them, so this reflects known (post-processing) totals.
+
+  Exempt from doctest — hits the database.
+  """
+  def total_ready_duration(%Organization{id: org_id}) do
+    Video
+    |> where(organization_id: ^org_id)
+    |> where([v], is_nil(v.deleted_at))
+    |> where([v], v.mux_status == "ready")
+    |> Repo.aggregate(:sum, :duration)
+    |> case do
+      nil -> 0.0
+      total -> total
     end
   end
 

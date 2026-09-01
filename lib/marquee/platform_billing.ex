@@ -628,6 +628,202 @@ defmodule Marquee.PlatformBilling do
   end
 
   ## -----------------------------------------------------------------------
+  ## Self-service trial
+  ## -----------------------------------------------------------------------
+
+  @default_trial_days 30
+  @default_trial_video_seconds 18_000
+  @default_trial_max_viewers 10
+
+  @doc """
+  Number of days a self-service trial lasts. Settable via the
+  `:trial_days` application env; defaults to 30.
+
+  ## Examples
+
+      iex> is_integer(Marquee.PlatformBilling.trial_days())
+      true
+  """
+  def trial_days, do: Application.get_env(:marquee, :trial_days, @default_trial_days)
+
+  @doc """
+  Total seconds of video a trial permits. Settable via the
+  `:trial_video_seconds` application env; defaults to 18000 (5 hours).
+  A value of `-1` means unlimited.
+
+  ## Examples
+
+      iex> Marquee.PlatformBilling.trial_video_seconds()
+      18000
+  """
+  def trial_video_seconds,
+    do: Application.get_env(:marquee, :trial_video_seconds, @default_trial_video_seconds)
+
+  @doc """
+  Maximum end-user viewers a trial permits. Settable via the
+  `:trial_max_viewers` application env; defaults to 10. `-1` means unlimited.
+
+  ## Examples
+
+      iex> Marquee.PlatformBilling.trial_max_viewers()
+      10
+  """
+  def trial_max_viewers,
+    do: Application.get_env(:marquee, :trial_max_viewers, @default_trial_max_viewers)
+
+  @doc """
+  Returns the (unpersisted) trial plan struct, mirroring `default_free_plan/0`.
+
+  A trialing subscription carries no `platform_plan_id`; its limits come from
+  here so the trial is configured centrally (via application env) rather than
+  by seeding a row into the full 3x3 plan grid.
+
+  ## Examples
+
+      iex> plan = Marquee.PlatformBilling.trial_plan()
+      iex> plan.slug
+      "trial"
+      iex> plan.allow_custom_domain
+      false
+  """
+  def trial_plan do
+    %PlatformPlan{
+      name: "Trial",
+      slug: "trial",
+      amount: 0,
+      usage_tier: :basic,
+      business_tier: :individual,
+      max_videos: nil,
+      max_total_duration_seconds: trial_video_seconds(),
+      max_viewers: trial_max_viewers(),
+      max_team_seats: 1,
+      max_webhook_endpoints: 0,
+      allow_custom_domain: false,
+      enabled_features: ~w(analytics drm live_streaming)
+    }
+  end
+
+  @doc """
+  Starts a self-service trial for an organization.
+
+  Creates a `:trialing` PlatformSubscription with no Stripe subscription and no
+  plan row (trial limits come from `trial_plan/0`). `trial_end` is
+  `trial_days/0` days out. Returns `{:ok, subscription}` or
+  `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def start_trial(%Organization{} = organization) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    attrs = %{
+      organization_id: organization.id,
+      status: :trialing,
+      trial_start: now,
+      trial_end: DateTime.add(now, trial_days(), :day)
+    }
+
+    case %PlatformSubscription{} |> PlatformSubscription.changeset(attrs) |> Repo.insert() do
+      {:ok, sub} -> {:ok, sub}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
+  Returns true if the subscription is a trial still within its window.
+
+  ## Examples
+
+      iex> future = DateTime.add(DateTime.utc_now(), 5, :day)
+      iex> Marquee.PlatformBilling.trial_active?(%Marquee.Billing.PlatformSubscription{status: :trialing, trial_end: future})
+      true
+
+      iex> Marquee.PlatformBilling.trial_active?(%Marquee.Billing.PlatformSubscription{status: :active})
+      false
+  """
+  def trial_active?(%PlatformSubscription{status: :trialing, trial_end: nil}), do: true
+
+  def trial_active?(%PlatformSubscription{status: :trialing, trial_end: trial_end}) do
+    DateTime.compare(trial_end, DateTime.utc_now()) == :gt
+  end
+
+  def trial_active?(%PlatformSubscription{}), do: false
+
+  @doc """
+  Returns true if the subscription is a trial whose window has elapsed
+  (past day 30, no payment yet) — the soft-lock condition.
+
+  ## Examples
+
+      iex> past = DateTime.add(DateTime.utc_now(), -1, :day)
+      iex> Marquee.PlatformBilling.trial_expired?(%Marquee.Billing.PlatformSubscription{status: :trialing, trial_end: past})
+      true
+
+      iex> future = DateTime.add(DateTime.utc_now(), 1, :day)
+      iex> Marquee.PlatformBilling.trial_expired?(%Marquee.Billing.PlatformSubscription{status: :trialing, trial_end: future})
+      false
+  """
+  def trial_expired?(%PlatformSubscription{status: :trialing, trial_end: nil}), do: false
+
+  def trial_expired?(%PlatformSubscription{status: :trialing, trial_end: trial_end}) do
+    DateTime.compare(trial_end, DateTime.utc_now()) != :gt
+  end
+
+  def trial_expired?(%PlatformSubscription{}), do: false
+
+  @doc """
+  Returns true if the organization is soft-locked: an expired trial with no
+  active paid subscription. In this state the operator is blocked from *new*
+  uploads, adding viewers, and branding changes until they add payment — while
+  the viewer site and existing viewers are unaffected.
+
+  Exempt from doctest — hits the database.
+  """
+  def soft_locked?(%Organization{} = organization) do
+    case get_subscription(organization) do
+      {:ok, sub} -> trial_expired?(sub)
+      _ -> false
+    end
+  end
+
+  @doc """
+  Returns trialing subscriptions whose `trial_end` has elapsed, for the
+  expiry worker to transition to `:past_due`.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_expirable_trials(now \\ DateTime.utc_now()) do
+    now = DateTime.truncate(now, :second)
+
+    PlatformSubscription
+    |> where([s], s.status == :trialing)
+    |> where([s], not is_nil(s.trial_end) and s.trial_end <= ^now)
+    |> Repo.all()
+  end
+
+  @doc """
+  Transitions an expired trial subscription to `:past_due`, emitting an event
+  so audit/notification subscribers can react. Returns `{:ok, subscription}`
+  or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def expire_trial(%PlatformSubscription{} = sub) do
+    Marquee.Otel.with_span "marquee.platform_billing.expire_trial" do
+      case sub |> PlatformSubscription.changeset(%{status: :past_due}) |> Repo.update() do
+        {:ok, sub} ->
+          scope = scope_for_subscription(sub)
+          Audit.log(scope, "platform_subscription.trial_expired", sub)
+          Events.broadcast_platform(scope, {:platform_trial_expired, sub})
+          {:ok, sub}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  ## -----------------------------------------------------------------------
   ## Private helpers
   ## -----------------------------------------------------------------------
 

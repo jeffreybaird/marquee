@@ -6,7 +6,9 @@ defmodule Marquee.PlatformBilling.UsageLimits do
 
   alias Marquee.Accounts.Organization
   alias Marquee.Admin
+  alias Marquee.Content
   alias Marquee.PlatformBilling
+  alias Marquee.Viewers
 
   @doc """
   Returns true if the organization can upload another video.
@@ -73,8 +75,149 @@ defmodule Marquee.PlatformBilling.UsageLimits do
   """
   def get_plan_for_org(%Organization{} = organization) do
     case PlatformBilling.get_subscription(organization) do
+      {:ok, %{platform_plan_id: nil}} -> PlatformBilling.trial_plan()
       {:ok, sub} -> PlatformBilling.get_platform_plan!(sub.platform_plan_id)
       _ -> PlatformBilling.default_free_plan()
+    end
+  end
+
+  @doc """
+  Composes the full pre-upload gate: soft-lock, video-count limit, then
+  total-duration limit. Returns `:ok` or a tagged error tuple.
+
+  Exempt from doctest — hits the database.
+  """
+  def check_upload(%Organization{} = organization) do
+    cond do
+      PlatformBilling.soft_locked?(organization) ->
+        {:error, :trial_expired, trial_meta(organization)}
+
+      not can_upload_video?(organization) ->
+        {:error, :plan_limit_reached, video_limit_status(organization)}
+
+      duration_limit_reached?(organization) ->
+        {:error, :plan_limit_reached, duration_limit_status(organization)}
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Returns true if the org is under its total-video-duration cap.
+
+  Exempt from doctest — hits the database.
+  """
+  def can_add_video_duration?(%Organization{} = organization) do
+    not duration_limit_reached?(organization)
+  end
+
+  @doc """
+  Returns a status map with the current total duration (seconds) vs the limit.
+
+  Exempt from doctest — hits the database.
+  """
+  def duration_limit_status(%Organization{} = organization) do
+    limit = get_plan_for_org(organization).max_total_duration_seconds
+    current = Content.total_ready_duration(organization)
+
+    %{
+      current: current,
+      limit: limit,
+      unit: :seconds,
+      reached: not unlimited?(limit) and current >= limit
+    }
+  end
+
+  @doc """
+  Composes the viewer-registration gate: soft-lock, then viewer-count limit.
+  Returns `:ok` or a tagged error tuple.
+
+  Exempt from doctest — hits the database.
+  """
+  def check_register_viewer(%Organization{} = organization) do
+    cond do
+      PlatformBilling.soft_locked?(organization) ->
+        {:error, :trial_expired, trial_meta(organization)}
+
+      not can_register_viewer?(organization) ->
+        {:error, :plan_limit_reached, viewer_limit_status(organization)}
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Returns true if the org can register another viewer under its plan limit.
+
+  Exempt from doctest — hits the database.
+  """
+  def can_register_viewer?(%Organization{} = organization) do
+    limit = get_plan_for_org(organization).max_viewers
+
+    unlimited?(limit) or Viewers.count_viewers(organization) < limit
+  end
+
+  @doc """
+  Returns a status map with the current viewer count vs the plan limit.
+
+  Exempt from doctest — hits the database.
+  """
+  def viewer_limit_status(%Organization{} = organization) do
+    limit = get_plan_for_org(organization).max_viewers
+    current = Viewers.count_viewers(organization)
+
+    %{
+      current: current,
+      limit: limit,
+      reached: not unlimited?(limit) and current >= limit
+    }
+  end
+
+  @doc """
+  Composes the custom-domain gate: soft-lock, then the plan's
+  `allow_custom_domain` flag. Returns `:ok` or a tagged error tuple.
+
+  Exempt from doctest — hits the database.
+  """
+  def check_custom_domain(%Organization{} = organization) do
+    cond do
+      PlatformBilling.soft_locked?(organization) ->
+        {:error, :trial_expired, trial_meta(organization)}
+
+      not can_use_custom_domain?(organization) ->
+        {:error, :plan_limit_reached, %{feature: :custom_domain}}
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Returns true if the org's plan permits a custom domain.
+
+  Exempt from doctest — hits the database.
+  """
+  def can_use_custom_domain?(%Organization{} = organization) do
+    get_plan_for_org(organization).allow_custom_domain == true
+  end
+
+  # nil or any non-positive value (the -1 sentinel) means unlimited.
+  defp unlimited?(nil), do: true
+  defp unlimited?(limit) when is_number(limit) and limit <= 0, do: true
+  defp unlimited?(_), do: false
+
+  defp duration_limit_reached?(%Organization{} = organization) do
+    limit = get_plan_for_org(organization).max_total_duration_seconds
+
+    not unlimited?(limit) and Content.total_ready_duration(organization) >= limit
+  end
+
+  defp trial_meta(%Organization{} = organization) do
+    case PlatformBilling.get_subscription(organization) do
+      {:ok, sub} -> %{trial_end: sub.trial_end}
+      _ -> %{trial_end: nil}
     end
   end
 

@@ -16,6 +16,7 @@ defmodule Marquee.Viewers do
   alias Marquee.Audit
   alias Marquee.Events
   alias Marquee.Pagination
+  alias Marquee.PlatformBilling.UsageLimits
   alias Marquee.Repo
   alias Marquee.Viewers.{Viewer, ViewerNotifier, ViewerToken}
 
@@ -27,11 +28,21 @@ defmodule Marquee.Viewers do
   Registers a new viewer for an organization.
 
   Normalizes email to lowercase. Returns `{:ok, viewer}` on success,
-  `{:error, :validation, changeset}` on validation failure.
+  `{:error, :validation, changeset}` on validation failure. Enforces the
+  organization's plan viewer cap: `{:error, :plan_limit_reached, status}` when
+  the cap is reached, or `{:error, :trial_expired, %{trial_end:}}` when the
+  org's trial has lapsed without payment.
 
   Exempt from doctest — hits the database.
   """
   def register_viewer(%Organization{} = organization, attrs) do
+    case UsageLimits.check_register_viewer(organization) do
+      :ok -> do_register_viewer(organization, attrs)
+      {:error, _reason, _meta} = error -> error
+    end
+  end
+
+  defp do_register_viewer(%Organization{} = organization, attrs) do
     Marquee.Otel.with_span "marquee.viewers.register",
                            %{"marquee.org.id" => organization.id} do
       changeset =
