@@ -185,15 +185,23 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 
-  # Transactional email via Resend (optional — falls back to local adapter if not set)
-  if resend_key = System.get_env("RESEND_API_KEY") do
+  # Transactional email via Resend. Without a key we must NOT fall back to the
+  # compile-time default (Swoosh.Adapters.Local): prod disables Local's storage
+  # process, so delivering through it crashes the caller (e.g. the login
+  # LiveView). Log the email instead so auth degrades gracefully rather than
+  # 500-ing. Set RESEND_API_KEY to actually send mail.
+  resend_key = System.get_env("RESEND_API_KEY")
+
+  if resend_key not in [nil, ""] do
     config :marquee, Marquee.Mailer,
       adapter: Swoosh.Adapters.Resend,
       api_key: resend_key
-
-    config :marquee,
-      mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
+  else
+    config :marquee, Marquee.Mailer, adapter: Swoosh.Adapters.Logger, level: :warning
   end
+
+  config :marquee,
+    mailer_from: System.get_env("MAILER_FROM", "onboarding@resend.dev")
 
   #
   # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
