@@ -77,6 +77,25 @@ defmodule Marquee.Release do
   end
 
   @doc """
+  Seeds the content-rich demo organizations from a deployed release.
+
+  Starts the full application (Repo, PubSub, Req, Mux) and delegates to
+  `Marquee.DemoSeeder.seed/1`. Requires `PEXELS_API_KEY` and Mux credentials in
+  the environment. Run from the deployed instance:
+
+      bin/marquee eval "Marquee.Release.seed_demo([])"
+      bin/marquee eval "Marquee.Release.seed_demo(org: \"wanderlust-tv\")"
+      bin/marquee eval "Marquee.Release.seed_demo(force: true)"
+
+  Exempt from doctest — starts services and calls external APIs.
+  """
+  def seed_demo(opts \\ []) do
+    load_app()
+    {:ok, _} = Application.ensure_all_started(@app)
+    Marquee.DemoSeeder.seed(opts)
+  end
+
+  @doc """
   Rolls the given repo back to the specified migration version.
 
   Intended for use as a release command (`bin/marquee eval "Marquee.Release.rollback(Marquee.Repo, 20260101000000)"`).
