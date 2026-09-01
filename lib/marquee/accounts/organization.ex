@@ -33,6 +33,7 @@ defmodule Marquee.Accounts.Organization do
     field :template, :string, default: "default"
     field :deleted_at, :utc_datetime
     field :features, :map, default: %{}
+    field :onboarding_completed_at, :utc_datetime
 
     field :accent_color_base, :string
     field :accent_color_hover, :string

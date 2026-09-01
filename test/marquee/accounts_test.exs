@@ -10,11 +10,24 @@ defmodule Marquee.AccountsTest do
       role_at_least?: 2,
       can_manage_content?: 1,
       can_manage_viewers?: 1,
-      can_view_viewers?: 1
+      can_view_viewers?: 1,
+      onboarding_complete?: 1
     ]
 
   import Marquee.AccountsFixtures
+  import Marquee.Factory
   alias Marquee.Accounts.{User, UserToken}
+
+  describe "complete_onboarding/1" do
+    test "stamps onboarding_completed_at and flips the predicate" do
+      org = insert(:organization, onboarding_completed_at: nil)
+      refute Accounts.onboarding_complete?(org)
+
+      assert {:ok, completed} = Accounts.complete_onboarding(org)
+      assert %DateTime{} = completed.onboarding_completed_at
+      assert Accounts.onboarding_complete?(completed)
+    end
+  end
 
   describe "get_user_by_email/1" do
     test "does not return the user if the email does not exist" do

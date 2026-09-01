@@ -62,6 +62,40 @@ defmodule Marquee.Accounts do
   def get_organization(_), do: {:error, :not_found}
 
   @doc """
+  Returns true once an organization has finished (or skipped) the new-admin
+  setup wizard.
+
+  ## Examples
+
+      iex> Marquee.Accounts.onboarding_complete?(%Marquee.Accounts.Organization{onboarding_completed_at: nil})
+      false
+
+      iex> Marquee.Accounts.onboarding_complete?(%Marquee.Accounts.Organization{onboarding_completed_at: ~U[2026-09-01 00:00:00Z]})
+      true
+
+  """
+  def onboarding_complete?(%Organization{onboarding_completed_at: nil}), do: false
+  def onboarding_complete?(%Organization{onboarding_completed_at: %DateTime{}}), do: true
+
+  @doc """
+  Marks an organization's new-admin onboarding as complete, stamping the
+  current time. Idempotent — re-completing simply refreshes the timestamp.
+
+  Exempt from doctest — hits the database.
+  """
+  def complete_onboarding(%Organization{} = org) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    org
+    |> Ecto.Changeset.change(onboarding_completed_at: now)
+    |> Repo.update()
+    |> case do
+      {:ok, org} -> {:ok, org}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  @doc """
   Returns the first organization in the system.
 
   Intended only for dev-mode fallbacks where the request carries no

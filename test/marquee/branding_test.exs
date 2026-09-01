@@ -251,4 +251,30 @@ defmodule Marquee.BrandingTest do
       assert summary.failed == []
     end
   end
+
+  describe "apply_theme_preset/3" do
+    test "updates an org's existing theme to the chosen preset" do
+      org = insert(:organization)
+      seed_default_theme_for(org)
+      attrs = Theme.preset_attrs("daybreak")
+
+      assert {:ok, theme} = Branding.apply_theme_preset(nil, org, "daybreak")
+      assert theme.organization_id == org.id
+      assert theme.background == attrs.background
+    end
+
+    test "creates a theme when the org has none" do
+      org = insert(:organization)
+
+      assert {:ok, theme} = Branding.apply_theme_preset(nil, org, "midnight")
+      assert theme.organization_id == org.id
+      assert Branding.get_theme_by_org(org).id == theme.id
+    end
+
+    test "rejects an unknown preset key" do
+      org = insert(:organization)
+
+      assert {:error, :invalid_preset} = Branding.apply_theme_preset(nil, org, "nope")
+    end
+  end
 end

@@ -75,6 +75,27 @@ defmodule Marquee.Branding do
   end
 
   @doc """
+  Applies a named starter preset (see `Marquee.Branding.Theme.presets/0`) to
+  an organization's theme, creating the theme if the org has none yet.
+
+  Returns `{:error, :invalid_preset}` for an unknown key.
+
+  Exempt from doctest — hits the database.
+  """
+  def apply_theme_preset(scope \\ nil, %Organization{} = org, key) when is_binary(key) do
+    case Theme.preset_attrs(key) do
+      nil ->
+        {:error, :invalid_preset}
+
+      attrs ->
+        case get_theme_by_org(org) do
+          nil -> create_theme(scope, Map.put(attrs, :organization_id, org.id))
+          %Theme{} = theme -> update_theme(scope, theme, attrs)
+        end
+    end
+  end
+
+  @doc """
   Updates a theme.
 
   Accepts an optional scope so the broadcast + audit subscriber can
