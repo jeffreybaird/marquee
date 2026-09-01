@@ -167,6 +167,12 @@ defmodule MarqueeWeb.Admin.ContentLive do
 
           {:error, :validation, _changeset} ->
             {:halt, {:error, :validation_failed, title}}
+
+          {:error, :plan_limit_reached, status} ->
+            {:halt, {:error, :plan_limit_reached, status}}
+
+          {:error, :trial_expired, meta} ->
+            {:halt, {:error, :trial_expired, meta}}
         end
       end)
 
@@ -195,6 +201,17 @@ defmodule MarqueeWeb.Admin.ContentLive do
            socket,
            :error,
            "Invalid title for \"#{title}\". Please provide a valid title."
+         )}
+
+      {:error, :plan_limit_reached, status} ->
+        {:noreply, put_flash(socket, :error, plan_limit_message(status))}
+
+      {:error, :trial_expired, _meta} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Your trial has ended. Add a payment method in Billing to keep publishing."
          )}
     end
   end
@@ -586,6 +603,16 @@ defmodule MarqueeWeb.Admin.ContentLive do
 
   defp mux_upload_error_message(_reason) do
     "Mux could not start this upload. Your Mux account may have reached an asset or upload limit."
+  end
+
+  # A total-duration cap carries `unit: :seconds`; a video-count cap does not.
+  defp plan_limit_message(%{unit: :seconds, limit: limit}) do
+    hours = Float.round(limit / 3600, 1)
+    "You've reached your plan's #{hours}h of video. Upgrade in Billing to add more."
+  end
+
+  defp plan_limit_message(%{limit: limit}) do
+    "You've reached your plan's limit of #{limit} videos. Upgrade in Billing to add more."
   end
 
   # --- PubSub handlers ---

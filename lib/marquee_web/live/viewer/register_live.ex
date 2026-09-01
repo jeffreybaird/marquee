@@ -56,6 +56,16 @@ defmodule MarqueeWeb.Viewer.RegisterLive do
         else
           {:noreply, assign_form(socket, changeset)}
         end
+
+      # Org has hit its plan viewer cap or its trial has lapsed. Keep the
+      # message neutral — don't leak the operator's billing state to viewers.
+      {:error, reason, _meta} when reason in [:plan_limit_reached, :trial_expired] ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "This site isn't accepting new members right now. Please check back later."
+         )}
     end
   end
 

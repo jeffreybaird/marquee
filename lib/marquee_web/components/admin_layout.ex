@@ -13,6 +13,7 @@ defmodule MarqueeWeb.Components.AdminLayout do
   attr :current_user, :any, required: true
   attr :impersonating, :boolean, default: false
   attr :flash, :map, default: %{}
+  attr :trial_status, :any, default: nil
   slot :inner_block, required: true
 
   def admin_layout(assigns) do
@@ -33,6 +34,45 @@ defmodule MarqueeWeb.Components.AdminLayout do
           data-test="stop-impersonating-btn"
         >
           Stop impersonating
+        </.link>
+      </div>
+
+      <div
+        :if={@trial_status && @trial_status.state == :active}
+        class="bg-admin-accent-soft text-admin-fg font-ui text-sm px-4 py-2 flex items-center justify-between gap-3"
+        role="status"
+        aria-live="polite"
+        data-test="trial-banner-active"
+      >
+        <span>
+          Free trial — <strong>{@trial_status.days_left}</strong>
+          {ngettext("day", "days", @trial_status.days_left)} left.
+        </span>
+        <.link
+          navigate={~p"/admin/settings/billing"}
+          class="underline font-semibold hover:no-underline shrink-0"
+          data-test="trial-banner-billing-link"
+        >
+          Add payment
+        </.link>
+      </div>
+
+      <div
+        :if={@trial_status && @trial_status.state == :expired}
+        class="bg-error text-admin-on-accent font-ui text-sm px-4 py-2 flex items-center justify-between gap-3"
+        role="alert"
+        aria-live="assertive"
+        data-test="trial-banner-expired"
+      >
+        <span>
+          Your free trial has ended. Add a payment method to keep publishing.
+        </span>
+        <.link
+          navigate={~p"/admin/settings/billing"}
+          class="underline font-semibold hover:no-underline shrink-0"
+          data-test="trial-banner-billing-link"
+        >
+          Add payment
         </.link>
       </div>
 

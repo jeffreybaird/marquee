@@ -90,6 +90,7 @@ defmodule MarqueeWeb.Admin.LiveEventLive.Index do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout
       current_path={@current_path}
+      trial_status={@trial_status}
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}

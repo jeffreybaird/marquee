@@ -31,7 +31,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   alias Marquee.Branding
 
   def on_mount(:require_authenticated, _params, session, socket) do
-    socket = mount_full_scope(socket, session)
+    socket = socket |> mount_full_scope(session) |> assign_trial_status()
     scope = socket.assigns.current_scope
 
     cond do
@@ -81,6 +81,14 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       {:cont, socket}
     else
       {:cont, mount_full_scope(socket, session)}
+    end
+  end
+
+  # Operator-only: summarize the org's trial for the admin layout banner.
+  defp assign_trial_status(socket) do
+    case socket.assigns[:organization] do
+      nil -> assign(socket, :trial_status, nil)
+      org -> assign(socket, :trial_status, Marquee.PlatformBilling.trial_status(org))
     end
   end
 
