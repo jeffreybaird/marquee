@@ -1,0 +1,17 @@
+# Shared edge proxy for EVERY app on this droplet.
+#
+# One Caddy owns :80/:443 for the whole host. Each app contributes a site file
+# to sites/ at deploy time (edge.sh writes it from site.caddy.tmpl) and this
+# Caddyfile imports them all — so putting a second app on a droplet is a new
+# file plus a reload, never a second process fighting for port 443.
+#
+# Naming a site by its public domain triggers Caddy's automatic HTTPS: it
+# obtains + renews a Let's Encrypt cert over HTTP-01/TLS-ALPN. That works once
+# the DNSimple A record resolves to this droplet's IP and ports 80/443 are
+# reachable (firewall story 2.2). Certs persist in the caddy_data volume, which
+# is shared by every app on the host.
+#
+# The glob matches nothing on a brand-new droplet (before any app has
+# deployed); Caddy accepts an import that matches no files, so the edge stack
+# starts clean and the first site shows up on the first reload.
+import /etc/caddy/sites/*.caddy
