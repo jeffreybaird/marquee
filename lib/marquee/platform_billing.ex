@@ -826,7 +826,7 @@ defmodule Marquee.PlatformBilling do
     end
   end
 
-  defp trial_days_left(%PlatformSubscription{trial_end: nil}), do: nil
+  defp trial_days_left(%PlatformSubscription{trial_end: nil}), do: 0
 
   defp trial_days_left(%PlatformSubscription{trial_end: trial_end}) do
     seconds = DateTime.diff(trial_end, DateTime.utc_now(), :second)

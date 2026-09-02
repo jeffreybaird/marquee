@@ -127,6 +127,24 @@ defmodule Marquee.PlatformBilling.TrialTest do
       assert status.days_left > 0 and status.days_left <= PlatformBilling.trial_days()
     end
 
+    test "active trial with no trial_end reports numeric days_left" do
+      org = insert(:organization)
+
+      insert(:platform_subscription,
+        organization: org,
+        platform_plan: nil,
+        stripe_subscription_id: nil,
+        status: :trialing,
+        trial_end: nil
+      )
+
+      status = PlatformBilling.trial_status(org)
+
+      assert status.state == :active
+      assert status.days_left == 0
+      assert is_integer(status.days_left)
+    end
+
     test "expired for an elapsed trial" do
       org = insert(:organization)
       past = DateTime.utc_now() |> DateTime.add(-1, :day) |> DateTime.truncate(:second)
