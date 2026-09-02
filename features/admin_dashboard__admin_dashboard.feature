@@ -17,6 +17,11 @@ Feature: Admin Dashboard
     When I navigate to /admin/
     Then I see a link to view the member-facing site
 
+  Scenario: Operator previewing the site lands on the member home, not the admin dashboard
+    Given my organization has a published video in a visible row
+    When I open the member-facing site preview
+    Then I see the member-facing home instead of the admin dashboard
+
   Scenario: Operator sees setup nudges on a freshly created organization
     When I navigate to /admin/
     Then I see a setup nudge prompting me to connect Stripe

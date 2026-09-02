@@ -34,10 +34,18 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     impersonating_viewer = socket.assigns[:impersonating_viewer] == true
     user = scope && scope.user
     org_param = params["org"]
+    preview_member? = params["preview"] == "member"
 
     primary_org = user && Accounts.get_user_primary_organization(user)
 
     cond do
+      # Operator or super admin previewing the member-facing site via the
+      # admin "View site" link. Bypass the dashboard redirects so they land
+      # on the org's viewer home and see exactly what members see, instead
+      # of being bounced back to the admin panel.
+      user && preview_member? && org ->
+        {:ok, mount_org_home(socket, org, viewer)}
+
       # Super admin -> always route to the super dashboard regardless of
       # whether a tenant was resolved in the request. Skip when the user is
       # actively impersonating a viewer — the viewer home is the point.

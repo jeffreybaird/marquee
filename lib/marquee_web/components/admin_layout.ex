@@ -258,7 +258,7 @@ defmodule MarqueeWeb.Components.AdminLayout do
 
           <div class="p-3 border-t border-admin-border space-y-1">
             <.link
-              href="/"
+              href={~p"/?#{[org: @organization.slug, preview: "member"]}"}
               target="_blank"
               rel="noopener"
               class="flex items-center gap-2 px-3 py-2 rounded-md font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg transition-colors"
