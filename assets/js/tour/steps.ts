@@ -12,12 +12,14 @@
 
 export type TourText = string | ((brand: string) => string)
 
+export type TourButton = "back" | "next" | "finish"
+
 export interface TourStep {
   id: string
   title: TourText
   text: TourText
   attachTo?: { element: string; on: "right" | "left" | "top" | "bottom" }
-  buttons: string[]
+  buttons: TourButton[]
 }
 
 // Anchor a step to a sidebar nav link by its `data-test` attribute.
