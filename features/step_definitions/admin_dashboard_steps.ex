@@ -15,6 +15,7 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
   use Wallaby.DSL
   import Wallaby.Query
   import ExUnit.Assertions
+  import Marquee.Factory
 
   alias Marquee.LandingPage
   alias Marquee.LandingPage.LandingSection
@@ -60,6 +61,35 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
 
   then_ "I see a link to view the member-facing site", fn world ->
     assert_has(world.session, css("[data-test=admin-view-site]"))
+    world
+  end
+
+  given_ "my organization has a published video in a visible row", fn world ->
+    video = insert(:video, organization: world.org, mux_status: "ready")
+
+    row =
+      insert(:row,
+        organization: world.org,
+        title: "Preview Row",
+        source_type: :curated,
+        visible: true,
+        position: 0
+      )
+
+    insert(:row_item, organization: world.org, row: row, video: video, position: 0)
+    world
+  end
+
+  when_ "I open the member-facing site preview", fn world ->
+    session = visit(world.session, "/?org=#{world.org.slug}&preview=member")
+    Map.put(world, :session, session)
+  end
+
+  then_ "I see the member-facing home instead of the admin dashboard", fn world ->
+    # Landed on the viewer home (member site), not bounced back to /admin.
+    assert_has(world.session, css("[data-test=sv-root]"))
+    assert_text(world.session, "Preview Row")
+    refute_has(world.session, css("[data-test=admin-nav-content]"))
     world
   end
 

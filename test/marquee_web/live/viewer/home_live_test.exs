@@ -60,6 +60,49 @@ defmodule MarqueeWeb.Viewer.HomeLiveTest do
       assert html =~ org.name
     end
 
+    test "operator previewing with ?preview=member lands on the org's viewer home, not /admin", %{
+      conn: conn
+    } do
+      org = insert(:organization, slug: "preview-studio", name: "Preview Studio")
+      user = insert(:user)
+      insert(:membership, organization: org, user: user)
+
+      insert(:video, organization: org, mux_status: "ready")
+
+      insert(:row,
+        organization: org,
+        title: "Members Only Row",
+        source_type: :recent,
+        visible: true,
+        position: 0
+      )
+
+      conn = log_in_user(conn, user)
+
+      {:ok, _view, html} = live(conn, ~p"/?org=preview-studio&preview=member")
+
+      # Rendered the member-facing home (org content) rather than bouncing
+      # back to the admin dashboard.
+      assert html =~ "Preview Studio"
+      assert html =~ "Members Only Row"
+      assert html =~ ~s(data-test="sv-root")
+    end
+
+    test "super admin previewing with ?preview=member sees the org home instead of /super", %{
+      conn: conn
+    } do
+      org = insert(:organization, slug: "super-preview", name: "Super Preview")
+      super_admin = insert(:super_admin)
+      insert(:membership, organization: org, user: super_admin)
+
+      conn = log_in_user(conn, super_admin)
+
+      {:ok, _view, html} = live(conn, ~p"/?org=super-preview&preview=member")
+
+      assert html =~ "Super Preview"
+      assert html =~ ~s(data-test="sv-root")
+    end
+
     test "viewer hitting / without an org resolved is redirected to their org home", %{conn: conn} do
       org = insert(:organization, slug: "viewer-org")
       viewer = insert(:viewer, organization: org)

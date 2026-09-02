@@ -160,7 +160,14 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
       membership = insert(:membership, role: :admin)
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
 
-      assert has_element?(view, "[data-test='admin-view-site'][href='/'][target='_blank']")
+      # The link carries the org slug + preview intent so operators land on
+      # the org's viewer home instead of being redirected back to /admin.
+      slug = membership.organization.slug
+
+      assert has_element?(
+               view,
+               "[data-test='admin-view-site'][href='/?org=#{slug}&preview=member'][target='_blank']"
+             )
     end
 
     test "displays organization name", %{conn: _conn} do
