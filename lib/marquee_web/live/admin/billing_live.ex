@@ -300,8 +300,13 @@ defmodule MarqueeWeb.Admin.BillingLive do
 
   defp load_current_plan(nil), do: nil
 
+  defp load_current_plan(%{platform_plan_id: nil}), do: nil
+
   defp load_current_plan(subscription) do
-    PlatformBilling.get_platform_plan!(subscription.platform_plan_id)
+    case PlatformBilling.get_platform_plan(subscription.platform_plan_id) do
+      {:ok, plan} -> plan
+      {:error, :not_found} -> nil
+    end
   end
 
   defp load_plans do

@@ -118,6 +118,28 @@ defmodule MarqueeWeb.Admin.BillingLiveTest do
     end
   end
 
+  describe "trialing subscription without a plan" do
+    test "billing page renders without crashing", %{membership: membership, org: org} do
+      trial_end =
+        DateTime.utc_now() |> DateTime.add(30, :day) |> DateTime.truncate(:second)
+
+      insert(:platform_subscription,
+        organization: org,
+        platform_plan: nil,
+        stripe_subscription_id: nil,
+        status: :trialing,
+        trial_end: trial_end
+      )
+
+      {:ok, _view, html} =
+        membership
+        |> conn_for()
+        |> live(~p"/admin/settings/billing")
+
+      assert html =~ "Billing"
+    end
+  end
+
   describe "past due subscription" do
     test "warning banner visible", %{membership: membership, org: org} do
       plan =
