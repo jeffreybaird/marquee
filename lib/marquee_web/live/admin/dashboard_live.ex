@@ -35,10 +35,24 @@ defmodule MarqueeWeb.Admin.DashboardLive do
       socket =
         socket
         |> assign(page_title: "Dashboard")
+        |> assign(
+          show_tour: not Accounts.admin_tour_completed?(socket.assigns[:current_membership])
+        )
         |> load_dashboard(org, user)
 
       {:ok, socket}
     end
+  end
+
+  @impl true
+  def handle_event("restart_tour", _params, socket) do
+    {:noreply, push_event(socket, "start-tour", %{})}
+  end
+
+  @impl true
+  def handle_event("tour_completed", _params, socket) do
+    Accounts.complete_admin_tour(socket.assigns[:current_membership])
+    {:noreply, assign(socket, :show_tour, false)}
   end
 
   @impl true
@@ -87,7 +101,28 @@ defmodule MarqueeWeb.Admin.DashboardLive do
       impersonating={@impersonating}
     >
       <div class="space-y-8">
-        <.header>Dashboard</.header>
+        <div
+          id="admin-guided-tour"
+          phx-hook="GuidedTour"
+          data-auto-start={to_string(@show_tour)}
+          data-tour-brand={@organization.name}
+          class="hidden"
+        >
+        </div>
+
+        <.header>
+          Dashboard
+          <:actions>
+            <button
+              type="button"
+              phx-click="restart_tour"
+              class="text-sm font-medium text-admin-muted hover:text-admin-fg hover:underline"
+              data-test="restart-tour"
+            >
+              Take a tour
+            </button>
+          </:actions>
+        </.header>
 
         <%!-- Setup nudges (dismissable, top of page) --%>
         <section

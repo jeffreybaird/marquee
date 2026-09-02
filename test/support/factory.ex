@@ -38,7 +38,11 @@ defmodule Marquee.Factory do
     %Marquee.Accounts.Membership{
       user: build(:user),
       organization: build(:organization),
-      role: :editor
+      role: :editor,
+      # Factory operators have "already seen" the guided admin tour by default
+      # so its auto-launching overlay doesn't hijack unrelated dashboard specs.
+      # Tour specs opt into a fresh operator with `admin_tour_completed_at: nil`.
+      admin_tour_completed_at: ~U[2026-01-01 00:00:00Z]
     }
   end
 
