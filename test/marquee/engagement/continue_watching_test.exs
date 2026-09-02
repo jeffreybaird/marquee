@@ -2,6 +2,7 @@ defmodule Marquee.Engagement.ContinueWatchingTest do
   use Marquee.DataCase, async: true
 
   alias Marquee.Accounts.Scope
+  alias Marquee.Buffers.ProgressBuffer
   alias Marquee.Content
   alias Marquee.Engagement
 
@@ -275,8 +276,8 @@ defmodule Marquee.Engagement.ContinueWatchingTest do
 
   describe "buffered progress" do
     setup do
-      Marquee.Buffers.ProgressBuffer.clear()
-      on_exit(fn -> Marquee.Buffers.ProgressBuffer.clear() end)
+      ProgressBuffer.clear()
+      on_exit(fn -> ProgressBuffer.clear() end)
       :ok
     end
 
@@ -286,7 +287,7 @@ defmodule Marquee.Engagement.ContinueWatchingTest do
         insert(:video, organization: org, title: "Buffered Solo", duration: 1200.0)
 
       :ok =
-        Marquee.Buffers.ProgressBuffer.update_viewer(
+        ProgressBuffer.update_viewer(
           org.id,
           viewer.id,
           video.id,
@@ -308,7 +309,7 @@ defmodule Marquee.Engagement.ContinueWatchingTest do
       insert_progress(org, viewer, video, 100.0, false)
 
       :ok =
-        Marquee.Buffers.ProgressBuffer.update_viewer(
+        ProgressBuffer.update_viewer(
           org.id,
           viewer.id,
           video.id,
@@ -333,7 +334,7 @@ defmodule Marquee.Engagement.ContinueWatchingTest do
         )
 
       :ok =
-        Marquee.Buffers.ProgressBuffer.update_viewer(
+        ProgressBuffer.update_viewer(
           org.id,
           viewer.id,
           video.id,
