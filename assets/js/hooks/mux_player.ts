@@ -20,11 +20,39 @@
  *
  * Events received from server:
  *   - "seek_to" { position }
+ *   - "load_video" { playback_id, video_id, resume_position }
  *   - "play_next_in_queue" { playback_id, video_id, resume_position }
  */
-const MuxPlayer = {
-  mounted(this: any) {
-    const player = this.el.querySelector("mux-player") as any
+import { ViewHook } from "phoenix_live_view"
+import type { MuxPlayerElement } from "../types/mux"
+
+interface LoadVideoPayload {
+  playback_id: string
+  video_id: string
+  resume_position: number
+}
+
+class MuxPlayer extends ViewHook {
+  private player: MuxPlayerElement | null = null
+  private videoId: string | undefined
+  private progressIntervalMs = 30000
+  private progressJitterMs = 0
+  private lastReportedPosition = 0
+  private lastReportAt = 0
+  private maxPosition = 0
+  private videoDuration = 0
+  private dropOffSent = false
+  private startProgressInterval: number | null = null
+  private progressInterval: number | null = null
+
+  // Closures over the player element, assigned in mounted() so they stay
+  // unset (and destroyed() skips them) when no player was found.
+  private sendDropOff: (() => void) | null = null
+  private flushProgress: (() => void) | null = null
+  private onVisibilityChange: (() => void) | null = null
+
+  mounted() {
+    const player = this.el.querySelector("mux-player")
     if (!player) return
 
     this.player = player
@@ -37,14 +65,14 @@ const MuxPlayer = {
     this.videoDuration = 0
     this.dropOffSent = false
 
-    this.resetDropOffState = (videoId: string) => {
+    const resetDropOffState = (videoId: string) => {
       this.videoId = videoId
       this.maxPosition = 0
       this.videoDuration = 0
       this.dropOffSent = false
     }
 
-    this.sendDropOff = () => {
+    const sendDropOff = () => {
       if (this.dropOffSent) return
       if (this.maxPosition <= 0) return
       this.dropOffSent = true
@@ -54,6 +82,7 @@ const MuxPlayer = {
         video_duration: this.videoDuration,
       })
     }
+    this.sendDropOff = sendDropOff
 
     player.addEventListener("timeupdate", () => {
       const pos = Number(player.currentTime || 0)
@@ -65,7 +94,7 @@ const MuxPlayer = {
       if (dur > 0) this.videoDuration = dur
     })
 
-    this.reportProgress = (eventName = "playback_progress") => {
+    const reportProgress = (eventName = "playback_progress") => {
       const position = Number(player.currentTime || 0)
       const now = Date.now()
 
@@ -108,25 +137,26 @@ const MuxPlayer = {
     this.startProgressInterval = window.setTimeout(() => {
       this.progressInterval = window.setInterval(() => {
         if (!player.paused && player.currentTime > 0) {
-          this.reportProgress()
+          reportProgress()
         }
       }, this.progressIntervalMs)
     }, this.progressJitterMs)
 
     // Report pause
     player.addEventListener("pause", () => {
-      this.reportProgress("playback_paused")
+      reportProgress("playback_paused")
     })
 
     // Flush a final progress sample when the tab is backgrounded or unloaded.
-    this.flushProgress = () => {
+    const flushProgress = () => {
       if (!player.paused && player.currentTime > 0) {
-        this.reportProgress()
+        reportProgress()
       }
     }
+    this.flushProgress = flushProgress
 
-    window.addEventListener("pagehide", this.flushProgress)
-    document.addEventListener("visibilitychange", this.flushProgress)
+    window.addEventListener("pagehide", flushProgress)
+    document.addEventListener("visibilitychange", flushProgress)
 
     // Report ended — triggers queue auto-advance on server
     player.addEventListener("ended", () => {
@@ -135,16 +165,17 @@ const MuxPlayer = {
       this.pushEvent("playback_ended", { video_id: this.videoId })
     })
 
-    this.onVisibilityChange = () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        this.sendDropOff()
+        sendDropOff()
       } else {
         this.dropOffSent = false
       }
     }
+    this.onVisibilityChange = onVisibilityChange
 
-    window.addEventListener("pagehide", this.sendDropOff)
-    document.addEventListener("visibilitychange", this.onVisibilityChange)
+    window.addEventListener("pagehide", sendDropOff)
+    document.addEventListener("visibilitychange", onVisibilityChange)
 
     // Handle server-initiated seek
     this.handleEvent("seek_to", ({ position }: { position: number }) => {
@@ -154,17 +185,9 @@ const MuxPlayer = {
     // Handle video load (season switch, episode click, queue advance)
     this.handleEvent(
       "load_video",
-      ({
-        playback_id,
-        video_id,
-        resume_position,
-      }: {
-        playback_id: string
-        video_id: string
-        resume_position: number
-      }) => {
-        this.sendDropOff()
-        this.resetDropOffState(video_id)
+      ({ playback_id, video_id, resume_position }: LoadVideoPayload) => {
+        sendDropOff()
+        resetDropOffState(video_id)
         player.setAttribute("playback-id", playback_id)
 
         if (resume_position > 0) {
@@ -182,17 +205,9 @@ const MuxPlayer = {
     // Handle queue auto-advance — server pushes next video
     this.handleEvent(
       "play_next_in_queue",
-      ({
-        playback_id,
-        video_id,
-        resume_position,
-      }: {
-        playback_id: string
-        video_id: string
-        resume_position: number
-      }) => {
-        this.sendDropOff()
-        this.resetDropOffState(video_id)
+      ({ playback_id, video_id, resume_position }: LoadVideoPayload) => {
+        sendDropOff()
+        resetDropOffState(video_id)
         player.setAttribute("playback-id", playback_id)
 
         if (resume_position > 0) {
@@ -208,9 +223,9 @@ const MuxPlayer = {
         player.play()
       },
     )
-  },
+  }
 
-  destroyed(this: any) {
+  destroyed() {
     // Save final position before teardown. pagehide does not fire on
     // LiveView client-side navigation, so without this any watch shorter
     // than the progress interval would lose its position entirely.
@@ -242,7 +257,7 @@ const MuxPlayer = {
     if (this.onVisibilityChange) {
       document.removeEventListener("visibilitychange", this.onVisibilityChange)
     }
-  },
+  }
 }
 
 export default MuxPlayer

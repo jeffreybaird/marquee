@@ -15,43 +15,50 @@
  *
  * No server events — purely client-side behavior.
  */
+import { ViewHook } from "phoenix_live_view"
+
 const VELOCITY_DECAY = 0.92
 const VELOCITY_STOP = 0.5
 const DRAG_THRESHOLD_PX = 4
 
-const Carousel = {
+class Carousel extends ViewHook {
+  private _track: HTMLElement | null = null
+  private _prev: HTMLElement | null = null
+  private _next: HTMLElement | null = null
+
+  private _isDragging = false
+  private _dragMoved = false
+  private _startX = 0
+  private _startScroll = 0
+  private _lastX = 0
+  private _lastMoveTime = 0
+  private _velocity = 0
+  private _momentumFrame: number | null = null
+  private _savedScroll = 0
+
+  private _onMouseDown = (e: MouseEvent) => this.startDrag(e.pageX)
+  private _onMouseMove = (e: MouseEvent) => this.moveDrag(e.pageX, e)
+  private _onMouseUp = () => this.endDrag()
+  private _onMouseLeave = () => this.endDrag()
+
+  private _onTouchStart = (e: TouchEvent) => this.startDrag(e.touches[0].pageX)
+  private _onTouchMove = (e: TouchEvent) => this.moveDrag(e.touches[0].pageX)
+  private _onTouchEnd = () => this.endDrag()
+
+  private _onClickCapture = (e: MouseEvent) => {
+    if (this._dragMoved) {
+      e.preventDefault()
+      e.stopPropagation()
+      this._dragMoved = false
+    }
+  }
+
   mounted() {
     this._track = this.el.querySelector<HTMLElement>("[data-carousel-track]")
     this._prev = this.el.querySelector<HTMLElement>("[data-carousel-prev]")
     this._next = this.el.querySelector<HTMLElement>("[data-carousel-next]")
 
     if (!this._track) return
-
-    this._isDragging = false
-    this._dragMoved = false
-    this._startX = 0
-    this._startScroll = 0
-    this._lastX = 0
-    this._lastMoveTime = 0
-    this._velocity = 0
-    this._momentumFrame = null as number | null
-
-    this._onMouseDown = (e: MouseEvent) => this.startDrag(e.pageX)
-    this._onMouseMove = (e: MouseEvent) => this.moveDrag(e.pageX, e)
-    this._onMouseUp = () => this.endDrag()
-    this._onMouseLeave = () => this.endDrag()
-
-    this._onTouchStart = (e: TouchEvent) => this.startDrag(e.touches[0].pageX)
-    this._onTouchMove = (e: TouchEvent) => this.moveDrag(e.touches[0].pageX)
-    this._onTouchEnd = () => this.endDrag()
-
-    this._onClickCapture = (e: MouseEvent) => {
-      if (this._dragMoved) {
-        e.preventDefault()
-        e.stopPropagation()
-        this._dragMoved = false
-      }
-    }
 
     this._track.addEventListener("mousedown", this._onMouseDown)
     window.addEventListener("mousemove", this._onMouseMove)
@@ -72,15 +79,15 @@ const Carousel = {
     this._next?.addEventListener("click", () => this.scrollBy(1))
 
     this._savedScroll = 0
-  },
+  }
 
   updated() {
     if (this._track && this._savedScroll) {
       this._track.scrollLeft = this._savedScroll
     }
-  },
+  }
 
-  startDrag(x: number) {
+  private startDrag(x: number) {
     if (!this._track) return
     this.cancelMomentum()
     this._isDragging = true
@@ -91,9 +98,9 @@ const Carousel = {
     this._lastMoveTime = performance.now()
     this._velocity = 0
     this._track.classList.add("is-dragging")
-  },
+  }
 
-  moveDrag(x: number, e?: MouseEvent) {
+  private moveDrag(x: number, e?: MouseEvent) {
     if (!this._isDragging || !this._track) return
 
     const dx = x - this._startX
@@ -111,9 +118,9 @@ const Carousel = {
     }
     this._lastX = x
     this._lastMoveTime = now
-  },
+  }
 
-  endDrag() {
+  private endDrag() {
     if (!this._isDragging || !this._track) return
     this._isDragging = false
     this._track.classList.remove("is-dragging")
@@ -122,9 +129,9 @@ const Carousel = {
     if (Math.abs(this._velocity) > VELOCITY_STOP / 10) {
       this.startMomentum()
     }
-  },
+  }
 
-  startMomentum() {
+  private startMomentum() {
     const step = () => {
       if (!this._track) return
       // velocity is px/ms; apply at ~16ms per frame
@@ -139,28 +146,28 @@ const Carousel = {
       this._momentumFrame = requestAnimationFrame(step)
     }
     this._momentumFrame = requestAnimationFrame(step)
-  },
+  }
 
-  cancelMomentum() {
+  private cancelMomentum() {
     if (this._momentumFrame) {
       cancelAnimationFrame(this._momentumFrame)
       this._momentumFrame = null
     }
-  },
+  }
 
-  scrollBy(direction: number) {
+  private scrollBy(direction: number) {
     if (!this._track) return
     const amount = this._track.clientWidth * 0.75 * direction
     this._track.scrollBy({ left: amount, behavior: "smooth" })
 
     setTimeout(() => this.savePosition(), 400)
-  },
+  }
 
-  savePosition() {
+  private savePosition() {
     if (this._track) {
       this._savedScroll = this._track.scrollLeft
     }
-  },
+  }
 
   destroyed() {
     this.cancelMomentum()
@@ -175,7 +182,7 @@ const Carousel = {
     }
     window.removeEventListener("mousemove", this._onMouseMove)
     window.removeEventListener("mouseup", this._onMouseUp)
-  },
+  }
 }
 
 export default Carousel
