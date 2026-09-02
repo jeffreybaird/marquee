@@ -56,6 +56,24 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: assets/package-lock.json
+
+      # esbuild bundles without checking types, so the frontend is only
+      # verified here. Runs after `mix deps.get`: LiveView's TypeScript
+      # declarations and its ESM build come from deps/, not npm.
+      - name: Install assets dependencies
+        run: npm ci --prefix assets
+
+      - name: Type-check assets
+        run: npm run typecheck --prefix assets
+
+      - name: Test assets
+        run: npm test --prefix assets
+
       - name: Check formatting
         run: mix format --check-formatted
 

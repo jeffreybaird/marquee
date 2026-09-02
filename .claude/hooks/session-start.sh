@@ -157,6 +157,19 @@ mix deps.get >/dev/null
 MIX_ENV=dev mix compile >/dev/null
 MIX_ENV=test mix compile >/dev/null
 
+## Frontend toolchain ---------------------------------------------------------
+
+# CI type-checks and unit-tests assets/ with the npm packages locked in
+# assets/package-lock.json (see .github/workflows/ci.yml). Node 22 ships in the
+# remote container image; install the same locked packages so
+# `npm run typecheck --prefix assets` and `npm test --prefix assets` match CI.
+if command -v npm >/dev/null 2>&1; then
+  echo "session-start: installing assets npm packages"
+  npm ci --prefix assets --no-audit --no-fund >/dev/null
+else
+  echo "session-start: npm not found; skipping the assets toolchain (no type-check or JS tests)" >&2
+fi
+
 ## Persist the environment for the session ------------------------------------
 
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
