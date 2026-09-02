@@ -31,6 +31,12 @@ as_root() {
   if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
 }
 
+# Run a command as the `postgres` OS user. `sudo -u` switches user, but as root
+# there is no sudo in play, so use runuser to drop to postgres either way.
+as_postgres() {
+  if [ "$(id -u)" -eq 0 ]; then runuser -u postgres -- "$@"; else sudo -u postgres "$@"; fi
+}
+
 ## Pinned versions ------------------------------------------------------------
 
 ELIXIR_VERSION="$(grep -E '^ARG ELIXIR_VERSION=' Dockerfile | head -1 | cut -d= -f2)"
@@ -134,7 +140,7 @@ fi
 
 # `postgres` is the bootstrap superuser; give it the password the test config
 # expects. ALTER is idempotent, so no need to check first.
-as_root -u postgres psql -tAc "ALTER USER postgres WITH PASSWORD 'postgres';" >/dev/null
+as_postgres psql -tAc "ALTER USER postgres WITH PASSWORD 'postgres';" >/dev/null
 
 ## Project dependencies -------------------------------------------------------
 
