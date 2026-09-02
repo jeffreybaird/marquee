@@ -8,13 +8,13 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@hooks/*": ["js/hooks/*"],
-      "@types/*": ["js/types/*"],
-      "*": ["../deps/*"]
+      "@hooks/*": ["./js/hooks/*"],
+      "@types/*": ["./js/types/*"],
+      "phoenix_html": ["../deps/phoenix_html"],
+      "phoenix_live_view": ["../deps/phoenix_live_view"]
     }
   },
-  "include": ["js/**/*.ts"],
+  "include": ["js/**/*.ts", "test/**/*.ts", "vitest.config.mts"],
   "exclude": ["node_modules"]
 }

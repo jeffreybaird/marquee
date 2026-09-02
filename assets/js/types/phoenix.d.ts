@@ -1,53 +1,41 @@
 /**
- * Type definitions for the Phoenix LiveView hook lifecycle.
- * esbuild handles .ts files natively; this file exists for editor tooling only.
+ * Type definitions for the Phoenix LiveView client as used by Marquee.
+ *
+ * Phoenix LiveView 1.1 ships its own TypeScript declarations (resolved from
+ * `deps/phoenix_live_view` via the `paths` entry in tsconfig.json). Hooks are
+ * written as classes extending `ViewHook`, which gives `this.el`,
+ * `this.pushEvent`, `this.handleEvent` and every declared field a real type
+ * with no `any` escape hatch. This file adds what LiveView does not declare:
+ * the globals `app.ts` installs on `window` and the phoenix_live_reload
+ * development event.
  */
-export interface PhoenixHook {
-  /** The DOM element the hook is mounted on */
-  el: HTMLElement
+import type { LiveSocket, ViewHook } from "phoenix_live_view"
 
-  /** Called when the hook's element is added to the DOM */
-  mounted(): void
+/** A hook as registered in the `hooks` map handed to `LiveSocket`. */
+export type PhoenixHook<E extends HTMLElement = HTMLElement> = ViewHook<E>
 
-  /** Called before the LiveView patches the DOM */
-  beforeUpdate?(): void
+/** A hook class: `LiveSocket` instantiates it once per hooked element. */
+export type PhoenixHookClass<E extends HTMLElement = HTMLElement> = new (
+  ...args: ConstructorParameters<typeof ViewHook<E>>
+) => ViewHook<E>
 
-  /** Called after the LiveView patches the DOM */
-  updated?(): void
+/** The client object phoenix_live_reload attaches in development. */
+export interface LiveReloader {
+  enableServerLogs(): void
+  disableServerLogs(): void
+  openEditorAtCaller(targetNode: EventTarget | null): void
+  openEditorAtDef(targetNode: EventTarget | null): void
+}
 
-  /** Called when the hook's element is removed from the DOM */
-  destroyed?(): void
+declare global {
+  interface Window {
+    /** Exposed by app.ts for console debugging and latency simulation. */
+    liveSocket: LiveSocket
+    /** Exposed by app.ts in development only. */
+    liveReloader?: LiveReloader
+  }
 
-  /** Called when the LiveView socket disconnects */
-  disconnected?(): void
-
-  /** Called when the LiveView socket reconnects */
-  reconnected?(): void
-
-  /** Push an event to the LiveView server */
-  pushEvent(event: string, payload: object, callback?: (reply: object) => void): void
-
-  /** Push an event to a specific LiveView component */
-  pushEventTo(
-    selectorOrTarget: string | HTMLElement,
-    event: string,
-    payload: object,
-    callback?: (reply: object) => void
-  ): void
-
-  /** Register a handler for events sent from the server */
-  handleEvent(event: string, callback: (payload: object) => void): void
-
-  /** Remove a previously registered server event handler */
-  removeHandleEvent(callbackRef: (payload: object) => void): void
-
-  /** Upload a file to the server */
-  upload(name: string, files: FileList): void
-
-  /** Upload a file to an external URL */
-  uploadTo(
-    selectorOrTarget: string | HTMLElement,
-    name: string,
-    files: FileList
-  ): void
+  interface WindowEventMap {
+    "phx:live_reload:attached": CustomEvent<LiveReloader>
+  }
 }
