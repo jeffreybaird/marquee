@@ -35,7 +35,9 @@ defmodule MarqueeWeb.Admin.DashboardLive do
       socket =
         socket
         |> assign(page_title: "Dashboard")
-        |> assign(show_tour: not Accounts.admin_tour_completed?(socket.assigns[:current_membership]))
+        |> assign(
+          show_tour: not Accounts.admin_tour_completed?(socket.assigns[:current_membership])
+        )
         |> load_dashboard(org, user)
 
       {:ok, socket}
