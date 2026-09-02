@@ -8,11 +8,28 @@ push notifications, or any client-side JavaScript.
 ## Build System
 
 Phoenix ships with esbuild, which handles TypeScript natively — no webpack, no
-babel, no additional config. Files are named `.ts` and esbuild strips types and
-bundles them.
+babel. Files are named `.ts` and esbuild strips types and bundles them
+(`mix esbuild marquee`, entry `assets/js/app.ts`, output `priv/static/assets/js/app.js`).
 
-A `tsconfig.json` exists in `assets/` for editor support and CI type checking.
-esbuild does **not** type-check — `tsc --noEmit` runs as a separate CI step.
+esbuild does **not** type-check. Type-checking and unit tests run through the
+npm toolchain in `assets/package.json`, which exists only for checking and
+testing — nothing installed there ships to the browser.
+
+```bash
+cd assets
+npm ci                 # once per checkout (remote sessions: done by session-start.sh)
+npm run typecheck      # tsc --noEmit, strict mode, must exit 0
+npm test               # vitest, jsdom environment
+npm run test:watch     # vitest in watch mode
+```
+
+Both `npm run typecheck` and `npm test` run in CI (`.github/workflows/ci.yml`,
+`test` job) before `mix test`, so a type error or a failing hook test blocks
+the build. Run them, plus `mix esbuild marquee`, before every commit that
+touches `assets/`.
+
+Pinned versions live in `assets/package.json`; bump them there and re-run
+`npm install` to refresh `package-lock.json`.
 
 ---
 
@@ -21,19 +38,42 @@ esbuild does **not** type-check — `tsc --noEmit` runs as a separate CI step.
 ```
 assets/
 ├── js/
-│   ├── app.ts                      # Entry point — imports and registers hooks
+│   ├── app.ts                        # Entry point — creates the LiveSocket, registers hooks
 │   ├── hooks/
-│   │   ├── index.ts                # Re-exports all hooks as a single object
-│   │   ├── mux_player.ts          # Mux Player web component integration
-│   │   ├── playback_tracker.ts    # Reports playback position to server
-│   │   ├── push_notifications.ts  # Web Push API registration
-│   │   └── sortable.ts            # Drag-and-drop for admin row builder
+│   │   ├── index.ts                  # Re-exports all hooks as a single object
+│   │   ├── analytics_chart_hook.ts   # Chart.js charts fed by server push_event
+│   │   ├── card_focus.ts             # Video card hover/focus popup + preview player
+│   │   ├── carousel.ts               # Drag-to-scroll rows with momentum
+│   │   ├── chat_auto_scroll.ts       # Keeps live-event chat pinned to the bottom
+│   │   ├── copy_to_clipboard.ts      # Copies data-copy-value on click
+│   │   ├── hero_carousel.ts          # Auto-advancing homepage hero
+│   │   ├── mux_player.ts             # Mux Player web component bridge
+│   │   ├── mux_uploader.ts           # Direct-to-Mux video upload
+│   │   ├── queue_sortable.ts         # Sortable.js queue reordering
+│   │   ├── row_scroller.ts           # Arrow navigation for content rows
+│   │   ├── scroll_to_current_episode.ts
+│   │   ├── spaces_uploader.ts        # Direct-to-Spaces image upload
+│   │   ├── stagger_reveal.ts         # Entrance animation for row items
+│   │   └── viewer_nav.ts             # Transparent → solid nav on scroll
 │   └── types/
-│       ├── phoenix.d.ts           # Type defs for LiveView hook lifecycle
-│       └── mux.d.ts               # Type defs for Mux Player element
+│       ├── phoenix.d.ts              # PhoenixHook aliases + window globals used by app.ts
+│       └── mux.d.ts                  # Type defs for the <mux-player> element
+├── test/
+│   ├── setup.ts                      # jsdom stand-ins (matchMedia, scrollIntoView, scrollBy)
+│   ├── support/
+│   │   ├── mount.ts                  # mountHook(): instantiate a hook without a socket
+│   │   ├── media.ts                  # setReducedMotion()
+│   │   └── xhr.ts                    # XMLHttpRequest double for the upload hooks
+│   └── hooks/*.test.ts               # One test file per hook, plus index.test.ts
+├── vendor/
+│   ├── chart.js + chart.d.ts         # Vendored UMD builds with their declarations
+│   ├── sortable.js + sortable.d.ts
+│   └── topbar.js + topbar.d.ts
 ├── css/
 │   └── app.css
-└── tsconfig.json
+├── package.json                      # typecheck / test scripts, pinned devDependencies
+├── tsconfig.json
+└── vitest.config.mts
 ```
 
 ### `app.ts` entry point
@@ -52,41 +92,56 @@ liveSocket.connect()
 ### `hooks/index.ts`
 
 ```typescript
+import type { HooksOptions } from "phoenix_live_view"
+
 import MuxPlayer from "./mux_player"
-import PlaybackTracker from "./playback_tracker"
-import PushNotifications from "./push_notifications"
-import Sortable from "./sortable"
+import ViewerNav from "./viewer_nav"
 
 export const hooks = {
   MuxPlayer,
-  PlaybackTracker,
-  PushNotifications,
-  Sortable,
-}
+  ViewerNav,
+} satisfies HooksOptions
 ```
+
+`satisfies HooksOptions` makes registering something that is not a hook a
+compile error.
 
 ---
 
 ## Hook Interface
 
-Every hook must conform to the Phoenix LiveView hook lifecycle:
+Hooks are classes extending `ViewHook` from `phoenix_live_view` — the typed
+hook form LiveView 1.1 supports natively. LiveView instantiates the class once
+per hooked element and calls the lifecycle methods on it.
 
 ```typescript
-interface PhoenixHook {
-  mounted(): void
-  beforeUpdate?(): void
-  updated?(): void
-  destroyed?(): void
-  disconnected?(): void
-  reconnected?(): void
+import { ViewHook } from "phoenix_live_view"
 
-  // Provided by LiveView at runtime
+class MyHook extends ViewHook {
+  mounted(): void        // element added to the DOM and its LiveView mounted
+  beforeUpdate(): void   // about to be patched
+  updated(): void        // patched
+  destroyed(): void      // removed from the page
+  disconnected(): void   // socket dropped
+  reconnected(): void    // socket back
+
+  // Provided by ViewHook
   el: HTMLElement
-  pushEvent(event: string, payload: object): void
-  pushEventTo(selector: string, event: string, payload: object): void
-  handleEvent(event: string, callback: (payload: object) => void): void
+  pushEvent(event: string, payload: object): Promise<unknown>
+  pushEventTo(selectorOrTarget: string | HTMLElement, event: string, payload: object): Promise<unknown>
+  handleEvent(event: string, callback: (payload: any) => void): CallbackRef
+  removeHandleEvent(ref: CallbackRef): void
 }
 ```
+
+Why classes and not object literals: LiveView's own `Hook` interface carries a
+`[key: PropertyKey]: any` index signature, so on an object-literal hook every
+`this.anything` silently types as `any`. `ViewHook` has no such signature, so a
+misspelt field or method is a compile error, and instance state is declared
+with real types.
+
+Hooks that mount on a specific element type say so: `class AnalyticsChart
+extends ViewHook<HTMLCanvasElement>` makes `this.el` a canvas.
 
 ### Hook template
 
@@ -105,18 +160,41 @@ interface PhoenixHook {
  * Events received from server:
  *   - "seek_to" { position }
  */
-const MuxPlayer = {
+import { ViewHook } from "phoenix_live_view"
+
+interface SeekToPayload {
+  position: number
+}
+
+class MuxPlayer extends ViewHook {
+  // Instance state: declared with a type, initialised in mounted().
+  private player: MuxPlayerElement | null = null
+  private timer: ReturnType<typeof setInterval> | null = null
+
   mounted() {
-    // Initialize Mux Player, bind event listeners
-  },
+    this.player = this.el.querySelector("mux-player")
+    this.handleEvent("seek_to", ({ position }: SeekToPayload) => {
+      // ...
+    })
+  }
 
   destroyed() {
-    // Clean up event listeners
-  },
+    if (this.timer) clearInterval(this.timer)
+  }
 }
 
 export default MuxPlayer
 ```
+
+Conventions the template shows:
+
+- Server payloads get a named `interface`; the `handleEvent` callback
+  parameter is annotated with it (`handleEvent` itself is typed `any`).
+- Helpers that are not lifecycle methods are `private`.
+- State that `destroyed()` must tear down is nullable and only assigned once
+  the thing it refers to exists, so `destroyed()` can guard on it.
+- A listener that must be removed later is stored on the instance as an arrow
+  function field (`private onScroll = () => { ... }`), never re-created inline.
 
 ---
 
@@ -140,8 +218,8 @@ fetch("/api/watchlist/remove", { method: "POST", body: ... })
 
 Hooks communicate with the server exclusively through the LiveView socket.
 Never make direct HTTP calls (fetch, XMLHttpRequest) from hooks. The only
-exception is the initial Mux direct upload, which goes to Mux's servers
-(not ours).
+exceptions are the direct uploads, which go to Mux's and DigitalOcean Spaces'
+servers (not ours).
 
 ### 3. All hooks must have JSDoc comments
 
@@ -164,15 +242,79 @@ lives on `this` (the hook instance) so it's scoped to the element's lifecycle.
 
 ```typescript
 // ✅ CORRECT — state on the hook instance
-mounted() {
-  this.player = new MuxPlayerElement()
-  this.intervalId = setInterval(() => this.reportPosition(), 10000)
+class MuxPlayer extends ViewHook {
+  private player: MuxPlayerElement | null = null
+  private intervalId: ReturnType<typeof setInterval> | null = null
 }
 
 // ❌ WRONG — global state
 let player: MuxPlayerElement
 let intervalId: number
 ```
+
+### 6. No `any`, no `@ts-ignore`
+
+`tsconfig.json` is `strict: true` and CI runs `tsc --noEmit`. Fix the type,
+don't hide it. An untyped third-party library gets a declaration file next to
+it in `assets/vendor/` (see `topbar.d.ts`), or a types-only devDependency
+re-exported from one (see `chart.d.ts`, `sortable.d.ts`).
+
+### 7. Every hook has a test
+
+`assets/test/hooks/<hook>.test.ts` covers each branch of the hook: what it
+pushes to the server, what it changes in the DOM, and that `destroyed()`
+tears everything down. See **Testing** below.
+
+---
+
+## Testing
+
+Tests run in vitest with a jsdom environment. `test/support/mount.ts` is the
+entry point:
+
+```typescript
+import { describe, expect, it } from "vitest"
+
+import ViewerNav from "../../js/hooks/viewer_nav"
+import { html, mountHook } from "../support/mount"
+
+it("becomes solid past the threshold", () => {
+  const el = html(`<header id="nav" data-scroll-threshold="50"></header>`)
+  const { hook, pushEvent, serverPush } = mountHook(ViewerNav, el)
+  // hook       — the instance, already mounted()
+  // pushEvent  — spy: expect(pushEvent).toHaveBeenCalledWith("event", {...})
+  // serverPush — simulate a push_event from the server: serverPush("seek_to", {position: 1})
+  hook.destroyed()
+})
+```
+
+`mountHook` instantiates the real class with no LiveView attached and stubs
+only `pushEvent` and `handleEvent`. Everything else — DOM queries, listeners,
+timers — is production code, so drive it with real DOM events
+(`el.dispatchEvent(new Event("mouseenter"))`, `button.click()`).
+
+What jsdom lacks and how the tests cover it:
+
+- `matchMedia`: `test/setup.ts` installs one; `setReducedMotion(true)` in
+  `test/support/media.ts` flips the reduced-motion query.
+- Layout (`clientWidth`, `scrollHeight`, `getBoundingClientRect`): define the
+  properties on the element under test with `Object.defineProperty` or
+  `vi.spyOn`.
+- `scrollIntoView` / `scrollBy`: inert stand-ins from `test/setup.ts`; spy on
+  the instance (`vi.spyOn(row, "scrollIntoView")`) to assert calls.
+- Timers: `vi.useFakeTimers()` and `vi.advanceTimersByTime()`; add
+  `requestAnimationFrame` / `performance` to `toFake` when the hook uses them.
+- `XMLHttpRequest`: `FakeXMLHttpRequest.install()` from `test/support/xhr.ts`,
+  then `FakeXMLHttpRequest.latest().respond(200)` / `.fail()` / `.progress()`.
+- Canvas: none, so Chart.js cannot render — `vi.mock("../../vendor/chart.js", ...)`
+  with a recording double, as `analytics_chart.test.ts` does.
+- The Mux Player web component: a plain `<mux-player>` element with the
+  properties the hook reads (`currentTime`, `paused`, `duration`, `play`)
+  assigned on it.
+
+The Phoenix packages come from `deps/`, not npm; `vitest.config.mts` aliases
+`phoenix` and `phoenix_live_view` to their ESM builds there. `mix deps.get`
+must have run before the tests will resolve.
 
 ---
 
@@ -203,6 +345,9 @@ The LiveView renders the element with the playback ID:
 
 The `MuxPlayer` hook then binds to the player element's events (play, pause,
 timeupdate, ended) and relays them to the server via `pushEvent`.
+`js/types/mux.d.ts` registers `mux-player` in `HTMLElementTagNameMap`, so
+`el.querySelector("mux-player")` and `document.createElement("mux-player")`
+are typed as `MuxPlayerElement` without a cast.
 
 ---
 
@@ -219,15 +364,25 @@ timeupdate, ended) and relays them to the server via `pushEvent`.
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@hooks/*": ["js/hooks/*"],
-      "@types/*": ["js/types/*"]
+      "@hooks/*": ["./js/hooks/*"],
+      "@types/*": ["./js/types/*"],
+      "phoenix_html": ["../deps/phoenix_html"],
+      "phoenix_live_view": ["../deps/phoenix_live_view"]
     }
   },
-  "include": ["js/**/*.ts"],
+  "include": ["js/**/*.ts", "test/**/*.ts", "vitest.config.mts"],
   "exclude": ["node_modules"]
 }
 ```
 
-This is for editor tooling and CI only — esbuild ignores it during builds.
+Notes:
+
+- No `baseUrl`: it is deprecated in TypeScript 6 and removed in 7. `paths`
+  entries are relative to `assets/`.
+- `phoenix_live_view` and `phoenix_html` map to the Hex packages in `deps/`;
+  LiveView 1.1 ships its own `.d.ts` files there. `phoenix` itself has no
+  bundled types, so `@types/phoenix` provides them.
+- esbuild reads this file too (for `paths`), which is why the esbuild entry in
+  `config/config.exs` is the real file `js/app.ts` rather than a package-style
+  `js/app.js` that only resolved through `baseUrl`.
