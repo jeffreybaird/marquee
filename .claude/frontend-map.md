@@ -127,6 +127,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 | `Sortable`        | `hooks/sortable.ts`           | `Admin.CatalogLive`            | `reordered` |
 | `QueueSortable`   | `hooks/queue_sortable.ts`     | `Viewer.WatchlistLive` (queue tab), `WatchLive` (queue panel) | `reorder_queue` |
 | `PushNotifications`| `hooks/push_notifications.ts`| Not yet wired                  | `push_subscription_created`, `push_subscription_failed` |
+| `GuidedTour`      | `hooks/guided_tour.ts` (+ `tour/`) | `Admin.DashboardLive`    | Sends `tour_completed`; receives `start-tour`. Shepherd.js walkthrough of the admin sidebar; auto-starts once per operator (membership `admin_tour_completed_at`), replayable via "Take a tour". |
 
 ---
 

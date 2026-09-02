@@ -3,7 +3,9 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Marquee.Accounts
   alias Marquee.Onboarding.StarterContent
+  alias Marquee.Repo
 
   describe "access control" do
     test "owner can access dashboard", %{conn: _conn} do
@@ -200,6 +202,59 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
 
       refute has_element?(view, "[data-test='sample-content-banner']")
+    end
+  end
+
+  describe "guided admin tour" do
+    test "auto-starts and offers a restart link for an operator who hasn't seen it", %{
+      conn: _conn
+    } do
+      membership = insert(:membership, role: :owner, admin_tour_completed_at: nil)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "#admin-guided-tour[data-auto-start='true']")
+      assert has_element?(view, "[data-test='restart-tour']")
+    end
+
+    test "does not auto-start for an operator who already completed it", %{conn: _conn} do
+      # Factory memberships default to already-toured.
+      membership = insert(:membership, role: :owner)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "#admin-guided-tour[data-auto-start='false']")
+      # The restart link is always available so the tour can be replayed.
+      assert has_element?(view, "[data-test='restart-tour']")
+    end
+
+    test "passes the organization name to the tour as the brand", %{conn: _conn} do
+      membership = insert(:membership, role: :owner)
+      org = Repo.preload(membership, :organization).organization
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "#admin-guided-tour[data-tour-brand='#{org.name}']")
+    end
+
+    test "completing the tour records it on the membership", %{conn: _conn} do
+      membership = insert(:membership, role: :owner, admin_tour_completed_at: nil)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      refute Accounts.admin_tour_completed?(Repo.reload!(membership))
+
+      render_hook(view, "tour_completed", %{})
+
+      assert Accounts.admin_tour_completed?(Repo.reload!(membership))
+      assert has_element?(view, "#admin-guided-tour[data-auto-start='false']")
+    end
+
+    test "the restart link pushes a start-tour event", %{conn: _conn} do
+      membership = insert(:membership, role: :owner)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      view |> element("[data-test='restart-tour']") |> render_click()
+
+      assert_push_event(view, "start-tour", %{})
     end
   end
 end
