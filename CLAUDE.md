@@ -231,9 +231,10 @@ Every create, update, delete logged via event system + `AuditSubscriber`. Audit 
 
 Before **every commit**:
 
-- Run `mix marquee.verify`
-- Run `mix test`
-- If `assets/` changed: `cd assets && npm run typecheck && npm test`, then `mix esbuild marquee`
+- Run `mix marquee.verify` — format, compile (warnings as errors), credo, assets
+  type-check + tests + build, `mix test`, dialyzer, e2e; stops at first failure.
+  `--no-dialyzer` / `--no-e2e` skip the slow steps while iterating; run the full
+  suite before pushing.
 
 No commit if checks fail.
 
