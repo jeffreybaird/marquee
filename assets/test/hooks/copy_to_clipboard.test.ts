@@ -79,4 +79,22 @@ describe("CopyToClipboard", () => {
     expect(writeText).not.toHaveBeenCalled()
     expect(el.textContent).toBe("Copy")
   })
+
+  it("restores the original label after rapid repeated clicks", async () => {
+    stubClipboard(() => Promise.resolve())
+    const el = html(`<button id="copy" data-copy-value="x">Copy</button>`)
+    mountHook(CopyToClipboard, el)
+
+    el.click()
+    await flush()
+    vi.advanceTimersByTime(1000)
+    el.click()
+    await flush()
+    vi.advanceTimersByTime(1000)
+
+    // The second click restarted the 1.5s window.
+    expect(el.textContent).toBe("Copied")
+    vi.advanceTimersByTime(500)
+    expect(el.textContent).toBe("Copy")
+  })
 })
