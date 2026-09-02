@@ -7,12 +7,14 @@
  *
  * No server events — purely client-side behavior.
  */
+import { ViewHook } from "phoenix_live_view"
+
 const CONFIRM_MS = 1500
 
-const CopyToClipboard = {
-  mounted() {
-    this._timer = null as ReturnType<typeof setTimeout> | null
+class CopyToClipboard extends ViewHook {
+  private _timer: ReturnType<typeof setTimeout> | null = null
 
+  mounted() {
     this.el.addEventListener("click", async (e: MouseEvent) => {
       e.preventDefault()
       const value = this.el.dataset.copyValue ?? ""
@@ -27,9 +29,9 @@ const CopyToClipboard = {
         this.flashConfirm()
       }
     })
-  },
+  }
 
-  flashConfirm() {
+  private flashConfirm() {
     const confirmText = this.el.dataset.copyConfirm ?? "Copied"
     const original = this.el.textContent ?? ""
     this.el.textContent = confirmText
@@ -39,9 +41,9 @@ const CopyToClipboard = {
       this.el.textContent = original
       this._timer = null
     }, CONFIRM_MS)
-  },
+  }
 
-  fallbackCopy(value: string) {
+  private fallbackCopy(value: string) {
     const ta = document.createElement("textarea")
     ta.value = value
     ta.setAttribute("readonly", "")
@@ -54,11 +56,11 @@ const CopyToClipboard = {
     } finally {
       ta.remove()
     }
-  },
+  }
 
   destroyed() {
     if (this._timer) clearTimeout(this._timer)
-  },
+  }
 }
 
 export default CopyToClipboard

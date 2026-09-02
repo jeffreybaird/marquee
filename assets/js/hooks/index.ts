@@ -1,3 +1,5 @@
+import type { HooksOptions } from "phoenix_live_view"
+
 import AnalyticsChart from "./analytics_chart_hook"
 import CardFocus from "./card_focus"
 import Carousel from "./carousel"
@@ -30,4 +32,4 @@ export const hooks = {
   SpacesUploader,
   StaggerReveal,
   ViewerNav,
-}
+} satisfies HooksOptions

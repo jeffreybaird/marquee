@@ -10,7 +10,12 @@
  *
  * @dom data-scroll-threshold - pixels before nav becomes solid (default: 50)
  */
-const ViewerNav = {
+import { ViewHook } from "phoenix_live_view"
+
+class ViewerNav extends ViewHook {
+  private threshold = 50
+  private onScroll: (() => void) | null = null
+
   mounted() {
     this.threshold = parseInt(this.el.dataset.scrollThreshold || "50", 10)
 
@@ -21,13 +26,13 @@ const ViewerNav = {
 
     window.addEventListener("scroll", this.onScroll, { passive: true })
     this.onScroll()
-  },
+  }
 
   destroyed() {
     if (this.onScroll) {
       window.removeEventListener("scroll", this.onScroll)
     }
-  },
+  }
 }
 
 export default ViewerNav

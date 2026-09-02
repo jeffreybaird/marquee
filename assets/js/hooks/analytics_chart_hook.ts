@@ -10,15 +10,24 @@
  * Supported types: "line", "bar", "doughnut"
  * Cleans up the Chart.js instance on unmount.
  */
-
-// @ts-ignore — vendored UMD bundle, no TS declarations needed
+import { ViewHook } from "phoenix_live_view"
 import Chart from "../../vendor/chart.js"
 
-const AnalyticsChart = {
+type AnalyticsChartType = "line" | "bar" | "doughnut"
+
+interface ChartPayload {
+  labels: string[]
+  data: number[]
+  type?: AnalyticsChartType
+}
+
+class AnalyticsChart extends ViewHook<HTMLCanvasElement> {
+  private chart: Chart<AnalyticsChartType, number[], string> | null = null
+  private eventName = ""
+  private handler: ((payload: ChartPayload) => void) | null = null
+
   mounted() {
-    this.chart = null as InstanceType<typeof Chart> | null
     this.eventName = this.el.dataset.chartEvent || ""
-    this.handler = null as ((payload: ChartPayload) => void) | null
 
     if (!this.eventName) return
 
@@ -27,9 +36,9 @@ const AnalyticsChart = {
     }
 
     this.handleEvent(this.eventName, this.handler)
-  },
+  }
 
-  renderChart(payload: ChartPayload) {
+  private renderChart(payload: ChartPayload) {
     const { labels, data, type = "line" } = payload
 
     if (this.chart) {
@@ -78,7 +87,7 @@ const AnalyticsChart = {
             : {},
       },
     })
-  },
+  }
 
   destroyed() {
     if (this.chart) {
@@ -87,13 +96,7 @@ const AnalyticsChart = {
     }
     this.handler = null
     this.eventName = ""
-  },
-}
-
-interface ChartPayload {
-  labels: string[]
-  data: number[]
-  type?: "line" | "bar" | "doughnut"
+  }
 }
 
 export default AnalyticsChart

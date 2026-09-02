@@ -14,14 +14,18 @@
  *
  * No server events — purely client-side behavior.
  */
+import { ViewHook } from "phoenix_live_view"
+
 const SHOW_DELAY_MS = 500
 const HIDE_DELAY_MS = 300
 
-const CardFocus = {
+class CardFocus extends ViewHook {
+  private _showTimer: ReturnType<typeof setTimeout> | null = null
+  private _hideTimer: ReturnType<typeof setTimeout> | null = null
+  private _player: HTMLElement | null = null
+  private _reducedMotion = false
+
   mounted() {
-    this._showTimer = null as ReturnType<typeof setTimeout> | null
-    this._hideTimer = null as ReturnType<typeof setTimeout> | null
-    this._player = null as HTMLElement | null
     this._reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches
@@ -44,13 +48,13 @@ const CardFocus = {
         link?.focus()
       }
     })
-  },
+  }
 
   /**
    * Checks if this card overlaps a visible row arrow button.
    * If it does, focus should be suppressed so the arrow stays usable.
    */
-  overlapsArrow(): boolean {
+  private overlapsArrow(): boolean {
     const row = this.el.closest(
       ".sv-row, .content-row, [phx-hook='RowScroller']"
     )
@@ -73,37 +77,37 @@ const CardFocus = {
       if (overlaps) return true
     }
     return false
-  },
+  }
 
-  scheduleShow() {
+  private scheduleShow() {
     this.cancelHide()
 
     if (this.overlapsArrow()) return
 
     const delay = this._reducedMotion ? 0 : SHOW_DELAY_MS
     this._showTimer = setTimeout(() => this.show(), delay)
-  },
+  }
 
-  scheduleHide() {
+  private scheduleHide() {
     this.cancelShow()
     this._hideTimer = setTimeout(() => this.hide(), HIDE_DELAY_MS)
-  },
+  }
 
-  show() {
+  private show() {
     this.cancelHide()
     this.cancelShow()
     this.el.classList.add("sv-card-focused")
     this.startPreview()
-  },
+  }
 
-  hide() {
+  private hide() {
     this.cancelShow()
     this.cancelHide()
     this.el.classList.remove("sv-card-focused")
     this.stopPreview()
-  },
+  }
 
-  startPreview() {
+  private startPreview() {
     if (this._player) return
 
     const thumbEl = this.el.querySelector<HTMLElement>(".sv-card-popup-thumb")
@@ -126,34 +130,34 @@ const CardFocus = {
 
     thumbEl.appendChild(player)
     this._player = player
-  },
+  }
 
-  stopPreview() {
+  private stopPreview() {
     if (this._player) {
       this._player.remove()
       this._player = null
     }
-  },
+  }
 
-  cancelShow() {
+  private cancelShow() {
     if (this._showTimer) {
       clearTimeout(this._showTimer)
       this._showTimer = null
     }
-  },
+  }
 
-  cancelHide() {
+  private cancelHide() {
     if (this._hideTimer) {
       clearTimeout(this._hideTimer)
       this._hideTimer = null
     }
-  },
+  }
 
   destroyed() {
     this.cancelShow()
     this.cancelHide()
     this.stopPreview()
-  },
+  }
 }
 
 export default CardFocus

@@ -9,8 +9,10 @@
  * Dataset attributes:
  *   - data-current-video-id: The ID of the video currently playing
  */
-const ScrollToCurrentEpisode = {
-  mounted(this: any) {
+import { ViewHook } from "phoenix_live_view"
+
+class ScrollToCurrentEpisode extends ViewHook {
+  mounted() {
     const currentVideoId = this.el.dataset.currentVideoId
     if (!currentVideoId) return
 
@@ -23,9 +25,9 @@ const ScrollToCurrentEpisode = {
         currentRow.scrollIntoView({ behavior: "smooth", block: "nearest" })
       })
     }
-  },
+  }
 
-  updated(this: any) {
+  updated() {
     const currentVideoId = this.el.dataset.currentVideoId
     if (!currentVideoId) return
 
@@ -38,7 +40,7 @@ const ScrollToCurrentEpisode = {
         currentRow.scrollIntoView({ behavior: "smooth", block: "nearest" })
       })
     }
-  },
+  }
 }
 
 export default ScrollToCurrentEpisode

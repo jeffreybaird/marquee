@@ -31,6 +31,8 @@
  * Events received from the server:
  *   "spaces_presign_ready" {kind, target_id, presigned_url, public_url, key, headers}
  */
+import { ViewHook } from "phoenix_live_view"
+
 type UploadErrorDetails = {
   error: string
   http_status?: number | null
@@ -43,10 +45,20 @@ type UploadErrorDetails = {
   key?: string | null
 }
 
-const SpacesUploader = {
-  mounted(this: any) {
-    this.pendingFile = null as File | null
+interface PresignReadyPayload {
+  kind: string
+  target_id: string | null
+  presigned_url: string
+  public_url: string
+  key: string
+  headers: Record<string, string>
+}
 
+class SpacesUploader extends ViewHook {
+  private pendingFile: File | null = null
+  private currentXhr: XMLHttpRequest | null = null
+
+  mounted() {
     const kind = this.el.dataset.uploadKind || ""
     const targetId = this.el.dataset.targetId || null
 
@@ -78,14 +90,7 @@ const SpacesUploader = {
         public_url,
         key,
         headers,
-      }: {
-        kind: string
-        target_id: string | null
-        presigned_url: string
-        public_url: string
-        key: string
-        headers: Record<string, string>
-      }) => {
+      }: PresignReadyPayload) => {
         if (readyKind !== kind || readyTargetId !== targetId) return
 
         const file = this.pendingFile
@@ -120,9 +125,9 @@ const SpacesUploader = {
           })
       },
     )
-  },
+  }
 
-  uploadToSpaces(
+  private uploadToSpaces(
     url: string,
     file: File,
     headers: Record<string, string>,
@@ -201,13 +206,13 @@ const SpacesUploader = {
       }
       xhr.send(file)
     })
-  },
+  }
 
-  destroyed(this: any) {
+  destroyed() {
     if (this.currentXhr) {
       this.currentXhr.abort()
     }
-  },
+  }
 }
 
 export default SpacesUploader

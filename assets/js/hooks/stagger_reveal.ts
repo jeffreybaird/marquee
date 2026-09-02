@@ -12,25 +12,29 @@
  *
  * No server events — purely client-side behavior.
  */
+import { ViewHook } from "phoenix_live_view"
+
 const STAGGER_MS = 50
 const MAX_STAGGER_MS = 400
 const TRANSITION_MS = 350
 const REVEALED_ATTR = "data-stagger-revealed"
 
-const StaggerReveal = {
+class StaggerReveal extends ViewHook {
+  private _reducedMotion = false
+
   mounted() {
     this._reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches
 
     this.reveal()
-  },
+  }
 
   updated() {
     this.reveal()
-  },
+  }
 
-  reveal() {
+  private reveal() {
     const children = Array.from(this.el.children) as HTMLElement[]
 
     if (this._reducedMotion) {
@@ -63,7 +67,7 @@ const StaggerReveal = {
         child.style.transform = "translateY(0)"
       }, delay)
     })
-  },
+  }
 }
 
 export default StaggerReveal

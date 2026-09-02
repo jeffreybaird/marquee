@@ -8,11 +8,13 @@
  * Events sent to server:
  *   - "reorder_queue" { ordered_ids: string[] }
  */
-
+import { ViewHook } from "phoenix_live_view"
 import Sortable from "../../vendor/sortable"
 
-const QueueSortable = {
-  mounted(this: any) {
+class QueueSortable extends ViewHook {
+  private sortable: Sortable | null = null
+
+  mounted() {
     this.sortable = new Sortable(this.el, {
       animation: 150,
       handle: ".sv-queue-drag-handle",
@@ -24,13 +26,13 @@ const QueueSortable = {
         this.pushEvent("reorder_queue", { ordered_ids: items })
       },
     })
-  },
+  }
 
-  destroyed(this: any) {
+  destroyed() {
     if (this.sortable) {
       this.sortable.destroy()
     }
-  },
+  }
 }
 
 export default QueueSortable

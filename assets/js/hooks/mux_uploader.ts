@@ -24,12 +24,29 @@
  *   - "upload_complete"  { video_id: string }
  *   - "upload_error"     { video_id: string, error: string }
  */
+import { ViewHook } from "phoenix_live_view"
 
-const MuxUploader = {
+interface StartUploadPayload {
+  upload_url: string
+  video_id: string
+}
+
+interface UploadQueueEntry {
+  client_id: string
+  video_id: string
+  upload_url: string
+}
+
+interface StartMultiUploadPayload {
+  queue: UploadQueueEntry[]
+}
+
+class MuxUploader extends ViewHook {
+  private clientIdCounter = 0
+  private selectedFiles = new Map<string, File>()
+  private currentXhr: XMLHttpRequest | null = null
+
   mounted() {
-    this.clientIdCounter = 0
-    this.selectedFiles = new Map<string, File>()
-
     // Listen for file selection anywhere in the document
     // (the file input is in the modal which may re-render)
     document.addEventListener("change", (e: Event) => {
@@ -49,7 +66,7 @@ const MuxUploader = {
     })
 
     // Legacy single-file upload (kept for backwards compatibility)
-    this.handleEvent("start_upload", ({ upload_url, video_id }: { upload_url: string; video_id: string }) => {
+    this.handleEvent("start_upload", ({ upload_url, video_id }: StartUploadPayload) => {
       const file = this.selectedFiles.values().next().value
       if (!file) {
         this.pushEvent("upload_error", { video_id, error: "No file selected" })
@@ -61,12 +78,12 @@ const MuxUploader = {
     })
 
     // Multi-file upload: receives a queue of { client_id, video_id, upload_url }
-    this.handleEvent("start_multi_upload", ({ queue }: { queue: Array<{ client_id: string; video_id: string; upload_url: string }> }) => {
+    this.handleEvent("start_multi_upload", ({ queue }: StartMultiUploadPayload) => {
       this.uploadQueue(queue)
     })
-  },
+  }
 
-  async uploadQueue(queue: Array<{ client_id: string; video_id: string; upload_url: string }>) {
+  private async uploadQueue(queue: UploadQueueEntry[]) {
     for (const entry of queue) {
       const file = this.selectedFiles.get(entry.client_id)
       if (!file) {
@@ -80,9 +97,9 @@ const MuxUploader = {
       await this.uploadToMux(entry.upload_url, file, entry.video_id)
     }
     this.selectedFiles.clear()
-  },
+  }
 
-  uploadToMux(url: string, file: File, videoId: string): Promise<void> {
+  private uploadToMux(url: string, file: File, videoId: string): Promise<void> {
     return new Promise((resolve) => {
       try {
         const xhr = new XMLHttpRequest()
@@ -125,13 +142,13 @@ const MuxUploader = {
         resolve()
       }
     })
-  },
+  }
 
   destroyed() {
     if (this.currentXhr) {
       this.currentXhr.abort()
     }
-  },
+  }
 }
 
 export default MuxUploader

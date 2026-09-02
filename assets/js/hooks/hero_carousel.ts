@@ -18,7 +18,18 @@
  *
  * No server events -- this is purely client-side behavior.
  */
-const HeroCarousel = {
+import { ViewHook } from "phoenix_live_view"
+
+class HeroCarousel extends ViewHook {
+  private slides!: NodeListOf<HTMLElement>
+  private dots!: NodeListOf<HTMLElement>
+  private prevBtn: HTMLElement | null = null
+  private nextBtn: HTMLElement | null = null
+  private activeIndex = 0
+  private totalSlides = 0
+  private prefersReducedMotion = false
+  private timer: ReturnType<typeof setInterval> | null = null
+
   mounted() {
     this.slides = this.el.querySelectorAll<HTMLElement>(".hero-slide")
     this.dots = this.el.querySelectorAll<HTMLElement>(".hero-dot")
@@ -37,7 +48,6 @@ const HeroCarousel = {
     }
 
     const interval = parseInt(this.el.dataset.autoAdvance || "8000", 10)
-    this.interval = interval
 
     // Dot click handlers
     this.dots.forEach((dot: HTMLElement, index: number) => {
@@ -69,9 +79,9 @@ const HeroCarousel = {
         this.startAutoAdvance(interval)
       )
     }
-  },
+  }
 
-  goToSlide(index: number) {
+  private goToSlide(index: number) {
     if (index === this.activeIndex) return
 
     this.slides[this.activeIndex]?.classList.remove("active")
@@ -82,35 +92,35 @@ const HeroCarousel = {
     this.slides[this.activeIndex]?.classList.add("active")
     this.dots[this.activeIndex]?.classList.add("active")
     this.dots[this.activeIndex]?.setAttribute("aria-selected", "true")
-  },
+  }
 
-  nextSlide() {
+  private nextSlide() {
     const next = (this.activeIndex + 1) % this.totalSlides
     this.goToSlide(next)
-  },
+  }
 
-  prevSlide() {
+  private prevSlide() {
     const prev = (this.activeIndex - 1 + this.totalSlides) % this.totalSlides
     this.goToSlide(prev)
-  },
+  }
 
-  startAutoAdvance(interval: number) {
+  private startAutoAdvance(interval: number) {
     this.stopAutoAdvance()
     if (interval > 0 && !this.prefersReducedMotion) {
       this.timer = setInterval(() => this.nextSlide(), interval)
     }
-  },
+  }
 
-  stopAutoAdvance() {
+  private stopAutoAdvance() {
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = null
     }
-  },
+  }
 
   destroyed() {
     this.stopAutoAdvance()
-  },
+  }
 }
 
 export default HeroCarousel

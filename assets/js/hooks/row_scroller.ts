@@ -8,7 +8,14 @@
  *
  * No server events -- purely client-side behavior.
  */
-const RowScroller = {
+import { ViewHook } from "phoenix_live_view"
+
+class RowScroller extends ViewHook {
+  private container: HTMLElement | null = null
+  private prevBtn: HTMLElement | null = null
+  private nextBtn: HTMLElement | null = null
+  private _onResize: (() => void) | null = null
+
   mounted() {
     this.container = this.el.querySelector<HTMLElement>(".content-row-items")
     this.prevBtn = this.el.querySelector<HTMLElement>(".row-arrow-prev")
@@ -27,27 +34,27 @@ const RowScroller = {
     window.addEventListener("resize", this._onResize)
 
     this.updateArrows()
-  },
+  }
 
-  scrollPrev() {
+  private scrollPrev() {
     if (!this.container) return
     const scrollAmount = this.container.clientWidth * 0.8
     this.container.scrollBy({ left: -scrollAmount, behavior: "smooth" })
-  },
+  }
 
-  scrollNext() {
+  private scrollNext() {
     if (!this.container) return
     const scrollAmount = this.container.clientWidth * 0.8
     this.container.scrollBy({ left: scrollAmount, behavior: "smooth" })
-  },
+  }
 
   destroyed() {
     if (this._onResize) {
       window.removeEventListener("resize", this._onResize)
     }
-  },
+  }
 
-  updateArrows() {
+  private updateArrows() {
     if (!this.container) return
     const { scrollLeft, scrollWidth, clientWidth } = this.container
     const atStart = scrollLeft <= 0
@@ -55,7 +62,7 @@ const RowScroller = {
 
     this.prevBtn?.classList.toggle("row-arrow-hidden", atStart)
     this.nextBtn?.classList.toggle("row-arrow-hidden", atEnd)
-  },
+  }
 }
 
 export default RowScroller
