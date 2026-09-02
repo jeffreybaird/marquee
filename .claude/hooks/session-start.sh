@@ -2,12 +2,12 @@
 #
 # SessionStart hook for Claude Code on the web.
 #
-# Installs the pinned BEAM toolchain, a local Postgres, and the project's deps
-# so `mix test`, `mix marquee.verify`, `mix credo` and `mix format` work in a
-# fresh remote container. Ubuntu's packaged Erlang is far too old (OTP 25 on
-# noble) and this project needs OTP 28 / Elixir 1.19, so the toolchain comes
-# from the same precompiled builds erlef/setup-beam uses in CI rather than
-# from apt.
+# Installs the pinned BEAM toolchain, a local Postgres, a Linux chromedriver
+# matching the container's Chromium, and the project's deps so `mix test`,
+# `mix marquee.verify`, `mix credo` and `mix format` work in a fresh remote
+# container. Ubuntu's packaged Erlang is far too old (OTP 25 on noble) and this
+# project needs OTP 28 / Elixir 1.19, so the toolchain comes from the same
+# precompiled builds erlef/setup-beam uses in CI rather than from apt.
 #
 # Versions are parsed from the Dockerfile ARGs — the single source of truth
 # CI already reads (see .github/workflows/ci.yml) — so bumping the pin there
@@ -142,6 +142,106 @@ fi
 # expects. ALTER is idempotent, so no need to check first.
 as_postgres psql -tAc "ALTER USER postgres WITH PASSWORD 'postgres';" >/dev/null
 
+## Chrome / chromedriver ------------------------------------------------------
+
+# `mix test` boots Wallaby unconditionally (test/test_helper.exs starts the
+# :wallaby app), and Wallaby's app start validates BOTH a chromedriver and a
+# Chrome binary — without both the whole suite aborts before the first test,
+# not just the `--only e2e` flows. The container ships Playwright's Chromium
+# but no usable Linux chromedriver: the one committed under chromedriver/ is a
+# macOS-arm build, and the stray /opt/node22/bin/chromedriver is a different
+# major version that Chrome would reject at session start. So fetch a
+# chromedriver whose version matches the installed Chromium from Chrome for
+# Testing, and put both binaries on PATH under a dedicated dir that outranks
+# the mismatched node one. Config stays untouched: Wallaby's default lookup
+# searches PATH for `chromedriver` and `chromium`, which keeps macOS dev and CI
+# on their own toolchains.
+
+WALLABY_BIN="/opt/wallaby-bin"
+
+# Find a Chrome/Chromium binary. Prefer one already on PATH, else fall back to
+# the Playwright build (outside PATH, under a private name). readlink -f
+# resolves to the real executable so relinking on a cached run can't form a
+# self-referential symlink.
+CHROME_BIN=""
+for candidate in \
+  "$(command -v chromium 2>/dev/null || true)" \
+  "$(command -v chromium-browser 2>/dev/null || true)" \
+  "$(command -v google-chrome 2>/dev/null || true)" \
+  "$(command -v google-chrome-stable 2>/dev/null || true)" \
+  "${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}/chromium" \
+  "/opt/pw-browsers/chromium"; do
+  if [ -n "$candidate" ] && { [ -x "$candidate" ] || [ -L "$candidate" ]; }; then
+    CHROME_BIN="$(readlink -f "$candidate")"
+    break
+  fi
+done
+
+if [ -z "$CHROME_BIN" ] || [ ! -x "$CHROME_BIN" ]; then
+  echo "session-start: WARNING no Chrome/Chromium binary found — Wallaby will not start, so mix test cannot boot" >&2
+else
+  CHROME_VERSION="$("$CHROME_BIN" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  if [ -z "$CHROME_VERSION" ]; then
+    echo "session-start: WARNING could not read a version from $CHROME_BIN — skipping chromedriver provisioning" >&2
+  else
+    CHROME_MAJOR="${CHROME_VERSION%%.*}"
+    CHROMEDRIVER_DIR="/opt/chromedriver/$CHROME_VERSION"
+    CFT_BASE="https://storage.googleapis.com/chrome-for-testing-public"
+
+    # Marker-guarded like the BEAM installs: a missing marker means reinstall,
+    # so an interrupted run heals, and a Chromium bump installs a fresh driver.
+    if [ ! -f "$CHROMEDRIVER_DIR/.install-complete" ]; then
+      echo "session-start: installing chromedriver for Chromium $CHROME_VERSION"
+
+      ARCH="$(dpkg --print-architecture)"
+      if [ "$ARCH" != "amd64" ]; then
+        echo "session-start: WARNING arch is $ARCH but Chrome for Testing only ships a linux64 chromedriver" >&2
+      fi
+
+      TMP="$(mktemp -d)"
+      trap 'as_root rm -rf "$TMP"' EXIT
+
+      # Chrome for Testing publishes a chromedriver per Chromium release. Prefer
+      # the exact version; fall back to the milestone's latest build if that
+      # exact one was never published (same major keeps Chrome from rejecting
+      # the session — Wallaby only warns on a patch mismatch).
+      DRIVER_URL="$CFT_BASE/$CHROME_VERSION/linux64/chromedriver-linux64.zip"
+      if ! curl -fsSL "$DRIVER_URL" -o "$TMP/chromedriver.zip"; then
+        echo "session-start: exact chromedriver $CHROME_VERSION not published — falling back to milestone $CHROME_MAJOR latest"
+        MILESTONE_JSON="https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone.json"
+        DRIVER_VERSION="$(curl -fsSL "$MILESTONE_JSON" \
+          | grep -oE "\"$CHROME_MAJOR\":\{[^}]*\"version\":\"[0-9.]+\"" \
+          | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+        if [ -z "$DRIVER_VERSION" ]; then
+          echo "session-start: could not resolve a chromedriver for Chromium major $CHROME_MAJOR" >&2
+          exit 1
+        fi
+        curl -fsSL "$CFT_BASE/$DRIVER_VERSION/linux64/chromedriver-linux64.zip" -o "$TMP/chromedriver.zip"
+      fi
+
+      unzip -q "$TMP/chromedriver.zip" -d "$TMP"
+      as_root rm -rf "$CHROMEDRIVER_DIR"
+      as_root mkdir -p "$CHROMEDRIVER_DIR"
+      # The published zip nests the binary under chromedriver-linux64/.
+      as_root install -m 0755 "$TMP/chromedriver-linux64/chromedriver" "$CHROMEDRIVER_DIR/chromedriver"
+      as_root touch "$CHROMEDRIVER_DIR/.install-complete"
+
+      as_root rm -rf "$TMP"
+      trap - EXIT
+    fi
+
+    # Expose both binaries under the names Wallaby's Linux lookup expects. This
+    # dir is prepended to PATH below so its `chromedriver` outranks the stray,
+    # mismatched /opt/node22/bin/chromedriver. Symlinks are refreshed every run
+    # so a cached driver install still gets wired up.
+    as_root mkdir -p "$WALLABY_BIN"
+    as_root ln -sf "$CHROMEDRIVER_DIR/chromedriver" "$WALLABY_BIN/chromedriver"
+    as_root ln -sf "$CHROME_BIN" "$WALLABY_BIN/chromium"
+    export PATH="$WALLABY_BIN:$PATH"
+    echo "session-start: chromedriver ready — $(chromedriver --version | head -1)"
+  fi
+fi
+
 ## Project dependencies -------------------------------------------------------
 
 mix local.hex --force --if-missing >/dev/null
@@ -170,11 +270,33 @@ else
   echo "session-start: npm not found; skipping the assets toolchain (no type-check or JS tests)" >&2
 fi
 
+## Frontend assets ------------------------------------------------------------
+
+# Wallaby e2e drives real browser pages whose interactive controls (modals,
+# method=post buttons, live navigation) need the compiled JS/CSS bundle. Without
+# it those pages are inert and the browser tests fail even though they load. CI
+# builds assets before `mix test --only e2e`; do the same here so the e2e suite
+# is runnable. assets.setup installs the tailwind + esbuild binaries (idempotent,
+# --if-missing); assets.build writes priv/static/assets, which Plug.Static then
+# serves. Runs after the npm install above so esbuild can resolve any package
+# imports. Only worth doing when a browser was actually wired up above.
+if [ -x "$WALLABY_BIN/chromedriver" ]; then
+  echo "session-start: building frontend assets for e2e"
+  mix assets.setup >/dev/null
+  mix assets.build >/dev/null
+fi
+
 ## Persist the environment for the session ------------------------------------
 
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  # WALLABY_BIN goes first so its chromedriver outranks /opt/node22/bin's
+  # mismatched one. Only add it when it was actually populated this run.
+  WALLABY_PATH_PREFIX=""
+  if [ -x "$WALLABY_BIN/chromedriver" ]; then
+    WALLABY_PATH_PREFIX="$WALLABY_BIN:"
+  fi
   {
-    echo "export PATH=\"$ELIXIR_DIR/bin:$OTP_DIR/bin:\$PATH\""
+    echo "export PATH=\"$WALLABY_PATH_PREFIX$ELIXIR_DIR/bin:$OTP_DIR/bin:\$PATH\""
     echo 'export LANG="C.UTF-8"'
     echo 'export LC_ALL="C.UTF-8"'
   } >> "$CLAUDE_ENV_FILE"
