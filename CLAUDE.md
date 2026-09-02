@@ -233,6 +233,7 @@ Before **every commit**:
 
 - Run `mix marquee.verify`
 - Run `mix test`
+- If `assets/` changed: `cd assets && npm run typecheck && npm test`, then `mix esbuild marquee`
 
 No commit if checks fail.
 
