@@ -23,6 +23,14 @@ config :marquee, MarqueeWeb.Endpoint,
 
 config :marquee, :sql_sandbox, true
 
+# Use Chrome's "none" page-load strategy for Wallaby: `visit` returns as soon as
+# navigation commits instead of blocking on the window `load` event. The DOM is
+# already parsed at that point and Wallaby polls for elements, so tests behave
+# the same while becoming immune to any slow or unreachable sub-resource (e.g. a
+# third-party script) stalling `load` and timing out every `visit`. Setting
+# :capabilities replaces Wallaby's defaults wholesale, so the full map is
+# required; the `--user-agent` arg must stay so Wallaby can append the
+# SQL-sandbox metadata that scopes each browser session to its test connection.
 config :wallaby,
   driver: Wallaby.Chrome,
   otp_app: :marquee,
@@ -30,7 +38,30 @@ config :wallaby,
   screenshot_on_failure: true,
   max_wait_time: 10_000,
   chromedriver: [
-    headless: true
+    headless: true,
+    capabilities: %{
+      javascriptEnabled: false,
+      loadImages: false,
+      version: "",
+      rotatable: false,
+      takesScreenshot: true,
+      cssSelectorsEnabled: true,
+      nativeEvents: false,
+      platform: "ANY",
+      unhandledPromptBehavior: "accept",
+      pageLoadStrategy: "none",
+      loggingPrefs: %{browser: "DEBUG"},
+      chromeOptions: %{
+        args: [
+          "--no-sandbox",
+          "window-size=1280,800",
+          "--disable-gpu",
+          "--headless",
+          "--fullscreen",
+          "--user-agent=Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+        ]
+      }
+    }
   ],
   window_size: [width: 1280, height: 800]
 
