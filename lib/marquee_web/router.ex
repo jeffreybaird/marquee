@@ -169,6 +169,14 @@ defmodule MarqueeWeb.Router do
     get "/refresh", StripeConnectController, :refresh
   end
 
+  # Clear seeded sample content — controller route (not LiveView) so the
+  # banner works from every admin page.
+  scope "/admin", MarqueeWeb do
+    pipe_through [:browser, :set_organization, :require_authenticated_user, :require_admin]
+
+    delete "/sample-content", SampleContentController, :delete
+  end
+
   ## ──────────────────────────────────────────────────────────────────────
   ## Super admin routes — no org resolution, super admin only
   ## ──────────────────────────────────────────────────────────────────────

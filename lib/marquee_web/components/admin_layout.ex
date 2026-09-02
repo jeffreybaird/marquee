@@ -14,6 +14,7 @@ defmodule MarqueeWeb.Components.AdminLayout do
   attr :impersonating, :boolean, default: false
   attr :flash, :map, default: %{}
   attr :trial_status, :any, default: nil
+  attr :sample_content_present?, :boolean, default: false
   slot :inner_block, required: true
 
   def admin_layout(assigns) do
@@ -73,6 +74,28 @@ defmodule MarqueeWeb.Components.AdminLayout do
           data-test="trial-banner-billing-link"
         >
           Add payment
+        </.link>
+      </div>
+
+      <div
+        :if={@sample_content_present?}
+        class="bg-admin-accent-soft text-admin-fg font-ui text-sm px-4 py-2 flex items-center justify-between gap-3"
+        role="status"
+        aria-live="polite"
+        data-test="sample-content-banner"
+      >
+        <span>
+          Your platform is preloaded with <strong>sample content</strong>
+          so you can see how it looks. Remove it whenever you're ready.
+        </span>
+        <.link
+          href={~p"/admin/sample-content"}
+          method="delete"
+          data-confirm="Remove all sample content? This cannot be undone."
+          class="underline font-semibold hover:no-underline shrink-0"
+          data-test="sample-content-clear"
+        >
+          Clear sample content
         </.link>
       </div>
 

@@ -29,9 +29,14 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   alias Marquee.Accounts
   alias Marquee.Accounts.Scope
   alias Marquee.Branding
+  alias Marquee.Onboarding.StarterContent
 
   def on_mount(:require_authenticated, _params, session, socket) do
-    socket = socket |> mount_full_scope(session) |> assign_trial_status()
+    socket =
+      socket
+      |> mount_full_scope(session)
+      |> assign_trial_status()
+      |> assign_sample_content_status()
     scope = socket.assigns.current_scope
 
     cond do
@@ -89,6 +94,15 @@ defmodule MarqueeWeb.Hooks.AssignScope do
     case socket.assigns[:organization] do
       nil -> assign(socket, :trial_status, nil)
       org -> assign(socket, :trial_status, Marquee.PlatformBilling.trial_status(org))
+    end
+  end
+
+  # Whether the org still has seeded sample content, so the admin layout can
+  # offer a one-click "clear sample content" banner.
+  defp assign_sample_content_status(socket) do
+    case socket.assigns[:organization] do
+      nil -> assign(socket, :sample_content_present?, false)
+      org -> assign(socket, :sample_content_present?, StarterContent.seeded?(org))
     end
   end
 

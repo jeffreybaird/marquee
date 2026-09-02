@@ -96,4 +96,24 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "[data-test='admin-nav-settings']")
     end
   end
+
+  describe "sample content banner" do
+    test "shows a clear banner when the org has seeded sample content", %{conn: _conn} do
+      membership = insert(:membership, role: :owner)
+      {:ok, _} = Marquee.Onboarding.StarterContent.seed(membership.organization)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='sample-content-banner']")
+      assert has_element?(view, "[data-test='sample-content-clear']")
+    end
+
+    test "hides the banner when there is no sample content", %{conn: _conn} do
+      membership = insert(:membership, role: :owner)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      refute has_element?(view, "[data-test='sample-content-banner']")
+    end
+  end
 end

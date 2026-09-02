@@ -24,6 +24,7 @@ defmodule MarqueeWeb.Admin.DashboardLive do
     <MarqueeWeb.Components.AdminLayout.admin_layout
       current_path={@current_path}
       trial_status={@trial_status}
+      sample_content_present?={@sample_content_present?}
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
