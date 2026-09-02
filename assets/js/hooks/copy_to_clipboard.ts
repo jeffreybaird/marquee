@@ -13,6 +13,7 @@ const CONFIRM_MS = 1500
 
 class CopyToClipboard extends ViewHook {
   private _timer: ReturnType<typeof setTimeout> | null = null
+  private _originalText = ""
 
   mounted() {
     this.el.addEventListener("click", async (e: MouseEvent) => {
@@ -33,12 +34,18 @@ class CopyToClipboard extends ViewHook {
 
   private flashConfirm() {
     const confirmText = this.el.dataset.copyConfirm ?? "Copied"
-    const original = this.el.textContent ?? ""
-    this.el.textContent = confirmText
 
-    if (this._timer) clearTimeout(this._timer)
+    // While a confirmation is showing, the element's text is the confirmation
+    // itself, so only capture the label when none is pending.
+    if (this._timer) {
+      clearTimeout(this._timer)
+    } else {
+      this._originalText = this.el.textContent ?? ""
+    }
+
+    this.el.textContent = confirmText
     this._timer = setTimeout(() => {
-      this.el.textContent = original
+      this.el.textContent = this._originalText
       this._timer = null
     }, CONFIRM_MS)
   }
