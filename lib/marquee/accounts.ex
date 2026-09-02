@@ -8,6 +8,7 @@ defmodule Marquee.Accounts do
   alias Marquee.Branding.Theme
   alias Marquee.PlatformBilling
   alias Marquee.Repo
+  alias Marquee.Workers.SeedStarterContentWorker
 
   alias Marquee.Accounts.{Membership, Organization, User, UserNotifier, UserToken}
 
@@ -365,7 +366,7 @@ defmodule Marquee.Accounts do
   # signup. Best-effort: a failure to enqueue must not fail account creation.
   defp enqueue_starter_content(org) do
     %{organization_id: org.id}
-    |> Marquee.Workers.SeedStarterContentWorker.new()
+    |> SeedStarterContentWorker.new()
     |> Oban.insert()
   end
 

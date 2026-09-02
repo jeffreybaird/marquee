@@ -3,6 +3,8 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Marquee.Onboarding.StarterContent
+
   describe "access control" do
     test "owner can access dashboard", %{conn: _conn} do
       membership = insert(:membership, role: :owner)
@@ -100,7 +102,7 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
   describe "sample content banner" do
     test "shows a clear banner when the org has seeded sample content", %{conn: _conn} do
       membership = insert(:membership, role: :owner)
-      {:ok, _} = Marquee.Onboarding.StarterContent.seed(membership.organization)
+      {:ok, _} = StarterContent.seed(membership.organization)
 
       {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
 

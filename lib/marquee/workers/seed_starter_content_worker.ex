@@ -34,13 +34,7 @@ defmodule Marquee.Workers.SeedStarterContentWorker do
         :ok
 
       {:ok, summary} ->
-        Logger.info("Seeded starter content",
-          org_id: org.id,
-          videos: summary.videos,
-          collections: summary.collections,
-          rows: summary.rows
-        )
-
+        Logger.info("Seeded starter content", org_id: org.id, data: summary)
         :ok
 
       {:error, reason} ->
