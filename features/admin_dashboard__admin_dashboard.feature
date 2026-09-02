@@ -13,3 +13,17 @@ Feature: Admin Dashboard
     When I view the dashboard
     Then the displayed stats match the current organization data
 
+  Scenario: Operator can open the member-facing site
+    When I navigate to /admin/
+    Then I see a link to view the member-facing site
+
+  Scenario: Operator sees setup nudges on a freshly created organization
+    When I navigate to /admin/
+    Then I see a setup nudge prompting me to connect Stripe
+
+  Scenario: Operator dismisses a setup nudge and it stays hidden
+    When I navigate to /admin/
+    And I dismiss the connect-Stripe setup nudge
+    Then the connect-Stripe nudge no longer appears
+    And the connect-Stripe nudge stays hidden after I reload the dashboard
+

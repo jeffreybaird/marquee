@@ -39,6 +39,18 @@ defmodule Marquee.ContentTest do
       assert %{results: [_one]} = Content.list_videos(org)
     end
 
+    test "count_published_videos/1 counts only published, non-deleted videos for the org",
+         %{org: org} do
+      other_org = insert(:organization)
+      insert(:video, organization: org, published: true)
+      insert(:video, organization: org, published: true)
+      insert(:video, organization: org, published: false)
+      insert(:video, organization: org, published: true, deleted_at: DateTime.utc_now())
+      insert(:video, organization: other_org, published: true)
+
+      assert Content.count_published_videos(org) == 2
+    end
+
     test "list_videos/2 with tag_ids filters videos to those carrying any tag",
          %{org: org} do
       tag_a = insert(:tag, organization: org, name: "Action")

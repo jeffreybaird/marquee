@@ -86,6 +86,19 @@ defmodule Marquee.Content do
   defp apply_video_order_legacy(query, _newest), do: order_by(query, desc: :inserted_at)
 
   @doc """
+  Counts published, non-deleted videos for an organization.
+
+  Exempt from doctest — hits the database.
+  """
+  def count_published_videos(%Organization{id: org_id}) do
+    Video
+    |> where(organization_id: ^org_id)
+    |> where([v], is_nil(v.deleted_at))
+    |> where([v], v.published == true)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
   Returns the list of videos for an organization, including soft-deleted
   records.
 

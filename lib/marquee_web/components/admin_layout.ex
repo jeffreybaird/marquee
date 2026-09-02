@@ -256,7 +256,17 @@ defmodule MarqueeWeb.Components.AdminLayout do
             />
           </nav>
 
-          <div class="p-3 border-t border-admin-border">
+          <div class="p-3 border-t border-admin-border space-y-1">
+            <.link
+              href="/"
+              target="_blank"
+              rel="noopener"
+              class="flex items-center gap-2 px-3 py-2 rounded-md font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg transition-colors"
+              data-test="admin-view-site"
+            >
+              <.icon name="hero-arrow-top-right-on-square" class="size-4" /> View site
+              <span class="sr-only">(opens in a new tab)</span>
+            </.link>
             <.link
               href={~p"/users/log-out"}
               method="delete"

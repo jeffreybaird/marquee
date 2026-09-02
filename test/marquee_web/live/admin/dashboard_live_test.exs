@@ -76,7 +76,91 @@ defmodule MarqueeWeb.Admin.DashboardLiveTest do
     end
   end
 
+  describe "overview stats" do
+    test "renders KPI cards", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='kpi-active-subscribers']")
+      assert has_element?(view, "[data-test='kpi-mrr']")
+      assert has_element?(view, "[data-test='kpi-total-views']")
+      assert has_element?(view, "[data-test='kpi-published-videos']")
+    end
+
+    test "published-videos KPI reflects the org's published count", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      insert(:video, organization: org, published: true)
+      insert(:video, organization: org, published: false)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='kpi-published-videos']", "1")
+    end
+
+    test "recent uploads show an empty state when there are no videos", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='recent-uploads-empty']")
+    end
+  end
+
+  describe "setup nudges" do
+    test "a fresh org sees setup nudges at the top", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='dashboard-nudges']")
+      assert has_element?(view, "[data-test='nudge-connect_stripe']")
+      assert has_element?(view, "[data-test='nudge-create_plan']")
+    end
+
+    test "dismissing a nudge removes it from the view", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      view
+      |> element("[data-test='dismiss-nudge-connect_stripe']")
+      |> render_click()
+
+      refute has_element?(view, "[data-test='nudge-connect_stripe']")
+    end
+
+    test "a dismissed nudge stays gone after reload", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      view
+      |> element("[data-test='dismiss-nudge-connect_stripe']")
+      |> render_click()
+
+      {:ok, reloaded, _html} = live(conn_for(membership), ~p"/admin")
+      refute has_element?(reloaded, "[data-test='nudge-connect_stripe']")
+      # other nudges remain
+      assert has_element?(reloaded, "[data-test='nudge-create_plan']")
+    end
+
+    test "a nudge disappears once its setup step is complete", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+      insert(:plan, organization: org, active: true)
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      refute has_element?(view, "[data-test='nudge-create_plan']")
+    end
+  end
+
   describe "layout" do
+    test "displays a link to view the member-facing site in a new tab", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin")
+
+      assert has_element?(view, "[data-test='admin-view-site'][href='/'][target='_blank']")
+    end
+
     test "displays organization name", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
 

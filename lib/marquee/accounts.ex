@@ -10,7 +10,14 @@ defmodule Marquee.Accounts do
   alias Marquee.Repo
   alias Marquee.Workers.SeedStarterContentWorker
 
-  alias Marquee.Accounts.{Membership, Organization, User, UserNotifier, UserToken}
+  alias Marquee.Accounts.{
+    AdminNudgeDismissal,
+    Membership,
+    Organization,
+    User,
+    UserNotifier,
+    UserToken
+  }
 
   ## Organization getters
 
@@ -209,6 +216,50 @@ defmodule Marquee.Accounts do
         select: o,
         limit: 1
     )
+  end
+
+  ## Admin dashboard nudge dismissals
+
+  @doc """
+  Lists the nudge keys this operator has dismissed on the given org's
+  dashboard.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_dismissed_nudge_keys(%User{id: user_id}, %Organization{id: org_id}) do
+    AdminNudgeDismissal
+    |> where(user_id: ^user_id, organization_id: ^org_id)
+    |> select([d], d.nudge_key)
+    |> Repo.all()
+  end
+
+  @doc """
+  Records that this operator dismissed a dashboard nudge. Idempotent —
+  re-dismissing the same key refreshes the timestamp.
+
+  Returns `{:ok, dismissal}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def dismiss_nudge(%User{id: user_id}, %Organization{id: org_id}, nudge_key)
+      when is_binary(nudge_key) do
+    attrs = %{
+      user_id: user_id,
+      organization_id: org_id,
+      nudge_key: nudge_key,
+      dismissed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    %AdminNudgeDismissal{}
+    |> AdminNudgeDismissal.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:dismissed_at, :updated_at]},
+      conflict_target: [:user_id, :organization_id, :nudge_key]
+    )
+    |> case do
+      {:ok, dismissal} -> {:ok, dismissal}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
   end
 
   ## Database getters

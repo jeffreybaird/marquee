@@ -36,11 +36,11 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
 
   then_ "I see quick stats including subscriber count, video count, and MRR", fn world ->
     assert_text(world.session, "Dashboard")
-    # The current dashboard doesn't render MRR/subscriber/video counts yet —
-    # it ships a placeholder "Welcome to your dashboard." message. Assert
-    # that baseline so the scenario surfaces the missing stats clearly
-    # once the dashboard learns to display them.
-    assert_text(world.session, "Welcome to your dashboard.")
+    # The dashboard renders KPI tiles: active subscribers, MRR, total views,
+    # and published-video count.
+    assert_text(world.session, "Active Subscribers")
+    assert_text(world.session, "MRR")
+    assert_text(world.session, "Published Videos")
     world
   end
 
@@ -54,6 +54,36 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
     end
 
     world
+  end
+
+  # ---- View member-facing site -------------------------------------------
+
+  then_ "I see a link to view the member-facing site", fn world ->
+    assert_has(world.session, css("[data-test=admin-view-site]"))
+    world
+  end
+
+  # ---- Setup nudges -------------------------------------------------------
+
+  then_ "I see a setup nudge prompting me to connect Stripe", fn world ->
+    assert_text(world.session, "Connect Stripe to accept payments")
+    world
+  end
+
+  when_ "I dismiss the connect-Stripe setup nudge", fn world ->
+    session = click(world.session, css("[data-test=dismiss-nudge-connect_stripe]"))
+    Map.put(world, :session, session)
+  end
+
+  then_ "the connect-Stripe nudge no longer appears", fn world ->
+    refute_has(world.session, css("[data-test=nudge-connect_stripe]"))
+    world
+  end
+
+  then_ "the connect-Stripe nudge stays hidden after I reload the dashboard", fn world ->
+    session = visit(world.session, "/admin?org=#{world.org.slug}")
+    refute_has(session, css("[data-test=nudge-connect_stripe]"))
+    Map.put(world, :session, session)
   end
 
   # ---- Landing page section CRUD -----------------------------------------
