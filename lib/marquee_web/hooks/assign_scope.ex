@@ -37,6 +37,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       |> mount_full_scope(session)
       |> assign_trial_status()
       |> assign_sample_content_status()
+
     scope = socket.assigns.current_scope
 
     cond do
