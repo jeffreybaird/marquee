@@ -4331,3 +4331,39 @@ details[open] .sv-faq-question::after {
 @media (min-width: 768px) and (max-width: 1023px) {
   .sv-podcast-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Guided admin tour (Shepherd.js) ─────────────────────────────────────── */
+.shepherd-button{background:var(--color-accent,#3288e6);border:0;border-radius:6px;color:#fff;cursor:pointer;margin-right:.5rem;padding:.5rem 1.5rem;transition:all .3s ease}.shepherd-button:not(:disabled):hover{filter:brightness(0.92)}.shepherd-button.shepherd-button-secondary{background:#f1f2f3;color:rgba(0,0,0,.75)}.shepherd-button.shepherd-button-secondary:not(:disabled):hover{background:#d6d9db;color:rgba(0,0,0,.75)}.shepherd-button:disabled{cursor:not-allowed}
+.shepherd-footer{border-bottom-left-radius:8px;border-bottom-right-radius:8px;display:flex;justify-content:flex-end;padding:0 .75rem .75rem}.shepherd-footer .shepherd-button:last-child{margin-right:0}
+.shepherd-cancel-icon{background:transparent;border:none;color:hsla(0,0%,50%,.75);cursor:pointer;font-size:2em;font-weight:400;margin:0;padding:0;transition:color .5s ease}.shepherd-cancel-icon:hover{color:rgba(0,0,0,.75)}.shepherd-has-title .shepherd-content .shepherd-cancel-icon{color:hsla(0,0%,50%,.75)}.shepherd-has-title .shepherd-content .shepherd-cancel-icon:hover{color:rgba(0,0,0,.75)}
+.shepherd-title{color:rgba(0,0,0,.85);display:flex;flex:1 0 auto;font-size:1rem;font-weight:600;margin:0;padding:0}
+.shepherd-header{align-items:center;border-top-left-radius:8px;border-top-right-radius:8px;display:flex;justify-content:flex-end;line-height:2em;padding:.75rem .75rem 0}.shepherd-has-title .shepherd-content .shepherd-header{background:#f3f4f6;padding:1em}
+.shepherd-text{color:rgba(0,0,0,.75);font-size:0.95rem;line-height:1.4em;padding:.9em}.shepherd-text p{margin-top:0}.shepherd-text p:last-child{margin-bottom:0}
+.shepherd-content{border-radius:8px;outline:none;padding:0}
+.shepherd-element{background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.25);max-width:400px;opacity:0;outline:none;transition:opacity .3s,visibility .3s;visibility:hidden;width:100%;z-index:9999}.shepherd-enabled.shepherd-element{opacity:1;visibility:visible}.shepherd-element[data-popper-reference-hidden]:not(.shepherd-centered){opacity:0;pointer-events:none;visibility:hidden}.shepherd-element,.shepherd-element *,.shepherd-element :after,.shepherd-element :before{box-sizing:border-box}.shepherd-arrow,.shepherd-arrow:before{height:16px;position:absolute;width:16px;z-index:-1}.shepherd-arrow:before{background:#fff;content:"";transform:rotate(45deg)}.shepherd-element[data-popper-placement^=top]>.shepherd-arrow{bottom:-8px}.shepherd-element[data-popper-placement^=bottom]>.shepherd-arrow{top:-8px}.shepherd-element[data-popper-placement^=left]>.shepherd-arrow{right:-8px}.shepherd-element[data-popper-placement^=right]>.shepherd-arrow{left:-8px}.shepherd-element.shepherd-centered>.shepherd-arrow{opacity:0}.shepherd-element.shepherd-has-title[data-popper-placement^=bottom]>.shepherd-arrow:before{background-color:#f3f4f6}.shepherd-target-click-disabled.shepherd-enabled.shepherd-target,.shepherd-target-click-disabled.shepherd-enabled.shepherd-target *{pointer-events:none}
+.shepherd-modal-overlay-container{height:0;left:0;opacity:0;overflow:hidden;pointer-events:none;position:fixed;top:0;transition:all .3s ease-out,height 0ms .3s,opacity .3s 0ms;width:100vw;z-index:9997}.shepherd-modal-overlay-container.shepherd-modal-is-visible{height:100vh;opacity:.5;transform:translateZ(0);transition:all .3s ease-out,height 0s 0s,opacity .3s 0s}.shepherd-modal-overlay-container.shepherd-modal-is-visible path{pointer-events:all}
+
+/* When paused, hide the overlay and tooltip but keep them in the DOM so
+   Shepherd's internal state survives and resume works cleanly. */
+body.tour-paused .shepherd-modal-overlay-container,
+body.tour-paused .shepherd-element { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+
+/* Floating "Continue Tour" button — shown when the operator clicks into the app. */
+#tour-continue-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 10000;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-accent, #3288e6);
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: filter 0.2s, transform 0.15s;
+}
+#tour-continue-btn:hover { filter: brightness(0.92); transform: scale(1.05); }
+#tour-continue-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
