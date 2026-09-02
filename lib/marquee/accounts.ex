@@ -352,9 +352,21 @@ defmodule Marquee.Accounts do
       end
     end)
     |> case do
-      {:ok, {user, org}} -> {:ok, user, org}
-      {:error, changeset} -> {:error, :validation, changeset}
+      {:ok, {user, org}} ->
+        enqueue_starter_content(org)
+        {:ok, user, org}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
     end
+  end
+
+  # Seed sample/starter content asynchronously so it never blocks or rolls back
+  # signup. Best-effort: a failure to enqueue must not fail account creation.
+  defp enqueue_starter_content(org) do
+    %{organization_id: org.id}
+    |> Marquee.Workers.SeedStarterContentWorker.new()
+    |> Oban.insert()
   end
 
   defp resolve_theme_preset(nil), do: Theme.default_preset_key()
