@@ -262,6 +262,55 @@ defmodule Marquee.Accounts do
     end
   end
 
+  ## Guided admin tour
+
+  @doc """
+  Returns true once this operator has finished (or dismissed) the guided
+  admin tour for the organization the membership belongs to.
+
+  A `nil` membership — e.g. a super admin impersonating an org without a
+  seat — is treated as already done, so the tour never auto-starts for them.
+
+      iex> Marquee.Accounts.admin_tour_completed?(
+      ...>   %Marquee.Accounts.Membership{admin_tour_completed_at: ~U[2026-09-02 00:00:00Z]}
+      ...> )
+      true
+
+      iex> Marquee.Accounts.admin_tour_completed?(
+      ...>   %Marquee.Accounts.Membership{admin_tour_completed_at: nil}
+      ...> )
+      false
+
+      iex> Marquee.Accounts.admin_tour_completed?(nil)
+      true
+  """
+  def admin_tour_completed?(nil), do: true
+  def admin_tour_completed?(%Membership{admin_tour_completed_at: nil}), do: false
+  def admin_tour_completed?(%Membership{admin_tour_completed_at: %DateTime{}}), do: true
+
+  @doc """
+  Stamps the current time on the membership to record that the operator
+  finished the guided admin tour. Idempotent — re-completing refreshes the
+  timestamp. A `nil` membership is a no-op returning `{:ok, nil}`.
+
+  Returns `{:ok, membership}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def complete_admin_tour(nil), do: {:ok, nil}
+
+  def complete_admin_tour(%Membership{} = membership) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    membership
+    |> Membership.tour_changeset(%{admin_tour_completed_at: now})
+    |> Repo.update()
+    |> case do
+      {:ok, membership} -> {:ok, membership}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
   ## Database getters
 
   @doc """

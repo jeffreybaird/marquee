@@ -11,7 +11,8 @@ defmodule Marquee.AccountsTest do
       can_manage_content?: 1,
       can_manage_viewers?: 1,
       can_view_viewers?: 1,
-      onboarding_complete?: 1
+      onboarding_complete?: 1,
+      admin_tour_completed?: 1
     ]
 
   import Marquee.AccountsFixtures
@@ -26,6 +27,44 @@ defmodule Marquee.AccountsTest do
       assert {:ok, completed} = Accounts.complete_onboarding(org)
       assert %DateTime{} = completed.onboarding_completed_at
       assert Accounts.onboarding_complete?(completed)
+    end
+  end
+
+  describe "complete_admin_tour/1" do
+    test "stamps admin_tour_completed_at and flips the predicate" do
+      membership = insert(:membership, admin_tour_completed_at: nil)
+      refute Accounts.admin_tour_completed?(membership)
+
+      assert {:ok, completed} = Accounts.complete_admin_tour(membership)
+      assert %DateTime{} = completed.admin_tour_completed_at
+      assert Accounts.admin_tour_completed?(completed)
+    end
+
+    test "is idempotent — re-completing refreshes the timestamp" do
+      membership = insert(:membership, admin_tour_completed_at: nil)
+      {:ok, first} = Accounts.complete_admin_tour(membership)
+      {:ok, second} = Accounts.complete_admin_tour(first)
+
+      assert %DateTime{} = second.admin_tour_completed_at
+      assert Accounts.admin_tour_completed?(second)
+    end
+
+    test "a nil membership is a no-op" do
+      assert {:ok, nil} = Accounts.complete_admin_tour(nil)
+    end
+  end
+
+  describe "admin_tour_completed?/1" do
+    test "false for a fresh membership" do
+      refute Accounts.admin_tour_completed?(insert(:membership, admin_tour_completed_at: nil))
+    end
+
+    test "true for a membership that finished the tour" do
+      assert Accounts.admin_tour_completed?(insert(:membership))
+    end
+
+    test "treats a nil membership as already completed" do
+      assert Accounts.admin_tour_completed?(nil)
     end
   end
 
