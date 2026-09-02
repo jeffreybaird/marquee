@@ -19,6 +19,7 @@ describe("hooks registry", () => {
     "Carousel",
     "ChatAutoScroll",
     "CopyToClipboard",
+    "GuidedTour",
     "HeroCarousel",
     "MuxPlayer",
     "MuxUploader",

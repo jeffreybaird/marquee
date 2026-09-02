@@ -8,23 +8,21 @@
  * running Shepherd tour.
  */
 
-// Vendored Shepherd ships as plain JS with no type declarations.
-// @ts-ignore
-import Shepherd from "../../vendor/shepherd.js"
-import { ADMIN_TOUR_STEPS, TourStep, TourText } from "./steps"
+import Shepherd from "../../vendor/shepherd"
+import type { StepOptionsButton, Tour } from "../../vendor/shepherd"
+import { ADMIN_TOUR_STEPS, TourButton, TourStep, TourText } from "./steps"
 
 const MODAL_PADDING = 6
 const MODAL_RADIUS = 6
 
-type ShepherdTour = any
-
-function resolve(value: TourText, brand: string): string {
+/** Substitute the org brand into copy that is a function of it. */
+export function resolve(value: TourText, brand: string): string {
   return typeof value === "function" ? value(brand) : value
 }
 
 // ── Button builder ───────────────────────────────────────────────────────────
 
-function buildButtons(keys: string[], tour: ShepherdTour) {
+function buildButtons(keys: TourButton[], tour: Tour): StepOptionsButton[] {
   return keys.map((key) => {
     if (key === "back") {
       return {
@@ -46,7 +44,7 @@ function buildButtons(keys: string[], tour: ShepherdTour) {
 // Let the operator click into the app during the tour. Clicking outside the
 // tooltip hides the overlay (via a body class) and reveals a floating
 // "Continue Tour" button; clicking it restores the current step.
-function setupPauseResume(tour: ShepherdTour) {
+function setupPauseResume(tour: Tour) {
   const PAUSE_CLASS = "tour-paused"
 
   const btn = document.createElement("button")
@@ -102,8 +100,8 @@ function setupPauseResume(tour: ShepherdTour) {
 
 // ── Tour factory ─────────────────────────────────────────────────────────────
 
-export function buildAdminTour(brand: string): ShepherdTour {
-  const tour: ShepherdTour = new Shepherd.Tour({
+export function buildAdminTour(brand: string): Tour {
+  const tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
       cancelIcon: { enabled: true },

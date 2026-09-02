@@ -7,26 +7,42 @@
  * link). When the tour finishes or is dismissed it tells the server via
  * `tour_completed` so it never auto-starts again for this operator.
  *
+ * Dataset attributes:
+ *   - data-tour-brand: Organization name substituted into the tour copy (default "Marquee")
+ *   - data-auto-start: "true" to start the tour 400ms after mount
+ *
+ * Events received from server:
+ *   - "start-tour" {}
+ *
+ * Events sent to server:
+ *   - "tour_completed" {}
+ *
  * All tour logic lives in `../tour`; this hook is a thin bridge between the
  * LiveView and that module.
  */
+import { ViewHook } from "phoenix_live_view"
+import type { Tour } from "../../vendor/shepherd"
 
 import { buildAdminTour } from "../tour"
 
-const GuidedTour = {
-  mounted(this: any) {
+const AUTO_START_DELAY_MS = 400
+
+class GuidedTour extends ViewHook {
+  private _brand = "Marquee"
+  private _active: Tour | null = null
+
+  mounted() {
     this._brand = this.el.dataset.tourBrand || "Marquee"
-    this._active = null
 
     this.handleEvent("start-tour", () => this.run())
 
     if (this.el.dataset.autoStart === "true") {
       // Let the sidebar render before Shepherd measures anchor positions.
-      setTimeout(() => this.run(), 400)
+      setTimeout(() => this.run(), AUTO_START_DELAY_MS)
     }
-  },
+  }
 
-  run(this: any) {
+  private run() {
     // Guard against a second concurrent tour (e.g. clicking "Take a tour"
     // while one is already open).
     if (this._active) return
@@ -42,14 +58,14 @@ const GuidedTour = {
     tour.on("complete", finish)
     tour.on("cancel", finish)
     tour.start()
-  },
+  }
 
-  destroyed(this: any) {
+  destroyed() {
     if (this._active) {
       this._active.cancel()
       this._active = null
     }
-  },
+  }
 }
 
 export default GuidedTour
