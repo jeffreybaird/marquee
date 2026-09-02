@@ -25,8 +25,8 @@ npm run test:watch     # vitest in watch mode
 
 Both `npm run typecheck` and `npm test` run in CI (`.github/workflows/ci.yml`,
 `test` job) before `mix test`, so a type error or a failing hook test blocks
-the build. Run them, plus `mix esbuild marquee`, before every commit that
-touches `assets/`.
+the build. `mix marquee.verify` runs them (plus `mix esbuild marquee`) as
+part of the local pre-commit suite.
 
 Pinned versions live in `assets/package.json`; bump them there and re-run
 `npm install` to refresh `package-lock.json`.
@@ -46,6 +46,7 @@ assets/
 │   │   ├── carousel.ts               # Drag-to-scroll rows with momentum
 │   │   ├── chat_auto_scroll.ts       # Keeps live-event chat pinned to the bottom
 │   │   ├── copy_to_clipboard.ts      # Copies data-copy-value on click
+│   │   ├── guided_tour.ts            # Bridges the Shepherd admin tour to the dashboard LiveView
 │   │   ├── hero_carousel.ts          # Auto-advancing homepage hero
 │   │   ├── mux_player.ts             # Mux Player web component bridge
 │   │   ├── mux_uploader.ts           # Direct-to-Mux video upload
@@ -55,6 +56,9 @@ assets/
 │   │   ├── spaces_uploader.ts        # Direct-to-Spaces image upload
 │   │   ├── stagger_reveal.ts         # Entrance animation for row items
 │   │   └── viewer_nav.ts             # Transparent → solid nav on scroll
+│   ├── tour/
+│   │   ├── steps.ts                  # Admin tour step data (pure)
+│   │   └── index.ts                  # Builds the Shepherd tour from the steps, pause/resume
 │   └── types/
 │       ├── phoenix.d.ts              # PhoenixHook aliases + window globals used by app.ts
 │       └── mux.d.ts                  # Type defs for the <mux-player> element
@@ -64,9 +68,11 @@ assets/
 │   │   ├── mount.ts                  # mountHook(): instantiate a hook without a socket
 │   │   ├── media.ts                  # setReducedMotion()
 │   │   └── xhr.ts                    # XMLHttpRequest double for the upload hooks
-│   └── hooks/*.test.ts               # One test file per hook, plus index.test.ts
+│   ├── hooks/*.test.ts               # One test file per hook, plus index.test.ts
+│   └── tour/*.test.ts                # Step data integrity, tour wiring
 ├── vendor/
-│   ├── chart.js + chart.d.ts         # Vendored UMD builds with their declarations
+│   ├── chart.js + chart.d.ts         # Vendored builds with their declarations
+│   ├── shepherd.js + shepherd.d.ts
 │   ├── sortable.js + sortable.d.ts
 │   └── topbar.js + topbar.d.ts
 ├── css/
@@ -257,7 +263,7 @@ let intervalId: number
 `tsconfig.json` is `strict: true` and CI runs `tsc --noEmit`. Fix the type,
 don't hide it. An untyped third-party library gets a declaration file next to
 it in `assets/vendor/` (see `topbar.d.ts`), or a types-only devDependency
-re-exported from one (see `chart.d.ts`, `sortable.d.ts`).
+re-exported from one (see `chart.d.ts`, `sortable.d.ts`, `shepherd.d.ts`).
 
 ### 7. Every hook has a test
 
