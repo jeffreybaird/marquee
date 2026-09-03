@@ -38,6 +38,9 @@ marquee-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Vitest/istanbul coverage output.
+/assets/coverage/
+
 .env
 
 # Wallaby E2E test screenshots

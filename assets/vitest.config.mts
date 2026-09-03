@@ -41,5 +41,25 @@ export default defineConfig({
     // module-level vi.fn() in one test cannot leak into the next.
     mockReset: true,
     restoreMocks: true,
+    coverage: {
+      // Istanbul instruments the source rather than reading V8's counters, so
+      // branch and statement coverage line up with what esbuild actually
+      // bundles from `js/`. Reports land in `assets/coverage/` (gitignored).
+      provider: "istanbul",
+      reporter: ["text", "html", "json"],
+      reportsDirectory: "coverage",
+      include: ["js/**/*.ts"],
+      // `app.ts` is the esbuild entrypoint: it wires topbar, the LiveSocket,
+      // and runtime-only imports (phoenix_html) that never resolve under the
+      // test runner. Type-only declarations carry no executable lines, and the
+      // mux_player shim is a thin re-export bundled straight by esbuild.
+      exclude: ["js/app.ts", "js/types/**", "js/mux_player.js"],
+      thresholds: {
+        statements: 70,
+        branches: 70,
+        functions: 70,
+        lines: 70,
+      },
+    },
   },
 })

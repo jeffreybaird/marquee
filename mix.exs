@@ -12,7 +12,8 @@ defmodule Marquee.MixProject do
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      dialyzer: [plt_add_apps: [:mix, :ex_unit, :wallaby]]
+      dialyzer: [plt_add_apps: [:mix, :ex_unit, :wallaby]],
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
@@ -32,7 +33,12 @@ defmodule Marquee.MixProject do
         {:precommit, :test},
         {:"marquee.verify", :test},
         {:cucumber, :test},
-        {:"marquee.cucumber", :test}
+        {:"marquee.cucumber", :test},
+        {:coveralls, :test},
+        {:"coveralls.detail", :test},
+        {:"coveralls.html", :test},
+        {:"coveralls.json", :test},
+        {:"coveralls.github", :test}
       ]
     ]
   end
@@ -104,7 +110,8 @@ defmodule Marquee.MixProject do
       # Structured JSON logging for production
       {:logger_json, "~> 6.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:cucumberex, "~> 0.2.1", only: :test}
+      {:cucumberex, "~> 0.2.1", only: :test},
+      {:excoveralls, "~> 0.18", only: :test}
     ]
   end
 
