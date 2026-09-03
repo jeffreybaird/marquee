@@ -71,8 +71,8 @@ jobs:
       - name: Type-check assets
         run: npm run typecheck --prefix assets
 
-      - name: Test assets
-        run: npm test --prefix assets
+      - name: Test assets (with coverage)
+        run: npm run test:coverage --prefix assets
 
       - name: Check formatting
         run: mix format --check-formatted
@@ -80,8 +80,8 @@ jobs:
       - name: Compile (warnings as errors)
         run: mix compile --warnings-as-errors
 
-      - name: Run unit & integration tests
-        run: mix test --exclude e2e
+      - name: Run unit & integration tests (with coverage)
+        run: mix coveralls --exclude e2e
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/marquee_test
 
