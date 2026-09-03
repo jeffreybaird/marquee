@@ -14,6 +14,7 @@ defmodule Marquee.Accounts do
     AdminNudgeDismissal,
     Membership,
     Organization,
+    PageTourCompletion,
     User,
     UserNotifier,
     UserToken
@@ -307,6 +308,67 @@ defmodule Marquee.Accounts do
     |> Repo.update()
     |> case do
       {:ok, membership} -> {:ok, membership}
+      {:error, changeset} -> {:error, :validation, changeset}
+    end
+  end
+
+  ## Per-page tours
+
+  @doc """
+  Returns true once this person has seen the first-visit walkthrough for
+  `page_key` in the given organization.
+
+  Audience-agnostic: `user` is any `User` (operator or subscriber) and `org`
+  the organization the tour is scoped to. A `nil` user or `nil` org is treated
+  as already seen, so the tour never auto-starts without a person and a tenant
+  to record against.
+
+      iex> Marquee.Accounts.page_tour_completed?(nil, %Marquee.Accounts.Organization{}, "content")
+      true
+
+      iex> Marquee.Accounts.page_tour_completed?(%Marquee.Accounts.User{}, nil, "content")
+      true
+
+  The populated case hits the database and is covered by unit tests.
+  """
+  def page_tour_completed?(nil, _org, _page_key), do: true
+  def page_tour_completed?(_user, nil, _page_key), do: true
+
+  def page_tour_completed?(%User{id: user_id}, %Organization{id: org_id}, page_key)
+      when is_binary(page_key) do
+    PageTourCompletion
+    |> where(user_id: ^user_id, organization_id: ^org_id, page_key: ^page_key)
+    |> Repo.exists?()
+  end
+
+  @doc """
+  Records that this person has seen the first-visit walkthrough for `page_key`
+  in the given organization. Idempotent — re-recording the same page is a no-op
+  that preserves the original "seen" timestamp (`inserted_at`).
+
+  A `nil` user or `nil` org is a no-op returning `{:ok, nil}`.
+
+  Returns `{:ok, completion}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def complete_page_tour(nil, _org, _page_key), do: {:ok, nil}
+  def complete_page_tour(_user, nil, _page_key), do: {:ok, nil}
+
+  def complete_page_tour(%User{id: user_id}, %Organization{id: org_id}, page_key)
+      when is_binary(page_key) do
+    %PageTourCompletion{}
+    |> PageTourCompletion.changeset(%{
+      user_id: user_id,
+      organization_id: org_id,
+      page_key: page_key
+    })
+    |> Repo.insert(
+      on_conflict: :nothing,
+      conflict_target: [:user_id, :organization_id, :page_key]
+    )
+    |> case do
+      {:ok, completion} -> {:ok, completion}
       {:error, changeset} -> {:error, :validation, changeset}
     end
   end
