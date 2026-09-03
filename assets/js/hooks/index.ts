@@ -9,6 +9,7 @@ import GuidedTour from "./guided_tour"
 import HeroCarousel from "./hero_carousel"
 import MuxPlayer from "./mux_player"
 import MuxUploader from "./mux_uploader"
+import PageTour from "./page_tour"
 import QueueSortable from "./queue_sortable"
 import RowScroller from "./row_scroller"
 import ScrollToCurrentEpisode from "./scroll_to_current_episode"
@@ -26,6 +27,7 @@ export const hooks = {
   HeroCarousel,
   MuxPlayer,
   MuxUploader,
+  PageTour,
   QueueSortable,
   RowScroller,
   ScrollToCurrentEpisode,
