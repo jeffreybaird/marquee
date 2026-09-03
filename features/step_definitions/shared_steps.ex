@@ -43,6 +43,10 @@ defmodule MarqueeFeatures.Steps.Shared do
     log_in_as_operator(world, :editor)
   end
 
+  given_ "I am logged in as an operator with the viewer support role", fn world ->
+    log_in_as_operator(world, :viewer_support)
+  end
+
   given_ "I am logged in as an organization owner", fn world ->
     log_in_as_operator(world, :owner)
   end
