@@ -841,4 +841,78 @@ defmodule MarqueeWeb.Admin.ContentLiveTest do
       refute html =~ ~s(data-test="delete-video-#{video.id}")
     end
   end
+
+  describe "content page tour" do
+    alias Marquee.Accounts
+
+    test "auto-starts and offers a replay link on an admin's first visit", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      assert has_element?(view, "#content-page-tour[data-auto-start='true']")
+      assert has_element?(view, "[data-test='restart-page-tour']")
+    end
+
+    test "passes the organization name to the tour as the brand", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = Repo.preload(membership, :organization).organization
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      assert has_element?(view, "#content-page-tour[data-tour-brand='#{org.name}']")
+    end
+
+    test "does not auto-start once the operator has seen it", %{conn: _conn} do
+      membership = insert(:membership, role: :admin) |> Repo.preload([:user, :organization])
+      {:ok, _} = Accounts.complete_page_tour(membership.user, membership.organization, "content")
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      assert has_element?(view, "#content-page-tour[data-auto-start='false']")
+      # Replay stays available.
+      assert has_element?(view, "[data-test='restart-page-tour']")
+    end
+
+    test "does not auto-start for a role that cannot manage content", %{conn: _conn} do
+      membership = insert(:membership, role: :viewer_support)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      assert has_element?(view, "#content-page-tour[data-auto-start='false']")
+      # viewer_support has no replay link either — the tour points at controls
+      # they cannot see.
+      refute has_element?(view, "[data-test='restart-page-tour']")
+    end
+
+    test "completing the tour records it for this operator and org", %{conn: _conn} do
+      membership = insert(:membership, role: :admin) |> Repo.preload([:user, :organization])
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      refute Accounts.page_tour_completed?(membership.user, membership.organization, "content")
+
+      render_hook(view, "page_tour_completed", %{"page" => "content"})
+
+      assert Accounts.page_tour_completed?(membership.user, membership.organization, "content")
+      assert has_element?(view, "#content-page-tour[data-auto-start='false']")
+    end
+
+    test "the replay link pushes a start-page-tour event", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/content")
+
+      view |> element("[data-test='restart-page-tour']") |> render_click()
+
+      assert_push_event(view, "start-page-tour", %{})
+    end
+
+    test "one org's completion does not suppress the tour in another org", %{conn: _conn} do
+      user = insert(:user)
+      membership_a = insert(:membership, user: user, role: :admin) |> Repo.preload(:organization)
+      membership_b = insert(:membership, user: user, role: :admin)
+      {:ok, _} = Accounts.complete_page_tour(user, membership_a.organization, "content")
+
+      {:ok, view, _html} = live(conn_for(membership_b), ~p"/admin/content")
+
+      assert has_element?(view, "#content-page-tour[data-auto-start='true']")
+    end
+  end
 end

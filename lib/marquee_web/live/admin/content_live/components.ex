@@ -25,6 +25,15 @@ defmodule MarqueeWeb.Admin.ContentLive.Components do
       subtitle="Manage videos, thumbnails, and tags across your catalog."
     >
       <:actions>
+        <button
+          :if={@can_manage}
+          type="button"
+          phx-click="restart_page_tour"
+          class="text-sm font-medium text-admin-muted hover:text-admin-fg hover:underline focus-visible:outline-2 focus-visible:outline-admin-accent"
+          data-test="restart-page-tour"
+        >
+          Page tour
+        </button>
         <AdminUI.admin_button
           :if={@can_manage}
           phx-click="open_upload"
