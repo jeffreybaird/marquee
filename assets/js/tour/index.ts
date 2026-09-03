@@ -1,11 +1,14 @@
 /**
- * Guided admin tour — Shepherd.js factory.
+ * Guided tour — Shepherd.js factory.
  *
- * Builds the tour from `ADMIN_TOUR_STEPS`, wires the button set for each step,
- * and adds pause/resume so the operator can click into the app mid-tour and
- * pick up where they left off. All page-specific logic (which steps exist,
- * what they say) lives in `steps.ts`; this module only turns that data into a
- * running Shepherd tour.
+ * Turns a list of `TourStep`s into a running Shepherd tour: wires the button
+ * set for each step and adds pause/resume so the user can click into the app
+ * mid-tour and pick up where they left off. All page-specific logic (which
+ * steps exist, what they say) lives in `steps.ts`; this module only turns that
+ * data into a running tour.
+ *
+ * `buildTour` is the generic factory used by both the dashboard overview tour
+ * (`buildAdminTour`) and the per-page walkthroughs (via the PageTour hook).
  */
 
 import Shepherd from "../../vendor/shepherd"
@@ -100,7 +103,8 @@ function setupPauseResume(tour: Tour) {
 
 // ── Tour factory ─────────────────────────────────────────────────────────────
 
-export function buildAdminTour(brand: string): Tour {
+/** Build a Shepherd tour from an arbitrary list of steps. */
+export function buildTour(steps: TourStep[], brand: string): Tour {
   const tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
@@ -111,7 +115,7 @@ export function buildAdminTour(brand: string): Tour {
     },
   })
 
-  ADMIN_TOUR_STEPS.forEach((step: TourStep) => {
+  steps.forEach((step: TourStep) => {
     tour.addStep({
       id: step.id,
       title: resolve(step.title, brand),
@@ -124,4 +128,9 @@ export function buildAdminTour(brand: string): Tour {
   setupPauseResume(tour)
 
   return tour
+}
+
+/** The dashboard sidebar overview tour. */
+export function buildAdminTour(brand: string): Tour {
+  return buildTour(ADMIN_TOUR_STEPS, brand)
 }

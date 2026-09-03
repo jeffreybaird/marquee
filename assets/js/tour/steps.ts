@@ -1,13 +1,20 @@
 /**
- * Guided admin tour — step definitions.
+ * Guided tour — step definitions (pure data).
  *
- * Pure data: one step per admin view, each anchored to its sidebar nav link
- * (which is present on every admin page via `AdminLayout`), plus a centered
- * welcome and closing step. `title` and `text` may be a plain string or a
- * function of the org brand name so the copy greets the operator by service.
+ * Two kinds of tour live here:
  *
- * The tour lives entirely on the dashboard — every anchor is in the sidebar,
- * so no cross-page navigation is needed.
+ *   - `ADMIN_TOUR_STEPS`: the dashboard overview. One step per admin view, each
+ *     anchored to its sidebar nav link (present on every admin page via
+ *     `AdminLayout`), plus a centered welcome and closing step. It runs
+ *     entirely on the dashboard — every anchor is in the sidebar, so no
+ *     cross-page navigation is needed.
+ *   - `PAGE_TOURS`: per-page walkthroughs, keyed by page. Each is shown the
+ *     first time a person visits that page and is anchored to in-page elements
+ *     rather than the sidebar. Completion is tracked server-side per person,
+ *     per org, per page (`page_tour_completions`).
+ *
+ * `title` and `text` may be a plain string or a function of the org brand name
+ * so the copy can greet the user by service.
  */
 
 export type TourText = string | ((brand: string) => string)
@@ -154,3 +161,49 @@ export const ADMIN_TOUR_STEPS: TourStep[] = [
     buttons: ["finish"],
   },
 ]
+
+// ── Per-page tours ───────────────────────────────────────────────────────────
+//
+// Anchor a step to an in-page element by its `data-test` attribute. Unlike the
+// sidebar `nav()` helper, these targets live in the page's own template, so the
+// side the tooltip attaches on is chosen per element.
+
+/** First-visit walkthrough for the Content management page (`/admin/content`). */
+export const CONTENT_TOUR_STEPS: TourStep[] = [
+  {
+    id: "content-welcome",
+    title: "Your content library",
+    text: "This is where your videos live. Here’s a quick look at what you can do on this page.",
+    buttons: ["next"],
+  },
+  {
+    id: "content-upload",
+    attachTo: { element: "[data-test='upload-btn']", on: "bottom" },
+    title: "Upload videos",
+    text: "Add new videos here. You can upload several at once — each is sent straight to Mux for processing, and appears in the list below as it’s prepared.",
+    buttons: ["back", "next"],
+  },
+  {
+    id: "content-search",
+    attachTo: { element: "[data-test='video-search']", on: "bottom" },
+    title: "Find a video",
+    text: "Search your library by title as it grows. Once you’ve created tags, filters appear here too so you can narrow the list.",
+    buttons: ["back", "next"],
+  },
+  {
+    id: "content-done",
+    title: "That’s the content page",
+    text: "Upload a video to get started. You can replay this walkthrough any time from the <strong>Page tour</strong> link.",
+    buttons: ["finish"],
+  },
+]
+
+/**
+ * Registry of per-page tours, keyed by the page key the PageTour hook reads
+ * from `data-tour-page` and reports back to the server (stored in
+ * `page_tour_completions.page_key`). Add a page here and mount the PageTour
+ * hook on its LiveView to give it a first-visit walkthrough.
+ */
+export const PAGE_TOURS: Record<string, TourStep[]> = {
+  content: CONTENT_TOUR_STEPS,
+}
