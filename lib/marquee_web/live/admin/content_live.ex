@@ -30,6 +30,9 @@ defmodule MarqueeWeb.Admin.ContentLive do
 
   require Logger
 
+  # Page key for the first-visit walkthrough (see PAGE_TOURS in assets/js/tour).
+  @page_tour_key "content"
+
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
@@ -40,6 +43,12 @@ defmodule MarqueeWeb.Admin.ContentLive do
     end
 
     can_manage = Accounts.can_manage_content?(scope)
+
+    # Only walk operators who can actually manage content through the page;
+    # its tour points at the upload control, which viewer-support cannot see.
+    show_page_tour =
+      can_manage and
+        not Accounts.page_tour_completed?(socket.assigns.current_user, org, @page_tour_key)
 
     %{results: all_tags} = Content.list_tags(org)
 
@@ -55,6 +64,7 @@ defmodule MarqueeWeb.Admin.ContentLive do
      |> assign(:upload_completed, 0)
      |> assign(:upload_percent, 0)
      |> assign(:can_manage, can_manage)
+     |> assign(:show_page_tour, show_page_tour)
      |> assign(:viewing_video, nil)
      |> assign(:video_tags, [])
      |> assign(:all_tags, all_tags)
@@ -64,6 +74,22 @@ defmodule MarqueeWeb.Admin.ContentLive do
      |> assign(:row_tag_picker_video_id, nil)
      |> assign(:page, 1)
      |> load_videos()}
+  end
+
+  @impl true
+  def handle_event("restart_page_tour", _params, socket) do
+    {:noreply, push_event(socket, "start-page-tour", %{})}
+  end
+
+  @impl true
+  def handle_event("page_tour_completed", _params, socket) do
+    Accounts.complete_page_tour(
+      socket.assigns.current_user,
+      socket.assigns.organization,
+      @page_tour_key
+    )
+
+    {:noreply, assign(socket, :show_page_tour, false)}
   end
 
   @impl true

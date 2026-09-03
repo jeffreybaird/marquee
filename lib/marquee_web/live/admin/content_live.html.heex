@@ -9,6 +9,17 @@
   <%!-- Persistent MuxUploader hook — lives outside the sheet so it survives sheet close --%>
   <div id="mux-uploader" phx-hook="MuxUploader" class="hidden"></div>
 
+  <%!-- First-visit walkthrough for this page --%>
+  <div
+    id="content-page-tour"
+    phx-hook="PageTour"
+    data-tour-page="content"
+    data-auto-start={to_string(@show_page_tour)}
+    data-tour-brand={@organization.name}
+    class="hidden"
+  >
+  </div>
+
   <%= if @viewing_video do %>
     <.video_detail
       video={@viewing_video}
