@@ -111,6 +111,21 @@ describe("PageTour", () => {
     expect(second.start).toHaveBeenCalledTimes(1)
   })
 
+  it("does not launch after being destroyed before the auto-start delay elapses", () => {
+    const tour = fakeTour()
+    mockedBuild.mockReturnValue(tour as never)
+    const { hook } = mountHook(PageTour, pageEl(`data-auto-start="true"`))
+
+    // Navigating away (LiveView destroys the hook) before the 400ms timer fires
+    // must cancel the pending auto-start, so the tour never pops on the next page.
+    vi.advanceTimersByTime(200)
+    hook.destroyed()
+    vi.advanceTimersByTime(400)
+
+    expect(mockedBuild).not.toHaveBeenCalled()
+    expect(tour.start).not.toHaveBeenCalled()
+  })
+
   it("cancels an open tour when destroyed, and is a no-op otherwise", () => {
     const tour = fakeTour()
     mockedBuild.mockReturnValue(tour as never)

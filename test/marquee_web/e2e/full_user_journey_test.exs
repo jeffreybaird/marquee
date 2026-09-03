@@ -39,6 +39,11 @@ defmodule MarqueeWeb.E2E.FullUserJourneyTest do
       user = insert(:user)
       insert(:membership, organization: org, user: user, role: :admin)
 
+      # This journey exercises navigation, not the Content page's first-visit
+      # tour. Mark that tour seen so its auto-launching overlay can't intercept
+      # a sidebar click as the journey passes through /admin/content.
+      {:ok, _} = Marquee.Accounts.complete_page_tour(user, org, "content")
+
       pages = [
         {"admin-nav-dashboard", "Dashboard"},
         {"admin-nav-content", "Content"},

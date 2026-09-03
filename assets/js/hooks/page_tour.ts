@@ -38,6 +38,7 @@ class PageTour extends ViewHook {
   private _brand = "Marquee"
   private _page = ""
   private _active: Tour | null = null
+  private _autoStartTimer: ReturnType<typeof setTimeout> | null = null
 
   mounted() {
     this._brand = this.el.dataset.tourBrand || "Marquee"
@@ -46,8 +47,13 @@ class PageTour extends ViewHook {
     this.handleEvent("start-page-tour", () => this.run())
 
     if (this.el.dataset.autoStart === "true") {
-      // Let the page render before Shepherd measures anchor positions.
-      setTimeout(() => this.run(), AUTO_START_DELAY_MS)
+      // Let the page render before Shepherd measures anchor positions. Guarded
+      // by destroyed() so navigating away before it fires doesn't launch the
+      // tour on the next page.
+      this._autoStartTimer = setTimeout(() => {
+        this._autoStartTimer = null
+        this.run()
+      }, AUTO_START_DELAY_MS)
     }
   }
 
@@ -73,6 +79,10 @@ class PageTour extends ViewHook {
   }
 
   destroyed() {
+    if (this._autoStartTimer) {
+      clearTimeout(this._autoStartTimer)
+      this._autoStartTimer = null
+    }
     if (this._active) {
       this._active.cancel()
       this._active = null
