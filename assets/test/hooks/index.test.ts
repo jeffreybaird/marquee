@@ -23,6 +23,7 @@ describe("hooks registry", () => {
     "HeroCarousel",
     "MuxPlayer",
     "MuxUploader",
+    "PageTour",
     "QueueSortable",
     "RowScroller",
     "ScrollToCurrentEpisode",
