@@ -79,25 +79,19 @@ if config_env() != :test do
 end
 
 if config_env() == :prod do
-  # OpenTelemetry exporter — send traces to the configured OTLP endpoint
-  # (Honeycomb, Grafana Cloud, Jaeger, etc.)
-  # When no endpoint is set, disable export to avoid spamming localhost:4318
-  if otel_endpoint = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
-    otel_headers =
-      if auth = System.get_env("OTEL_EXPORTER_OTLP_AUTH_HEADER") do
-        [{"Authorization", auth}]
-      else
-        []
-      end
+  # OpenTelemetry export to the personal OTLP hub
+  # (https://elixir-as-inf.diviningdad.com). Traces go through the
+  # opentelemetry_exporter; logs through the copied Marquee.OtlpLogHandler,
+  # since the Erlang SDK's own log handler cannot export OTLP yet.
+  #
+  # Both OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_HUB_TOKEN are required in prod:
+  # Marquee.Otel.ExporterConfig raises when either is missing so a
+  # misconfigured release fails loudly instead of silently dropping telemetry.
+  config :opentelemetry_exporter, Marquee.Otel.ExporterConfig.settings()
 
-    config :opentelemetry_exporter,
-      otlp_protocol: :http_protobuf,
-      otlp_endpoint: otel_endpoint,
-      otlp_headers: otel_headers
-  else
-    config :opentelemetry,
-      traces_exporter: :none
-  end
+  config :marquee, Marquee.OtlpLogHandler,
+    endpoint: Marquee.Otel.ExporterConfig.endpoint(),
+    token: Marquee.Otel.ExporterConfig.token()
 
   # Grafana Cloud Loki — ship logs directly from the app
   if loki_url = System.get_env("GRAFANA_LOKI_URL") do

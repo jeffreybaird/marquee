@@ -82,13 +82,19 @@ Stripe or Spaces with blank credentials instead of leaving them off.
 | `FIREWALL_ID` | var | firewall to hole-punch |
 | `APP_SLUG` | var | stack dir / compose project / Caddy site file / network aliases |
 
+OpenTelemetry export to the hub is **required in prod** (both must be set, or
+the release fails to boot — see below): var `OTEL_EXPORTER_OTLP_ENDPOINT` (the
+hub base URL, e.g. `https://elixir-as-inf.diviningdad.com`; `/v1/traces` and
+`/v1/logs` are appended) and secret `OTEL_HUB_TOKEN` (the per-source bearer
+token, obtained once by registering "marquee" at the hub's `/sources/new` —
+never commit it). They replace the former `OTEL_EXPORTER_OTLP_AUTH_HEADER`.
+
 Marquee's own runtime configuration, all optional (an unset name disables that
 integration): secrets `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`,
 `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`,
 `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`, `RESEND_API_KEY`,
-`PEXELS_API_KEY`, `OTEL_EXPORTER_OTLP_AUTH_HEADER`, `GRAFANA_LOKI_AUTH`; vars
-`POOL_SIZE`, `SPACES_BUCKET`, `SPACES_REGION`, `SPACES_HOST`,
-`SPACES_PUBLIC_URL_BASE`, `MAILER_FROM`, `OTEL_EXPORTER_OTLP_ENDPOINT`,
+`PEXELS_API_KEY`, `GRAFANA_LOKI_AUTH`; vars `POOL_SIZE`, `SPACES_BUCKET`,
+`SPACES_REGION`, `SPACES_HOST`, `SPACES_PUBLIC_URL_BASE`, `MAILER_FROM`,
 `GRAFANA_LOKI_URL`.
 
 `PHX_SERVER`, `PHX_HOST`, `PORT` and `DATABASE_CA_FILE` are set by
@@ -96,8 +102,9 @@ integration): secrets `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`,
 
 ### `config/runtime.exs` is the only place for prod config
 
-The two values the app cannot boot without — `DATABASE_URL` and
-`SECRET_KEY_BASE` — raise at boot when missing. Everything else is guarded by
+The values the app cannot boot without — `DATABASE_URL`, `SECRET_KEY_BASE`, and
+(via `Marquee.Otel.ExporterConfig`) `OTEL_EXPORTER_OTLP_ENDPOINT` and
+`OTEL_HUB_TOKEN` — raise at boot when missing. The rest is guarded by
 `if System.get_env(...)` so the feature switches off rather than half-configures.
 
 ### Database TLS is not optional
