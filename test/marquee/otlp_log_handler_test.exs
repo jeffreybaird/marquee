@@ -33,7 +33,9 @@ defmodule Marquee.OtlpLogHandlerTest do
 
       record = only_record([event])
 
-      assert record.severity_number == 9
+      # severity_number is a proto enum, so gpb decodes it to the spec atom
+      # (the hub maps it back to the integer 9 on its side).
+      assert record.severity_number == :SEVERITY_NUMBER_INFO
       assert record.severity_text == "info"
       assert record.body == %{value: {:string_value, "video created"}}
       # meta.time is microseconds; the record is nanoseconds.
@@ -53,7 +55,7 @@ defmodule Marquee.OtlpLogHandlerTest do
 
       record = only_record([event])
 
-      assert record.severity_number == 13
+      assert record.severity_number == :SEVERITY_NUMBER_WARN
       assert {:kvlist_value, %{values: values}} = record.body.value
       assert %{key: "reason", value: %{value: {:string_value, "rate_limited"}}} in values
     end
