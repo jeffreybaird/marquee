@@ -46,8 +46,21 @@ defmodule Marquee.OtlpLogHandler do
 
   @pb :opentelemetry_exporter_logs_service_pb
   @default_max_events 10_000
-  @internal_meta [:pid, :gl, :time, :mfa, :file, :line, :domain, :report_cb, :otel_trace_id,
-                  :otel_span_id, :otel_trace_flags, :crash_reason, :erl_level]
+  @internal_meta [
+    :pid,
+    :gl,
+    :time,
+    :mfa,
+    :file,
+    :line,
+    :domain,
+    :report_cb,
+    :otel_trace_id,
+    :otel_span_id,
+    :otel_trace_flags,
+    :crash_reason,
+    :erl_level
+  ]
 
   ## :logger handler callbacks
 
