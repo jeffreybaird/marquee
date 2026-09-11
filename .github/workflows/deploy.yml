@@ -211,6 +211,8 @@ jobs:
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
           RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
           MAILER_FROM=${{ vars.MAILER_FROM }}
+          OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_HUB_TOKEN=${{ secrets.OTEL_HUB_TOKEN }}
           EOF
 
       - name: Write .env (SQLite)

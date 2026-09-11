@@ -19,6 +19,10 @@ defmodule Marquee.Application do
     setup_oban_telemetry()
     Marquee.TelemetryHandler.setup()
 
+    # OTLP log export to the hub, added before the endpoint. Only when the hub
+    # is configured (prod with the two env vars set); dev/test leave it off.
+    maybe_add_otlp_log_handler()
+
     # ETS table for ephemeral go-back state (queue advance undo within 60s)
     :ets.new(:marquee_go_back, [:named_table, :public, :set])
 
@@ -47,6 +51,30 @@ defmodule Marquee.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Marquee.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Adds the copied OtlpLogHandler when the hub is configured (set in
+  # config/runtime.exs for prod). The resource matches the trace resource:
+  # service.name "marquee" and the release version. Side-effecting like the
+  # Loki shipper's attach; the handler owns its own (unsupervised) process.
+  defp maybe_add_otlp_log_handler do
+    case Application.get_env(:marquee, Marquee.OtlpLogHandler) do
+      config when is_list(config) ->
+        vsn = :marquee |> Application.spec(:vsn) |> to_string()
+
+        :logger.add_handler(:otlp_logs, Marquee.OtlpLogHandler, %{
+          level: :info,
+          config: %{
+            endpoint: Keyword.fetch!(config, :endpoint),
+            token: Keyword.fetch!(config, :token),
+            resource: %{"service.name" => "marquee", "service.version" => vsn},
+            flush_ms: 5_000
+          }
+        })
+
+      _ ->
+        :ok
+    end
   end
 
   defp maybe_add_log_shipper(children) do

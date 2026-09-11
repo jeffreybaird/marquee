@@ -12,7 +12,7 @@ defmodule Marquee.MixProject do
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      dialyzer: [plt_add_apps: [:mix, :ex_unit, :wallaby]],
+      dialyzer: [plt_add_apps: [:mix, :ex_unit, :wallaby, :inets, :ssl]],
       test_coverage: [tool: ExCoveralls]
     ]
   end
@@ -23,7 +23,8 @@ defmodule Marquee.MixProject do
   def application do
     [
       mod: {Marquee.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      # :inets/:ssl back the OtlpLogHandler's :httpc POST to the OTLP hub.
+      extra_applications: [:logger, :runtime_tools, :inets, :ssl]
     ]
   end
 
