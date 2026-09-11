@@ -34,10 +34,17 @@
 # per pull request.
 name: staging
 
+# Staging deploys are DEACTIVATED for now: the automatic pull_request trigger
+# is commented out, so opening/updating/closing a PR no longer stands up or
+# tears down a staging environment. `workflow_dispatch` is kept so the workflow
+# still exists and can be run by hand if needed. To re-enable automatic staging,
+# restore the pull_request trigger below (and ensure the STAGING_DOMAIN repo var
+# is set, plus OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_HUB_TOKEN for the prod release).
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+  # pull_request:
+  #   branches: [main]
+  #   types: [opened, reopened, synchronize, closed]
 
 # One staging operation at a time for the whole repo — deploys and teardowns
 # alike. The slot is a single directory on a single droplet, so two PRs racing
