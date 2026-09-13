@@ -108,6 +108,10 @@ defmodule Marquee.MixProject do
       # Structured logging with trace context
       {:opentelemetry_logger_metadata, "~> 0.1"},
 
+      # OTLP log + metric export to the personal hub (traces stay on
+      # opentelemetry_exporter). Fills the gap the Erlang SDK cannot yet cover.
+      {:otlp_shipper, "~> 0.1"},
+
       # Structured JSON logging for production
       {:logger_json, "~> 6.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

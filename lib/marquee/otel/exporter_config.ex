@@ -2,7 +2,7 @@ defmodule Marquee.Otel.ExporterConfig do
   @moduledoc """
   Resolves `:opentelemetry_exporter` settings for the personal OTLP hub from
   the runtime environment. Called by `config/runtime.exs` in prod, and reused
-  to configure the copied `Marquee.OtlpLogHandler`.
+  to configure otlp_shipper's log/metrics export (`Marquee.Otel.Export`).
 
   Both the endpoint and the hub token are **required in prod**: a missing one
   raises so a release fails to boot loudly instead of silently dropping every

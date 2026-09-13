@@ -81,15 +81,16 @@ end
 if config_env() == :prod do
   # OpenTelemetry export to the personal OTLP hub
   # (https://elixir-as-inf.diviningdad.com). Traces go through the
-  # opentelemetry_exporter; logs through the copied Marquee.OtlpLogHandler,
-  # since the Erlang SDK's own log handler cannot export OTLP yet.
+  # opentelemetry_exporter; logs and metrics through otlp_shipper
+  # (Marquee.Otel.Export), since the Erlang SDK cannot export those over OTLP
+  # yet.
   #
   # Both OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_HUB_TOKEN are required in prod:
   # Marquee.Otel.ExporterConfig raises when either is missing so a
   # misconfigured release fails loudly instead of silently dropping telemetry.
   config :opentelemetry_exporter, Marquee.Otel.ExporterConfig.settings()
 
-  config :marquee, Marquee.OtlpLogHandler,
+  config :marquee, :otlp_export,
     endpoint: Marquee.Otel.ExporterConfig.endpoint(),
     token: Marquee.Otel.ExporterConfig.token()
 
