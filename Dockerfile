@@ -9,8 +9,8 @@
 # Image tags verified against Docker Hub (Phoenix 1.8 needs Elixir >= 1.15).
 # Keep these >= the local toolchain that generated the app: phx_new emits
 # syntax (e.g. the ~r"..."E regex modifier) older Elixirs cannot compile.
-#   builder hexpm/elixir:1.19.5-erlang-28.5.0.2-debian-bookworm-20260518-slim
-#   runner  debian:bookworm-20260518-slim   (same debian build => glibc match)
+#   builder hexpm/elixir:1.19.5-erlang-28.5.0.5-debian-bookworm-20260824-slim
+#   runner  debian:bookworm-20260824-slim   (same debian build => glibc match)
 ARG ELIXIR_VERSION=1.19.5
 ARG OTP_VERSION=28.5.0.5
 ARG DEBIAN_VERSION=bookworm-20260824-slim
