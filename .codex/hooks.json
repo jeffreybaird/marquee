@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "python3 -B /Users/jeffreybaird/src/marquee/.codex/hooks/workflow_guard.py --platform codex --root /Users/jeffreybaird/src/marquee --policy /Users/jeffreybaird/src/marquee/.codex/hooks/policy.json",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": ".*"
+      }
+    ]
+  }
+}
