@@ -14,6 +14,11 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
       to `/login` if not authenticated. Redirects with error flash if
       suspended or banned.
 
+  ## Member preview
+
+  Authorized admins can navigate with a transient, subscribed preview identity.
+  Preview events are read-only and authorization is checked at each mount.
+
   ## Impersonation
 
   Supports session-layered impersonation: if `impersonating_viewer_id` is
@@ -29,21 +34,23 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
   alias Marquee.Accounts
   alias Marquee.Accounts.Organization
   alias Marquee.Viewers
+  alias MarqueeWeb.Plugs.MemberPreview
 
   @impersonation_max_age_seconds 3600
 
   def on_mount(:optional_auth, _params, session, socket) do
-    viewer = get_viewer_from_session(session)
+    viewer = resolve_viewer(session, socket)
     impersonating = viewer != nil && Map.get(viewer, :__impersonating__, false)
 
     {:cont,
      socket
      |> assign(:current_viewer, viewer)
-     |> assign(:impersonating_viewer, impersonating)}
+     |> assign(:impersonating_viewer, impersonating)
+     |> attach_preview_guard(viewer)}
   end
 
   def on_mount(:require_authenticated, _params, session, socket) do
-    case get_viewer_from_session(session) do
+    case resolve_viewer(session, socket) do
       nil ->
         {:halt,
          socket
@@ -62,9 +69,46 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
         {:cont,
          socket
          |> assign(:current_viewer, viewer)
-         |> assign(:impersonating_viewer, impersonating)}
+         |> assign(:impersonating_viewer, impersonating)
+         |> attach_preview_guard(viewer)}
     end
   end
+
+  defp resolve_viewer(session, socket) do
+    org = socket.assigns[:organization]
+    scope = socket.assigns[:current_scope]
+
+    case MemberPreview.viewer(session, scope, org) do
+      %Viewers.Viewer{} = viewer ->
+        viewer
+
+      nil ->
+        case get_viewer_from_session(session) do
+          %{organization_id: org_id} = viewer when not is_nil(org) and org_id == org.id ->
+            viewer
+
+          _ ->
+            nil
+        end
+    end
+  end
+
+  defp attach_preview_guard(socket, %{__preview__: true}) do
+    Phoenix.LiveView.attach_hook(socket, :member_preview, :handle_event, fn event, _, socket ->
+      cond do
+        event in ~w(filter load_more switch_tab toggle_chat toggle_queue switch_season play_episode go_back close_queue_dropdown cancel_add_season) ->
+          {:cont, socket}
+
+        String.starts_with?(event, "playback_") ->
+          {:halt, socket}
+
+        true ->
+          {:halt, put_flash(socket, :info, "Member preview is read-only.")}
+      end
+    end)
+  end
+
+  defp attach_preview_guard(socket, _viewer), do: socket
 
   defp get_viewer_from_session(session) do
     cond do

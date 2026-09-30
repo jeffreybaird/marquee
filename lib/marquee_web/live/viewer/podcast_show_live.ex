@@ -182,6 +182,9 @@ defmodule MarqueeWeb.Viewer.PodcastShowLive do
 
   defp resolve_access(_show, nil), do: {false, nil}
 
+  defp resolve_access(show, %{__preview__: true} = viewer),
+    do: {Podcasts.can_access?(show, viewer), nil}
+
   defp resolve_access(show, viewer) do
     if Podcasts.can_access?(show, viewer) do
       case Podcasts.issue_feed_token(show, viewer) do

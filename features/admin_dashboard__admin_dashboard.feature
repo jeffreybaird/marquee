@@ -22,6 +22,12 @@ Feature: Admin Dashboard
     When I open the member-facing site preview
     Then I see the member-facing home instead of the admin dashboard
 
+  Scenario: Organization admin keeps member access while navigating the preview
+    Given my organization has a published video in a visible row
+    When I open the member-facing site preview
+    And I navigate through the member preview pages
+    Then the member preview remains signed in
+
   Scenario: Operator sees setup nudges on a freshly created organization
     When I navigate to /admin/
     Then I see a setup nudge prompting me to connect Stripe

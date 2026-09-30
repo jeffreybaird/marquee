@@ -16,6 +16,7 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
   alias Marquee.Branding
   alias Marquee.Streaming
   alias Marquee.Viewers
+  alias MarqueeWeb.Plugs.MemberPreview
 
   @doc """
   Lists live events grouped by status.
@@ -24,7 +25,11 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
   """
   def index(conn, _params) do
     org = conn.assigns[:organization] || conn.assigns.current_scope.organization
-    viewer = resolve_viewer(conn)
+
+    viewer =
+      MemberPreview.viewer(get_session(conn), conn.assigns[:current_scope], org) ||
+        resolve_viewer(conn)
+
     theme = Branding.get_theme_or_default_cached(org)
 
     %{results: live_now} = Streaming.list_live_events(org, status: "live", per_page: 20)
@@ -127,7 +132,8 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
   end
 
   defp impersonating?(conn, viewer) do
-    viewer != nil && not is_nil(get_session(conn, :impersonating_viewer_id))
+    viewer != nil &&
+      (viewer.__preview__ || not is_nil(get_session(conn, :impersonating_viewer_id)))
   end
 
   defp build_ics(event, conn) do

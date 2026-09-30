@@ -22,7 +22,9 @@ defmodule MarqueeWeb.Viewer.AccountLive do
     changeset = Viewers.Viewer.profile_changeset(viewer, %{})
 
     subscription = load_subscription(org, viewer)
-    podcasts = Podcasts.list_accessible_shows_for_viewer(org, viewer)
+
+    podcasts =
+      if viewer.__preview__, do: [], else: Podcasts.list_accessible_shows_for_viewer(org, viewer)
 
     {:ok,
      socket

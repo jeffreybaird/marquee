@@ -43,6 +43,7 @@ defmodule Marquee.Viewers.Viewer do
     field :deleted_at, :utc_datetime
 
     # Virtual field for impersonation tracking
+    field :__preview__, :boolean, virtual: true, default: false
     field :__impersonating__, :boolean, virtual: true, default: false
 
     timestamps(type: :utc_datetime)

@@ -65,7 +65,7 @@ defmodule MarqueeWeb.Viewer.HomeLiveTest do
     } do
       org = insert(:organization, slug: "preview-studio", name: "Preview Studio")
       user = insert(:user)
-      insert(:membership, organization: org, user: user)
+      insert(:membership, organization: org, user: user, role: :admin)
 
       insert(:video, organization: org, mux_status: "ready")
 

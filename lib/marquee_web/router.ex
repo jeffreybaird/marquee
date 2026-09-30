@@ -20,6 +20,7 @@ defmodule MarqueeWeb.Router do
 
   pipeline :set_organization do
     plug MarqueeWeb.Plugs.SetOrganization
+    plug MarqueeWeb.Plugs.MemberPreview
     plug MarqueeWeb.Plugs.TelemetryOrgPlug
 
     plug MarqueeWeb.Plugs.RateLimit,
@@ -30,6 +31,7 @@ defmodule MarqueeWeb.Router do
 
   pipeline :optional_organization do
     plug MarqueeWeb.Plugs.SetOrganization, optional: true
+    plug MarqueeWeb.Plugs.MemberPreview
   end
 
   pipeline :rate_limit_auth do

@@ -93,6 +93,23 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
     world
   end
 
+  when_ "I navigate through the member preview pages", fn world ->
+    session =
+      Enum.reduce(["/browse", "/watchlist", "/history", "/account", "/"], world.session, fn path, session ->
+        session = visit(session, path)
+        assert_has(session, css("[data-test=impersonation-banner]"))
+        session
+      end)
+
+    Map.put(world, :session, session)
+  end
+
+  then_ "the member preview remains signed in", fn world ->
+    assert_text(world.session, "Member preview")
+    assert_has(world.session, css("[data-test=sv-root]"))
+    world
+  end
+
   # ---- Setup nudges -------------------------------------------------------
 
   then_ "I see a setup nudge prompting me to connect Stripe", fn world ->

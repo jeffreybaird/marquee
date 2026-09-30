@@ -91,12 +91,16 @@ defmodule MarqueeWeb.Components.ViewerLayout do
         <div class="flex items-center gap-2">
           <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" aria-hidden="true" />
           <span>
-            You are impersonating {@current_viewer.display_name || @current_viewer.email}.
+            <%= if @current_viewer.__preview__ do %>
+              Member preview — read-only.
+            <% else %>
+              You are impersonating {@current_viewer.display_name || @current_viewer.email}.
+            <% end %>
           </span>
         </div>
         <.link
-          href={~p"/viewer-session/impersonate"}
-          method="delete"
+          href={if @current_viewer.__preview__, do: ~p"/admin", else: ~p"/viewer-session/impersonate"}
+          method={if @current_viewer.__preview__, do: "get", else: "delete"}
           class="shrink-0 rounded-full border border-white/50 px-3 py-1 text-xs uppercase tracking-[0.16em] text-white transition hover:bg-white hover:text-red-700"
           data-test="stop-impersonation-btn"
         >

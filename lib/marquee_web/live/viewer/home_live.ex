@@ -34,7 +34,6 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     impersonating_viewer = socket.assigns[:impersonating_viewer] == true
     user = scope && scope.user
     org_param = params["org"]
-    preview_member? = params["preview"] == "member"
 
     primary_org = user && Accounts.get_user_primary_organization(user)
 
@@ -43,7 +42,7 @@ defmodule MarqueeWeb.Viewer.HomeLive do
       # admin "View site" link. Bypass the dashboard redirects so they land
       # on the org's viewer home and see exactly what members see, instead
       # of being bounced back to the admin panel.
-      user && preview_member? && org ->
+      viewer && viewer.__preview__ && org ->
         {:ok, mount_org_home(socket, org, viewer)}
 
       # Super admin -> always route to the super dashboard regardless of
