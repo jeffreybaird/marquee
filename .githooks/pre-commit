@@ -1,8 +1,7 @@
 #!/bin/sh
-mix format
+mix format --force
 if [ $? -ne 0 ]; then
-  echo "mix format found unformatted files. Run 'mix format' and re-stage your changes."
-  git add -A
+  echo "mix format --force failed. Fix the formatting error and re-stage your changes."
   exit 1
 fi
 
