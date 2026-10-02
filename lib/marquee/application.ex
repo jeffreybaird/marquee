@@ -14,7 +14,8 @@ defmodule Marquee.Application do
     end
 
     # OpenTelemetry auto-instrumentation — must be called before supervision tree
-    OpentelemetryPhoenix.setup()
+    OpentelemetryBandit.setup()
+    OpentelemetryPhoenix.setup(adapter: :bandit)
     EctoHandler.setup([:marquee, :repo])
     setup_oban_telemetry()
     Marquee.TelemetryHandler.setup()

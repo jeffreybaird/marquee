@@ -98,9 +98,10 @@ defmodule Marquee.MixProject do
       {:opentelemetry_exporter, "~> 1.7"},
 
       # Auto-instrumentation libraries
-      {:opentelemetry_phoenix, "~> 1.2"},
+      {:opentelemetry_phoenix, "~> 2.0"},
+      {:opentelemetry_bandit, "~> 0.3"},
       {:opentelemetry_ecto, "~> 1.2"},
-      {:opentelemetry_oban, "~> 1.1"},
+      {:opentelemetry_oban, "~> 1.2"},
 
       # For outbound HTTP call instrumentation
       {:opentelemetry_finch, "~> 0.2"},
