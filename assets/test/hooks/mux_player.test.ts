@@ -36,6 +36,49 @@ function play(player: FakePlayer, seconds: number) {
 }
 
 describe("MuxPlayer", () => {
+  it("saves a short final sample before same-origin navigation and waits for acknowledgement", () => {
+    const { player, pushEvent, hook } = watchPage()
+    const link = document.createElement("a")
+    link.href = "/"
+    const replay = vi.spyOn(link, "click").mockImplementation(() => {})
+    document.body.appendChild(link)
+    player.currentTime = 8
+    player.paused = false
+    player.dispatchEvent(new Event("pause"))
+    pushEvent.mockClear()
+    player.currentTime = 10
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })
+    link.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(true)
+    expect(pushEvent).toHaveBeenCalledWith(
+      "playback_paused",
+      { video_id: "vid-1", position: 10 },
+      expect.any(Function),
+    )
+    expect(replay).not.toHaveBeenCalled()
+    const acknowledge = pushEvent.mock.calls[0]?.[2] as unknown as () => void
+    acknowledge()
+    expect(replay).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(2000)
+    expect(replay).toHaveBeenCalledTimes(1)
+    hook.destroyed()
+  })
+
+  it("releases navigation after a bounded wait when the connection cannot acknowledge", () => {
+    const { player, hook } = watchPage()
+    const link = document.createElement("a")
+    link.href = "/"
+    const replay = vi.spyOn(link, "click").mockImplementation(() => {})
+    document.body.appendChild(link)
+    player.currentTime = 10
+    player.paused = false
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+    expect(replay).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(2000)
+    expect(replay).toHaveBeenCalledTimes(1)
+    hook.destroyed()
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
     // No jitter: the progress interval starts immediately.
