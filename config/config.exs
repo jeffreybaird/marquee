@@ -173,6 +173,7 @@ config :marquee, Oban,
        {"*/15 * * * *", Marquee.Workers.DropOffAggregator},
        {"*/15 * * * *", Marquee.Workers.MarkEventsDidNotOccurWorker},
        {"*/15 * * * *", Marquee.Workers.PodcastFeedSync},
+       {"*/15 * * * *", Marquee.Workers.SubscriberDemoCleanup},
        {"0 3 * * *", Marquee.Workers.ExpireTrialsWorker}
      ]}
   ],

@@ -46,7 +46,8 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
      socket
      |> assign(:current_viewer, viewer)
      |> assign(:impersonating_viewer, impersonating)
-     |> attach_preview_guard(viewer)}
+     |> attach_preview_guard(viewer)
+     |> attach_demo_guard(viewer, session)}
   end
 
   def on_mount(:require_authenticated, _params, session, socket) do
@@ -66,11 +67,16 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
       viewer ->
         impersonating = Map.get(viewer, :__impersonating__, false)
 
-        {:cont,
-         socket
-         |> assign(:current_viewer, viewer)
-         |> assign(:impersonating_viewer, impersonating)
-         |> attach_preview_guard(viewer)}
+        if Marquee.SubscriberDemo.demo_viewer?(viewer) && demo_excluded_page?(socket.view) do
+          {:halt, redirect(socket, to: ~p"/")}
+        else
+          {:cont,
+           socket
+           |> assign(:current_viewer, viewer)
+           |> assign(:impersonating_viewer, impersonating)
+           |> attach_preview_guard(viewer)
+           |> attach_demo_guard(viewer, session)}
+        end
     end
   end
 
@@ -109,6 +115,39 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
   end
 
   defp attach_preview_guard(socket, _viewer), do: socket
+
+  defp attach_demo_guard(socket, viewer, session) do
+    if Marquee.SubscriberDemo.demo_viewer?(viewer) do
+      Phoenix.LiveView.attach_hook(socket, :subscriber_demo, :handle_event, fn _, _, socket ->
+        validate_demo_event(socket, viewer.id, session["viewer_token"])
+      end)
+    else
+      socket
+    end
+  end
+
+  defp validate_demo_event(socket, viewer_id, token) do
+    case token && Viewers.get_viewer_by_session_token(token) do
+      %{id: ^viewer_id} ->
+        {:cont, socket}
+
+      _ ->
+        {:halt,
+         socket
+         |> put_flash(:info, "Your demo session has expired. Start a new demo to continue.")
+         |> redirect(to: ~p"/")}
+    end
+  end
+
+  defp demo_excluded_page?(view) do
+    view in [
+      MarqueeWeb.Viewer.AccountLive,
+      MarqueeWeb.Viewer.SubscribeLive,
+      MarqueeWeb.Viewer.PaymentIssueLive,
+      MarqueeWeb.Viewer.SubscribeSuccessLive,
+      MarqueeWeb.Viewer.LiveEventWatchLive
+    ]
+  end
 
   defp get_viewer_from_session(session) do
     cond do

@@ -116,6 +116,8 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
     """
   end
 
+  attr :subscriber_demo_url, :string, default: nil
+
   def platform_marketing(assigns) do
     ~H"""
     <div class="min-h-screen bg-base-100" data-test="platform-marketing">
@@ -155,7 +157,15 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
               Marquee gives creators and businesses everything they need to publish, monetize,
               and grow a branded video streaming service — no engineering team required.
             </p>
-            <div class="mt-10 flex items-center justify-center gap-4">
+            <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:flex-wrap">
+              <.link
+                :if={@subscriber_demo_url}
+                href={@subscriber_demo_url}
+                class="btn btn-primary btn-lg min-h-11"
+                data-test="subscriber-demo-entry"
+              >
+                Try the subscriber demo
+              </.link>
               <.link
                 navigate={~p"/users/register"}
                 class="btn btn-primary btn-lg"

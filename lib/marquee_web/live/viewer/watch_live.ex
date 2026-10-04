@@ -161,7 +161,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
          episode_context: episode_context,
          page_title: video.title,
          resume_position: watch_state.resume_position,
-         related_videos: related_result.videos,
+         related_videos: filter_demo_related(related_result.videos, org, viewer),
          queue_items: [],
          queue_count: watch_state.queue_count,
          queue_loaded?: false,
@@ -345,7 +345,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
     viewer = socket.assigns[:current_viewer]
     org = socket.assigns.organization
 
-    if viewer do
+    if viewer && video_id == socket.assigns.video.id do
       video = socket.assigns.video
       duration = video.duration || 0.0
       clamped_pos = clamp_position(pos, duration)
@@ -353,7 +353,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
     else
       scope = socket.assigns.current_scope
 
-      if scope && scope.user do
+      if scope && scope.user && video_id == socket.assigns.video.id do
         Engagement.update_progress(scope, video_id, pos)
       end
     end
@@ -367,7 +367,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
     viewer = socket.assigns[:current_viewer]
     org = socket.assigns.organization
 
-    if viewer do
+    if viewer && video_id == socket.assigns.video.id do
       video = socket.assigns.video
       duration = video.duration || 0.0
       clamped_pos = clamp_position(pos, duration)
@@ -375,7 +375,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
     else
       scope = socket.assigns.current_scope
 
-      if scope && scope.user do
+      if scope && scope.user && video_id == socket.assigns.video.id do
         Engagement.update_progress(scope, video_id, pos)
       end
     end
@@ -402,7 +402,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
         true -> nil
       end
 
-    if subject_ids do
+    if subject_ids && video_id == socket.assigns.video.id do
       Engagement.record_drop_off(
         Map.merge(subject_ids, %{
           organization_id: org.id,
@@ -585,7 +585,12 @@ defmodule MarqueeWeb.Viewer.WatchLive do
           |> assign(
             video: prev_video,
             resume_position: position,
-            related_videos: Content.list_related_videos_for_watch(org, prev_video, 6).videos,
+            related_videos:
+              filter_demo_related(
+                Content.list_related_videos_for_watch(org, prev_video, 6).videos,
+                org,
+                viewer
+              ),
             queue_items: queue_items,
             queue_count: length(queue_items),
             queue_loaded?: true,
@@ -631,6 +636,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
 
       socket =
         socket
+        |> refresh_video_activity(org, viewer, video)
         |> assign(
           video: video,
           episode_context: episode_context,
@@ -662,6 +668,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
 
         socket =
           socket
+          |> refresh_video_activity(org, viewer, video)
           |> assign(
             video: video,
             episode_context: episode_context,
@@ -770,7 +777,12 @@ defmodule MarqueeWeb.Viewer.WatchLive do
           |> assign(
             video: next_video,
             resume_position: watch_state.resume_position,
-            related_videos: Content.list_related_videos_for_watch(org, next_video, 6).videos,
+            related_videos:
+              filter_demo_related(
+                Content.list_related_videos_for_watch(org, next_video, 6).videos,
+                org,
+                viewer
+              ),
             queue_items: queue_items,
             queue_count: length(queue_items),
             queue_loaded?: true,
@@ -939,6 +951,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
 
     socket =
       socket
+      |> refresh_video_activity(org, viewer, video)
       |> assign(
         video: video,
         episode_context: episode_context,
@@ -955,6 +968,19 @@ defmodule MarqueeWeb.Viewer.WatchLive do
       })
 
     {:noreply, socket}
+  end
+
+  defp refresh_video_activity(socket, org, viewer, video) do
+    state = build_watch_state(org, viewer, socket.assigns[:current_scope], video)
+    assign(socket, in_watchlist: state.in_watchlist, is_favorited: state.is_favorited)
+  end
+
+  defp filter_demo_related(videos, org, viewer) do
+    ids = (org.features || %{})["subscriber_demo_video_ids"]
+
+    if Marquee.SubscriberDemo.demo_viewer?(viewer) && is_list(ids),
+      do: Enum.filter(videos, &(&1.id in ids)),
+      else: videos
   end
 
   defp get_viewer_progress(_org, nil, _video), do: nil

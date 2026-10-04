@@ -38,6 +38,11 @@ defmodule MarqueeWeb.Router do
     plug MarqueeWeb.Plugs.RateLimit, bucket: :auth, limit: 10, key: :ip
   end
 
+  scope "/", MarqueeWeb do
+    pipe_through [:browser, :set_organization, :rate_limit_auth]
+    post "/demo/subscriber", SubscriberDemoController, :create
+  end
+
   pipeline :rate_limit_webhook_mux do
     plug MarqueeWeb.Plugs.RateLimit, bucket: :webhook_mux, limit: 500, key: :ip
   end

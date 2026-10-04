@@ -800,22 +800,30 @@ defmodule Marquee.Engagement do
 
   Exempt from doctest — hits the database.
   """
-  def add_to_watchlist(
-        %Organization{id: org_id} = _org,
-        %{id: viewer_id} = _viewer,
-        %Video{} = video
-      ) do
+  def add_to_watchlist(org, viewer, target) do
+    if Marquee.SubscriberDemo.expired?(viewer) do
+      {:error, :demo_expired}
+    else
+      do_add_to_watchlist(org, viewer, target)
+    end
+  end
+
+  defp do_add_to_watchlist(
+         %Organization{id: org_id} = _org,
+         %{id: viewer_id} = _viewer,
+         %Video{} = video
+       ) do
     Marquee.Otel.with_span "marquee.engagement.add_to_watchlist",
                            %{"marquee.org.id" => org_id} do
       do_add_video_to_watchlist(org_id, viewer_id, video)
     end
   end
 
-  def add_to_watchlist(
-        %Organization{id: org_id} = _org,
-        %{id: viewer_id} = _viewer,
-        %Season{} = season
-      ) do
+  defp do_add_to_watchlist(
+         %Organization{id: org_id} = _org,
+         %{id: viewer_id} = _viewer,
+         %Season{} = season
+       ) do
     Marquee.Otel.with_span "marquee.engagement.add_to_watchlist",
                            %{
                              "marquee.org.id" => org_id,
@@ -831,11 +839,11 @@ defmodule Marquee.Engagement do
     end
   end
 
-  def add_to_watchlist(
-        %Organization{id: org_id} = _org,
-        %{id: viewer_id} = _viewer,
-        %Series{} = series
-      ) do
+  defp do_add_to_watchlist(
+         %Organization{id: org_id} = _org,
+         %{id: viewer_id} = _viewer,
+         %Series{} = series
+       ) do
     Marquee.Otel.with_span "marquee.engagement.add_to_watchlist",
                            %{
                              "marquee.org.id" => org_id,
@@ -1892,14 +1900,18 @@ defmodule Marquee.Engagement do
   """
   def update_progress(
         %Organization{id: org_id},
-        %{id: viewer_id},
+        %{id: viewer_id} = viewer,
         video_id,
         position,
         duration
       )
       when is_number(position) and is_number(duration) do
-    ProgressBuffer.update_viewer(org_id, viewer_id, video_id, position / 1, duration)
-    :ok
+    if Marquee.SubscriberDemo.expired?(viewer) do
+      {:error, :demo_expired}
+    else
+      ProgressBuffer.update_viewer(org_id, viewer_id, video_id, position / 1, duration)
+      :ok
+    end
   end
 
   @doc """
