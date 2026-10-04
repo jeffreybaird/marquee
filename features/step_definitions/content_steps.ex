@@ -16,23 +16,24 @@ defmodule MarqueeFeatures.Steps.Content do
   import ExUnit.Assertions
 
   alias Marquee.Content
+  alias Marquee.Content.MockMuxClient
 
   # ---- Setup --------------------------------------------------------------
 
-  given_ "a video exists in the content library", fn world ->
+  given_("a video exists in the content library", fn world ->
     video = insert(:video, organization: world.org, mux_status: "ready")
     Map.put(world, :video, video)
-  end
+  end)
 
-  given_ "a video has been soft-deleted", fn world ->
+  given_("a video has been soft-deleted", fn world ->
     video = insert(:video, organization: world.org, mux_status: "ready")
     {:ok, deleted} = Content.delete_video(world.scope, video)
     Map.merge(world, %{video: video, deleted_video: deleted})
-  end
+  end)
 
   # ---- Edit metadata (Wallaby) -------------------------------------------
 
-  when_ "I edit the title or description and save", fn world ->
+  when_("I edit the title or description and save", fn world ->
     session =
       world.session
       |> visit("/admin/content?org=#{world.org.slug}")
@@ -43,9 +44,9 @@ defmodule MarqueeFeatures.Steps.Content do
       |> click(css("[data-test=save-video-btn]"))
 
     Map.put(world, :session, session)
-  end
+  end)
 
-  then_ "the video record is updated with the new metadata", fn world ->
+  then_("the video record is updated with the new metadata", fn world ->
     assert_text(world.session, "Updated Title")
     assert_text(world.session, "Updated description text")
 
@@ -57,56 +58,67 @@ defmodule MarqueeFeatures.Steps.Content do
     assert fetched.description == "Updated description text"
 
     world
-  end
+  end)
 
   # ---- Soft-delete (Wallaby) ---------------------------------------------
 
-  when_ "I delete the video", fn world ->
-    session =
-      world.session
-      |> visit("/admin/content?org=#{world.org.slug}")
-      |> accept_confirm(fn s ->
+  when_("I delete the video", fn world ->
+    session = visit(world.session, "/admin/content?org=#{world.org.slug}")
+    Mox.set_mox_global()
+
+    Mox.expect(MockMuxClient, :delete_asset, fn asset_id ->
+      assert asset_id == world.video.mux_asset_id
+      :ok
+    end)
+
+    try do
+      accept_confirm(session, fn s ->
         click(s, css("[data-test=delete-video-#{world.video.id}]"))
       end)
 
-    Map.put(world, :session, session)
-  end
+      assert_has(session, css("[data-test=view-video-#{world.video.id}]", count: 0))
+      Mox.verify!()
+      Map.put(world, :session, session)
+    after
+      Mox.set_mox_private()
+    end
+  end)
 
-  then_ "the video is marked with a deleted_at timestamp", fn world ->
+  then_("the video is marked with a deleted_at timestamp", fn world ->
     # The DB check is primary here because deleted_at is an invisible
     # side effect — the user-observable result (the row disappearing
     # from the list) is covered by the following step.
     fetched = Content.get_video!(world.org, world.video.id)
     assert fetched.deleted_at != nil
     Map.put(world, :deleted_video, fetched)
-  end
+  end)
 
-  then_ "it no longer appears in content listings", fn world ->
+  then_("it no longer appears in content listings", fn world ->
     session = visit(world.session, "/admin/content?org=#{world.org.slug}")
     refute_has(session, css("[data-test=view-video-#{world.video.id}]"))
     Map.put(world, :session, session)
-  end
+  end)
 
   # ---- Restore (legacy — context-direct) ---------------------------------
   # TODO: rewrite with Wallaby once an operator-facing restore surface
   # exists. There's no admin UI for it today, so asserting on a button
   # or link would silently pass against a non-existent element.
 
-  then_ "it can be restored", fn world ->
+  then_("it can be restored", fn world ->
     {:ok, restored} = Content.restore_video(world.scope, world.deleted_video)
     assert is_nil(restored.deleted_at)
     world
-  end
+  end)
 
-  when_ "I restore the video", fn world ->
+  when_("I restore the video", fn world ->
     {:ok, restored} = Content.restore_video(world.scope, world.deleted_video)
     Map.put(world, :restored_video, restored)
-  end
+  end)
 
-  then_ "it reappears in the content library", fn world ->
+  then_("it reappears in the content library", fn world ->
     %{results: videos} = Content.list_videos(world.org)
     ids = Enum.map(videos, & &1.id)
     assert world.restored_video.id in ids
     world
-  end
+  end)
 end
