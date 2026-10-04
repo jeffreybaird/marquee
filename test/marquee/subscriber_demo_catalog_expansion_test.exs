@@ -120,8 +120,8 @@ defmodule Marquee.SubscriberDemoCatalogExpansionTest do
     stored = Repo.get!(Organization, org.id)
     row_ids = stored.features["subscriber_demo_row_ids"]
     rows = Repo.all(from r in Row, where: r.organization_id == ^org.id and r.id in ^row_ids)
-    assert length(row_ids) == 6
-    assert length(rows) == 6
+    assert length(row_ids) == 5
+    assert length(rows) == 5
     collection_rows = Enum.filter(rows, &(&1.source_type == :collection))
     assert MapSet.new(collection_rows, & &1.source_id) == MapSet.new(catalog.collections, & &1.id)
     assert Enum.all?(collection_rows, &(&1.max_items == 12 and &1.visible))
@@ -129,7 +129,6 @@ defmodule Marquee.SubscriberDemoCatalogExpansionTest do
     assert Enum.sort(Enum.map(rows, & &1.source_type)) ==
              Enum.sort([
                :hero,
-               :welcome_text,
                :continue_watching,
                :collection,
                :collection,

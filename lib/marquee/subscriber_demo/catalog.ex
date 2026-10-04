@@ -207,38 +207,39 @@ defmodule Marquee.SubscriberDemo.Catalog do
   end
 
   defp seed_rows(org, series, videos, collections) do
-    welcome =
-      upsert_row(org, "Your subscriber demo", %{
-        source_type: :welcome_text,
-        position: -10,
-        filter_config: %{
-          "eyebrow" => "The Workshop · Subscriber demo",
-          "headline" => "A small window into the creative process",
-          "body" =>
-            "Open the series, play an episode, and save another for later. Return here to resume from your saved position.",
-          "cta_label" => "Explore the series",
-          "cta_href" => "/series/#{series.slug}"
-        }
-      })
+    retire_legacy_welcome_row(org)
 
     continued =
       upsert_row(org, "Continue Watching", %{source_type: :continue_watching, position: -9})
 
     hero = upsert_row(org, "Workshop demo feature", %{source_type: :hero, position: -11})
 
-    (Repo.get_by(HeroSlide, organization_id: org.id, row_id: hero.id, position: 0) ||
-       %HeroSlide{organization_id: org.id, row_id: hero.id})
-    |> HeroSlide.changeset(%{
-      video_id: hd(videos).id,
-      position: 0,
-      headline: series.title,
-      subheadline: "A subscriber experience you can try",
-      description: hd(videos).description,
-      brand_tag: "THE WORKSHOP",
-      primary_cta_label: "Play episode",
-      secondary_cta_label: "Explore series"
-    })
-    |> Repo.insert_or_update!()
+    Enum.each(0..2, fn position ->
+      video = Enum.at(videos, div(length(videos) * position, 3))
+
+      (Repo.get_by(HeroSlide, organization_id: org.id, row_id: hero.id, position: position) ||
+         %HeroSlide{organization_id: org.id, row_id: hero.id})
+      |> HeroSlide.changeset(%{
+        video_id: video.id,
+        position: position,
+        headline: if(position == 0, do: series.title, else: video.title),
+        subheadline: "A subscriber experience you can try",
+        description: video.description,
+        background_image_url: thumbnail(video),
+        title_logo_url: nil,
+        channel_logo_url: nil,
+        brand_tag: "THE WORKSHOP",
+        primary_cta_label: "Play episode",
+        secondary_cta_label: "Explore series",
+        show_headline: true,
+        show_subheadline: true,
+        show_description: true,
+        show_brand_tag: true,
+        show_primary_cta: true,
+        show_secondary_cta: true
+      })
+      |> Repo.insert_or_update!()
+    end)
 
     collection_rows =
       Enum.with_index(collections, -8)
@@ -251,7 +252,22 @@ defmodule Marquee.SubscriberDemo.Catalog do
         })
       end)
 
-    [welcome, continued, hero | collection_rows]
+    [continued, hero | collection_rows]
+  end
+
+  defp retire_legacy_welcome_row(org) do
+    managed_ids = (org.features || %{})["subscriber_demo_row_ids"] || []
+
+    Repo.all(
+      from row in Row,
+        where:
+          row.organization_id == ^org.id and row.id in ^managed_ids and
+            row.title == "Your subscriber demo" and row.source_type == :welcome_text and
+            is_nil(row.deleted_at)
+    )
+    |> Enum.each(fn row ->
+      {:ok, _} = Marquee.Catalog.delete_row(%Scope{organization: org}, row)
+    end)
   end
 
   defp upsert_row(org, title, %{source_type: :hero} = attrs) do

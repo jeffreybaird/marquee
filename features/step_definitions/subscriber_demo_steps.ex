@@ -4,6 +4,34 @@ defmodule MarqueeFeatures.Steps.SubscriberDemo do
   import Marquee.Factory
   import ExUnit.Assertions
   alias Marquee.{Engagement, Repo, SubscriberDemo, Viewers}
+  import Ecto.Query
+
+  then_("the Workshop hero offers three distinct featured videos", fn world ->
+    org_id = world.demo_org.id
+
+    video_ids =
+      Repo.all(
+        from s in Marquee.Catalog.HeroSlide,
+          where: s.organization_id == ^org_id and is_nil(s.deleted_at),
+          select: s.video_id
+      )
+
+    assert length(Enum.uniq(video_ids)) >= 3
+    world
+  end)
+
+  then_("the Workshop catalog has no managed subscriber explanation row", fn world ->
+    org_id = world.demo_org.id
+
+    refute Repo.exists?(
+             from r in Marquee.Catalog.Row,
+               where:
+                 r.organization_id == ^org_id and r.title == "Your subscriber demo" and
+                   is_nil(r.deleted_at)
+           )
+
+    world
+  end)
 
   given_("The Workshop subscriber demo has a playable catalog", fn world ->
     org = insert(:organization, slug: "the-workshop", features: %{"subscriber_demo" => true})

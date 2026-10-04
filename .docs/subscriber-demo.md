@@ -22,6 +22,11 @@ visitors can explore horizontal scrolling. Each entry credits its creator and li
 to its source. Durations come from ready Mux assets; thumbnails use those same
 playback IDs.
 
+The hero carousel features three distinct videos from across the catalog. Each
+slide links to its featured episode and the series. The former text-only
+"Your subscriber demo" row is no longer seeded; reseeding retires that managed
+legacy row without restoring an operator's deletion or changing unrelated rows.
+
 ```elixir
 [
   %{

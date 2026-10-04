@@ -35,5 +35,24 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoHeroTest do
              "[data-test=hero-secondary-cta-0][href='/series/#{catalog.series.slug}']",
              "Explore series"
            )
+
+    for {video, index} <- Enum.with_index(tl(catalog.videos), 1) do
+      assert has_element?(
+               home,
+               "[data-test=hero-primary-cta-#{index}][href='/watch/#{video.id}']",
+               "Play episode"
+             )
+
+      assert has_element?(
+               home,
+               "[data-test=hero-secondary-cta-#{index}][href='/series/#{catalog.series.slug}']",
+               "Explore series"
+             )
+
+      assert render(home) =~ video.title
+    end
+
+    refute render(home) =~ "Your subscriber demo"
+    refute render(home) =~ "A small window into the creative process"
   end
 end
