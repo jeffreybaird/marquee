@@ -9,6 +9,9 @@ export interface MuxPlayerElement extends HTMLElement {
   /** Current playback position in seconds */
   currentTime: number
 
+  /** Media readiness; 1 means metadata is available. */
+  readyState: number
+
   /** Whether the player is paused */
   paused: boolean
 
