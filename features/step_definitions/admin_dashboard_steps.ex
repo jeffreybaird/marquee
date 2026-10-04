@@ -123,13 +123,13 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
   end
 
   then_ "the connect-Stripe nudge no longer appears", fn world ->
-    refute_has(world.session, css("[data-test=nudge-connect_stripe]"))
+    assert_has(world.session, css("[data-test=nudge-connect_stripe]", count: 0))
     world
   end
 
   then_ "the connect-Stripe nudge stays hidden after I reload the dashboard", fn world ->
     session = visit(world.session, "/admin?org=#{world.org.slug}")
-    refute_has(session, css("[data-test=nudge-connect_stripe]"))
+    assert_has(session, css("[data-test=nudge-connect_stripe]", count: 0))
     Map.put(world, :session, session)
   end
 
