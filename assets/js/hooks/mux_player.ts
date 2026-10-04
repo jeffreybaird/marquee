@@ -53,6 +53,31 @@ class MuxPlayer extends ViewHook {
   private onNavigation: ((event: MouseEvent) => void) | null = null
   private navigationTimeout: number | null = null
   private replayingNavigation = false
+  private pendingResume: (() => void) | null = null
+
+  private cancelPendingResume() {
+    if (this.pendingResume) {
+      this.player?.removeEventListener("loadedmetadata", this.pendingResume)
+      this.pendingResume = null
+    }
+  }
+
+  private resumePlayback(position: number, currentSource = false) {
+    this.cancelPendingResume()
+    const player = this.player
+    if (!player || position <= 0) return
+
+    if (currentSource && player.readyState >= 1) {
+      player.currentTime = position
+      return
+    }
+
+    this.pendingResume = () => {
+      this.pendingResume = null
+      player.currentTime = position
+    }
+    player.addEventListener("loadedmetadata", this.pendingResume, { once: true })
+  }
 
   mounted() {
     const player = this.el.querySelector("mux-player")
@@ -121,15 +146,7 @@ class MuxPlayer extends ViewHook {
 
     // Resume playback if position is set
     const resumePos = parseFloat(this.el.dataset.resumePosition || "0")
-    if (resumePos > 0) {
-      player.addEventListener(
-        "loadedmetadata",
-        () => {
-          player.currentTime = resumePos
-        },
-        { once: true },
-      )
-    }
+    this.resumePlayback(resumePos, true)
 
     // Report playback started
     player.addEventListener("play", () => {
@@ -223,17 +240,8 @@ class MuxPlayer extends ViewHook {
       ({ playback_id, video_id, resume_position }: LoadVideoPayload) => {
         sendDropOff()
         resetDropOffState(video_id)
+        this.resumePlayback(resume_position)
         player.setAttribute("playback-id", playback_id)
-
-        if (resume_position > 0) {
-          player.addEventListener(
-            "loadedmetadata",
-            () => {
-              player.currentTime = resume_position
-            },
-            { once: true },
-          )
-        }
       },
     )
 
@@ -243,17 +251,8 @@ class MuxPlayer extends ViewHook {
       ({ playback_id, video_id, resume_position }: LoadVideoPayload) => {
         sendDropOff()
         resetDropOffState(video_id)
+        this.resumePlayback(resume_position)
         player.setAttribute("playback-id", playback_id)
-
-        if (resume_position > 0) {
-          player.addEventListener(
-            "loadedmetadata",
-            () => {
-              player.currentTime = resume_position
-            },
-            { once: true },
-          )
-        }
 
         player.play()
       },
@@ -261,6 +260,7 @@ class MuxPlayer extends ViewHook {
   }
 
   destroyed() {
+    this.cancelPendingResume()
     if (this.onNavigation) document.removeEventListener("click", this.onNavigation, true)
     if (this.navigationTimeout !== null) window.clearTimeout(this.navigationTimeout)
     // Save final position before teardown. pagehide does not fire on
