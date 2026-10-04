@@ -37,6 +37,12 @@ defmodule Marquee.Release do
     Marquee.DemoSeeder.seed(opts)
   end
 
+  @doc "Seeds the Workshop subscriber portfolio demo using a reviewed configured media manifest."
+  def seed_subscriber_demo do
+    start_app()
+    Marquee.DemoSeeder.seed_subscriber_demo()
+  end
+
   @doc """
   Reconciles pending Mux assets against Mux's current state from a running
   release (no Mix). Boots the full app, then delegates to

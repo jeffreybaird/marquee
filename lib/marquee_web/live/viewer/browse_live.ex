@@ -27,7 +27,8 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
     per_page = Application.get_env(:marquee, :browse_per_page, @default_per_page)
 
     if org do
-      %{results: videos} = Content.list_videos(org, per_page: per_page)
+      opts = demo_filter_opts([per_page: per_page], org, socket.assigns[:current_viewer])
+      %{results: videos} = Content.list_videos(org, opts)
       %{results: tags} = Content.list_tags(org, per_page: per_page)
 
       {:ok,
@@ -74,7 +75,7 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
     sort = Map.get(params, "sort", socket.assigns.sort)
     filter_tag = Map.get(params, "tag", socket.assigns.filter_tag)
 
-    videos = fetch_filtered_videos(org, search, sort, filter_tag)
+    videos = fetch_filtered_videos(org, search, sort, filter_tag, socket.assigns[:current_viewer])
 
     socket
     |> assign(:videos, videos)
@@ -83,10 +84,10 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
     |> assign(:filter_tag, filter_tag)
   end
 
-  defp fetch_filtered_videos(nil, _search, _sort, _tag), do: []
+  defp fetch_filtered_videos(nil, _search, _sort, _tag, _viewer), do: []
 
-  defp fetch_filtered_videos(org, search, sort, tag_id) do
-    opts = build_filter_opts(search, sort)
+  defp fetch_filtered_videos(org, search, sort, tag_id, viewer) do
+    opts = build_filter_opts(search, sort) |> demo_filter_opts(org, viewer)
 
     if tag_id != "" do
       %{results: videos} = Content.list_videos_by_tag(org, %{id: tag_id}, opts)
@@ -95,6 +96,14 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
       %{results: videos} = Content.list_videos(org, opts)
       videos
     end
+  end
+
+  defp demo_filter_opts(opts, org, viewer) do
+    ids = (org.features || %{})["subscriber_demo_video_ids"]
+
+    if Marquee.SubscriberDemo.demo_viewer?(viewer) && is_list(ids),
+      do: Keyword.put(opts, :video_ids, ids),
+      else: opts
   end
 
   defp build_filter_opts(search, sort) do

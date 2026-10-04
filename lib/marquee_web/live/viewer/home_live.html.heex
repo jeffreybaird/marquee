@@ -1,7 +1,21 @@
 <%= case @page_mode do %>
   <% :platform_marketing -> %>
-    <.platform_marketing />
+    <.platform_marketing subscriber_demo_url={@subscriber_demo_url} />
   <% :org_landing -> %>
+    <div
+      :if={Marquee.SubscriberDemo.enabled?(@organization)}
+      class="bg-stone-950 px-6 py-8 text-center text-white"
+    >
+      <p class="mb-4">The Workshop · Subscriber demo. No account or payment needed.</p>
+      <.link
+        href={~p"/demo/subscriber"}
+        method="post"
+        data-test="subscriber-demo-entry"
+        class="btn btn-primary min-h-11"
+      >
+        Try the subscriber demo
+      </.link>
+    </div>
     <%= if @landing_sections == [] do %>
       <.org_landing organization={@organization} />
     <% else %>

@@ -364,6 +364,35 @@
   font-family: var(--sv-font-body);
 }
 
+/* The demo banner occupies its own space below the fixed site header. */
+.sv-subscriber-demo .hero-carousel-wrapper {
+  margin-top: 0;
+}
+
+.sv-subscriber-demo .sv-card-action-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.sv-subscriber-demo .row-arrow-prev,
+.sv-subscriber-demo .sv-row-arrow-left { left: 0; }
+.sv-subscriber-demo .row-arrow-next,
+.sv-subscriber-demo .sv-row-arrow-right { right: 0; }
+
+@media (max-width: 767px) {
+  .sv-subscriber-demo .hero-content {
+    width: auto;
+    min-width: 0;
+    align-items: stretch;
+  }
+  .sv-subscriber-demo .hero-synopsis {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
 .sv-main {
   min-height: calc(100vh - 64px);
   padding-top: 64px;

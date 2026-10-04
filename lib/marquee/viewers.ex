@@ -102,7 +102,8 @@ defmodule Marquee.Viewers do
   """
   def get_viewer_by_session_token(token) do
     {:ok, query} = ViewerToken.verify_session_token_query(token)
-    Repo.one(query)
+    viewer = Repo.one(query)
+    if Marquee.SubscriberDemo.expired?(viewer), do: nil, else: viewer
   end
 
   @doc """

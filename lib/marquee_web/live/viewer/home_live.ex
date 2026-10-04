@@ -38,6 +38,9 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     primary_org = user && Accounts.get_user_primary_organization(user)
 
     cond do
+      viewer && Marquee.SubscriberDemo.demo_viewer?(viewer) && org ->
+        {:ok, mount_org_home(socket, org, viewer)}
+
       # Operator or super admin previewing the member-facing site via the
       # admin "View site" link. Bypass the dashboard redirects so they land
       # on the org's viewer home and see exactly what members see, instead
@@ -90,6 +93,23 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     socket
     |> assign(:page_title, "Marquee — Your Video Platform")
     |> assign(:page_mode, :platform_marketing)
+    |> assign(:subscriber_demo_url, subscriber_demo_url())
+  end
+
+  defp subscriber_demo_url do
+    with {:ok, org} <- Accounts.get_organization_by_slug("the-workshop"),
+         true <- Marquee.SubscriberDemo.enabled?(org) do
+      if Application.get_env(:marquee, :org_resolution) == :hostname do
+        uri = URI.parse(MarqueeWeb.Endpoint.url())
+
+        %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"}
+        |> URI.to_string()
+      else
+        MarqueeWeb.OrgURL.org_url("/", org)
+      end
+    else
+      _ -> nil
+    end
   end
 
   defp admin_path_for_org(%{slug: slug}) when is_binary(slug),
@@ -144,6 +164,10 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     %{slides: hero_slides, auto_advance_ms: auto_advance_ms} =
       Catalog.resolve_hero_slides_cached(org)
 
+    hero_slides =
+      filter_demo_items(hero_slides, org, viewer, "subscriber_demo_video_ids", & &1.video_id)
+      |> link_demo_series(org, viewer)
+
     rows = load_catalog_rows(org, viewer)
 
     if connected?(socket), do: Catalog.subscribe_to_layout(org)
@@ -190,9 +214,26 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   defp load_catalog_rows(org, viewer) do
     org
     |> Catalog.load_catalog_rows_with_items(viewer: viewer)
+    |> filter_demo_items(org, viewer, "subscriber_demo_row_ids", & &1.row.id)
     |> Enum.map(fn %{row: row} = entry ->
       Map.put(entry, :view_all_path, resolve_view_all_path(org, row))
     end)
+  end
+
+  defp filter_demo_items(items, org, viewer, key, id) do
+    ids = (org.features || %{})[key]
+
+    if Marquee.SubscriberDemo.demo_viewer?(viewer) && is_list(ids),
+      do: Enum.filter(items, &(id.(&1) in ids)),
+      else: items
+  end
+
+  defp link_demo_series(slides, org, viewer) do
+    slug = (org.features || %{})["subscriber_demo_series_slug"]
+
+    if Marquee.SubscriberDemo.demo_viewer?(viewer) && is_binary(slug),
+      do: Enum.map(slides, &Map.put(&1, :secondary_cta_path, "/series/#{slug}")),
+      else: slides
   end
 
   defp resolve_view_all_path(org, %{source_type: :collection, source_id: source_id})

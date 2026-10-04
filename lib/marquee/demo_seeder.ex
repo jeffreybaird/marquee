@@ -34,6 +34,42 @@ defmodule Marquee.DemoSeeder do
   @roles [:owner, :admin, :editor, :viewer_support]
 
   @doc """
+  Provisions only the Workshop subscriber demo from the reviewed
+  `:subscriber_demo_catalog` application configuration. No remote ingestion,
+  operator users, sample passwords, plans, or payment records are created.
+  Returns `{:error, :media_not_configured}` until a manifest is supplied.
+  """
+  def seed_subscriber_demo do
+    Repo.transaction(fn ->
+      definition = Enum.find(org_defs(), &(&1.slug == "the-workshop"))
+
+      org =
+        Repo.get_by(Organization, slug: definition.slug) || create_subscriber_demo_org(definition)
+
+      org =
+        org
+        |> Ecto.Changeset.change(features: Map.put(org.features || %{}, "subscriber_demo", true))
+        |> Repo.update!()
+
+      case Marquee.SubscriberDemo.seed_catalog(org) do
+        {:ok, catalog} ->
+          org = Repo.get!(Organization, org.id)
+          apply_theme(org, definition.theme)
+          apply_branding(org, definition.branding)
+          Map.put(catalog, :organization, org)
+
+        {:error, reason} ->
+          Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp create_subscriber_demo_org(definition) do
+    {:ok, org} = Admin.create_organization(nil, %{name: definition.name, slug: definition.slug})
+    org
+  end
+
+  @doc """
   Seeds the demo organizations.
 
   Options:

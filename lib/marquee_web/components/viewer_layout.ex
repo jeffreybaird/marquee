@@ -52,7 +52,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
 
     ~H"""
     <div
-      class="sv-root"
+      class={["sv-root", Marquee.SubscriberDemo.demo_viewer?(@current_viewer) && "sv-subscriber-demo"]}
       style={Theme.build_css_vars(@resolved_theme)}
       data-test="sv-root"
     >
@@ -70,6 +70,46 @@ defmodule MarqueeWeb.Components.ViewerLayout do
       />
 
       <main class="sv-main">
+        <div
+          :if={Marquee.SubscriberDemo.demo_viewer?(@current_viewer)}
+          data-test="subscriber-demo-banner"
+          class="bg-stone-950 px-4 py-3 text-sm text-white"
+          role="status"
+        >
+          <div class="mx-auto max-w-7xl">
+            <strong>Demo · Your private subscriber session</strong>
+            <span>
+              Play an episode, save a video, then return Home to resume. Activity expires after 2 hours.
+            </span>
+            <nav
+              aria-label="Demo navigation"
+              class="mt-2 flex gap-2 md:hidden"
+              data-test="subscriber-demo-mobile-nav"
+            >
+              <.link
+                navigate="/"
+                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+                aria-current={if @current_path == "/", do: "page"}
+              >
+                Home
+              </.link>
+              <.link
+                navigate="/browse"
+                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+                aria-current={if @current_path == "/browse", do: "page"}
+              >
+                Browse
+              </.link>
+              <.link
+                navigate="/watchlist"
+                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+                aria-current={if @current_path == "/watchlist", do: "page"}
+              >
+                My Stuff
+              </.link>
+            </nav>
+          </div>
+        </div>
         {render_slot(@inner_block)}
       </main>
 
@@ -167,6 +207,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
               {@current_viewer.display_name || @current_viewer.email}
             </span>
             <.link
+              :if={!Marquee.SubscriberDemo.demo_viewer?(@current_viewer)}
               navigate="/account"
               data-test="profile-avatar"
               class="viewer-avatar"

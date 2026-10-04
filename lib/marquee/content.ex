@@ -46,6 +46,7 @@ defmodule Marquee.Content do
     |> where(organization_id: ^org_id)
     |> where([v], is_nil(v.deleted_at))
     |> apply_video_search(Keyword.get(opts, :search))
+    |> apply_video_ids_filter(Keyword.get(opts, :video_ids))
     |> apply_video_episode_exclusion(Keyword.get(opts, :exclude_episodes, false))
     |> apply_video_tag_filter(Keyword.get(opts, :tag_ids, []))
     |> apply_video_order(opts)
@@ -61,6 +62,9 @@ defmodule Marquee.Content do
     pattern = "%#{term}%"
     where(query, [v], ilike(v.title, ^pattern))
   end
+
+  defp apply_video_ids_filter(query, nil), do: query
+  defp apply_video_ids_filter(query, ids), do: where(query, [v], v.id in ^ids)
 
   # OR semantics: a video matches when it carries any of the requested
   # tags. Distinct because the inner join multiplies rows when a video
@@ -1390,6 +1394,7 @@ defmodule Marquee.Content do
     |> join(:inner, [v], vt in VideoTag, on: vt.video_id == v.id and vt.tag_id == ^tag_id)
     |> where([v], v.organization_id == ^org_id)
     |> where([v], is_nil(v.deleted_at))
+    |> apply_video_ids_filter(Keyword.get(opts, :video_ids))
     |> order_by(desc: :inserted_at)
     |> Pagination.paginate(opts)
   end
