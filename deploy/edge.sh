@@ -33,6 +33,8 @@ fail() { printf 'edge: %s\n' "$*" >&2; exit 1; }
 
 [ -n "${APP_SLUG:-}" ] || fail "APP_SLUG is required"
 [ -n "${DOMAIN:-}" ]   || fail "DOMAIN is required"
+[[ "$APP_SLUG" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || fail "invalid APP_SLUG"
+addresses="$(bash ./tenant-hosts.sh)"
 
 LEGACY_COMPOSE=/root/compose.yaml
 
@@ -116,7 +118,7 @@ site="sites/${APP_SLUG}.caddy"
 tmpl="${SITE_TMPL:-site.caddy.tmpl}"
 [ -f "$tmpl" ] || fail "no site template at /root/caddy/$tmpl — a deploy must ship one before it can be routed"
 tmp="$(mktemp)"
-sed -e "s|__DOMAIN__|${DOMAIN}|g" -e "s|__SLUG__|${APP_SLUG}|g" "$tmpl" > "$tmp"
+sed -e "s|__DOMAIN__|${addresses}|g" -e "s|__SLUG__|${APP_SLUG}|g" "$tmpl" > "$tmp"
 if ! cmp -s "$tmp" "$site"; then
   mv "$tmp" "$site"
   log "wrote $site ($DOMAIN -> ${APP_SLUG}-blue/green:4000)"

@@ -83,21 +83,26 @@ defmodule Marquee.Viewers.ViewerNotifier do
     scheme = Keyword.get(endpoint_config, :scheme, "http")
     port_suffix = port_suffix(scheme, port)
 
-    base =
-      if organization.custom_domain && organization.custom_domain != "" do
-        "#{scheme}://#{organization.custom_domain}#{port_suffix}/magic-link/#{token}"
-      else
-        host =
-          if hostname_resolution?() and not String.contains?(base_host, ".fly.dev") do
-            "#{organization.slug}.#{base_host}"
-          else
-            base_host
-          end
-
-        "#{scheme}://#{host}#{port_suffix}/magic-link/#{token}"
-      end
+    host = magic_link_host(organization, base_host)
+    base = "#{scheme}://#{host}#{port_suffix}/magic-link/#{token}"
 
     MarqueeWeb.OrgURL.org_url(base, organization)
+  end
+
+  defp magic_link_host(organization, base_host) do
+    cond do
+      Application.get_env(:marquee, :tenant_host_pattern) ->
+        base_host
+
+      organization.custom_domain not in [nil, ""] ->
+        organization.custom_domain
+
+      hostname_resolution?() and not String.contains?(base_host, ".fly.dev") ->
+        "#{organization.slug}.#{base_host}"
+
+      true ->
+        base_host
+    end
   end
 
   defp hostname_resolution? do

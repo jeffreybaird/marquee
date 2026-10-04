@@ -258,7 +258,7 @@ defmodule MarqueeWeb.Components.AdminLayout do
 
           <div class="p-3 border-t border-admin-border space-y-1">
             <.link
-              href={~p"/?#{[org: @organization.slug, preview: "member"]}"}
+              href={viewer_site_url(@organization, @impersonating)}
               target="_blank"
               rel="noopener"
               class="flex items-center gap-2 px-3 py-2 rounded-md font-ui text-sm font-medium text-admin-muted hover:bg-admin-card hover:text-admin-fg transition-colors"
@@ -292,6 +292,23 @@ defmodule MarqueeWeb.Components.AdminLayout do
       <.flash kind={:error} flash={@flash} />
     </div>
     """
+  end
+
+  defp viewer_site_url(org, impersonating) do
+    base =
+      if not impersonating and Application.get_env(:marquee, :org_resolution) == :hostname and
+           is_binary(Application.get_env(:marquee, :tenant_host_pattern)) do
+        config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
+
+        URI.to_string(%{
+          URI.new!("#{config[:scheme] || "https"}://#{config[:host]}")
+          | port: config[:port]
+        })
+      else
+        ""
+      end
+
+    MarqueeWeb.OrgURL.org_url(base <> "/?preview=member", org)
   end
 
   defp show_sidebar do

@@ -12,6 +12,7 @@ config :marquee, MarqueeWeb.Endpoint, cache_static_manifest: "priv/static/cache_
 # Note `:force_ssl` is required to be set at compile-time.
 config :marquee, MarqueeWeb.Endpoint,
   force_ssl: [
+    host: nil,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
       paths: ["/health"],

@@ -195,15 +195,23 @@ Two workflows, plus a manual rollback:
 
 ---
 
-## Known gap: per-tenant domains
+## Per-tenant hostnames
 
-`deploy/site.caddy.tmpl` issues a certificate for **one** domain — the `DOMAIN`
-repo variable. Tenant subdomains (`<slug>.<domain>`) and custom domains are not
-covered. Serving them needs either a wildcard certificate (DNS-01 via the
-DNSimple provider, which means a custom Caddy build) or Caddy on-demand TLS with
-an `ask` endpoint that answers whether a hostname belongs to a live
-organization. Neither exists yet; add the endpoint before pointing customer
-domains at the droplet.
+Tenant hostnames use `<slug>-<DOMAIN>`. `TENANT_SLUGS` supplies the explicit
+comma-separated tenant list to the edge deployment; Terraform's `tenant_slugs`
+set provisions the matching DNSimple A records. Caddy obtains normal automatic
+HTTPS certificates for these explicit names. This does not require a wildcard
+certificate, a custom Caddy build, or on-demand certificate issuance.
+
+`ORG_RESOLUTION=hostname` enables host-based tenant URLs after DNS and TLS are
+ready. It defaults to `query_param`, including staging. Runtime
+`TENANT_HOST_PATTERN` defaults to `{slug}-<PHX_HOST>`; an alternate pattern needs
+matching DNS and edge provisioning outside this convention. Deploy and rollback
+must preserve the tenant list and runtime settings.
+
+See [tenant hostname rollout](../.docs/tenant-hostnames.md) for configuration,
+the staged rollout, authentication behavior, and rollback. Custom customer
+domains are not automatically provisioned by this feature.
 
 ---
 

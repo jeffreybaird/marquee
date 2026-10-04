@@ -30,6 +30,39 @@ if System.get_env("PHX_SERVER") do
   config :marquee, MarqueeWeb.Endpoint, server: true
 end
 
+# Hostname routing is enabled only after its DNS and certificates are provisioned.
+case System.get_env("ORG_RESOLUTION") do
+  value when value in [nil, "", "query_param"] ->
+    config :marquee, :org_resolution, :query_param
+
+  "hostname" ->
+    host = System.get_env("PHX_HOST", "localhost")
+
+    pattern =
+      case System.get_env("TENANT_HOST_PATTERN") do
+        value when value in [nil, ""] -> "{slug}-#{host}"
+        value -> value
+      end
+
+    rendered = String.replace(pattern, "{slug}", "tenant")
+
+    unless length(String.split(pattern, "{slug}")) == 2 and
+             byte_size(rendered) <= 253 and
+             Enum.all?(String.split(rendered, "."), fn label ->
+               byte_size(label) <= 63 and
+                 Regex.match?(~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/, label)
+             end) do
+      raise "TENANT_HOST_PATTERN must contain one {slug} placeholder in a hostname"
+    end
+
+    config :marquee, :org_resolution, :hostname
+    config :marquee, :tenant_host_pattern, pattern
+    config :marquee, MarqueeWeb.Endpoint, check_origin: :conn
+
+  _ ->
+    raise "ORG_RESOLUTION must be query_param or hostname"
+end
+
 if config_env() != :test do
   config :marquee, MarqueeWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]

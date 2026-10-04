@@ -152,6 +152,10 @@ jobs:
       # per-color network aliases Caddy dials.
       APP_SLUG: ${{ vars.APP_SLUG }}
       STACK_DIR: /root/apps/${{ vars.APP_SLUG }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      TENANT_SLUGS: ${{ vars.TENANT_SLUGS }}
+      ORG_RESOLUTION: ${{ vars.ORG_RESOLUTION || 'query_param' }}
+      TENANT_HOST_PATTERN: ${{ vars.TENANT_HOST_PATTERN }}
     steps:
       - uses: actions/checkout@v6
 
@@ -199,6 +203,8 @@ jobs:
           cat > .env <<EOF
           IMAGE=${IMAGE}
           DOMAIN=${{ vars.DOMAIN }}
+          ORG_RESOLUTION=${ORG_RESOLUTION}
+          TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
@@ -222,6 +228,8 @@ jobs:
           cat > .env <<EOF
           IMAGE=${IMAGE}
           DOMAIN=${{ vars.DOMAIN }}
+          ORG_RESOLUTION=${ORG_RESOLUTION}
+          TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
           APP_SLUG=${APP_SLUG}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
           DATABASE_PATH=${{ vars.DATABASE_PATH }}
@@ -255,7 +263,7 @@ jobs:
             deploy/edge-compose.yaml \
             root@"$HOST":/root/caddy/compose.yaml
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/Caddyfile deploy/site.caddy.tmpl deploy/edge.sh \
+            deploy/Caddyfile deploy/site.caddy.tmpl deploy/edge.sh deploy/tenant-hosts.sh \
             root@"$HOST":/root/caddy/
 
       - name: Copy stack files + .env to droplet (Postgres)
@@ -277,8 +285,9 @@ jobs:
       # the one-time migration into /root/apps (see deploy/edge.sh).
       - name: Prepare shared edge (network, Caddy, route)
         run: |
+          bash deploy/tenant-hosts.sh >/dev/null
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
-            "APP_SLUG='$APP_SLUG' DOMAIN='${{ vars.DOMAIN }}' bash /root/caddy/edge.sh"
+            "APP_SLUG='$APP_SLUG' DOMAIN='$DOMAIN' TENANT_SLUGS='$TENANT_SLUGS' bash /root/caddy/edge.sh"
 
       - name: Registry login + pull new image
         run: |

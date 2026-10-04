@@ -99,27 +99,32 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   defp subscriber_demo_url do
     case Marquee.Admin.get_subscriber_demo_organization() do
       {:ok, org} ->
-        if Application.get_env(:marquee, :org_resolution) == :hostname do
-          uri = URI.parse(MarqueeWeb.Endpoint.url())
-
-          %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"}
-          |> URI.to_string()
-        else
-          MarqueeWeb.OrgURL.org_url("/", org)
-        end
+        demo_url_for_org(org)
 
       _ ->
         nil
     end
   end
 
-  defp admin_path_for_org(%{slug: slug}) when is_binary(slug),
-    do: "/admin?org=" <> slug
+  defp demo_url_for_org(org) do
+    hostname? = Application.get_env(:marquee, :org_resolution) == :hostname
+
+    if hostname? and is_nil(Application.get_env(:marquee, :tenant_host_pattern)) do
+      uri = URI.parse(MarqueeWeb.Endpoint.url())
+      %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"} |> URI.to_string()
+    else
+      base = if hostname?, do: MarqueeWeb.Endpoint.url() <> "/", else: "/"
+      MarqueeWeb.OrgURL.org_url(base, org)
+    end
+  end
+
+  defp admin_path_for_org(%{slug: slug} = org) when is_binary(slug),
+    do: MarqueeWeb.OrgURL.org_url("/admin", org)
 
   defp admin_path_for_org(_), do: "/admin"
 
-  defp home_path_for_org(%{slug: slug}) when is_binary(slug),
-    do: "/?org=" <> slug
+  defp home_path_for_org(%{slug: slug} = org) when is_binary(slug),
+    do: MarqueeWeb.OrgURL.org_url("/", org)
 
   defp home_path_for_org(_), do: "/"
 
@@ -138,7 +143,9 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   # tenant, so don't churn the URL.
   defp needs_org_param?(socket) do
     host = socket.host_uri && socket.host_uri.host
-    is_nil(host) or host_subdomain(host) in [nil, "www"]
+
+    Application.get_env(:marquee, :org_resolution) != :hostname and
+      (is_nil(host) or host_subdomain(host) in [nil, "www"])
   end
 
   defp host_subdomain(host) do

@@ -105,7 +105,17 @@ defmodule MarqueeWeb.UserLive.Login do
 
     form = to_form(%{"email" => email}, as: "user")
 
-    {:ok, assign(socket, form: form, trigger_submit: false)}
+    org =
+      if Application.get_env(:marquee, :org_resolution) == :hostname do
+        uri = Phoenix.LiveView.get_connect_info(socket, :uri) || socket.host_uri
+
+        case MarqueeWeb.OrgURL.resolve_host(uri && uri.host) do
+          {:ok, org} -> org
+          _ -> nil
+        end
+      end
+
+    {:ok, assign(socket, form: form, trigger_submit: false, login_organization: org)}
   end
 
   @impl true
@@ -121,12 +131,12 @@ defmodule MarqueeWeb.UserLive.Login do
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
     if user = Accounts.get_user_by_email(email) do
-      org = Accounts.get_user_primary_organization(user)
+      org = socket.assigns[:login_organization] || Accounts.get_user_primary_organization(user)
 
       url_fun =
         case org do
           nil -> &url(~p"/users/log-in/#{&1}")
-          org -> &MarqueeWeb.OrgURL.org_url(url(~p"/users/log-in/#{&1}"), org)
+          org -> &MarqueeWeb.OrgURL.org_url(login_base_url() <> ~p"/users/log-in/#{&1}", org)
         end
 
       Accounts.deliver_login_instructions(user, url_fun)
@@ -139,6 +149,16 @@ defmodule MarqueeWeb.UserLive.Login do
      socket
      |> put_flash(:info, info)
      |> push_navigate(to: ~p"/users/log-in")}
+  end
+
+  defp login_base_url do
+    config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
+
+    %{
+      URI.new!("#{config[:scheme] || "http"}://#{config[:host] || "localhost"}")
+      | port: config[:port]
+    }
+    |> URI.to_string()
   end
 
   # The banner links to /dev/mailbox, which the router mounts only when

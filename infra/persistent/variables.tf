@@ -78,6 +78,19 @@ variable "dns_ttl" {
   default     = 300
 }
 
+variable "tenant_slugs" {
+  description = "Tenant slugs provisioned as <slug>-<dns_record>.<dns_zone>; match deploy TENANT_SLUGS."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for slug in var.tenant_slugs : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", slug))
+    ])
+    error_message = "Tenant slugs must be lowercase DNS labels."
+  }
+}
+
 variable "enable_staging" {
   description = "Create the app's STAGING name (<record>-stg.<zone>, pointed at the same droplet) and, on the Postgres backend, its own database in the same cluster. A pull request against main stands an environment up behind that name and closing the PR tears it down. Ignored for a static site (database_backend = \"none\"), which has no server-side environment to build."
   type        = bool

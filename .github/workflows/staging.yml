@@ -244,6 +244,7 @@ jobs:
           cat > .env <<EOF
           IMAGE=${IMAGE}
           DOMAIN=${DOMAIN}
+          ORG_RESOLUTION=query_param
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
           SECRET_KEY_BASE=${STAGING_SECRET_KEY_BASE}
@@ -265,6 +266,7 @@ jobs:
           cat > .env <<EOF
           IMAGE=${IMAGE}
           DOMAIN=${DOMAIN}
+          ORG_RESOLUTION=query_param
           APP_SLUG=${APP_SLUG}
           SECRET_KEY_BASE=${STAGING_SECRET_KEY_BASE}
           DATABASE_PATH=${{ vars.DATABASE_PATH }}
@@ -292,7 +294,7 @@ jobs:
           ssh_do() { ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" "$@"; }
           ssh_do "mkdir -p /root/caddy/sites /root/apps /root/caddy/.incoming"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/edge-compose.yaml deploy/Caddyfile deploy/edge.sh \
+            deploy/edge-compose.yaml deploy/Caddyfile deploy/edge.sh deploy/tenant-hosts.sh \
             root@"$HOST":/root/caddy/.incoming/
           ssh_do "
             set -e
@@ -300,6 +302,7 @@ jobs:
             [ -e /root/caddy/compose.yaml ] || mv edge-compose.yaml /root/caddy/compose.yaml
             [ -e /root/caddy/Caddyfile ]    || mv Caddyfile        /root/caddy/Caddyfile
             [ -e /root/caddy/edge.sh ]      || mv edge.sh          /root/caddy/edge.sh
+            [ -e /root/caddy/tenant-hosts.sh ] || mv tenant-hosts.sh /root/caddy/tenant-hosts.sh
             rm -rf /root/caddy/.incoming
           "
           # Staging-owned files, always refreshed because nothing else ships them

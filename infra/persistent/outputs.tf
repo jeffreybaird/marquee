@@ -47,6 +47,11 @@ output "domain" {
   value       = local.fqdn
 }
 
+output "tenant_domains" {
+  description = "Provisioned tenant hostnames; deploy the matching TENANT_SLUGS to enable TLS."
+  value       = { for slug, record in dnsimple_zone_record.tenant : slug => "${record.name}.${var.dns_zone}" }
+}
+
 # Empty when staging is off (or the app is a static site) — bootstrap reads that
 # as "this project has no staging environment" and wires none.
 output "staging_domain" {

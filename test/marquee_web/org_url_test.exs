@@ -4,6 +4,8 @@ defmodule MarqueeWeb.OrgURLTest do
 
   alias MarqueeWeb.OrgURL
 
+  doctest MarqueeWeb.OrgURL
+
   setup do
     original = Application.get_env(:marquee, :org_resolution)
 

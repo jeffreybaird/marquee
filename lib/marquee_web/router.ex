@@ -6,6 +6,7 @@ defmodule MarqueeWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug :redirect_legacy_tenant
     plug :fetch_live_flash
     plug :put_root_layout, html: {MarqueeWeb.Layouts, :root}
     plug :protect_from_forgery
@@ -13,6 +14,8 @@ defmodule MarqueeWeb.Router do
     plug :fetch_current_scope_for_user
     plug MarqueeWeb.Plugs.SetRequestContext
   end
+
+  defp redirect_legacy_tenant(conn, opts), do: MarqueeWeb.OrgURL.redirect_legacy(conn, opts)
 
   pipeline :api do
     plug :accepts, ["json"]

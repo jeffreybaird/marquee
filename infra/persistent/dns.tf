@@ -28,6 +28,25 @@ resource "dnsimple_zone_record" "app" {
   ttl       = var.dns_ttl
 }
 
+resource "dnsimple_zone_record" "tenant" {
+  for_each  = var.tenant_slugs
+  zone_name = var.dns_zone
+  name      = "${each.value}-${var.dns_record}"
+  type      = "A"
+  value     = digitalocean_reserved_ip.this.ip_address
+  ttl       = var.dns_ttl
+
+  lifecycle {
+    precondition {
+      condition = !local.is_apex && alltrue([
+        for label in split(".", "${each.value}-${var.dns_record}") :
+        length(label) <= 63 && can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", label))
+      ]) && length("${each.value}-${local.fqdn}") <= 253
+      error_message = "Tenant hosts need a non-apex app DNS record and must fit DNS label limits."
+    }
+  }
+}
+
 # The staging name, pointed at the SAME droplet as production — the shared Caddy
 # routes the two apart by Host header, exactly as it does for two different apps.
 #

@@ -17,8 +17,10 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
     The `?org=` query param is ignored entirely so it cannot be used to
     cross-tenant pivot in prod.
 
-  In both modes super admins with an active impersonation session resolve
-  to the impersonated org first.
+  With a configured hostname pattern, tenant hosts are authoritative. Only
+  the platform host supports explicit super-admin impersonation and operator
+  admin session/membership fallback. Legacy platform GET/HEAD links redirect
+  to their canonical tenant before resolving a scope.
 
   Sets `conn.assigns.current_scope` (when user + membership found) or
   `conn.assigns.organization` (for public/viewer routes without membership).
@@ -28,14 +30,19 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
 
   alias Marquee.Accounts
   alias Marquee.Accounts.Scope
+  alias MarqueeWeb.OrgURL
 
   def init(opts), do: opts
 
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   # credo:disable-for-next-line Credo.Check.Refactor.Nesting
   def call(conn, opts) do
-    conn = fetch_query_params(conn)
+    conn = OrgURL.redirect_legacy(conn)
 
+    if conn.halted, do: conn, else: assign_resolved_organization(conn, opts)
+  end
+
+  defp assign_resolved_organization(conn, opts) do
     case resolve_organization(conn, opts) do
       {:ok, organization} ->
         conn = put_org_in_session(conn, organization)
@@ -49,7 +56,7 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
 
               conn
               |> assign(:current_scope, updated_scope)
-              |> assign(:impersonating, true)
+              |> assign(:impersonating, impersonation_allowed?(conn))
 
             nil ->
               assign(conn, :organization, organization)
@@ -165,6 +172,49 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
   # Production: only host-based resolution. The `?org=` param is ignored so
   # it cannot be used to pivot tenants on a shared host.
   defp resolve_hostname_mode(conn, opts) do
+    if Application.get_env(:marquee, :tenant_host_pattern) do
+      resolve_configured_hostname(conn, opts)
+    else
+      resolve_legacy_hostname(conn, opts)
+    end
+  end
+
+  defp resolve_configured_hostname(conn, opts) do
+    case OrgURL.resolve_host(conn.host) do
+      {:ok, org} -> {:ok, org}
+      _ -> resolve_platform_operator(conn, opts)
+    end
+  end
+
+  defp resolve_platform_operator(conn, opts) do
+    scope = conn.assigns[:current_scope]
+
+    if (platform_host?(conn.host) and scope) && scope.user do
+      with {:error, _} <- resolve_impersonated_org(conn) do
+        if not Keyword.get(opts, :optional, false) and
+             String.starts_with?(conn.request_path, "/admin") do
+          with {:error, _} <- resolve_from_session(conn), do: resolve_from_user_membership(conn)
+        else
+          {:error, :not_found}
+        end
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  defp platform_host?(host) do
+    config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])
+    host == get_in(config, [:url, :host])
+  end
+
+  defp impersonation_allowed?(conn) do
+    is_nil(Application.get_env(:marquee, :tenant_host_pattern)) or
+      resolution_mode() != :hostname or
+      (platform_host?(conn.host) and not is_nil(get_session(conn, :impersonated_org_id)))
+  end
+
+  defp resolve_legacy_hostname(conn, opts) do
     optional? = Keyword.get(opts, :optional, false)
 
     with {:error, _} <- resolve_impersonated_org(conn),

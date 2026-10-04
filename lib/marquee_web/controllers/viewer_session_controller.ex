@@ -90,7 +90,7 @@ defmodule MarqueeWeb.Viewer.SessionController do
     org = conn.assigns[:organization]
 
     if org && !resolved_from_subdomain?(conn) do
-      ~p"/?org=#{org.slug}"
+      MarqueeWeb.OrgURL.org_url("/", org)
     else
       ~p"/"
     end

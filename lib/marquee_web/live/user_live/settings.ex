@@ -90,6 +90,7 @@ defmodule MarqueeWeb.UserLive.Settings do
 
     socket =
       socket
+      |> assign(:email_organization, email_organization(socket))
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
@@ -121,7 +122,7 @@ defmodule MarqueeWeb.UserLive.Settings do
         Accounts.deliver_user_update_email_instructions(
           Ecto.Changeset.apply_action!(changeset, :insert),
           user.email,
-          &url(~p"/users/settings/confirm-email/#{&1}")
+          &email_confirmation_url(socket.assigns.email_organization, &1)
         )
 
         info = "A link to confirm your email change has been sent to the new address."
@@ -156,5 +157,31 @@ defmodule MarqueeWeb.UserLive.Settings do
       changeset ->
         {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
     end
+  end
+
+  defp email_organization(socket) do
+    if Application.get_env(:marquee, :org_resolution) == :hostname do
+      uri = Phoenix.LiveView.get_connect_info(socket, :uri) || socket.host_uri
+
+      case MarqueeWeb.OrgURL.resolve_host(uri && uri.host) do
+        {:ok, org} -> org
+        _ -> nil
+      end
+    end
+  end
+
+  defp email_confirmation_url(nil, token), do: url(~p"/users/settings/confirm-email/#{token}")
+
+  defp email_confirmation_url(org, token) do
+    config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
+
+    base =
+      %{
+        URI.new!("#{config[:scheme] || "http"}://#{config[:host] || "localhost"}")
+        | port: config[:port]
+      }
+      |> URI.to_string()
+
+    MarqueeWeb.OrgURL.org_url(base <> ~p"/users/settings/confirm-email/#{token}", org)
   end
 end

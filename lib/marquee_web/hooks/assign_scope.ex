@@ -30,6 +30,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   alias Marquee.Accounts.Scope
   alias Marquee.Branding
   alias Marquee.Onboarding.StarterContent
+  alias MarqueeWeb.OrgURL
 
   def on_mount(:require_authenticated, _params, session, socket) do
     socket =
@@ -69,7 +70,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   end
 
   def on_mount(:assign_org, _params, session, socket) do
-    if session["no_org_resolved"] do
+    if session["no_org_resolved"] == true and not configured_hostname?() do
       # Super admin with no org — skip org resolution, let the LiveView handle it
       user = load_user_from_session(session)
 
@@ -110,9 +111,12 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp mount_full_scope(socket, session) do
     user = load_user_from_session(session)
-    host = socket.host_uri && socket.host_uri.host
-    org = resolve_org(host, session)
-    impersonating = impersonating?(user, session)
+    host = request_host(socket)
+    org = resolve_current_org(host, session, user)
+
+    impersonating =
+      impersonating?(user, session) and
+        (not configured_hostname?() or platform_host?(host))
 
     membership =
       if org && user && !impersonating do
@@ -127,7 +131,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
         s when not is_nil(org) and not is_nil(membership) ->
           Scope.with_organization(s, org, membership)
 
-        s when not is_nil(org) and impersonating ->
+        s when not is_nil(org) and (impersonating or user.is_super_admin) ->
           Scope.with_organization(s, org, nil)
 
         s ->
@@ -202,6 +206,56 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       end || {nil, nil}
 
     user
+  end
+
+  defp resolve_current_org(host, session, user) do
+    if configured_hostname?() do
+      case OrgURL.resolve_host(host) do
+        {:ok, org} -> org
+        _ -> resolve_platform_org(host, session, user)
+      end
+    else
+      resolve_org(host, session)
+    end
+  end
+
+  defp resolve_platform_org(host, session, user) do
+    if platform_host?(host) and not is_nil(user) do
+      case resolve_operator_org(user, session) do
+        {:ok, org} -> org
+        _ -> nil
+      end
+    end
+  end
+
+  defp resolve_operator_org(user, session) do
+    if impersonating?(user, session) do
+      resolve_impersonated_org(session)
+    else
+      with {:error, _} <- resolve_org_from_session(session),
+           do: Accounts.fetch_user_primary_organization(user)
+    end
+  end
+
+  defp request_host(socket) do
+    uri =
+      if socket.private[:connect_info] do
+        Phoenix.LiveView.get_connect_info(socket, :uri)
+      else
+        socket.host_uri
+      end
+
+    uri && uri.host
+  end
+
+  defp configured_hostname? do
+    Application.get_env(:marquee, :org_resolution) == :hostname and
+      is_binary(Application.get_env(:marquee, :tenant_host_pattern))
+  end
+
+  defp platform_host?(host) do
+    config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])
+    is_binary(host) and host == get_in(config, [:url, :host])
   end
 
   defp resolve_org(nil, session), do: resolve_org_from_session(session)
