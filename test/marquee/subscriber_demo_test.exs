@@ -8,6 +8,8 @@ defmodule Marquee.SubscriberDemoTest do
   alias Marquee.Viewers
   alias Marquee.Viewers.Viewer
 
+  doctest Marquee.SubscriberDemo
+
   setup do
     org = insert(:organization, slug: "the-workshop", features: %{"subscriber_demo" => true})
 
@@ -17,12 +19,16 @@ defmodule Marquee.SubscriberDemoTest do
     %{org: org, video: video}
   end
 
-  test "only explicitly enabled Workshop offers the demo", %{org: org} do
+  test "only explicitly enabled organizations offer the demo regardless of slug", %{org: org} do
     assert SubscriberDemo.enabled?(org)
     refute SubscriberDemo.enabled?(%{org | features: %{}})
     other = insert(:organization, features: %{"subscriber_demo" => true})
-    refute SubscriberDemo.enabled?(other)
-    assert {:error, :forbidden} = SubscriberDemo.start_session(other)
+    assert SubscriberDemo.enabled?(other)
+    insert(:video, organization: other, published: true, mux_status: "ready", duration: 180.0)
+    assert {:ok, %{viewer: viewer}} = SubscriberDemo.start_session(other)
+    assert viewer.organization_id == other.id
+    refute SubscriberDemo.enabled?(%{other | features: %{"subscriber_demo" => "true"}})
+    refute SubscriberDemo.enabled?(%{other | features: %{"subscriber_demo" => false}})
     assert {:error, :forbidden} = SubscriberDemo.start_session(%{org | features: %{}})
   end
 
