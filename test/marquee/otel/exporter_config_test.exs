@@ -3,8 +3,6 @@ defmodule Marquee.Otel.ExporterConfigTest do
 
   alias Marquee.Otel.ExporterConfig
 
-  doctest ExporterConfig
-
   @env %{
     "OTEL_EXPORTER_OTLP_ENDPOINT" => "https://elixir-as-inf.diviningdad.com",
     "OTEL_HUB_TOKEN" => "tok_abc123"

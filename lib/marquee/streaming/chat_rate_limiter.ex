@@ -44,7 +44,7 @@ defmodule Marquee.Streaming.ChatRateLimiter do
 
   ## Examples
 
-      iex> Marquee.Streaming.ChatRateLimiter.check_and_record("v1", "e1")
+      iex> Marquee.Streaming.ChatRateLimiter.check_and_record(Ecto.UUID.generate(), Ecto.UUID.generate())
       :ok
   """
   def check_and_record(viewer_id, event_id, now \\ nil) do

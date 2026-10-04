@@ -139,8 +139,9 @@ defmodule Marquee.Billing do
 
   ## Examples
 
-      iex> change_plan(%Marquee.Billing.Plan{})
-      %Ecto.Changeset{data: %Marquee.Billing.Plan{}}
+      iex> changeset = change_plan(%Marquee.Billing.Plan{}, %{name: "Monthly", stripe_price_id: "price_example", stripe_product_id: "prod_example", amount: 1000, interval: :monthly, organization_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
 
   """
   def change_plan(%Plan{} = plan, attrs \\ %{}) do
@@ -235,8 +236,9 @@ defmodule Marquee.Billing do
 
   ## Examples
 
-      iex> change_subscription(%Marquee.Billing.Subscription{})
-      %Ecto.Changeset{data: %Marquee.Billing.Subscription{}}
+      iex> changeset = change_subscription(%Marquee.Billing.Subscription{}, %{stripe_subscription_id: "sub_example", status: :active, current_period_end: ~U[2027-01-01 00:00:00Z], organization_id: "00000000-0000-0000-0000-000000000001", user_id: "00000000-0000-0000-0000-000000000001", plan_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
 
   """
   def change_subscription(%Subscription{} = subscription, attrs \\ %{}) do
@@ -501,8 +503,9 @@ defmodule Marquee.Billing do
 
   ## Examples
 
-      iex> change_coupon(%Marquee.Billing.Coupon{})
-      %Ecto.Changeset{data: %Marquee.Billing.Coupon{}}
+      iex> changeset = change_coupon(%Marquee.Billing.Coupon{}, %{organization_id: "00000000-0000-0000-0000-000000000001", code: "welcome", duration: :once, percent_off: 10})
+      iex> changeset.valid?
+      true
   """
   def change_coupon(%Coupon{} = coupon, attrs \\ %{}) do
     Coupon.changeset(coupon, attrs)

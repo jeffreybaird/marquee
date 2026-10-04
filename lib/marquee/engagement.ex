@@ -658,11 +658,19 @@ defmodule Marquee.Engagement do
 
   ## Examples
 
-      iex> get_watchlist_item!(123)
-      %WatchlistItem{}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Watchlist example", slug: "watchlist-example"})
+      iex> {:ok, user} = Marquee.Accounts.register_user(%{email: "watchlist@example.com"})
+      iex> video = Marquee.Repo.insert!(%Marquee.Content.Video{organization_id: org.id, title: "Woodwork", slug: "woodwork"})
+      iex> {:ok, item} = create_watchlist_item(%{organization_id: org.id, user_id: user.id, video_id: video.id})
+      iex> get_watchlist_item!(item.id).video_id == video.id
+      true
 
-      iex> get_watchlist_item!(456)
-      ** (Ecto.NoResultsError)
+      iex> try do
+      ...>   get_watchlist_item!("00000000-0000-0000-0000-000000000456")
+      ...> rescue
+      ...>   Ecto.NoResultsError -> :not_found
+      ...> end
+      :not_found
 
   """
   def get_watchlist_item!(id), do: Repo.get!(WatchlistItem, id)
@@ -733,8 +741,10 @@ defmodule Marquee.Engagement do
 
   ## Examples
 
-      iex> change_watchlist_item(%Marquee.Engagement.WatchlistItem{})
-      %Ecto.Changeset{data: %Marquee.Engagement.WatchlistItem{}}
+      iex> id = "00000000-0000-0000-0000-000000000001"
+      iex> changeset = change_watchlist_item(%Marquee.Engagement.WatchlistItem{}, %{organization_id: id, user_id: id, video_id: id, position: 2})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :position)}
+      {true, 2}
 
   """
   def change_watchlist_item(%WatchlistItem{} = watchlist_item, attrs \\ %{}) do

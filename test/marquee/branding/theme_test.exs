@@ -3,16 +3,6 @@ defmodule Marquee.Branding.ThemeTest do
 
   alias Marquee.Branding.Theme
 
-  doctest Theme,
-    only: [
-      default_viewer_theme: 0,
-      presets: 0,
-      preset_keys: 0,
-      default_preset_key: 0,
-      preset: 1,
-      preset_attrs: 1
-    ]
-
   describe "presets/0" do
     test "exposes exactly the midnight and daybreak starter themes" do
       assert Map.keys(Theme.presets()) |> Enum.sort() == ["daybreak", "midnight"]

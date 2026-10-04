@@ -28,13 +28,13 @@ defmodule Marquee.Analytics.Snapshot do
   @doc """
   Changeset for an analytics snapshot.
 
-      iex> Marquee.Analytics.Snapshot.changeset(%Marquee.Analytics.Snapshot{}, %{
+      iex> changeset = Marquee.Analytics.Snapshot.changeset(%Marquee.Analytics.Snapshot{}, %{
       ...>   organization_id: "00000000-0000-0000-0000-000000000001",
       ...>   period_date: ~D[2026-01-01],
       ...>   metric_type: "daily_views",
       ...>   value: Decimal.new("42")
       ...> })
-      |> Map.get(:valid?)
+      iex> changeset.valid?
       true
   """
   def changeset(snapshot, attrs) do

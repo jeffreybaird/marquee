@@ -31,11 +31,17 @@ defmodule Marquee.Branding do
 
   ## Examples
 
-      iex> get_theme!(123)
-      %Theme{}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Theme example", slug: "theme-example"})
+      iex> {:ok, theme} = create_theme(%{organization_id: org.id})
+      iex> get_theme!(theme.id).organization_id == org.id
+      true
 
-      iex> get_theme!(456)
-      ** (Ecto.NoResultsError)
+      iex> try do
+      ...>   get_theme!("00000000-0000-0000-0000-000000000456")
+      ...> rescue
+      ...>   Ecto.NoResultsError -> :not_found
+      ...> end
+      :not_found
 
   """
   def get_theme!(id), do: Repo.get!(Theme, id)
@@ -54,11 +60,14 @@ defmodule Marquee.Branding do
 
   ## Examples
 
-      iex> create_theme(%{field: value})
-      {:ok, %Theme{}}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "New theme", slug: "new-theme"})
+      iex> {:ok, theme} = create_theme(%{organization_id: org.id, background: "#112233"})
+      iex> theme.background
+      "#112233"
 
-      iex> create_theme(%{field: bad_value})
-      {:error, :validation, %Ecto.Changeset{}}
+      iex> {:error, :validation, changeset} = create_theme(%{})
+      iex> Keyword.has_key?(changeset.errors, :organization_id)
+      true
 
   """
   def create_theme(scope \\ nil, attrs) do
@@ -103,11 +112,15 @@ defmodule Marquee.Branding do
 
   ## Examples
 
-      iex> update_theme(theme, %{field: new_value})
-      {:ok, %Theme{}}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Theme update", slug: "theme-update"})
+      iex> {:ok, theme} = create_theme(%{organization_id: org.id})
+      iex> {:ok, updated} = update_theme(theme, %{background: "#334455"})
+      iex> updated.background
+      "#334455"
 
-      iex> update_theme(theme, %{field: bad_value})
-      {:error, :validation, %Ecto.Changeset{}}
+      iex> {:error, :validation, changeset} = update_theme(%Marquee.Branding.Theme{}, %{organization_id: nil})
+      iex> Keyword.has_key?(changeset.errors, :organization_id)
+      true
 
   """
   def update_theme(scope \\ nil, %Theme{} = theme, attrs) do
@@ -132,11 +145,13 @@ defmodule Marquee.Branding do
 
   ## Examples
 
-      iex> delete_theme(theme)
-      {:ok, %Theme{}}
-
-      iex> delete_theme(theme)
-      {:error, :validation, %Ecto.Changeset{}}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Theme deletion", slug: "theme-deletion"})
+      iex> {:ok, theme} = create_theme(%{organization_id: org.id})
+      iex> {:ok, deleted} = delete_theme(theme)
+      iex> deleted.id == theme.id
+      true
+      iex> get_theme_by_org(org)
+      nil
 
   """
   def delete_theme(scope \\ nil, %Theme{} = theme) do
@@ -193,8 +208,9 @@ defmodule Marquee.Branding do
 
   ## Examples
 
-      iex> change_theme(theme)
-      %Ecto.Changeset{data: %Theme{}}
+      iex> changeset = change_theme(%Marquee.Branding.Theme{organization_id: "00000000-0000-0000-0000-000000000001"}, %{background: "#112233"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :background)}
+      {true, "#112233"}
 
   """
   def change_theme(%Theme{} = theme, attrs \\ %{}) do

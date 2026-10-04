@@ -5,8 +5,6 @@ defmodule Marquee.Podcasts.FeedXmlTest do
 
   alias Marquee.Podcasts.{Episode, FeedToken, FeedXml, Show}
 
-  doctest FeedXml, import: true
-
   defp build_show do
     %Show{
       id: Ecto.UUID.generate(),

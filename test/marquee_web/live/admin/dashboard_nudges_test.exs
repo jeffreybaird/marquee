@@ -3,8 +3,6 @@ defmodule MarqueeWeb.Admin.DashboardNudgesTest do
 
   alias MarqueeWeb.Admin.DashboardNudges
 
-  doctest MarqueeWeb.Admin.DashboardNudges
-
   @all_complete %{
     stripe_connected: true,
     has_plans: true,

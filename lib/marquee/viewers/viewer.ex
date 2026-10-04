@@ -56,8 +56,9 @@ defmodule Marquee.Viewers.Viewer do
 
   ## Examples
 
-      iex> registration_changeset(%Marquee.Viewers.Viewer{}, %{email: "TEST@Example.COM"})
-      %Ecto.Changeset{changes: %{email: "test@example.com"}}
+      iex> changeset = registration_changeset(%Marquee.Viewers.Viewer{organization_id: "00000000-0000-0000-0000-000000000001"}, %{email: "TEST@Example.COM"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :email)}
+      {true, "test@example.com"}
   """
   def registration_changeset(viewer, attrs) do
     viewer
@@ -80,8 +81,9 @@ defmodule Marquee.Viewers.Viewer do
 
   ## Examples
 
-      iex> profile_changeset(%Marquee.Viewers.Viewer{}, %{display_name: "New Name"})
-      %Ecto.Changeset{changes: %{display_name: "New Name"}}
+      iex> changeset = profile_changeset(%Marquee.Viewers.Viewer{}, %{display_name: "New Name"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :display_name)}
+      {true, "New Name"}
   """
   def profile_changeset(viewer, attrs) do
     viewer
@@ -93,8 +95,9 @@ defmodule Marquee.Viewers.Viewer do
 
   ## Examples
 
-      iex> status_changeset(%Marquee.Viewers.Viewer{}, %{status: :suspended})
-      %Ecto.Changeset{changes: %{status: :suspended}}
+      iex> changeset = status_changeset(%Marquee.Viewers.Viewer{}, %{status: :suspended})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :status)}
+      {true, :suspended}
   """
   def status_changeset(viewer, attrs) do
     viewer
@@ -108,8 +111,9 @@ defmodule Marquee.Viewers.Viewer do
 
   ## Examples
 
-      iex> subscription_changeset(%Marquee.Viewers.Viewer{}, %{subscription_status: "active"})
-      %Ecto.Changeset{changes: %{subscription_status: "active"}}
+      iex> changeset = subscription_changeset(%Marquee.Viewers.Viewer{}, %{subscription_status: "active"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :subscription_status)}
+      {true, "active"}
   """
   def subscription_changeset(viewer, attrs) do
     viewer

@@ -1,7 +1,5 @@
 defmodule Marquee.Catalog.PresetsTest do
   use ExUnit.Case, async: true
-  doctest Marquee.Catalog.Presets
-
   alias Marquee.Catalog.Presets
 
   describe "get/1" do

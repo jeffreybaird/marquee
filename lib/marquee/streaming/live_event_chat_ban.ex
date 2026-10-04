@@ -26,13 +26,14 @@ defmodule Marquee.Streaming.LiveEventChatBan do
 
   ## Examples
 
-      iex> changeset(%Marquee.Streaming.LiveEventChatBan{}, %{
+      iex> changeset = changeset(%Marquee.Streaming.LiveEventChatBan{}, %{
       ...>   organization_id: "00000000-0000-0000-0000-000000000001",
       ...>   live_event_id: "00000000-0000-0000-0000-000000000002",
       ...>   viewer_id: "00000000-0000-0000-0000-000000000003",
       ...>   banned_by_user_id: "00000000-0000-0000-0000-000000000004"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def changeset(ban, attrs) do
     ban

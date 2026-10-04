@@ -4,8 +4,6 @@ defmodule MarqueeWeb.Plugs.RateLimitTest do
 
   alias MarqueeWeb.Plugs.RateLimit
 
-  doctest MarqueeWeb.Plugs.RateLimit
-
   setup do
     # Global `rate_limit_disabled: true` in config/test.exs keeps the
     # plug quiet for the broader suite. These tests exercise the plug

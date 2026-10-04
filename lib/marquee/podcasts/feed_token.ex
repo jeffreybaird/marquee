@@ -44,7 +44,7 @@ defmodule Marquee.Podcasts.FeedToken do
   Generates a fresh token bound to the given show + viewer pair.
 
       iex> changeset = Marquee.Podcasts.FeedToken.new_changeset(
-      ...>   %{organization_id: "org", show_id: "show", viewer_id: "v"})
+      ...>   %{organization_id: "00000000-0000-0000-0000-000000000001", show_id: "00000000-0000-0000-0000-000000000002", viewer_id: "00000000-0000-0000-0000-000000000003"})
       iex> changeset.valid?
       true
       iex> byte_size(Ecto.Changeset.get_change(changeset, :token)) > 16
@@ -89,15 +89,18 @@ defmodule Marquee.Podcasts.FeedToken do
   Returns true if the token is currently usable (active and not expired).
 
       iex> alias Marquee.Podcasts.FeedToken
-      iex> FeedToken.usable?(%FeedToken{status: "active", expires_at: ~U[2099-01-01 00:00:00Z]})
+      iex> future = DateTime.add(DateTime.utc_now(), 86400)
+      iex> FeedToken.usable?(%FeedToken{status: "active", expires_at: future})
       true
 
       iex> alias Marquee.Podcasts.FeedToken
-      iex> FeedToken.usable?(%FeedToken{status: "revoked", expires_at: ~U[2099-01-01 00:00:00Z]})
+      iex> future = DateTime.add(DateTime.utc_now(), 86400)
+      iex> FeedToken.usable?(%FeedToken{status: "revoked", expires_at: future})
       false
 
       iex> alias Marquee.Podcasts.FeedToken
-      iex> FeedToken.usable?(%FeedToken{status: "active", expires_at: ~U[2000-01-01 00:00:00Z]})
+      iex> past = DateTime.add(DateTime.utc_now(), -86400)
+      iex> FeedToken.usable?(%FeedToken{status: "active", expires_at: past})
       false
 
       iex> alias Marquee.Podcasts.FeedToken

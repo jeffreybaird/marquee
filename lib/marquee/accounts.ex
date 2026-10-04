@@ -329,7 +329,13 @@ defmodule Marquee.Accounts do
       iex> Marquee.Accounts.page_tour_completed?(%Marquee.Accounts.User{}, nil, "content")
       true
 
-  The populated case hits the database and is covered by unit tests.
+      iex> {:ok, user} = Marquee.Accounts.register_user(%{email: "tour@example.com"})
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Tour example", slug: "tour-example"})
+      iex> Marquee.Accounts.page_tour_completed?(user, org, "content")
+      false
+      iex> {:ok, _completion} = Marquee.Accounts.complete_page_tour(user, org, "content")
+      iex> Marquee.Accounts.page_tour_completed?(user, org, "content")
+      true
   """
   def page_tour_completed?(nil, _org, _page_key), do: true
   def page_tour_completed?(_user, nil, _page_key), do: true
@@ -380,8 +386,9 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> get_user_by_email("foo@example.com")
-      %User{}
+      iex> {:ok, user} = register_user(%{email: "lookup@example.com"})
+      iex> get_user_by_email("lookup@example.com").id == user.id
+      true
 
       iex> get_user_by_email("unknown@example.com")
       nil
@@ -396,8 +403,10 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
+      iex> {:ok, user} = register_user(%{email: "password-lookup@example.com"})
+      iex> {:ok, {user, []}} = update_user_password(user, %{password: "correct_password"})
+      iex> get_user_by_email_and_password(user.email, "correct_password").id == user.id
+      true
 
       iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
       nil
@@ -416,11 +425,16 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> get_user!(123)
-      %User{}
+      iex> {:ok, user} = register_user(%{email: "id-lookup@example.com"})
+      iex> get_user!(user.id).email
+      "id-lookup@example.com"
 
-      iex> get_user!(456)
-      ** (Ecto.NoResultsError)
+      iex> try do
+      ...>   get_user!("00000000-0000-0000-0000-000000000456")
+      ...> rescue
+      ...>   Ecto.NoResultsError -> :not_found
+      ...> end
+      :not_found
 
   """
   def get_user!(id), do: Repo.get!(User, id)
@@ -432,11 +446,13 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> register_user(%{field: value})
-      {:ok, %User{}}
+      iex> {:ok, user} = register_user(%{email: "registration@example.com"})
+      iex> user.email
+      "registration@example.com"
 
-      iex> register_user(%{field: bad_value})
-      {:error, :validation, %Ecto.Changeset{}}
+      iex> {:error, :validation, changeset} = register_user(%{email: "invalid"})
+      iex> Keyword.has_key?(changeset.errors, :email)
+      true
 
   """
   def register_user(attrs) do
@@ -678,8 +694,9 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> change_user_email(user)
-      %Ecto.Changeset{data: %User{}}
+      iex> changeset = change_user_email(%Marquee.Accounts.User{}, %{email: "new@example.com"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :email)}
+      {true, "new@example.com"}
 
   """
   def change_user_email(user, attrs \\ %{}, opts \\ []) do
@@ -714,8 +731,9 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> change_user_password(user)
-      %Ecto.Changeset{data: %User{}}
+      iex> changeset = change_user_password(%Marquee.Accounts.User{}, %{password: "a secure password"}, hash_password: false)
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :password)}
+      {true, "a secure password"}
 
   """
   def change_user_password(user, attrs \\ %{}, opts \\ []) do
@@ -729,11 +747,14 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> update_user_password(user, %{password: ...})
-      {:ok, {%User{}, [...]}}
+      iex> {:ok, user} = register_user(%{email: "change-password@example.com"})
+      iex> {:ok, {updated, []}} = update_user_password(user, %{password: "a secure password"})
+      iex> Marquee.Accounts.User.valid_password?(updated, "a secure password")
+      true
 
-      iex> update_user_password(user, %{password: "too short"})
-      {:error, :validation, %Ecto.Changeset{}}
+      iex> {:error, :validation, changeset} = update_user_password(%Marquee.Accounts.User{}, %{password: "too short"})
+      iex> Keyword.has_key?(changeset.errors, :password)
+      true
 
   """
   def update_user_password(user, attrs) do
@@ -827,8 +848,10 @@ defmodule Marquee.Accounts do
 
   ## Examples
 
-      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm-email/#{&1}"))
-      {:ok, %{to: ..., body: ...}}
+      iex> {:ok, user} = register_user(%{email: "email-instructions@example.com"})
+      iex> {:ok, email} = deliver_user_update_email_instructions(user, user.email, fn token -> "https://example.com/confirm/" <> token end)
+      iex> email.to
+      [{"", "email-instructions@example.com"}]
 
   """
   def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)

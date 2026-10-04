@@ -340,8 +340,9 @@ defmodule Marquee.PlatformBilling do
 
   ## Examples
 
-      iex> change_platform_plan(%Marquee.Billing.PlatformPlan{})
-      %Ecto.Changeset{data: %Marquee.Billing.PlatformPlan{}}
+      iex> changeset = change_platform_plan(%Marquee.Billing.PlatformPlan{}, %{name: "Starter", slug: "starter", amount: 1000, usage_tier: :basic, business_tier: :individual})
+      iex> changeset.valid?
+      true
 
   """
   def change_platform_plan(%PlatformPlan{} = plan, attrs \\ %{}) do
@@ -737,6 +738,10 @@ defmodule Marquee.PlatformBilling do
       iex> future = DateTime.add(DateTime.utc_now(), 5, :day)
       iex> Marquee.PlatformBilling.trial_active?(%Marquee.Billing.PlatformSubscription{status: :trialing, trial_end: future})
       true
+
+      iex> past = DateTime.add(DateTime.utc_now(), -86400)
+      iex> Marquee.PlatformBilling.trial_active?(%Marquee.Billing.PlatformSubscription{status: :trialing, trial_end: past})
+      false
 
       iex> Marquee.PlatformBilling.trial_active?(%Marquee.Billing.PlatformSubscription{status: :active})
       false

@@ -619,8 +619,9 @@ defmodule Marquee.Content do
 
   ## Examples
 
-      iex> change_video(%Marquee.Content.Video{})
-      %Ecto.Changeset{data: %Marquee.Content.Video{}}
+      iex> changeset = change_video(%Marquee.Content.Video{}, %{title: "Woodwork", slug: "woodwork", organization_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
 
   """
   def change_video(%Video{} = video, attrs \\ %{}) do
@@ -785,8 +786,9 @@ defmodule Marquee.Content do
 
   ## Examples
 
-      iex> change_collection(%Marquee.Content.Collection{})
-      %Ecto.Changeset{data: %Marquee.Content.Collection{}}
+      iex> changeset = change_collection(%Marquee.Content.Collection{}, %{title: "Woodwork", organization_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
 
   """
   def change_collection(%Collection{} = collection, attrs \\ %{}) do
@@ -1538,8 +1540,9 @@ defmodule Marquee.Content do
 
   ## Examples
 
-      iex> change_series(%Marquee.Content.Series{})
-      %Ecto.Changeset{data: %Marquee.Content.Series{}}
+      iex> changeset = change_series(%Marquee.Content.Series{}, %{title: "Woodwork"})
+      iex> changeset.valid?
+      true
 
   """
   def change_series(%Series{} = series, attrs \\ %{}) do
@@ -1800,8 +1803,9 @@ defmodule Marquee.Content do
 
   ## Examples
 
-      iex> change_season(%Marquee.Content.Season{})
-      %Ecto.Changeset{data: %Marquee.Content.Season{}}
+      iex> changeset = change_season(%Marquee.Content.Season{}, %{title: "Season one", season_number: 1})
+      iex> changeset.valid?
+      true
 
   """
   def change_season(%Season{} = season, attrs \\ %{}) do
@@ -2063,6 +2067,13 @@ defmodule Marquee.Content do
 
       iex> Marquee.Content.new_season_active?(%Marquee.Content.Series{new_season: true, new_season_expires_at: nil})
       true
+      iex> future = DateTime.add(DateTime.utc_now(), 86400)
+      iex> Marquee.Content.new_season_active?(%Marquee.Content.Series{new_season: true, new_season_expires_at: future})
+      true
+
+      iex> past = DateTime.add(DateTime.utc_now(), -86400)
+      iex> Marquee.Content.new_season_active?(%Marquee.Content.Series{new_season: true, new_season_expires_at: past})
+      false
   """
   def new_season_active?(%Series{new_season: false}), do: false
 
@@ -2084,6 +2095,13 @@ defmodule Marquee.Content do
 
       iex> Marquee.Content.days_until_new_season_expires(%Marquee.Content.Series{new_season: true, new_season_expires_at: nil})
       nil
+      iex> future = DateTime.add(DateTime.utc_now(), 2 * 86400 + 3600)
+      iex> Marquee.Content.days_until_new_season_expires(%Marquee.Content.Series{new_season: true, new_season_expires_at: future})
+      2
+
+      iex> past = DateTime.add(DateTime.utc_now(), -86400)
+      iex> Marquee.Content.days_until_new_season_expires(%Marquee.Content.Series{new_season: true, new_season_expires_at: past})
+      0
   """
   def days_until_new_season_expires(%Series{new_season: false}), do: nil
   def days_until_new_season_expires(%Series{new_season_expires_at: nil}), do: nil

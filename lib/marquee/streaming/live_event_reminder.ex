@@ -27,12 +27,13 @@ defmodule Marquee.Streaming.LiveEventReminder do
 
   ## Examples
 
-      iex> changeset(%Marquee.Streaming.LiveEventReminder{}, %{
+      iex> changeset = changeset(%Marquee.Streaming.LiveEventReminder{}, %{
       ...>   organization_id: "00000000-0000-0000-0000-000000000001",
       ...>   live_event_id: "00000000-0000-0000-0000-000000000002",
       ...>   viewer_id: "00000000-0000-0000-0000-000000000003"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def changeset(reminder, attrs) do
     reminder
@@ -48,8 +49,9 @@ defmodule Marquee.Streaming.LiveEventReminder do
 
   ## Examples
 
-      iex> notified_changeset(%Marquee.Streaming.LiveEventReminder{}, %{notified_at: ~U[2026-05-01 17:00:00Z]})
-      %Ecto.Changeset{valid?: true}
+      iex> changeset = notified_changeset(%Marquee.Streaming.LiveEventReminder{}, %{notified_at: ~U[2026-05-01 17:00:00Z]})
+      iex> changeset.valid?
+      true
   """
   def notified_changeset(reminder, attrs) do
     reminder

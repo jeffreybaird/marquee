@@ -694,10 +694,15 @@ defmodule Marquee.Streaming do
 
   ## Examples
 
-      iex> event = %Marquee.Streaming.LiveEvent{id: nil}
-      iex> viewer = %Marquee.Viewers.Viewer{id: nil}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Live example", slug: "live-example"})
+      iex> event = Marquee.Repo.insert!(%Marquee.Streaming.LiveEvent{organization_id: org.id, title: "Live lesson", slug: "live-lesson", scheduled_start_at: ~U[2027-01-01 12:00:00Z]})
+      iex> viewer = Marquee.Repo.insert!(%Marquee.Viewers.Viewer{organization_id: org.id, email: "live@example.com"})
       iex> Marquee.Streaming.viewer_banned?(event, viewer)
       false
+      iex> {:ok, moderator} = Marquee.Accounts.register_user(%{email: "moderator@example.com"})
+      iex> Marquee.Repo.insert!(%Marquee.Streaming.LiveEventChatBan{organization_id: org.id, live_event_id: event.id, viewer_id: viewer.id, banned_by_user_id: moderator.id})
+      iex> Marquee.Streaming.viewer_banned?(event, viewer)
+      true
   """
   def viewer_banned?(%LiveEvent{id: event_id}, %Viewer{id: viewer_id}) do
     LiveEventChatBan
@@ -757,10 +762,14 @@ defmodule Marquee.Streaming do
 
   ## Examples
 
-      iex> event = %Marquee.Streaming.LiveEvent{id: nil}
-      iex> viewer = %Marquee.Viewers.Viewer{id: nil}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Live example", slug: "live-example"})
+      iex> event = Marquee.Repo.insert!(%Marquee.Streaming.LiveEvent{organization_id: org.id, title: "Live lesson", slug: "live-lesson", scheduled_start_at: ~U[2027-01-01 12:00:00Z]})
+      iex> viewer = Marquee.Repo.insert!(%Marquee.Viewers.Viewer{organization_id: org.id, email: "live@example.com"})
       iex> Marquee.Streaming.has_reminder?(event, viewer)
       false
+      iex> Marquee.Repo.insert!(%Marquee.Streaming.LiveEventReminder{organization_id: org.id, live_event_id: event.id, viewer_id: viewer.id})
+      iex> Marquee.Streaming.has_reminder?(event, viewer)
+      true
   """
   def has_reminder?(%LiveEvent{id: event_id}, %Viewer{id: viewer_id}) do
     LiveEventReminder

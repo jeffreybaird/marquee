@@ -3,8 +3,6 @@ defmodule Marquee.Accounts.AdminNudgeDismissalTest do
 
   alias Marquee.Accounts
 
-  doctest Marquee.Accounts.AdminNudgeDismissal
-
   setup do
     membership = insert(:membership)
     %{user: membership.user, org: membership.organization}

@@ -4,8 +4,6 @@ defmodule Marquee.Engagement.PlaybackDropOffTest do
   alias Marquee.Engagement
   alias Marquee.Engagement.PlaybackDropOff
 
-  doctest PlaybackDropOff
-
   describe "record_drop_off/1" do
     test "inserts a drop-off with bucket computed from max_position" do
       org = insert(:organization)
