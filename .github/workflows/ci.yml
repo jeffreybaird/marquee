@@ -113,13 +113,26 @@ jobs:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
 
-      - uses: browser-actions/setup-chrome@latest
+      - uses: browser-actions/setup-chrome@v2
         id: setup-chrome
         with:
           chrome-version: stable
+          install-chromedriver: true
 
-      - name: Link ChromeDriver to PATH
-        run: sudo ln -sf "$(dirname ${{ steps.setup-chrome.outputs.chrome-path }})/chromedriver" /usr/local/bin/chromedriver
+      - name: Select matching Chrome and ChromeDriver
+        env:
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CHROMEDRIVER_PATH: ${{ steps.setup-chrome.outputs.chromedriver-path }}
+        run: |
+          # ChromeDriver checks beside itself first; Wallaby finds google-chrome on PATH.
+          driver_chrome="$(dirname "$CHROMEDRIVER_PATH")/chrome"
+          if [ "$CHROME_PATH" != "$driver_chrome" ]; then
+            ln -sf "$CHROME_PATH" "$driver_chrome"
+          fi
+          sudo ln -sf "$CHROME_PATH" /usr/local/bin/google-chrome
+          sudo ln -sf "$CHROMEDRIVER_PATH" /usr/local/bin/chromedriver
+          google-chrome --version
+          chromedriver --version
 
       - name: Cache deps
         uses: actions/cache@v4

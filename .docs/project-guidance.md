@@ -327,6 +327,8 @@ If change can't be atomic:
 
 ## Tests Are a Contract
 
+Read `.claude/testing.md` for the repository's test setup and coverage requirements.
+
 Accepted tests define the expected behavior. Never weaken assertions, remove
 coverage, skip tests, or change expectations to hide an implementation defect.
 Fix the root cause in the implementation.
@@ -341,7 +343,21 @@ ask when the expected behavior is unresolved or would exceed that authorization.
 Follow the shared agent workflow for role ownership and red/green evidence.
 Preserve project-specific coverage, test-layer, and isolation requirements.
 
-Read `.claude/testing.md` for the repository's test setup and coverage requirements.
+### Chrome and ChromeDriver compatibility
+
+The browser suite needs a ChromeDriver release compatible with the installed
+Chrome browser. Check `chromedriver --version` and Chrome's version before
+investigating failures that happen while starting every browser session. A
+browser auto-update can leave the driver behind; for example, Chrome 154 with
+ChromeDriver 152 caused all 19 browser tests to fail with `invalid session id`.
+
+Update the driver through the package manager that installed it, then rerun
+`mix test --only e2e` using the normal environment. Do not change assertions,
+timeouts, or browser capabilities to work around a driver version mismatch.
+For Chrome 115 and later, use Google's
+[ChromeDriver version selection guidance](https://developer.chrome.com/docs/chromedriver/downloads/version-selection)
+to select a compatible release.
+
 
 ## Accessibility — WCAG 2.1 AA Compliance
 
