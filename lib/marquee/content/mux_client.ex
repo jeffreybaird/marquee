@@ -15,6 +15,22 @@ defmodule Marquee.Content.MuxClient do
   alias Mux.Video.LiveStreams
   alias Mux.Video.Uploads
 
+  @doc """
+  Imports a source URL through Mux using the caller's stable idempotency key.
+  The key must describe the logical import so retries reuse the same asset.
+  """
+  @impl true
+  def create_asset(params, idempotency_key)
+      when is_map(params) and is_binary(idempotency_key) and byte_size(idempotency_key) > 0 do
+    traced_call("create_asset", fn ->
+      mux_client = client()
+      headers = {Tesla.Middleware.Headers, :call, [[{"idempotency-key", idempotency_key}]]}
+      Assets.create(%{mux_client | pre: [headers | mux_client.pre]}, params)
+    end)
+  end
+
+  def create_asset(_params, _idempotency_key), do: {:error, :mux_error, :invalid_idempotency_key}
+
   @impl true
   def create_direct_upload(params) do
     Logger.info("Mux create_direct_upload requested",

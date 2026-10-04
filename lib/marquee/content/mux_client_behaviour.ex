@@ -8,6 +8,7 @@ defmodule Marquee.Content.MuxClientBehaviour do
   """
 
   @callback create_direct_upload(map()) :: {:ok, map()} | {:error, :mux_error, term()}
+  @callback create_asset(map(), String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
   @callback get_asset(String.t()) :: {:ok, map()} | {:error, :mux_error, term()}
   @callback delete_asset(String.t()) :: :ok | {:error, :mux_error, term()}
   @callback list_assets(keyword()) :: {:ok, list(map())} | {:error, :mux_error, term()}
