@@ -12,6 +12,52 @@ env:
   OTP_VERSION: "28.5.0.5"
 
 jobs:
+  release:
+    name: Production release assembly
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: assets/package-lock.json
+
+      - name: Cache production build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build/prod
+          key: ${{ runner.os }}-release-prod-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('mix.lock') }}
+
+      - name: Install production dependencies
+        run: mix deps.get --only prod
+
+      - name: Install assets dependencies
+        run: npm ci --prefix assets
+
+      # Compile first so Phoenix extracts colocated hooks before esbuild runs.
+      - name: Compile production (warnings as errors)
+        run: mix compile --warnings-as-errors
+
+      - name: Build production assets
+        run: mix assets.deploy
+
+      # Assembly checks OTP module collisions without booting the application.
+      # No runtime credentials, database, or external services are required.
+      - name: Assemble production release
+        run: mix release --overwrite
+
   test:
     name: Test
     runs-on: ubuntu-latest

@@ -125,5 +125,13 @@ runtime behavior. The coverage guard excludes only dependency-generated examples
 identified by compiler metadata, such as Ecto's inherited SQL examples on Repo;
 future application-authored examples remain subject to registration checks.
 
+Production release verification reproduced main's duplicate-module failure with
+the old lockfile, then passed after upgrading grpcbox to 0.18.0, ts_chatterbox to
+0.16.0, and gproc to 1.2.0. The new chatterbox package namespaces its HTTP/2
+modules, allowing Hackney's h2 dependency to coexist. The isolated production
+compile, asset build, and `mix release --overwrite` completed successfully without
+disabling duplicate-module validation. A dedicated PR CI job now runs that same
+sequence without booting the application or requiring runtime secrets.
+
 The work has not been deployed. Production provisioning and the personal-site
 entry URL are documented in `subscriber-demo.md`.
