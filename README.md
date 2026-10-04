@@ -113,3 +113,16 @@ workflow would also need to forward the OTEL settings before re-enabling it.
 ```bash
 fly ssh console -C 'bin/marquee eval "Marquee.Release.create_admin_with_login(\"user@example.com\", \"https://your-app.fly.dev/\")"'
 ```
+
+## License
+
+Marquee original project code is licensed under the GNU Affero General Public
+License version 3 only (AGPL-3.0-only). See [LICENSE](LICENSE). Third-party
+components retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The source links point to https://github.com/jeffreybaird/marquee. Before deploying,
+make the corresponding source accessible there without a GitHub account or
+repository membership; a private repository does not provide a public source offer.
+Deployments must offer users access to the corresponding source for the exact
+version running, including modifications and the scripts needed to build and
+install it. Publish that version before deployment and retain its source.
