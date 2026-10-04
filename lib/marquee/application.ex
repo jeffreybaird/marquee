@@ -5,6 +5,7 @@ defmodule Marquee.Application do
 
   use Application
 
+  alias Marquee.Otel.Export
   alias Marquee.Telemetry.EctoHandler
 
   @impl true
@@ -55,7 +56,7 @@ defmodule Marquee.Application do
   # configured (set in config/runtime.exs for prod). Each supervised child owns
   # its Finch pool and buffer; dev/test leave :otlp_export unset, so this is a
   # no-op there. See Marquee.Otel.Export.
-  defp maybe_add_otlp_export(children), do: children ++ Marquee.Otel.Export.child_specs()
+  defp maybe_add_otlp_export(children), do: children ++ Export.child_specs()
 
   defp maybe_add_log_shipper(children) do
     url = Application.get_env(:marquee, :grafana_loki_url)

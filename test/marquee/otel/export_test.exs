@@ -2,6 +2,7 @@ defmodule Marquee.Otel.ExportTest do
   use ExUnit.Case, async: true
 
   alias Marquee.Otel.Export
+  alias Marquee.Otel.Metrics
 
   doctest Export
 
@@ -24,6 +25,6 @@ defmodule Marquee.Otel.ExportTest do
     end
 
     assert log_opts[:level] == :info
-    assert metric_opts[:metrics] == Marquee.Otel.Metrics.definitions()
+    assert metric_opts[:metrics] == Metrics.definitions()
   end
 end

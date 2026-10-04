@@ -2,6 +2,7 @@ defmodule Marquee.Otel.MetricsTest do
   use ExUnit.Case, async: true
 
   alias Marquee.Otel.Metrics
+  alias OtlpShipper.Metrics.Definition
 
   doctest Metrics
 
@@ -9,7 +10,7 @@ defmodule Marquee.Otel.MetricsTest do
     # OtlpShipper.Metrics.Definition.new/1 is exactly what MetricsReporter runs
     # at startup: it rejects summaries, duplicate OTLP names, unsupported units,
     # and histograms without buckets. If this passes, the reporter boots.
-    assert {:ok, compiled} = OtlpShipper.Metrics.Definition.new(Metrics.definitions())
+    assert {:ok, compiled} = Definition.new(Metrics.definitions())
     assert length(compiled) == length(Metrics.definitions())
   end
 
