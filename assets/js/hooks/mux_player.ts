@@ -50,6 +50,9 @@ class MuxPlayer extends ViewHook {
   private sendDropOff: (() => void) | null = null
   private flushProgress: (() => void) | null = null
   private onVisibilityChange: (() => void) | null = null
+  private onNavigation: ((event: MouseEvent) => void) | null = null
+  private navigationTimeout: number | null = null
+  private replayingNavigation = false
 
   mounted() {
     const player = this.el.querySelector("mux-player")
@@ -155,6 +158,38 @@ class MuxPlayer extends ViewHook {
     }
     this.flushProgress = flushProgress
 
+    // LiveView destroys hooks after leaving the old view. Save while that
+    // view still owns its socket, then replay the original link after its ack.
+    this.onNavigation = (event: MouseEvent) => {
+      if (this.replayingNavigation) return
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const link = event.target instanceof Element ? event.target.closest<HTMLElement>('a[href], button[phx-click="play_episode"]') : null
+      if (!link || link.hasAttribute("download") || link.dataset.method) return
+      if (link instanceof HTMLAnchorElement) {
+        const url = new URL(link.href, window.location.href)
+        if (link.target === "_blank" || url.origin !== window.location.origin || link.getAttribute("href")?.startsWith("#")) return
+      }
+      const position = Number(player.currentTime || 0)
+      if (position <= 0) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      if (this.navigationTimeout !== null) return
+      let finished = false
+      const navigate = () => {
+        if (finished) return
+        finished = true
+        if (this.navigationTimeout !== null) window.clearTimeout(this.navigationTimeout)
+        this.navigationTimeout = null
+        this.replayingNavigation = true
+        link.click()
+        this.replayingNavigation = false
+      }
+      // A disconnected socket must not trap visitors on the player page.
+      this.navigationTimeout = window.setTimeout(navigate, 1500)
+      this.pushEvent("playback_paused", { video_id: this.videoId, position }, navigate)
+    }
+    document.addEventListener("click", this.onNavigation, true)
+
     window.addEventListener("pagehide", flushProgress)
     document.addEventListener("visibilitychange", flushProgress)
 
@@ -226,6 +261,8 @@ class MuxPlayer extends ViewHook {
   }
 
   destroyed() {
+    if (this.onNavigation) document.removeEventListener("click", this.onNavigation, true)
+    if (this.navigationTimeout !== null) window.clearTimeout(this.navigationTimeout)
     // Save final position before teardown. pagehide does not fire on
     // LiveView client-side navigation, so without this any watch shorter
     // than the progress interval would lose its position entirely.
