@@ -88,10 +88,16 @@ past 56 seconds. A second mobile round trip resumed Polish the curve from
 
 ## Automated verification
 
-The final implementation passed `mix marquee.verify`: 2,589 tests,
+The hero follow-up was reseeded locally with three slides: Inside The Workshop,
+At the assembly bench, and Guide the cut. The removed text-only row stayed absent.
+Desktop slide two opened episode seven and played to `0:06 / 0:23`; mobile slide
+three opened episode thirteen and advanced beyond 11 seconds. The settled mobile
+carousel fit the 390-pixel viewport. Evidence: `workshop-three-slide-mobile.jpg`.
+
+The final implementation passed `mix marquee.verify`: 2,591 tests,
 80 doctests, 157 JavaScript tests, and 19 browser E2E tests, plus formatting,
 compilation, Credo, TypeScript, asset build, and Dialyzer. The two subscriber-demo
-acceptance scenarios also passed. The entire broad Cucumber suite was not completed.
+acceptance scenarios and the added three-slide scenario also passed. The entire broad Cucumber suite was not completed.
 That partial run exposed a setup-nudge assertion synchronization failure. A
 diagnostic confirmed persisted dismissal and eventual DOM absence; two assertions
 were corrected to wait for that same expected absence, and the original scenario
