@@ -62,6 +62,12 @@ defmodule Marquee.Otel do
   @doc """
   Adds standard organization context attributes to the current span.
 
+      iex> require Marquee.Otel
+      iex> Marquee.Otel.with_span "example.attributes" do
+      ...>   Marquee.Otel.set_org_attributes(%{id: "org-example", slug: "example"})
+      ...> end
+      true
+
       iex> Marquee.Otel.set_org_attributes(nil)
       :ok
   """
@@ -79,6 +85,12 @@ defmodule Marquee.Otel do
   @doc """
   Adds user context attributes to the current span.
   Only sets the user ID — no PII (email, name) in span attributes.
+
+      iex> require Marquee.Otel
+      iex> Marquee.Otel.with_span "example.attributes" do
+      ...>   Marquee.Otel.set_user_attributes(%{id: "user-example"})
+      ...> end
+      true
 
       iex> Marquee.Otel.set_user_attributes(nil)
       :ok

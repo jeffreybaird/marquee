@@ -3,8 +3,6 @@ defmodule Marquee.DemoSeederTest do
 
   alias Marquee.DemoSeeder
 
-  doctest Marquee.DemoSeeder, only: [org_slugs: 0]
-
   describe "org_slugs/0" do
     test "lists the five demo org slugs in order" do
       assert DemoSeeder.org_slugs() == [

@@ -32,13 +32,14 @@ defmodule Marquee.Streaming.ChatMessage do
 
   ## Examples
 
-      iex> changeset(%Marquee.Streaming.ChatMessage{}, %{
+      iex> changeset = changeset(%Marquee.Streaming.ChatMessage{}, %{
       ...>   content: "Hello world!",
       ...>   organization_id: "00000000-0000-0000-0000-000000000001",
       ...>   live_event_id: "00000000-0000-0000-0000-000000000002",
       ...>   viewer_id: "00000000-0000-0000-0000-000000000003"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def changeset(message, attrs) do
     message
@@ -52,11 +53,12 @@ defmodule Marquee.Streaming.ChatMessage do
 
   ## Examples
 
-      iex> delete_changeset(%Marquee.Streaming.ChatMessage{}, %{
+      iex> changeset = delete_changeset(%Marquee.Streaming.ChatMessage{}, %{
       ...>   deleted_at: ~U[2026-05-01 19:00:00Z],
       ...>   deleted_by_user_id: "00000000-0000-0000-0000-000000000004"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def delete_changeset(message, attrs) do
     message

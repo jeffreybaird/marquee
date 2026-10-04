@@ -76,8 +76,9 @@ defmodule Marquee.LandingPage do
 
   ## Examples
 
-      iex> change_landing_section(%Marquee.LandingPage.LandingSection{})
-      %Ecto.Changeset{data: %Marquee.LandingPage.LandingSection{}}
+      iex> changeset = change_landing_section(%Marquee.LandingPage.LandingSection{}, %{section_type: :hero_video, organization_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
   """
   def change_landing_section(%LandingSection{} = section, attrs \\ %{}) do
     LandingSection.changeset(section, attrs)

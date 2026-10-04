@@ -3,8 +3,6 @@ defmodule Marquee.Accounts.PageTourCompletionTest do
 
   alias Marquee.Accounts
 
-  doctest Marquee.Accounts.PageTourCompletion
-
   setup do
     membership = insert(:membership)
     %{user: membership.user, org: membership.organization}

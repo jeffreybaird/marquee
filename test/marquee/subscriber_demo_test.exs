@@ -8,8 +8,6 @@ defmodule Marquee.SubscriberDemoTest do
   alias Marquee.Viewers
   alias Marquee.Viewers.Viewer
 
-  doctest Marquee.SubscriberDemo
-
   setup do
     org = insert(:organization, slug: "the-workshop", features: %{"subscriber_demo" => true})
 

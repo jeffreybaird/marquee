@@ -182,8 +182,9 @@ defmodule Marquee.Catalog do
 
   ## Examples
 
-      iex> change_row(%Marquee.Catalog.Row{})
-      %Ecto.Changeset{data: %Marquee.Catalog.Row{}}
+      iex> changeset = change_row(%Marquee.Catalog.Row{}, %{title: "Recent", source_type: :recent, organization_id: "00000000-0000-0000-0000-000000000001"})
+      iex> changeset.valid?
+      true
 
   """
   def change_row(%Row{} = row, attrs \\ %{}) do

@@ -3,7 +3,7 @@ defmodule Marquee.Podcasts.AudioProxyTest do
 
   import Mox
 
-  alias Marquee.Podcasts.{AudioProxy, Episode}
+  alias Marquee.Podcasts.AudioProxy
   alias Marquee.Storage.MockSpacesClient
 
   setup :set_mox_from_context
@@ -13,8 +13,6 @@ defmodule Marquee.Podcasts.AudioProxyTest do
     on_exit(fn -> Application.delete_env(:marquee, :podcast_upstream_fetcher) end)
     :ok
   end
-
-  doctest AudioProxy, import: true
 
   setup do
     org = insert(:organization)

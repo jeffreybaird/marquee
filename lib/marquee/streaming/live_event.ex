@@ -62,14 +62,15 @@ defmodule Marquee.Streaming.LiveEvent do
 
   ## Examples
 
-      iex> changeset(%Marquee.Streaming.LiveEvent{}, %{
+      iex> changeset = changeset(%Marquee.Streaming.LiveEvent{}, %{
       ...>   title: "My Stream",
       ...>   slug: "my-stream",
       ...>   scheduled_start_at: ~U[2026-05-01 18:00:00Z],
       ...>   access_type: "subscribers_only",
       ...>   organization_id: "00000000-0000-0000-0000-000000000001"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def changeset(live_event, attrs) do
     live_event
@@ -96,11 +97,12 @@ defmodule Marquee.Streaming.LiveEvent do
 
   ## Examples
 
-      iex> mux_changeset(%Marquee.Streaming.LiveEvent{}, %{
+      iex> changeset = mux_changeset(%Marquee.Streaming.LiveEvent{}, %{
       ...>   mux_live_stream_id: "abc123",
       ...>   mux_live_playback_id: "pb_xyz"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def mux_changeset(live_event, attrs) do
     live_event

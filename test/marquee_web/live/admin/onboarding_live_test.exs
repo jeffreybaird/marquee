@@ -6,8 +6,6 @@ defmodule MarqueeWeb.Admin.OnboardingLiveTest do
   alias Marquee.Accounts
   alias Marquee.Branding
 
-  doctest MarqueeWeb.Admin.OnboardingLive, only: [pending?: 2]
-
   defp owner_of_new_org do
     insert(:membership,
       role: :owner,

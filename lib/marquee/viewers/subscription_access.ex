@@ -39,8 +39,13 @@ defmodule Marquee.Viewers.SubscriptionAccess do
       iex> trial_expired?(%Marquee.Viewers.Viewer{trial_expires_at: nil})
       true
 
-      iex> trial_expired?(%Marquee.Viewers.Viewer{trial_expires_at: ~U[2099-12-31 23:59:59Z]})
+      iex> future = DateTime.add(DateTime.utc_now(), 86400)
+      iex> trial_expired?(%Marquee.Viewers.Viewer{trial_expires_at: future})
       false
+
+      iex> past = DateTime.add(DateTime.utc_now(), -86400)
+      iex> trial_expired?(%Marquee.Viewers.Viewer{trial_expires_at: past})
+      true
   """
   def trial_expired?(%Viewer{trial_expires_at: nil}), do: true
 

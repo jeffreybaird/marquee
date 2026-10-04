@@ -94,8 +94,8 @@ Desktop slide two opened episode seven and played to `0:06 / 0:23`; mobile slide
 three opened episode thirteen and advanced beyond 11 seconds. The settled mobile
 carousel fit the 390-pixel viewport. Evidence: `workshop-three-slide-mobile.jpg`.
 
-The final implementation passed `mix marquee.verify`: 2,598 tests,
-83 doctests, 157 JavaScript tests, and 19 browser E2E tests, plus formatting,
+The final implementation passed `mix marquee.verify`: 2,600 tests,
+298 doctests, 157 JavaScript tests, and 19 browser E2E tests, plus formatting,
 compilation, Credo, TypeScript, asset build, and Dialyzer. The two subscriber-demo
 acceptance scenarios and the added three-slide scenario also passed. The entire broad Cucumber suite was not completed.
 That partial run exposed a setup-nudge assertion synchronization failure. A
@@ -116,6 +116,14 @@ organizations, strict feature flags, deterministic entry selection, and bounded
 cleanup after the flag is disabled. `Marquee.SubscriberDemo` is registered with
 ExUnit's `doctest`; its three predicate examples include matching inputs and
 both past and future expiration times, and all three execute successfully.
+
+Repository-wide follow-up registers all 61 modules with application-authored
+examples in `test/published_doctests_test.exs`. Its focused run passes 298 unique
+doctests plus two coverage guards. Previous registrations were consolidated to
+avoid duplicate execution. Repairs affect documentation and test setup, not
+runtime behavior. The coverage guard excludes only dependency-generated examples
+identified by compiler metadata, such as Ecto's inherited SQL examples on Repo;
+future application-authored examples remain subject to registration checks.
 
 The work has not been deployed. Production provisioning and the personal-site
 entry URL are documented in `subscriber-demo.md`.

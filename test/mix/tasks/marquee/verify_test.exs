@@ -3,8 +3,6 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
 
   alias Mix.Tasks.Marquee.Verify
 
-  doctest Verify
-
   setup do
     shell = Mix.shell()
     Mix.shell(Mix.Shell.Process)

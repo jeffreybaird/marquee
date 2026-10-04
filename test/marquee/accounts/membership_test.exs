@@ -1,8 +1,6 @@
 defmodule Marquee.Accounts.MembershipTest do
   use ExUnit.Case, async: true
 
-  doctest Marquee.Accounts.Membership
-
   alias Marquee.Accounts.Membership
 
   describe "changeset/2" do

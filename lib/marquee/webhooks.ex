@@ -46,11 +46,17 @@ defmodule Marquee.Webhooks do
 
   ## Examples
 
-      iex> get_endpoint!(123)
-      %Endpoint{}
+      iex> org = Marquee.Repo.insert!(%Marquee.Accounts.Organization{name: "Webhook example", slug: "webhook-example"})
+      iex> {:ok, endpoint} = create_endpoint(%{organization_id: org.id, url: "https://example.com/events", secret: "example-secret", events: ["video.created"]})
+      iex> get_endpoint!(endpoint.id).url
+      "https://example.com/events"
 
-      iex> get_endpoint!(456)
-      ** (Ecto.NoResultsError)
+      iex> try do
+      ...>   get_endpoint!("00000000-0000-0000-0000-000000000456")
+      ...> rescue
+      ...>   Ecto.NoResultsError -> :not_found
+      ...> end
+      :not_found
 
   """
   def get_endpoint!(id), do: Repo.get!(Endpoint, id)
@@ -145,8 +151,9 @@ defmodule Marquee.Webhooks do
 
   ## Examples
 
-      iex> change_endpoint(%Marquee.Webhooks.Endpoint{})
-      %Ecto.Changeset{data: %Marquee.Webhooks.Endpoint{}}
+      iex> changeset = change_endpoint(%Marquee.Webhooks.Endpoint{}, %{organization_id: "00000000-0000-0000-0000-000000000001", url: "https://example.com/events", secret: "example-secret", events: ["video.created"]})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :url)}
+      {true, "https://example.com/events"}
 
   """
   def change_endpoint(%Endpoint{} = endpoint, attrs \\ %{}) do

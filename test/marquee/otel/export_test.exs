@@ -4,8 +4,6 @@ defmodule Marquee.Otel.ExportTest do
   alias Marquee.Otel.Export
   alias Marquee.Otel.Metrics
 
-  doctest Export
-
   @config [endpoint: "https://hub.example", token: "s3cr3t"]
 
   test "returns no children when export is unconfigured" do

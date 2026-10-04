@@ -68,8 +68,9 @@ defmodule Marquee.Viewers do
 
   ## Examples
 
-      iex> change_viewer_registration(%Marquee.Accounts.Organization{id: "123"})
-      %Ecto.Changeset{data: %Marquee.Viewers.Viewer{}}
+      iex> changeset = change_viewer_registration(%Marquee.Accounts.Organization{id: "00000000-0000-0000-0000-000000000001"}, %{email: "viewer@example.com"})
+      iex> {changeset.valid?, Ecto.Changeset.get_change(changeset, :email)}
+      {true, "viewer@example.com"}
   """
   def change_viewer_registration(%Organization{id: org_id}, attrs \\ %{}) do
     Viewer.registration_changeset(%Viewer{organization_id: org_id}, attrs)

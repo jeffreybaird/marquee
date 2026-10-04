@@ -3,18 +3,6 @@ defmodule Marquee.AccountsTest do
 
   alias Marquee.Accounts
 
-  doctest Marquee.Accounts,
-    only: [
-      registration_changeset: 1,
-      merge_registration_errors: 2,
-      role_at_least?: 2,
-      can_manage_content?: 1,
-      can_manage_viewers?: 1,
-      can_view_viewers?: 1,
-      onboarding_complete?: 1,
-      admin_tour_completed?: 1
-    ]
-
   import Marquee.AccountsFixtures
   import Marquee.Factory
   alias Marquee.Accounts.{User, UserToken}

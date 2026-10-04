@@ -4,8 +4,6 @@ defmodule Marquee.Otel.MetricsTest do
   alias Marquee.Otel.Metrics
   alias OtlpShipper.Metrics.Definition
 
-  doctest Metrics
-
   test "definitions compile cleanly under the OTLP reporter's own validation" do
     # OtlpShipper.Metrics.Definition.new/1 is exactly what MetricsReporter runs
     # at startup: it rejects summaries, duplicate OTLP names, unsupported units,

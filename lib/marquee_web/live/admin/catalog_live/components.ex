@@ -144,12 +144,12 @@ defmodule MarqueeWeb.Admin.CatalogLive.Components do
 
   ## Examples
 
-      iex> import Phoenix.Component, only: [to_form: 1]
+      iex> import Phoenix.Component, only: [to_form: 2]
       iex> form = to_form(%{"filter_config" => %{"headline" => "Hello"}}, as: :row)
       iex> MarqueeWeb.Admin.CatalogLive.Components.welcome_config_value(form, "headline")
       "Hello"
 
-      iex> import Phoenix.Component, only: [to_form: 1]
+      iex> import Phoenix.Component, only: [to_form: 2]
       iex> form = to_form(%{"filter_config" => %{}}, as: :row)
       iex> MarqueeWeb.Admin.CatalogLive.Components.welcome_config_value(form, "headline")
       ""

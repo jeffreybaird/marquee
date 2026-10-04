@@ -33,7 +33,7 @@ defmodule Marquee.Streaming.LiveEventTicket do
 
   ## Examples
 
-      iex> changeset(%Marquee.Streaming.LiveEventTicket{}, %{
+      iex> changeset = changeset(%Marquee.Streaming.LiveEventTicket{}, %{
       ...>   amount_cents: 999,
       ...>   access_starts_at: ~U[2026-05-01 18:00:00Z],
       ...>   access_ends_at: ~U[2026-05-03 18:00:00Z],
@@ -41,7 +41,8 @@ defmodule Marquee.Streaming.LiveEventTicket do
       ...>   live_event_id: "00000000-0000-0000-0000-000000000002",
       ...>   viewer_id: "00000000-0000-0000-0000-000000000003"
       ...> })
-      %Ecto.Changeset{valid?: true}
+      iex> changeset.valid?
+      true
   """
   def changeset(ticket, attrs) do
     ticket
@@ -74,8 +75,9 @@ defmodule Marquee.Streaming.LiveEventTicket do
 
   ## Examples
 
-      iex> refund_changeset(%Marquee.Streaming.LiveEventTicket{}, %{refunded_at: ~U[2026-05-02 10:00:00Z]})
-      %Ecto.Changeset{valid?: true}
+      iex> changeset = refund_changeset(%Marquee.Streaming.LiveEventTicket{}, %{refunded_at: ~U[2026-05-02 10:00:00Z]})
+      iex> changeset.valid?
+      true
   """
   def refund_changeset(ticket, attrs) do
     ticket
