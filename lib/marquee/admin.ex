@@ -3,8 +3,9 @@ defmodule Marquee.Admin do
   Platform-level admin context.
 
   Functions in this module intentionally query across all tenants. They are only
-  callable from super admin interfaces and must never be exposed through
-  tenant-scoped APIs.
+  callable from super admin interfaces, except explicit public demo discovery
+  and platform maintenance dispatch. They must never expose another tenant's
+  private data through tenant-scoped APIs.
   """
 
   import Ecto.Query, warn: false
@@ -40,6 +41,53 @@ defmodule Marquee.Admin do
   alias Marquee.Webhooks.Endpoint, as: WebhookEndpoint
 
   ## Organizations
+
+  @doc """
+  Finds the first active organization explicitly offering a public subscriber demo.
+
+  Cross-tenant public discovery is intentional. Selection is deterministic by
+  creation time and ID. Exempt from doctest — hits the database.
+  """
+  def get_subscriber_demo_organization do
+    Organization
+    |> where([org], is_nil(org.deleted_at))
+    |> where([org], fragment("?->'subscriber_demo' = 'true'::jsonb", org.features))
+    |> order_by([org], asc: org.inserted_at, asc: org.id)
+    |> limit(1)
+    |> Repo.one()
+    |> case do
+      nil -> {:error, :not_found}
+      org -> {:ok, org}
+    end
+  end
+
+  @doc """
+  Lists a bounded page of organization IDs with synthetic demo viewers.
+
+  Cross-tenant maintenance discovery is intentional. Includes disabled demo
+  organizations so their ephemeral data is still cleaned up. Supports
+  `:after_id` keyset pagination and `:per_page` (default and maximum 100).
+  Exempt from doctest — hits the database.
+  """
+  def list_subscriber_demo_cleanup_organization_ids(opts \\ []) do
+    limit = opts |> Keyword.get(:per_page, 100) |> max(1) |> min(100)
+
+    query =
+      Viewer
+      |> where([viewer], fragment("?->'subscriber_demo' = 'true'::jsonb", viewer.metadata))
+      |> select([viewer], viewer.organization_id)
+      |> distinct(true)
+      |> order_by([viewer], asc: viewer.organization_id)
+      |> limit(^limit)
+
+    query =
+      case Keyword.get(opts, :after_id) do
+        nil -> query
+        id -> where(query, [viewer], viewer.organization_id > ^id)
+      end
+
+    Repo.all(query)
+  end
 
   @doc """
   Lists all organizations across all tenants.

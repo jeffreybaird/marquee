@@ -97,18 +97,19 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   end
 
   defp subscriber_demo_url do
-    with {:ok, org} <- Accounts.get_organization_by_slug("the-workshop"),
-         true <- Marquee.SubscriberDemo.enabled?(org) do
-      if Application.get_env(:marquee, :org_resolution) == :hostname do
-        uri = URI.parse(MarqueeWeb.Endpoint.url())
+    case Marquee.Admin.get_subscriber_demo_organization() do
+      {:ok, org} ->
+        if Application.get_env(:marquee, :org_resolution) == :hostname do
+          uri = URI.parse(MarqueeWeb.Endpoint.url())
 
-        %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"}
-        |> URI.to_string()
-      else
-        MarqueeWeb.OrgURL.org_url("/", org)
-      end
-    else
-      _ -> nil
+          %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"}
+          |> URI.to_string()
+        else
+          MarqueeWeb.OrgURL.org_url("/", org)
+        end
+
+      _ ->
+        nil
     end
   end
 

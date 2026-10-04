@@ -1,6 +1,6 @@
 defmodule Marquee.SubscriberDemo do
   @moduledoc """
-  Ephemeral subscriber identities for the explicitly enabled Workshop demo.
+  Ephemeral subscriber identities for explicitly enabled demo organizations.
 
   Demo visitors use the normal viewer and engagement paths. Their synthetic
   identities and activity are erased after two hours; no email or billing
@@ -26,15 +26,23 @@ defmodule Marquee.SubscriberDemo do
   @doc """
   Checks whether this organization offers the subscriber demo.
 
+      iex> Marquee.SubscriberDemo.enabled?(%{features: %{"subscriber_demo" => true}})
+      true
+      iex> Marquee.SubscriberDemo.enabled?(%{features: %{"subscriber_demo" => false}})
+      false
       iex> Marquee.SubscriberDemo.enabled?(nil)
       false
   """
-  def enabled?(%{slug: "the-workshop", features: %{"subscriber_demo" => true}}), do: true
+  def enabled?(%{features: %{"subscriber_demo" => true}}), do: true
   def enabled?(_), do: false
 
   @doc """
   Identifies a synthetic demo viewer.
 
+      iex> Marquee.SubscriberDemo.demo_viewer?(%{metadata: %{"subscriber_demo" => true}})
+      true
+      iex> Marquee.SubscriberDemo.demo_viewer?(%{metadata: %{}})
+      false
       iex> Marquee.SubscriberDemo.demo_viewer?(nil)
       false
   """
@@ -44,6 +52,12 @@ defmodule Marquee.SubscriberDemo do
   @doc """
   Checks demo expiration, failing closed for malformed expiration metadata.
 
+      iex> past = DateTime.utc_now() |> DateTime.add(-3600) |> DateTime.to_iso8601()
+      iex> Marquee.SubscriberDemo.expired?(%{metadata: %{"subscriber_demo" => true, "subscriber_demo_expires_at" => past}})
+      true
+      iex> future = DateTime.utc_now() |> DateTime.add(3600) |> DateTime.to_iso8601()
+      iex> Marquee.SubscriberDemo.expired?(%{metadata: %{"subscriber_demo" => true, "subscriber_demo_expires_at" => future}})
+      false
       iex> Marquee.SubscriberDemo.expired?(nil)
       false
   """

@@ -1,8 +1,9 @@
 # Workshop subscriber demo
 
 The subscriber demo uses a separate, passwordless viewer for each browser session.
-It requires no email confirmation or payment. It is enabled only for The Workshop
-when its `subscriber_demo` organization feature is true. Operator member preview
+It requires no email confirmation or payment. Eligibility requires the
+`subscriber_demo` organization feature to be exactly `true`; it does not depend on
+the organization's name or slug. The included seed enables The Workshop. Operator member preview
 remains a separate, read-only feature.
 
 ## Provisioning
@@ -69,7 +70,8 @@ Mix in production. The operation returns the organization, series, videos, and
 collections. Missing or invalid media returns `{:error, :media_not_configured}`
 and rolls back provisioning. Repeating the seed updates the same catalog entries.
 
-The platform homepage links to The Workshop. Its **Try the subscriber demo**
+The platform homepage links to the first explicitly enabled demo organization,
+ordered by creation time and ID. Its **Try the subscriber demo**
 button posts to `/demo/subscriber` through the browser, tenant, and authentication
 rate-limit pipelines. The browser pipeline supplies CSRF protection. Repeating
 entry reuses a valid demo session; an existing ordinary viewer is preserved.
@@ -96,7 +98,8 @@ read overlay. A final navigation sample is sent before following an in-app link;
 the link proceeds after acknowledgement or a bounded fallback.
 
 Each session schedules tenant-scoped cleanup on Oban's bulk queue. A periodic
-platform dispatcher recovers missed work for The Workshop. Cleanup removes demo
+platform dispatcher discovers organizations with demo viewers in bounded pages
+and recovers missed work, including after a demo feature is disabled. Cleanup removes demo
 activity and its synthetic identity in bounded batches, preserving ordinary
 viewers and other tenants.
 
