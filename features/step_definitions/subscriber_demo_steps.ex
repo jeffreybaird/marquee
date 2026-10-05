@@ -6,6 +6,22 @@ defmodule MarqueeFeatures.Steps.SubscriberDemo do
   alias Marquee.{Engagement, Repo, SubscriberDemo, Viewers}
   import Ecto.Query
 
+  when_("a fresh browser opens the Workshop homepage", fn world ->
+    session = Wallaby.Browser.visit(world.session, "/?org=#{world.demo_org.slug}")
+    Map.put(world, :session, session)
+  end)
+
+  then_("the Workshop catalog opens with a private demo session", fn world ->
+    import Wallaby.Browser, only: [assert_has: 2, execute_query: 2]
+    assert_has(world.session, Wallaby.Query.css("[data-test=subscriber-demo-banner]"))
+    assert_has(world.session, Wallaby.Query.css("[data-test=hero-primary-cta-0]"))
+    org_id = world.demo_org.id
+    [viewer] = Repo.all(from(v in Marquee.Viewers.Viewer, where: v.organization_id == ^org_id))
+    assert SubscriberDemo.demo_viewer?(viewer)
+    refute SubscriberDemo.expired?(viewer)
+    world
+  end)
+
   then_("the Workshop hero offers three distinct featured videos", fn world ->
     org_id = world.demo_org.id
 

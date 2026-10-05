@@ -40,6 +40,7 @@ defmodule MarqueeWeb.Router do
   pipeline :optional_organization do
     plug MarqueeWeb.Plugs.SetOrganization, optional: true
     plug MarqueeWeb.Plugs.MemberPreview
+    plug MarqueeWeb.Plugs.SubscriberDemoEntry
   end
 
   pipeline :rate_limit_auth do

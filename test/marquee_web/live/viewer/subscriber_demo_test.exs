@@ -52,7 +52,7 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoTest do
     org: org
   } do
     {:ok, home, _} = live(conn, "/")
-    assert has_element?(home, "[data-test=subscriber-demo-entry]", "Try the subscriber demo")
+    assert has_element?(home, "[data-test=subscriber-demo-banner]", "Demo")
     started = post(conn, "/demo/subscriber")
     assert redirected_to(started) == "/"
     token = get_session(started, :viewer_token)

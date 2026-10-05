@@ -1,0 +1,7 @@
+{
+  "test/marquee_web/live/viewer/subscriber_demo_cold_entry_test.exs": "496ff2caef20295e4712a611579d6ffe53aea8834e87298ebb2347dbe1a316cd",
+  "test/marquee_web/e2e/subscriber_demo_cold_entry_test.exs": "6d4c38b3a700c417aeb8d299b371b773901aa54f5d04d9fc7007249f9776b5f5",
+  "features/acceptance/subscriber_demo.feature": "a77b4778874e2e5b7f8d6e0f7398fe5fc24e7ecf7c85489d230f97699f9fd9f8",
+  "features/step_definitions/subscriber_demo_steps.ex": "58212b340f7d79b3051a63fb84e64fa1234e202d261fd87e7ea197d21a19112b",
+  "test/marquee_web/live/viewer/subscriber_demo_test.exs": "f6250c7270f4e28ec304aca38ee1c58cdee1d15ca1b0f7ff342de4c51dd2da54"
+}

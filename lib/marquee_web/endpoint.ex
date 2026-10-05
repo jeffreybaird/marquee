@@ -60,7 +60,11 @@ defmodule MarqueeWeb.Endpoint do
     body_reader: {MarqueeWeb.RawBodyReader, :read_body, []}
 
   plug Plug.MethodOverride
+  plug :preserve_request_method
   plug Plug.Head
   plug Plug.Session, @session_options
   plug MarqueeWeb.Router
+
+  defp preserve_request_method(conn, _opts),
+    do: Plug.Conn.put_private(conn, :original_request_method, conn.method)
 end

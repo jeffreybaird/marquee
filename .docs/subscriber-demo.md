@@ -71,22 +71,37 @@ collections. Missing or invalid media returns `{:error, :media_not_configured}`
 and rolls back provisioning. Repeating the seed updates the same catalog entries.
 
 The platform homepage links to the first explicitly enabled demo organization,
-ordered by creation time and ID. Its **Try the subscriber demo**
-button posts to `/demo/subscriber` through the browser, tenant, and authentication
-rate-limit pipelines. The browser pipeline supplies CSRF protection. Repeating
-entry reuses a valid demo session; an existing ordinary viewer is preserved.
+ordered by creation time and ID. A fresh browser visiting that organization's
+homepage starts its own private demo session and receives the catalog and demo
+bar directly. The HTTP entry boundary creates this anonymous, expiring demo
+identity before rendering; LiveView mounts do not create identities. Refreshing
+or connecting LiveView reuses the existing valid session.
+
+Automatic entry applies only to an explicitly enabled demo organization and an
+anonymous homepage GET. Existing ordinary viewers, operators, member previews,
+and viewer impersonation retain their current behavior. HEAD and prefetch
+requests do not create identities. Creation uses the existing tenant and
+authentication rate limits, and demo entry responses are private and uncached.
+If the configured demo catalog is unavailable, entry returns 503 rather than
+silently showing an empty landing page.
+
+The explicit `/demo/subscriber` POST remains available through the browser,
+tenant, and authentication rate-limit pipelines. The browser pipeline continues
+to enforce CSRF protection for this and other mutating requests.
 
 ## Portfolio entry URL
 
-With the current query-parameter tenant resolution, link the personal site to
-`https://marquee.jeffreybaird.com/?org=the-workshop`. Locally, use
-`http://localhost:4000/?org=the-workshop`.
+The Workshop's production entry is
+`https://the-workshop-marquee.jeffreybaird.com/`. A fresh visit opens the private
+subscriber demo directly. The former platform URL
+`https://marquee.jeffreybaird.com/?org=the-workshop` redirects to that hostname.
+Locally, use `http://localhost:4000/?org=the-workshop`.
 
-The landing-page **Try the subscriber demo** button starts the private session.
-The browser retains the selected organization for subsequent navigation. Do not
-link directly to `/demo/subscriber`: it accepts POST with CSRF protection, not GET.
-Hostname-based deployments instead use the organization’s custom domain or tenant
-subdomain; the platform homepage chooses the link for the configured resolution mode.
+The browser retains the selected organization for subsequent navigation. Link
+to the homepage, not `/demo/subscriber`, which continues to accept only POST.
+The platform homepage chooses the tenant URL for the configured resolution mode.
+Host-only cookies mean a browser moving from the old platform host receives its
+own new demo identity on the tenant hostname.
 
 ## Session lifecycle
 

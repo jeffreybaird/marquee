@@ -1,0 +1,5 @@
+{
+  "lib/marquee_web/endpoint.ex": "b875627aa45197fa6401abefdee3046b433d82237941f8ea84106b693190947e",
+  "lib/marquee_web/plugs/subscriber_demo_entry.ex": "ad339af166b4dbb22f26a03b172b5f63099e563873898ac3263ee9ad0825d6dc",
+  "lib/marquee_web/router.ex": "08b424130232bef4df08544e738db520d029e93473c2c35c2f91e9c34215cdca"
+}
