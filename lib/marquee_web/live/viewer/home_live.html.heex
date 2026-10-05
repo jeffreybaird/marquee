@@ -1,6 +1,9 @@
 <%= case @page_mode do %>
   <% :platform_marketing -> %>
-    <.platform_marketing subscriber_demo_url={@subscriber_demo_url} />
+    <.platform_marketing
+      subscriber_demo_url={@subscriber_demo_url}
+      admin_demo_url={@admin_demo_url}
+    />
   <% :org_landing -> %>
     <div
       :if={Marquee.SubscriberDemo.enabled?(@organization)}

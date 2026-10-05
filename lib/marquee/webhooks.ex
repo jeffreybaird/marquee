@@ -70,14 +70,16 @@ defmodule Marquee.Webhooks do
   Exempt from doctest — hits the database.
   """
   def create_endpoint(scope \\ nil, attrs) do
-    Marquee.Otel.with_span "marquee.webhooks.create_endpoint", otel_scope_attrs(scope) do
-      case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
-        {:ok, endpoint} ->
-          Events.broadcast(scope, {:endpoint_created, endpoint})
-          {:ok, endpoint}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :webhooks) do
+      Marquee.Otel.with_span "marquee.webhooks.create_endpoint", otel_scope_attrs(scope) do
+        case %Endpoint{} |> Endpoint.changeset(attrs) |> Repo.insert() do
+          {:ok, endpoint} ->
+            Events.broadcast(scope, {:endpoint_created, endpoint})
+            {:ok, endpoint}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -91,18 +93,20 @@ defmodule Marquee.Webhooks do
   Exempt from doctest — hits the database.
   """
   def update_endpoint(scope \\ nil, %Endpoint{} = endpoint, attrs) do
-    Marquee.Otel.with_span "marquee.webhooks.update_endpoint",
-                           %{
-                             "marquee.org.id" => endpoint.organization_id,
-                             "marquee.endpoint.id" => endpoint.id
-                           } do
-      case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
-        {:ok, endpoint} ->
-          Events.broadcast(scope, {:endpoint_updated, endpoint})
-          {:ok, endpoint}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :webhooks, endpoint) do
+      Marquee.Otel.with_span "marquee.webhooks.update_endpoint",
+                             %{
+                               "marquee.org.id" => endpoint.organization_id,
+                               "marquee.endpoint.id" => endpoint.id
+                             } do
+        case endpoint |> Endpoint.changeset(attrs) |> Repo.update() do
+          {:ok, endpoint} ->
+            Events.broadcast(scope, {:endpoint_updated, endpoint})
+            {:ok, endpoint}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -116,20 +120,22 @@ defmodule Marquee.Webhooks do
   Exempt from doctest — hits the database.
   """
   def delete_endpoint(scope \\ nil, %Endpoint{} = endpoint) do
-    Marquee.Otel.with_span "marquee.webhooks.delete_endpoint",
-                           %{
-                             "marquee.org.id" => endpoint.organization_id,
-                             "marquee.endpoint.id" => endpoint.id
-                           } do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+    with :ok <- Marquee.AdminDemo.authorize(scope, :webhooks, endpoint) do
+      Marquee.Otel.with_span "marquee.webhooks.delete_endpoint",
+                             %{
+                               "marquee.org.id" => endpoint.organization_id,
+                               "marquee.endpoint.id" => endpoint.id
+                             } do
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      case endpoint |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
-        {:ok, endpoint} ->
-          Events.broadcast(scope, {:endpoint_deleted, endpoint})
-          {:ok, endpoint}
+        case endpoint |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+          {:ok, endpoint} ->
+            Events.broadcast(scope, {:endpoint_deleted, endpoint})
+            {:ok, endpoint}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end

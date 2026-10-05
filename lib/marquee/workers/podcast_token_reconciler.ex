@@ -24,20 +24,30 @@ defmodule Marquee.Workers.PodcastTokenReconciler do
 
   @impl true
   def perform(%Oban.Job{args: %{"show_id" => show_id} = args}) do
-    case Repo.get(Show, show_id) do
-      nil -> :ok
-      %Show{} = show -> reconcile_show(show, Map.get(args, "reason", "show_access_changed"))
+    with :ok <-
+           Marquee.AdminDemo.worker_permission(
+             Marquee.AdminDemo.external_resource(Show, show_id, args["organization_id"])
+           ) do
+      case Repo.get(Show, show_id) do
+        nil -> :ok
+        %Show{} = show -> reconcile_show(show, Map.get(args, "reason", "show_access_changed"))
+      end
     end
   end
 
   def perform(%Oban.Job{args: %{"viewer_id" => viewer_id} = args}) do
-    case Repo.get(Viewer, viewer_id) do
-      nil ->
-        :ok
+    with :ok <-
+           Marquee.AdminDemo.worker_permission(
+             Marquee.AdminDemo.external_resource(Viewer, viewer_id, args["organization_id"])
+           ) do
+      case Repo.get(Viewer, viewer_id) do
+        nil ->
+          :ok
 
-      %Viewer{} = viewer ->
-        reason = Map.get(args, "reason", "viewer_subscription_changed")
-        reconcile_viewer(viewer, reason)
+        %Viewer{} = viewer ->
+          reason = Map.get(args, "reason", "viewer_subscription_changed")
+          reconcile_viewer(viewer, reason)
+      end
     end
   end
 

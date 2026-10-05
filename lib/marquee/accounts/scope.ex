@@ -10,7 +10,7 @@ defmodule Marquee.Accounts.Scope do
 
   alias Marquee.Accounts.{Membership, Organization, User}
 
-  defstruct user: nil, organization: nil, membership: nil
+  defstruct user: nil, organization: nil, membership: nil, admin_demo_session_id: nil
 
   @doc """
   Creates a scope for the given user. Organization and membership are nil

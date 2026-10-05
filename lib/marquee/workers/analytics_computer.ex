@@ -33,10 +33,13 @@ defmodule Marquee.Workers.AnalyticsComputer do
     ])
 
     Tracer.with_span "marquee.worker.analytics_computer.dispatch" do
-      Organization
-      |> where([o], is_nil(o.deleted_at))
-      |> select([o], o.id)
-      |> Repo.all()
+      Stream.unfold(nil, fn cursor ->
+        case Marquee.Admin.customer_organization_ids(cursor) do
+          [] -> nil
+          ids -> {ids, List.last(ids)}
+        end
+      end)
+      |> Stream.flat_map(& &1)
       |> Enum.each(fn org_id ->
         %{"organization_id" => org_id}
         |> Marquee.Otel.put_trace_context()
@@ -59,6 +62,9 @@ defmodule Marquee.Workers.AnalyticsComputer do
         nil ->
           Logger.warning("AnalyticsComputer: organization not found", organization_id: org_id)
           {:ok, :not_found}
+
+        %{demo_kind: kind} when not is_nil(kind) ->
+          {:cancel, :demo_forbidden}
 
         org ->
           compute_snapshots_for_org(org)

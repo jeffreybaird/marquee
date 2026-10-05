@@ -160,7 +160,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
     theme_params = Map.get(params, "theme", %{})
 
     with {:branding, {:ok, updated_org}} <-
-           {:branding, Accounts.update_organization_branding(org, org_params)},
+           {:branding, Accounts.update_organization_branding(scope, org, org_params)},
          {:theme, {:ok, updated_theme}} <- {:theme, save_theme(scope, theme, theme_params, org)} do
       {:noreply,
        socket
@@ -209,7 +209,8 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
         Catalog.seed_rows_from_preset_if_empty(scope, name)
       end
 
-    case {seed_result, record_preset_choice(socket.assigns.layout_config, name)} do
+    case {seed_result,
+          record_preset_choice(socket.assigns.current_scope, socket.assigns.layout_config, name)} do
       {{:error, :not_found}, _} ->
         {:noreply, put_flash(socket, :error, "Unknown preset.")}
 
@@ -230,8 +231,8 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
     end
   end
 
-  defp record_preset_choice(layout, preset_name) do
-    Catalog.update_layout(layout, %{preset_name: preset_name})
+  defp record_preset_choice(scope, layout, preset_name) do
+    Catalog.update_layout(scope, layout, %{preset_name: preset_name})
   end
 
   defp apply_preset_message({:ok, :seeded, rows}, name),
@@ -511,6 +512,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
+      flash={@flash}
     >
       <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

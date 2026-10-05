@@ -36,7 +36,9 @@ defmodule MarqueeWeb.Admin.DashboardLive do
         socket
         |> assign(page_title: "Dashboard")
         |> assign(
-          show_tour: not Accounts.admin_tour_completed?(socket.assigns[:current_membership])
+          show_tour:
+            org.demo_kind != :admin_sandbox and
+              not Accounts.admin_tour_completed?(socket.assigns[:current_membership])
         )
         |> load_dashboard(org, user)
 
@@ -67,6 +69,37 @@ defmodule MarqueeWeb.Admin.DashboardLive do
       {:error, :validation, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not dismiss that card. Please try again.")}
     end
+  end
+
+  defp load_dashboard(socket, %{demo_kind: :admin_sandbox} = org, _user) do
+    videos = Content.list_videos(org, per_page: 5).results
+
+    socket
+    |> assign(
+      overview: %{
+        active_subscribers: 248,
+        mrr_cents: 297_600,
+        total_views: 1842,
+        avg_watch_time_seconds: 42
+      }
+    )
+    |> assign(published_count: Content.count_published_videos(org))
+    |> assign(recent_videos: videos)
+    |> assign(
+      recent_viewers: [
+        %{display_name: "Sample traveler Alex", email: nil, subscription_status: "active"},
+        %{display_name: "Sample traveler Sam", email: nil, subscription_status: "active"}
+      ]
+    )
+    |> assign(
+      top_content:
+        videos
+        |> Enum.with_index()
+        |> Enum.map(fn {video, index} ->
+          %{video_id: video.id, title: video.title, unique_viewers: 320 - index * 34}
+        end)
+    )
+    |> assign(nudges: [])
   end
 
   defp load_dashboard(socket, org, user) do
@@ -123,6 +156,23 @@ defmodule MarqueeWeb.Admin.DashboardLive do
             </button>
           </:actions>
         </.header>
+
+        <section
+          :if={@organization.demo_kind == :admin_sandbox}
+          data-test="admin-demo-edit-tasks"
+          class="rounded-xl bg-admin-surface p-5 mb-6"
+        >
+          <h2 class="font-semibold">Make this travel channel your own</h2>
+          <p class="text-sm text-admin-muted my-2">
+            Sample analytics illustrate an established channel. Your edits stay private.
+          </p>
+          <div class="flex flex-wrap gap-4">
+            <.link href="/admin/content" class="underline">Edit a video</.link><.link
+              href="/admin/catalog"
+              class="underline"
+            >Arrange your homepage</.link><.link href="/admin/appearance" class="underline">Try a new look</.link>
+          </div>
+        </section>
 
         <%!-- Setup nudges (dismissable, top of page) --%>
         <section
@@ -187,7 +237,11 @@ defmodule MarqueeWeb.Admin.DashboardLive do
           <section aria-label="Recent viewer signups" data-test="recent-signups">
             <div class="flex items-center justify-between mb-3">
               <h2 class="text-lg font-semibold">Recent Signups</h2>
-              <.link navigate="/admin/members" class="text-sm text-admin-muted hover:underline">
+              <.link
+                :if={@organization.demo_kind != :admin_sandbox}
+                navigate="/admin/members"
+                class="text-sm text-admin-muted hover:underline"
+              >
                 View all
               </.link>
             </div>

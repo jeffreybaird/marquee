@@ -28,36 +28,44 @@ defmodule Marquee.Workers.AuditLogExporter do
         args: %{"user_id" => user_id} = args,
         attempt: attempt
       }) do
-    Marquee.Otel.extract_trace_context(args["trace_context"])
+    with :ok <-
+           Marquee.AdminDemo.worker_permission(
+             if(Marquee.AdminDemo.normal_user?(%Marquee.Accounts.User{id: user_id}),
+               do: :ok,
+               else: {:error, :demo_forbidden}
+             )
+           ) do
+      Marquee.Otel.extract_trace_context(args["trace_context"])
 
-    org_id = args["organization_id"]
-    scope = args["scope"] || "org"
-    filters = parse_filters(args["filters"] || %{})
+      org_id = args["organization_id"]
+      scope = args["scope"] || "org"
+      filters = parse_filters(args["filters"] || %{})
 
-    Logger.metadata(
-      org_id: org_id,
-      worker: "AuditLogExporter"
-    )
+      Logger.metadata(
+        org_id: org_id,
+        worker: "AuditLogExporter"
+      )
 
-    Tracer.with_span "marquee.worker.audit_log_exporter" do
-      Tracer.set_attributes([
-        {"marquee.org.id", org_id},
-        {"marquee.worker", "AuditLogExporter"},
-        {"oban.queue", "bulk"},
-        {"oban.attempt", attempt}
-      ])
+      Tracer.with_span "marquee.worker.audit_log_exporter" do
+        Tracer.set_attributes([
+          {"marquee.org.id", org_id},
+          {"marquee.worker", "AuditLogExporter"},
+          {"oban.queue", "bulk"},
+          {"oban.attempt", attempt}
+        ])
 
-      case build_and_upload_csv(scope, org_id, filters) do
-        {:ok, url} ->
-          broadcast_ready(user_id, url)
-          Logger.info("Audit log export complete", user_id: user_id)
-          :ok
+        case build_and_upload_csv(scope, org_id, filters) do
+          {:ok, url} ->
+            broadcast_ready(user_id, url)
+            Logger.info("Audit log export complete", user_id: user_id)
+            :ok
 
-        {:error, reason} ->
-          Tracer.set_status(:error, inspect(reason))
-          broadcast_failed(user_id, reason)
-          Logger.error("Audit log export failed", user_id: user_id, reason: inspect(reason))
-          {:error, reason}
+          {:error, reason} ->
+            Tracer.set_status(:error, inspect(reason))
+            broadcast_failed(user_id, reason)
+            Logger.error("Audit log export failed", user_id: user_id, reason: inspect(reason))
+            {:error, reason}
+        end
       end
     end
   end

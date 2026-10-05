@@ -71,6 +71,12 @@ defmodule Marquee.Branding do
 
   """
   def create_theme(scope \\ nil, attrs) do
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :branding_edit, attrs) do
+      create_authorized_theme(scope, attrs)
+    end
+  end
+
+  defp create_authorized_theme(scope, attrs) do
     Marquee.Otel.with_span "marquee.branding.create_theme", otel_scope_attrs(scope) do
       case %Theme{} |> Theme.changeset(attrs) |> Repo.insert() do
         {:ok, theme} ->
@@ -92,15 +98,8 @@ defmodule Marquee.Branding do
   Exempt from doctest — hits the database.
   """
   def apply_theme_preset(scope \\ nil, %Organization{} = org, key) when is_binary(key) do
-    case Theme.preset_attrs(key) do
-      nil ->
-        {:error, :invalid_preset}
-
-      attrs ->
-        case get_theme_by_org(org) do
-          nil -> create_theme(scope, Map.put(attrs, :organization_id, org.id))
-          %Theme{} = theme -> update_theme(scope, theme, attrs)
-        end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :branding_edit, org) do
+      authorized_apply_theme_preset(scope, org, key)
     end
   end
 
@@ -124,18 +123,20 @@ defmodule Marquee.Branding do
 
   """
   def update_theme(scope \\ nil, %Theme{} = theme, attrs) do
-    Marquee.Otel.with_span "marquee.branding.update_theme",
-                           %{
-                             "marquee.org.id" => theme.organization_id,
-                             "marquee.theme.id" => theme.id
-                           } do
-      case theme |> Theme.changeset(attrs) |> Repo.update() do
-        {:ok, theme} ->
-          Events.broadcast(scope, {:theme_updated, theme})
-          {:ok, theme}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :branding_edit, theme) do
+      Marquee.Otel.with_span "marquee.branding.update_theme",
+                             %{
+                               "marquee.org.id" => theme.organization_id,
+                               "marquee.theme.id" => theme.id
+                             } do
+        case theme |> Theme.changeset(attrs) |> Repo.update() do
+          {:ok, theme} ->
+            Events.broadcast(scope, {:theme_updated, theme})
+            {:ok, theme}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -155,18 +156,20 @@ defmodule Marquee.Branding do
 
   """
   def delete_theme(scope \\ nil, %Theme{} = theme) do
-    Marquee.Otel.with_span "marquee.branding.delete_theme",
-                           %{
-                             "marquee.org.id" => theme.organization_id,
-                             "marquee.theme.id" => theme.id
-                           } do
-      case Repo.delete(theme) do
-        {:ok, deleted_theme} ->
-          Events.broadcast(scope, {:theme_deleted, deleted_theme})
-          {:ok, deleted_theme}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :branding_edit, theme) do
+      Marquee.Otel.with_span "marquee.branding.delete_theme",
+                             %{
+                               "marquee.org.id" => theme.organization_id,
+                               "marquee.theme.id" => theme.id
+                             } do
+        case Repo.delete(theme) do
+          {:ok, deleted_theme} ->
+            Events.broadcast(scope, {:theme_deleted, deleted_theme})
+            {:ok, deleted_theme}
 
-        {:error, %Ecto.Changeset{} = changeset} ->
-          {:error, :validation, changeset}
+          {:error, %Ecto.Changeset{} = changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -310,4 +313,17 @@ defmodule Marquee.Branding do
 
   defp otel_scope_attrs(%{organization: %{id: id}}), do: %{"marquee.org.id" => id}
   defp otel_scope_attrs(_), do: %{}
+
+  defp authorized_apply_theme_preset(scope, org, key) do
+    case Theme.preset_attrs(key) do
+      nil ->
+        {:error, :invalid_preset}
+
+      attrs ->
+        case get_theme_by_org(org) do
+          nil -> create_theme(scope, Map.put(attrs, :organization_id, org.id))
+          %Theme{} = theme -> update_theme(scope, theme, attrs)
+        end
+    end
+  end
 end

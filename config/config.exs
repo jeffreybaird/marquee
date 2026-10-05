@@ -174,10 +174,20 @@ config :marquee, Oban,
        {"*/15 * * * *", Marquee.Workers.MarkEventsDidNotOccurWorker},
        {"*/15 * * * *", Marquee.Workers.PodcastFeedSync},
        {"*/15 * * * *", Marquee.Workers.SubscriberDemoCleanup},
+       {"*/5 * * * *", Marquee.Workers.AdminDemoCleanup},
        {"0 3 * * *", Marquee.Workers.ExpireTrialsWorker}
      ]}
   ],
-  queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3, tenant_domains: 2]
+  queues: [
+    critical: 10,
+    default: 20,
+    mux: 10,
+    stripe: 10,
+    bulk: 5,
+    imports: 3,
+    tenant_domains: 2,
+    admin_demo: 1
+  ]
 
 # OpenTelemetry
 config :opentelemetry,

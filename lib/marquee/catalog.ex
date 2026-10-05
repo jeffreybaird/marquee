@@ -101,18 +101,20 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def create_row(scope, attrs) do
-    Marquee.Otel.with_span "marquee.catalog.create_row",
-                           %{"marquee.org.id" => scope.organization.id} do
-      attrs = put_org_id(attrs, scope.organization.id)
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :catalog_edit, attrs) do
+      Marquee.Otel.with_span "marquee.catalog.create_row",
+                             %{"marquee.org.id" => scope.organization.id} do
+        attrs = put_org_id(attrs, scope.organization.id)
 
-      case %Row{} |> Row.changeset(attrs) |> Repo.insert() do
-        {:ok, row} ->
-          Events.broadcast(scope, {:row_created, row})
-          Audit.log(scope, "row.created", row)
-          {:ok, row}
+        case %Row{} |> Row.changeset(attrs) |> Repo.insert() do
+          {:ok, row} ->
+            Events.broadcast(scope, {:row_created, row})
+            Audit.log(scope, "row.created", row)
+            {:ok, row}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -123,23 +125,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def update_row(scope, %Row{} = row, attrs) do
-    Marquee.Otel.with_span "marquee.catalog.update_row",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case row |> Row.changeset(attrs) |> Repo.update() do
-        {:ok, row} ->
-          Events.broadcast(scope, {:row_updated, row})
-          Audit.log(scope, "row.updated", row, attrs)
-          invalidate_row_cache(scope.organization.id, row.id)
-
-          if row.source_type == :hero do
-            invalidate_hero_cache(scope.organization.id)
-          end
-
-          {:ok, row}
-
-        {:error, changeset} ->
-          {:error, :validation, changeset}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      authorized_update_row(scope, row, attrs)
     end
   end
 
@@ -149,18 +136,20 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def delete_row(scope, %Row{} = row) do
-    Marquee.Otel.with_span "marquee.catalog.delete_row",
-                           %{"marquee.org.id" => scope.organization.id} do
-      with {:ok, row} <-
-             row
-             |> Ecto.Changeset.change(
-               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
-             )
-             |> Repo.update() do
-        Events.broadcast(scope, {:row_deleted, row})
-        Audit.log(scope, "row.deleted", row)
-        invalidate_row_cache(scope.organization.id, row.id)
-        {:ok, row}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      Marquee.Otel.with_span "marquee.catalog.delete_row",
+                             %{"marquee.org.id" => scope.organization.id} do
+        with {:ok, row} <-
+               row
+               |> Ecto.Changeset.change(
+                 deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               )
+               |> Repo.update() do
+          Events.broadcast(scope, {:row_deleted, row})
+          Audit.log(scope, "row.deleted", row)
+          invalidate_row_cache(scope.organization.id, row.id)
+          {:ok, row}
+        end
       end
     end
   end
@@ -170,10 +159,15 @@ defmodule Marquee.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def restore_row(%Row{} = row) do
-    case row |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
-      {:ok, row} -> {:ok, row}
-      {:error, changeset} -> {:error, :validation, changeset}
+  def restore_row(row), do: restore_row(nil, row)
+
+  @doc "Scoped sandbox-safe mutation. Requires database access."
+  def restore_row(scope, %Row{} = row) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      case row |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+        {:ok, row} -> {:ok, row}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -197,25 +191,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def reorder_rows(scope, ordered_ids) do
-    Marquee.Otel.with_span "marquee.catalog.reorder_rows",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {id, position} ->
-          Row
-          |> where(id: ^id, organization_id: ^scope.organization.id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:rows_reordered, ordered_ids})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, nil) do
+      authorized_reorder_rows(scope, ordered_ids)
     end
   end
 
@@ -244,26 +221,28 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def add_item_to_row(scope, %Row{} = row, %Marquee.Content.Video{} = video, position \\ nil) do
-    Marquee.Otel.with_span "marquee.catalog.add_item_to_row",
-                           %{"marquee.org.id" => scope.organization.id} do
-      position = position || next_row_item_position(row.id)
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [row, video]) do
+      Marquee.Otel.with_span "marquee.catalog.add_item_to_row",
+                             %{"marquee.org.id" => scope.organization.id} do
+        position = position || next_row_item_position(row.id)
 
-      attrs = %{
-        organization_id: scope.organization.id,
-        row_id: row.id,
-        video_id: video.id,
-        position: position
-      }
+        attrs = %{
+          organization_id: scope.organization.id,
+          row_id: row.id,
+          video_id: video.id,
+          position: position
+        }
 
-      case %RowItem{} |> RowItem.changeset(attrs) |> Repo.insert() do
-        {:ok, item} ->
-          Events.broadcast(scope, {:row_item_added, %{row: row, video: video}})
-          Audit.log(scope, "row.item_added", item)
-          invalidate_row_cache(scope.organization.id, row.id)
-          {:ok, item}
+        case %RowItem{} |> RowItem.changeset(attrs) |> Repo.insert() do
+          {:ok, item} ->
+            Events.broadcast(scope, {:row_item_added, %{row: row, video: video}})
+            Audit.log(scope, "row.item_added", item)
+            invalidate_row_cache(scope.organization.id, row.id)
+            {:ok, item}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -274,32 +253,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def remove_item_from_row(scope, %Row{} = row, %Marquee.Content.Video{} = video) do
-    Marquee.Otel.with_span "marquee.catalog.remove_item_from_row",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case Repo.get_by(RowItem, row_id: row.id, video_id: video.id) do
-        nil ->
-          {:error, :not_found}
-
-        %RowItem{deleted_at: %DateTime{}} ->
-          {:error, :not_found}
-
-        item ->
-          now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-          item
-          |> Ecto.Changeset.change(deleted_at: now)
-          |> Repo.update()
-          |> case do
-            {:ok, _} ->
-              Events.broadcast(scope, {:row_item_removed, %{row: row, video: video}})
-              Audit.log(scope, "row.item_removed", item)
-              invalidate_row_cache(scope.organization.id, row.id)
-              :ok
-
-            {:error, changeset} ->
-              {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [row, video]) do
+      authorized_remove_item_from_row(scope, row, video)
     end
   end
 
@@ -309,26 +264,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def reorder_row_items(scope, %Row{} = row, ordered_video_ids) do
-    Marquee.Otel.with_span "marquee.catalog.reorder_row_items",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_video_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {video_id, position} ->
-          RowItem
-          |> where(row_id: ^row.id, video_id: ^video_id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:row_items_reordered, %{row: row}})
-          invalidate_row_cache(scope.organization.id, row.id)
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      authorized_reorder_row_items(scope, row, ordered_video_ids)
     end
   end
 
@@ -695,17 +632,19 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def create_hero_row(scope, attrs) do
-    case get_hero_row(scope.organization) do
-      {:ok, _existing} ->
-        {:error, :already_exists}
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :catalog_edit, attrs) do
+      case get_hero_row(scope.organization) do
+        {:ok, _existing} ->
+          {:error, :already_exists}
 
-      {:error, :not_found} ->
-        attrs =
-          attrs
-          |> Map.merge(%{source_type: :hero, visible: true})
-          |> Map.put_new(:title, "Hero")
+        {:error, :not_found} ->
+          attrs =
+            attrs
+            |> Map.merge(%{source_type: :hero, visible: true})
+            |> Map.put_new(:title, "Hero")
 
-        create_row(scope, attrs)
+          create_row(scope, attrs)
+      end
     end
   end
 
@@ -737,29 +676,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def create_hero_slide(scope, %Row{} = row, attrs) do
-    Marquee.Otel.with_span "marquee.catalog.create_hero_slide",
-                           %{"marquee.org.id" => scope.organization.id} do
-      current_count = count_active_hero_slides(scope.organization, row)
-
-      if current_count >= @hero_slide_limit do
-        {:error, :hero_limit_reached, %{limit: @hero_slide_limit, current: current_count}}
-      else
-        position = Map.get(attrs, :position, current_count)
-
-        %HeroSlide{organization_id: scope.organization.id, row_id: row.id}
-        |> HeroSlide.changeset(Map.put(attrs, :position, position))
-        |> Repo.insert()
-        |> case do
-          {:ok, slide} ->
-            Events.broadcast(scope, {:hero_slide_created, slide})
-            Audit.log(scope, "hero_slide.created", slide)
-            invalidate_hero_cache(scope.organization.id)
-            {:ok, slide}
-
-          {:error, changeset} ->
-            {:error, :validation, changeset}
-        end
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      authorized_create_hero_slide(scope, row, attrs)
     end
   end
 
@@ -769,20 +687,22 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def update_hero_slide(scope, %HeroSlide{} = slide, attrs) do
-    Marquee.Otel.with_span "marquee.catalog.update_hero_slide",
-                           %{"marquee.org.id" => scope.organization.id} do
-      slide
-      |> HeroSlide.changeset(attrs)
-      |> Repo.update()
-      |> case do
-        {:ok, updated} ->
-          Events.broadcast(scope, {:hero_slide_updated, updated})
-          Audit.log(scope, "hero_slide.updated", updated, attrs)
-          invalidate_hero_cache(scope.organization.id)
-          {:ok, updated}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, slide) do
+      Marquee.Otel.with_span "marquee.catalog.update_hero_slide",
+                             %{"marquee.org.id" => scope.organization.id} do
+        slide
+        |> HeroSlide.changeset(attrs)
+        |> Repo.update()
+        |> case do
+          {:ok, updated} ->
+            Events.broadcast(scope, {:hero_slide_updated, updated})
+            Audit.log(scope, "hero_slide.updated", updated, attrs)
+            invalidate_hero_cache(scope.organization.id)
+            {:ok, updated}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -793,20 +713,22 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def delete_hero_slide(scope, %HeroSlide{} = slide) do
-    Marquee.Otel.with_span "marquee.catalog.delete_hero_slide",
-                           %{"marquee.org.id" => scope.organization.id} do
-      slide
-      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-      |> Repo.update()
-      |> case do
-        {:ok, deleted} ->
-          Events.broadcast(scope, {:hero_slide_deleted, deleted})
-          Audit.log(scope, "hero_slide.deleted", deleted)
-          invalidate_hero_cache(scope.organization.id)
-          {:ok, deleted}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, slide) do
+      Marquee.Otel.with_span "marquee.catalog.delete_hero_slide",
+                             %{"marquee.org.id" => scope.organization.id} do
+        slide
+        |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+        |> Repo.update()
+        |> case do
+          {:ok, deleted} ->
+            Events.broadcast(scope, {:hero_slide_deleted, deleted})
+            Audit.log(scope, "hero_slide.deleted", deleted)
+            invalidate_hero_cache(scope.organization.id)
+            {:ok, deleted}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -817,26 +739,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def reorder_hero_slides(scope, %Row{} = row, ordered_slide_ids) do
-    Marquee.Otel.with_span "marquee.catalog.reorder_hero_slides",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_slide_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {slide_id, position} ->
-          HeroSlide
-          |> where(id: ^slide_id, row_id: ^row.id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:hero_slides_reordered, %{row: row}})
-          invalidate_hero_cache(scope.organization.id)
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, row) do
+      authorized_reorder_hero_slides(scope, row, ordered_slide_ids)
     end
   end
 
@@ -1025,14 +929,19 @@ defmodule Marquee.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def update_layout(%Layout{} = layout, attrs) do
-    case layout |> Layout.changeset(attrs) |> Repo.update() do
-      {:ok, updated} ->
-        broadcast_layout(updated)
-        {:ok, updated}
+  def update_layout(layout, attrs), do: update_layout(nil, layout, attrs)
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+  @doc "Scoped sandbox-safe mutation. Requires database access."
+  def update_layout(scope, %Layout{} = layout, attrs) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :branding_edit, layout) do
+      case layout |> Layout.changeset(attrs) |> Repo.update() do
+        {:ok, updated} ->
+          broadcast_layout(updated)
+          {:ok, updated}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -1042,16 +951,21 @@ defmodule Marquee.Catalog do
 
   Exempt from doctest — hits the database.
   """
-  def reset_layout_to_preset(%Organization{} = org, preset_name)
-      when is_binary(preset_name) do
-    with {:ok, preset} <- Presets.get(preset_name),
-         {:ok, layout} <- get_or_create_layout(org) do
-      attrs = %{
-        preset_name: preset.name,
-        default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant)
-      }
+  def reset_layout_to_preset(org, preset_name), do: reset_layout_to_preset(nil, org, preset_name)
 
-      update_layout(layout, attrs)
+  @doc "Scoped sandbox-safe mutation. Requires database access."
+  def reset_layout_to_preset(scope, %Organization{} = org, preset_name)
+      when is_binary(preset_name) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :branding_edit, org) do
+      with {:ok, preset} <- Presets.get(preset_name),
+           {:ok, layout} <- get_or_create_layout(org) do
+        attrs = %{
+          preset_name: preset.name,
+          default_browse_card_variant: Atom.to_string(preset.default_browse_card_variant)
+        }
+
+        update_layout(layout, attrs)
+      end
     end
   end
 
@@ -1065,22 +979,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def seed_rows_from_preset_if_empty(scope, preset_name) when is_binary(preset_name) do
-    org = scope.organization
-
-    with {:ok, preset} <- Presets.get(preset_name),
-         {:rows, []} <- {:rows, existing_non_deleted_rows(org.id)} do
-      inserted =
-        preset.rows
-        |> Enum.map(&preset_row_attrs/1)
-        |> Enum.map(fn attrs -> create_row(scope, attrs) end)
-
-      case Enum.split_with(inserted, &match?({:ok, _}, &1)) do
-        {oks, []} -> {:ok, :seeded, Enum.map(oks, &unwrap_ok/1)}
-        {_, [{:error, kind, cs} | _]} -> {:error, kind, cs}
-      end
-    else
-      {:error, :not_found} -> {:error, :not_found}
-      {:rows, _existing} -> {:ok, :skipped}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, nil) do
+      authorized_seed_rows_from_preset_if_empty(scope, preset_name)
     end
   end
 
@@ -1097,20 +997,8 @@ defmodule Marquee.Catalog do
   Exempt from doctest — hits the database.
   """
   def overwrite_rows_with_preset(scope, preset_name) when is_binary(preset_name) do
-    org = scope.organization
-
-    with {:ok, _preset} <- Presets.get(preset_name) do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-      Row
-      |> where(organization_id: ^org.id)
-      |> where([r], is_nil(r.deleted_at))
-      |> Repo.update_all(set: [deleted_at: now, updated_at: now])
-
-      case seed_rows_from_preset_if_empty(scope, preset_name) do
-        {:ok, :seeded, rows} -> {:ok, :overwritten, rows}
-        other -> other
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, nil) do
+      authorized_overwrite_rows_with_preset(scope, preset_name)
     end
   end
 
@@ -1189,5 +1077,192 @@ defmodule Marquee.Catalog do
       layout_topic(org_id),
       {:layout_updated, layout}
     )
+  end
+
+  defp authorized_reorder_hero_slides(scope, row, ordered_slide_ids) do
+    Marquee.Otel.with_span "marquee.catalog.reorder_hero_slides",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_slide_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {slide_id, position} ->
+          HeroSlide
+          |> where(id: ^slide_id, row_id: ^row.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:hero_slides_reordered, %{row: row}})
+          invalidate_hero_cache(scope.organization.id)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_create_hero_slide(scope, row, attrs) do
+    Marquee.Otel.with_span "marquee.catalog.create_hero_slide",
+                           %{"marquee.org.id" => scope.organization.id} do
+      current_count = count_active_hero_slides(scope.organization, row)
+
+      if current_count >= @hero_slide_limit do
+        {:error, :hero_limit_reached, %{limit: @hero_slide_limit, current: current_count}}
+      else
+        position = Map.get(attrs, :position, current_count)
+
+        %HeroSlide{organization_id: scope.organization.id, row_id: row.id}
+        |> HeroSlide.changeset(Map.put(attrs, :position, position))
+        |> Repo.insert()
+        |> case do
+          {:ok, slide} ->
+            Events.broadcast(scope, {:hero_slide_created, slide})
+            Audit.log(scope, "hero_slide.created", slide)
+            invalidate_hero_cache(scope.organization.id)
+            {:ok, slide}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+      end
+    end
+  end
+
+  defp authorized_reorder_row_items(scope, row, ordered_video_ids) do
+    Marquee.Otel.with_span "marquee.catalog.reorder_row_items",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_video_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {video_id, position} ->
+          RowItem
+          |> where(row_id: ^row.id, video_id: ^video_id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:row_items_reordered, %{row: row}})
+          invalidate_row_cache(scope.organization.id, row.id)
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_remove_item_from_row(scope, row, video) do
+    Marquee.Otel.with_span "marquee.catalog.remove_item_from_row",
+                           %{"marquee.org.id" => scope.organization.id} do
+      case Repo.get_by(RowItem, row_id: row.id, video_id: video.id) do
+        nil ->
+          {:error, :not_found}
+
+        %RowItem{deleted_at: %DateTime{}} ->
+          {:error, :not_found}
+
+        item ->
+          now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+          item
+          |> Ecto.Changeset.change(deleted_at: now)
+          |> Repo.update()
+          |> case do
+            {:ok, _} ->
+              Events.broadcast(scope, {:row_item_removed, %{row: row, video: video}})
+              Audit.log(scope, "row.item_removed", item)
+              invalidate_row_cache(scope.organization.id, row.id)
+              :ok
+
+            {:error, changeset} ->
+              {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_update_row(scope, row, attrs) do
+    Marquee.Otel.with_span "marquee.catalog.update_row",
+                           %{"marquee.org.id" => scope.organization.id} do
+      case row |> Row.changeset(attrs) |> Repo.update() do
+        {:ok, row} ->
+          Events.broadcast(scope, {:row_updated, row})
+          Audit.log(scope, "row.updated", row, attrs)
+          invalidate_row_cache(scope.organization.id, row.id)
+
+          if row.source_type == :hero do
+            invalidate_hero_cache(scope.organization.id)
+          end
+
+          {:ok, row}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  defp authorized_overwrite_rows_with_preset(scope, preset_name) do
+    org = scope.organization
+
+    with {:ok, _preset} <- Presets.get(preset_name) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      Row
+      |> where(organization_id: ^org.id)
+      |> where([r], is_nil(r.deleted_at))
+      |> Repo.update_all(set: [deleted_at: now, updated_at: now])
+
+      case seed_rows_from_preset_if_empty(scope, preset_name) do
+        {:ok, :seeded, rows} -> {:ok, :overwritten, rows}
+        other -> other
+      end
+    end
+  end
+
+  defp authorized_seed_rows_from_preset_if_empty(scope, preset_name) do
+    org = scope.organization
+
+    with {:ok, preset} <- Presets.get(preset_name),
+         {:rows, []} <- {:rows, existing_non_deleted_rows(org.id)} do
+      inserted =
+        preset.rows
+        |> Enum.map(&preset_row_attrs/1)
+        |> Enum.map(fn attrs -> create_row(scope, attrs) end)
+
+      case Enum.split_with(inserted, &match?({:ok, _}, &1)) do
+        {oks, []} -> {:ok, :seeded, Enum.map(oks, &unwrap_ok/1)}
+        {_, [{:error, kind, cs} | _]} -> {:error, kind, cs}
+      end
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {:rows, _existing} -> {:ok, :skipped}
+    end
+  end
+
+  defp authorized_reorder_rows(scope, ordered_ids) do
+    Marquee.Otel.with_span "marquee.catalog.reorder_rows",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {id, position} ->
+          Row
+          |> where(id: ^id, organization_id: ^scope.organization.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:rows_reordered, ordered_ids})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
   end
 end

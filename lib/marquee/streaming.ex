@@ -128,21 +128,8 @@ defmodule Marquee.Streaming do
   Exempt from doctest — hits the database and external service.
   """
   def create_live_event(%Scope{} = scope, attrs) do
-    Tracer.with_span "marquee.streaming.create_live_event" do
-      changeset = LiveEvent.changeset(%LiveEvent{}, attrs)
-
-      Repo.transaction(fn ->
-        with {:ok, event} <- insert_or_rollback(changeset),
-             {:ok, stream_data} <- provision_mux_live_stream(event),
-             {:ok, event} <- update_event_with_mux_data(event, stream_data) do
-          Events.broadcast(scope, {:live_event_created, event})
-          event
-        else
-          {:error, :validation, cs} -> Repo.rollback({:validation, cs})
-          {:error, :mux_error, details} -> Repo.rollback({:mux_error, details})
-        end
-      end)
-      |> unwrap_transaction_result()
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast) do
+      authorized_create_live_event(scope, attrs)
     end
   end
 
@@ -154,16 +141,18 @@ defmodule Marquee.Streaming do
   Exempt from doctest — hits the database.
   """
   def update_live_event(%Scope{} = scope, %LiveEvent{} = event, attrs) do
-    event
-    |> LiveEvent.changeset(attrs)
-    |> Repo.update()
-    |> case do
-      {:ok, updated} ->
-        Events.broadcast(scope, {:live_event_updated, updated})
-        {:ok, updated}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast, event) do
+      event
+      |> LiveEvent.changeset(attrs)
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          Events.broadcast(scope, {:live_event_updated, updated})
+          {:ok, updated}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -179,24 +168,8 @@ defmodule Marquee.Streaming do
   Exempt from doctest — hits the database.
   """
   def cancel_live_event(%Scope{} = scope, %LiveEvent{} = event) do
-    case transition_event(scope, event, "canceled") do
-      {:ok, canceled_event} = result ->
-        org = Repo.get!(Organization, canceled_event.organization_id)
-        LiveEventNotifier.send_cancellation_emails(canceled_event, org)
-
-        if canceled_event.access_type == "pay_per_view" do
-          %{
-            "live_event_id" => canceled_event.id,
-            "organization_id" => canceled_event.organization_id
-          }
-          |> RefundPpvTicketsWorker.new()
-          |> Oban.insert()
-        end
-
-        result
-
-      error ->
-        error
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast, event) do
+      authorized_cancel_live_event(scope, event)
     end
   end
 
@@ -208,28 +181,8 @@ defmodule Marquee.Streaming do
   Exempt from doctest — hits the database and external service.
   """
   def delete_live_event(%Scope{} = scope, %LiveEvent{} = event) do
-    mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
-
-    if event.mux_live_stream_id do
-      case mux_client.delete_live_stream(event.mux_live_stream_id) do
-        :ok ->
-          :ok
-
-        {:error, :mux_error, details} ->
-          Logger.warning("Mux delete failed during soft delete", reason: inspect(details))
-      end
-    end
-
-    event
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
-    |> case do
-      {:ok, deleted} ->
-        Events.broadcast(scope, {:live_event_deleted, deleted})
-        {:ok, deleted}
-
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast, event) do
+      authorized_delete_live_event(scope, event)
     end
   end
 
@@ -249,29 +202,8 @@ defmodule Marquee.Streaming do
   Exempt from doctest — hits the database.
   """
   def transition_event(%Scope{} = scope, %LiveEvent{} = event, new_status) do
-    Marquee.Otel.with_span "marquee.streaming.transition_event",
-                           %{
-                             org_id: event.organization_id,
-                             live_event_id: event.id,
-                             to_status: new_status
-                           } do
-      case LiveEvent.transition_changeset(event, event.status, new_status) do
-        {:error, :invalid_transition} ->
-          {:error, :invalid_transition}
-
-        changeset ->
-          changeset
-          |> Repo.update()
-          |> case do
-            {:ok, updated} ->
-              Events.broadcast(scope, {:live_event_status_changed, updated})
-              Marquee.Metrics.live_event_transitioned(updated.organization_id, new_status)
-              {:ok, updated}
-
-            {:error, cs} ->
-              {:error, :validation, cs}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast, event) do
+      authorized_transition_event(scope, event, new_status)
     end
   end
 
@@ -295,16 +227,18 @@ defmodule Marquee.Streaming do
   end
 
   def get_stream_credentials(%LiveEvent{mux_live_stream_id: stream_id} = event) do
-    mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
+    with :ok <- Marquee.AdminDemo.external_effect(event.organization_id) do
+      mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
 
-    case mux_client.get_live_stream(stream_id) do
-      {:ok, stream_data} ->
-        stream_key = stream_data["stream_key"]
-        rtmp_url = event.mux_rtmp_url || "rtmps://global-live.mux.com:443/app"
-        {:ok, %{rtmp_url: rtmp_url, stream_key: stream_key}}
+      case mux_client.get_live_stream(stream_id) do
+        {:ok, stream_data} ->
+          stream_key = stream_data["stream_key"]
+          rtmp_url = event.mux_rtmp_url || "rtmps://global-live.mux.com:443/app"
+          {:ok, %{rtmp_url: rtmp_url, stream_key: stream_key}}
 
-      error ->
-        error
+        error ->
+          error
+      end
     end
   end
 
@@ -321,15 +255,17 @@ defmodule Marquee.Streaming do
   end
 
   def regenerate_stream_key(%Scope{} = scope, %LiveEvent{} = event) do
-    mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
+    with :ok <- Marquee.AdminDemo.authorize(scope, :live_broadcast, event) do
+      mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
 
-    case mux_client.reset_stream_key(event.mux_live_stream_id) do
-      {:ok, _stream_data} ->
-        Events.broadcast(scope, {:live_event_stream_key_regenerated, event})
-        :ok
+      case mux_client.reset_stream_key(event.mux_live_stream_id) do
+        {:ok, _stream_data} ->
+          Events.broadcast(scope, {:live_event_stream_key_regenerated, event})
+          :ok
 
-      error ->
-        error
+        error ->
+          error
+      end
     end
   end
 
@@ -939,6 +875,100 @@ defmodule Marquee.Streaming do
         )
 
         :ok
+    end
+  end
+
+  defp authorized_transition_event(scope, event, new_status) do
+    Marquee.Otel.with_span "marquee.streaming.transition_event",
+                           %{
+                             org_id: event.organization_id,
+                             live_event_id: event.id,
+                             to_status: new_status
+                           } do
+      case LiveEvent.transition_changeset(event, event.status, new_status) do
+        {:error, :invalid_transition} ->
+          {:error, :invalid_transition}
+
+        changeset ->
+          changeset
+          |> Repo.update()
+          |> case do
+            {:ok, updated} ->
+              Events.broadcast(scope, {:live_event_status_changed, updated})
+              Marquee.Metrics.live_event_transitioned(updated.organization_id, new_status)
+              {:ok, updated}
+
+            {:error, cs} ->
+              {:error, :validation, cs}
+          end
+      end
+    end
+  end
+
+  defp authorized_delete_live_event(scope, event) do
+    mux_client = Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
+
+    if event.mux_live_stream_id do
+      case mux_client.delete_live_stream(event.mux_live_stream_id) do
+        :ok ->
+          :ok
+
+        {:error, :mux_error, details} ->
+          Logger.warning("Mux delete failed during soft delete", reason: inspect(details))
+      end
+    end
+
+    event
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+    |> case do
+      {:ok, deleted} ->
+        Events.broadcast(scope, {:live_event_deleted, deleted})
+        {:ok, deleted}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
+  defp authorized_cancel_live_event(scope, event) do
+    case transition_event(scope, event, "canceled") do
+      {:ok, canceled_event} = result ->
+        org = Repo.get!(Organization, canceled_event.organization_id)
+        LiveEventNotifier.send_cancellation_emails(canceled_event, org)
+
+        if canceled_event.access_type == "pay_per_view" do
+          %{
+            "live_event_id" => canceled_event.id,
+            "organization_id" => canceled_event.organization_id
+          }
+          |> RefundPpvTicketsWorker.new()
+          |> Oban.insert()
+        end
+
+        result
+
+      error ->
+        error
+    end
+  end
+
+  defp authorized_create_live_event(scope, attrs) do
+    Tracer.with_span "marquee.streaming.create_live_event" do
+      changeset = LiveEvent.changeset(%LiveEvent{}, attrs)
+
+      Repo.transaction(fn ->
+        with {:ok, event} <- insert_or_rollback(changeset),
+             {:ok, stream_data} <- provision_mux_live_stream(event),
+             {:ok, event} <- update_event_with_mux_data(event, stream_data) do
+          Events.broadcast(scope, {:live_event_created, event})
+          event
+        else
+          {:error, :validation, cs} -> Repo.rollback({:validation, cs})
+          {:error, :mux_error, details} -> Repo.rollback({:mux_error, details})
+        end
+      end)
+      |> unwrap_transaction_result()
     end
   end
 end

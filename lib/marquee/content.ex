@@ -223,9 +223,11 @@ defmodule Marquee.Content do
   Exempt from doctest — calls Mux API.
   """
   def create_upload_url(scope, attrs, opts \\ []) do
-    case UsageLimits.check_upload(scope.organization) do
-      :ok -> do_create_upload_url(scope, attrs, opts)
-      {:error, _reason, _meta} = error -> error
+    with :ok <- Marquee.AdminDemo.authorize(scope, :upload) do
+      case UsageLimits.check_upload(scope.organization) do
+        :ok -> do_create_upload_url(scope, attrs, opts)
+        {:error, _reason, _meta} = error -> error
+      end
     end
   end
 
@@ -540,14 +542,16 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def create_video(scope \\ nil, attrs) do
-    Marquee.Otel.with_span "marquee.content.create_video" do
-      case %Video{} |> Video.changeset(attrs) |> Repo.insert() do
-        {:ok, video} ->
-          Events.broadcast(scope, {:video_created, video})
-          {:ok, video}
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :upload, attrs) do
+      Marquee.Otel.with_span "marquee.content.create_video" do
+        case %Video{} |> Video.changeset(attrs) |> Repo.insert() do
+          {:ok, video} ->
+            Events.broadcast(scope, {:video_created, video})
+            {:ok, video}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -561,14 +565,16 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def update_video(scope \\ nil, %Video{} = video, attrs) do
-    Marquee.Otel.with_span "marquee.content.update_video" do
-      case video |> Video.changeset(attrs) |> Repo.update() do
-        {:ok, video} ->
-          Events.broadcast(scope, {:video_updated, video})
-          {:ok, video}
+    with :ok <- Marquee.AdminDemo.authorize_attributes(scope, :content_edit, video, attrs) do
+      Marquee.Otel.with_span "marquee.content.update_video" do
+        case video |> Video.changeset(attrs) |> Repo.update() do
+          {:ok, video} ->
+            Events.broadcast(scope, {:video_updated, video})
+            {:ok, video}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -582,15 +588,17 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def delete_video(scope \\ nil, %Video{} = video) do
-    Marquee.Otel.with_span "marquee.content.delete_video" do
-      with {:ok, video} <-
-             video
-             |> Ecto.Changeset.change(
-               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
-             )
-             |> Repo.update() do
-        Events.broadcast(scope, {:video_deleted, video})
-        {:ok, video}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :content_edit, video) do
+      Marquee.Otel.with_span "marquee.content.delete_video" do
+        with {:ok, video} <-
+               video
+               |> Ecto.Changeset.change(
+                 deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               )
+               |> Repo.update() do
+          Events.broadcast(scope, {:video_deleted, video})
+          {:ok, video}
+        end
       end
     end
   end
@@ -604,13 +612,15 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def restore_video(scope \\ nil, %Video{} = video) do
-    case video |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
-      {:ok, video} ->
-        Events.broadcast(scope, {:video_restored, video})
-        {:ok, video}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, video) do
+      case video |> Ecto.Changeset.change(deleted_at: nil) |> Repo.update() do
+        {:ok, video} ->
+          Events.broadcast(scope, {:video_restored, video})
+          {:ok, video}
 
-      {:error, changeset} ->
-        {:error, :validation, changeset}
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
     end
   end
 
@@ -707,18 +717,20 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def create_collection(scope, attrs) do
-    Marquee.Otel.with_span "marquee.content.create_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      attrs = put_org_id(attrs, scope.organization.id)
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :catalog_edit, attrs) do
+      Marquee.Otel.with_span "marquee.content.create_collection",
+                             %{"marquee.org.id" => scope.organization.id} do
+        attrs = put_org_id(attrs, scope.organization.id)
 
-      case %Collection{} |> Collection.changeset(attrs) |> Repo.insert() do
-        {:ok, collection} ->
-          Events.broadcast(scope, {:collection_created, collection})
-          Audit.log(scope, "collection.created", collection)
-          {:ok, collection}
+        case %Collection{} |> Collection.changeset(attrs) |> Repo.insert() do
+          {:ok, collection} ->
+            Events.broadcast(scope, {:collection_created, collection})
+            Audit.log(scope, "collection.created", collection)
+            {:ok, collection}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -729,16 +741,18 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def update_collection(scope, %Collection{} = collection, attrs) do
-    Marquee.Otel.with_span "marquee.content.update_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case collection |> Collection.changeset(attrs) |> Repo.update() do
-        {:ok, collection} ->
-          Events.broadcast(scope, {:collection_updated, collection})
-          Audit.log(scope, "collection.updated", collection, attrs)
-          {:ok, collection}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, collection) do
+      Marquee.Otel.with_span "marquee.content.update_collection",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case collection |> Collection.changeset(attrs) |> Repo.update() do
+          {:ok, collection} ->
+            Events.broadcast(scope, {:collection_updated, collection})
+            Audit.log(scope, "collection.updated", collection, attrs)
+            {:ok, collection}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -749,17 +763,19 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def delete_collection(scope, %Collection{} = collection) do
-    Marquee.Otel.with_span "marquee.content.delete_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      with {:ok, collection} <-
-             collection
-             |> Ecto.Changeset.change(
-               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
-             )
-             |> Repo.update() do
-        Events.broadcast(scope, {:collection_deleted, collection})
-        Audit.log(scope, "collection.deleted", collection)
-        {:ok, collection}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, collection) do
+      Marquee.Otel.with_span "marquee.content.delete_collection",
+                             %{"marquee.org.id" => scope.organization.id} do
+        with {:ok, collection} <-
+               collection
+               |> Ecto.Changeset.change(
+                 deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               )
+               |> Repo.update() do
+          Events.broadcast(scope, {:collection_deleted, collection})
+          Audit.log(scope, "collection.deleted", collection)
+          {:ok, collection}
+        end
       end
     end
   end
@@ -770,13 +786,15 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def restore_collection(scope, %Collection{} = collection) do
-    Marquee.Otel.with_span "marquee.content.restore_collection" do
-      with {:ok, collection} <-
-             collection
-             |> Ecto.Changeset.change(deleted_at: nil)
-             |> Repo.update() do
-        Events.broadcast(scope, {:collection_updated, collection})
-        {:ok, collection}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, collection) do
+      Marquee.Otel.with_span "marquee.content.restore_collection" do
+        with {:ok, collection} <-
+               collection
+               |> Ecto.Changeset.change(deleted_at: nil)
+               |> Repo.update() do
+          Events.broadcast(scope, {:collection_updated, collection})
+          {:ok, collection}
+        end
       end
     end
   end
@@ -803,25 +821,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def reorder_collections(scope, ordered_ids) do
-    Marquee.Otel.with_span "marquee.content.reorder_collections",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {id, position} ->
-          Collection
-          |> where(id: ^id, organization_id: ^scope.organization.id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:collections_reordered, ordered_ids})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, nil) do
+      authorized_reorder_collections(scope, ordered_ids)
     end
   end
 
@@ -856,35 +857,8 @@ defmodule Marquee.Content do
         %Video{} = video,
         position \\ nil
       ) do
-    Marquee.Otel.with_span "marquee.content.add_video_to_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      position = position || next_collection_item_position(collection.id)
-
-      attrs = %{
-        organization_id: scope.organization.id,
-        collection_id: collection.id,
-        video_id: video.id,
-        item_type: :video,
-        position: position
-      }
-
-      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
-        {:ok, item} ->
-          Events.broadcast(
-            scope,
-            {:collection_video_added, %{collection: collection, video: video}}
-          )
-
-          Audit.log(scope, "collection.video_added", item)
-          {:ok, item}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [collection, video]) do
+      authorized_add_video_to_collection(scope, collection, video, position)
     end
   end
 
@@ -899,36 +873,8 @@ defmodule Marquee.Content do
         %Season{} = season,
         position \\ nil
       ) do
-    Marquee.Otel.with_span "marquee.content.add_season_to_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      position = position || next_collection_item_position(collection.id)
-
-      attrs = %{
-        organization_id: scope.organization.id,
-        collection_id: collection.id,
-        season_id: season.id,
-        item_type: :season,
-        position: position
-      }
-
-      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
-        {:ok, item} ->
-          Events.broadcast(scope, {:collection_item_added, item})
-
-          Audit.log(scope, "collection_item.added", item, %{
-            item_type: "season",
-            season_id: season.id
-          })
-
-          {:ok, item}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [collection, season]) do
+      authorized_add_season_to_collection(scope, collection, season, position)
     end
   end
 
@@ -943,36 +889,8 @@ defmodule Marquee.Content do
         %Series{} = series,
         position \\ nil
       ) do
-    Marquee.Otel.with_span "marquee.content.add_series_to_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      position = position || next_collection_item_position(collection.id)
-
-      attrs = %{
-        organization_id: scope.organization.id,
-        collection_id: collection.id,
-        series_id: series.id,
-        item_type: :series,
-        position: position
-      }
-
-      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
-        {:ok, item} ->
-          Events.broadcast(scope, {:collection_item_added, item})
-
-          Audit.log(scope, "collection_item.added", item, %{
-            item_type: "series",
-            series_id: series.id
-          })
-
-          {:ok, item}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [collection, series]) do
+      authorized_add_series_to_collection(scope, collection, series, position)
     end
   end
 
@@ -985,27 +903,29 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def add_videos_to_collection(scope, %Collection{} = collection, videos) when is_list(videos) do
-    Marquee.Otel.with_span "marquee.content.add_videos_to_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      existing_video_ids =
-        CollectionItem
-        |> where(collection_id: ^collection.id)
-        |> select([ci], ci.video_id)
-        |> Repo.all()
-        |> MapSet.new()
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [collection | videos]) do
+      Marquee.Otel.with_span "marquee.content.add_videos_to_collection",
+                             %{"marquee.org.id" => scope.organization.id} do
+        existing_video_ids =
+          CollectionItem
+          |> where(collection_id: ^collection.id)
+          |> select([ci], ci.video_id)
+          |> Repo.all()
+          |> MapSet.new()
 
-      new_videos = Enum.reject(videos, &MapSet.member?(existing_video_ids, &1.id))
+        new_videos = Enum.reject(videos, &MapSet.member?(existing_video_ids, &1.id))
 
-      Repo.transaction(fn ->
-        starting_position = next_collection_item_position(collection.id)
+        Repo.transaction(fn ->
+          starting_position = next_collection_item_position(collection.id)
 
-        new_videos
-        |> Enum.with_index(starting_position)
-        |> Enum.reduce([], fn {video, position}, acc ->
-          [insert_collection_item(scope, collection, video, position) | acc]
+          new_videos
+          |> Enum.with_index(starting_position)
+          |> Enum.reduce([], fn {video, position}, acc ->
+            [insert_collection_item(scope, collection, video, position) | acc]
+          end)
+          |> Enum.reverse()
         end)
-        |> Enum.reverse()
-      end)
+      end
     end
   end
 
@@ -1039,27 +959,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def remove_video_from_collection(scope, %Collection{} = collection, %Video{} = video) do
-    Marquee.Otel.with_span "marquee.content.remove_video_from_collection",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case Repo.get_by(CollectionItem, collection_id: collection.id, video_id: video.id) do
-        nil ->
-          {:error, :not_found}
-
-        item ->
-          case Repo.delete(item) do
-            {:ok, _} ->
-              Events.broadcast(
-                scope,
-                {:collection_video_removed, %{collection: collection, video: video}}
-              )
-
-              Audit.log(scope, "collection.video_removed", item)
-              :ok
-
-            {:error, changeset} ->
-              {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [collection, video]) do
+      authorized_remove_video_from_collection(scope, collection, video)
     end
   end
 
@@ -1069,25 +970,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def reorder_collection_videos(scope, %Collection{} = collection, ordered_video_ids) do
-    Marquee.Otel.with_span "marquee.content.reorder_collection_videos",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_video_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {video_id, position} ->
-          CollectionItem
-          |> where(collection_id: ^collection.id, video_id: ^video_id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:collection_videos_reordered, %{collection: collection}})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, collection) do
+      authorized_reorder_collection_videos(scope, collection, ordered_video_ids)
     end
   end
 
@@ -1136,20 +1020,22 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def remove_collection_item(scope, %CollectionItem{} = item) do
-    Marquee.Otel.with_span "marquee.content.remove_collection_item",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case Repo.delete(item) do
-        {:ok, _} ->
-          Events.broadcast(scope, {:collection_item_removed, item})
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, item) do
+      Marquee.Otel.with_span "marquee.content.remove_collection_item",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case Repo.delete(item) do
+          {:ok, _} ->
+            Events.broadcast(scope, {:collection_item_removed, item})
 
-          Audit.log(scope, "collection_item.removed", item, %{
-            item_type: to_string(item.item_type)
-          })
+            Audit.log(scope, "collection_item.removed", item, %{
+              item_type: to_string(item.item_type)
+            })
 
-          :ok
+            :ok
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1162,25 +1048,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def reorder_collection_items(scope, %Collection{} = collection, ordered_item_ids) do
-    Marquee.Otel.with_span "marquee.content.reorder_collection_items",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        ordered_item_ids
-        |> Enum.with_index()
-        |> Enum.each(fn {id, position} ->
-          CollectionItem
-          |> where(id: ^id, collection_id: ^collection.id)
-          |> Repo.update_all(set: [position: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:collection_items_reordered, %{collection: collection}})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, collection) do
+      authorized_reorder_collection_items(scope, collection, ordered_item_ids)
     end
   end
 
@@ -1221,23 +1090,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def create_tag(scope, attrs) do
-    Marquee.Otel.with_span "marquee.content.create_tag",
-                           %{"marquee.org.id" => scope.organization.id} do
-      attrs = put_org_id(attrs, scope.organization.id)
-
-      case %Tag{} |> Tag.changeset(attrs) |> Repo.insert() do
-        {:ok, tag} ->
-          Events.broadcast(scope, {:tag_created, tag})
-          Audit.log(scope, "tag.created", tag)
-          {:ok, tag}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :catalog_edit, attrs) do
+      authorized_create_tag(scope, attrs)
     end
   end
 
@@ -1247,16 +1101,18 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def update_tag(scope, %Tag{} = tag, attrs) do
-    Marquee.Otel.with_span "marquee.content.update_tag",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case tag |> Tag.changeset(attrs) |> Repo.update() do
-        {:ok, tag} ->
-          Events.broadcast(scope, {:tag_updated, tag})
-          Audit.log(scope, "tag.updated", tag, attrs)
-          {:ok, tag}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, tag) do
+      Marquee.Otel.with_span "marquee.content.update_tag",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case tag |> Tag.changeset(attrs) |> Repo.update() do
+          {:ok, tag} ->
+            Events.broadcast(scope, {:tag_updated, tag})
+            Audit.log(scope, "tag.updated", tag, attrs)
+            {:ok, tag}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1267,28 +1123,30 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def delete_tag(scope, %Tag{} = tag) do
-    Marquee.Otel.with_span "marquee.content.delete_tag",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        VideoTag
-        |> where(tag_id: ^tag.id)
-        |> Repo.delete_all()
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, tag) do
+      Marquee.Otel.with_span "marquee.content.delete_tag",
+                             %{"marquee.org.id" => scope.organization.id} do
+        Repo.transaction(fn ->
+          VideoTag
+          |> where(tag_id: ^tag.id)
+          |> Repo.delete_all()
 
-        {:ok, deleted_tag} =
-          tag
-          |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-          |> Repo.update()
+          {:ok, deleted_tag} =
+            tag
+            |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+            |> Repo.update()
 
-        deleted_tag
-      end)
-      |> case do
-        {:ok, tag} ->
-          Events.broadcast(scope, {:tag_deleted, tag})
-          Audit.log(scope, "tag.deleted", tag)
-          {:ok, tag}
+          deleted_tag
+        end)
+        |> case do
+          {:ok, tag} ->
+            Events.broadcast(scope, {:tag_deleted, tag})
+            Audit.log(scope, "tag.deleted", tag)
+            {:ok, tag}
 
-        {:error, reason} ->
-          {:error, reason}
+          {:error, reason} ->
+            {:error, reason}
+        end
       end
     end
   end
@@ -1471,18 +1329,20 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def create_series(scope, attrs) do
-    Marquee.Otel.with_span "marquee.content.create_series",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case %Series{organization_id: scope.organization.id}
-           |> Series.changeset(attrs)
-           |> Repo.insert() do
-        {:ok, series} ->
-          Events.broadcast(scope, {:series_created, series})
-          Audit.log(scope, "series.created", series, attrs)
-          {:ok, series}
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :catalog_edit, attrs) do
+      Marquee.Otel.with_span "marquee.content.create_series",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case %Series{organization_id: scope.organization.id}
+             |> Series.changeset(attrs)
+             |> Repo.insert() do
+          {:ok, series} ->
+            Events.broadcast(scope, {:series_created, series})
+            Audit.log(scope, "series.created", series, attrs)
+            {:ok, series}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1493,17 +1353,19 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def update_series(scope, %Series{} = series, attrs) do
-    Marquee.Otel.with_span "marquee.content.update_series",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case series |> Series.changeset(attrs) |> Repo.update() do
-        {:ok, series} ->
-          invalidate_series_thumbnail_cache(series)
-          Events.broadcast(scope, {:series_updated, series})
-          Audit.log(scope, "series.updated", series, attrs)
-          {:ok, series}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, series) do
+      Marquee.Otel.with_span "marquee.content.update_series",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case series |> Series.changeset(attrs) |> Repo.update() do
+          {:ok, series} ->
+            invalidate_series_thumbnail_cache(series)
+            Events.broadcast(scope, {:series_updated, series})
+            Audit.log(scope, "series.updated", series, attrs)
+            {:ok, series}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1514,23 +1376,25 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def delete_series(scope, %Series{} = series) do
-    Marquee.Otel.with_span "marquee.content.delete_series",
-                           %{"marquee.org.id" => scope.organization.id} do
-      now = DateTime.utc_now() |> DateTime.truncate(:second)
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, series) do
+      Marquee.Otel.with_span "marquee.content.delete_series",
+                             %{"marquee.org.id" => scope.organization.id} do
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      with {:ok, series} <-
-             series
-             |> Ecto.Changeset.change(deleted_at: now)
-             |> Repo.update() do
-        Season
-        |> where(series_id: ^series.id)
-        |> where([s], is_nil(s.deleted_at))
-        |> Repo.update_all(set: [deleted_at: now])
+        with {:ok, series} <-
+               series
+               |> Ecto.Changeset.change(deleted_at: now)
+               |> Repo.update() do
+          Season
+          |> where(series_id: ^series.id)
+          |> where([s], is_nil(s.deleted_at))
+          |> Repo.update_all(set: [deleted_at: now])
 
-        invalidate_series_thumbnail_cache(series)
-        Events.broadcast(scope, {:series_deleted, series})
-        Audit.log(scope, "series.deleted", series)
-        {:ok, series}
+          invalidate_series_thumbnail_cache(series)
+          Events.broadcast(scope, {:series_deleted, series})
+          Audit.log(scope, "series.deleted", series)
+          {:ok, series}
+        end
       end
     end
   end
@@ -1634,27 +1498,29 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def create_season(scope, %Series{} = series, attrs) do
-    Marquee.Otel.with_span "marquee.content.create_season",
-                           %{
-                             "marquee.org.id" => scope.organization.id,
-                             "marquee.series.id" => series.id
-                           } do
-      attrs =
-        attrs
-        |> maybe_assign_season_number(series)
-        |> maybe_assign_default_title(series)
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, series) do
+      Marquee.Otel.with_span "marquee.content.create_season",
+                             %{
+                               "marquee.org.id" => scope.organization.id,
+                               "marquee.series.id" => series.id
+                             } do
+        attrs =
+          attrs
+          |> maybe_assign_season_number(series)
+          |> maybe_assign_default_title(series)
 
-      case %Season{organization_id: scope.organization.id, series_id: series.id}
-           |> Season.changeset(attrs)
-           |> Repo.insert() do
-        {:ok, season} ->
-          invalidate_season_thumbnail_cache(season)
-          Events.broadcast(scope, {:season_created, season})
-          Audit.log(scope, "season.created", season, attrs)
-          {:ok, season}
+        case %Season{organization_id: scope.organization.id, series_id: series.id}
+             |> Season.changeset(attrs)
+             |> Repo.insert() do
+          {:ok, season} ->
+            invalidate_season_thumbnail_cache(season)
+            Events.broadcast(scope, {:season_created, season})
+            Audit.log(scope, "season.created", season, attrs)
+            {:ok, season}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1708,17 +1574,19 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def update_season(scope, %Season{} = season, attrs) do
-    Marquee.Otel.with_span "marquee.content.update_season",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case season |> Season.changeset(attrs) |> Repo.update() do
-        {:ok, season} ->
-          invalidate_season_thumbnail_cache(season)
-          Events.broadcast(scope, {:season_updated, season})
-          Audit.log(scope, "season.updated", season, attrs)
-          {:ok, season}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, season) do
+      Marquee.Otel.with_span "marquee.content.update_season",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case season |> Season.changeset(attrs) |> Repo.update() do
+          {:ok, season} ->
+            invalidate_season_thumbnail_cache(season)
+            Events.broadcast(scope, {:season_updated, season})
+            Audit.log(scope, "season.updated", season, attrs)
+            {:ok, season}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1729,18 +1597,20 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def delete_season(scope, %Season{} = season) do
-    Marquee.Otel.with_span "marquee.content.delete_season",
-                           %{"marquee.org.id" => scope.organization.id} do
-      with {:ok, season} <-
-             season
-             |> Ecto.Changeset.change(
-               deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
-             )
-             |> Repo.update() do
-        invalidate_season_thumbnail_cache(season)
-        Events.broadcast(scope, {:season_deleted, season})
-        Audit.log(scope, "season.deleted", season)
-        {:ok, season}
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, season) do
+      Marquee.Otel.with_span "marquee.content.delete_season",
+                             %{"marquee.org.id" => scope.organization.id} do
+        with {:ok, season} <-
+               season
+               |> Ecto.Changeset.change(
+                 deleted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               )
+               |> Repo.update() do
+          invalidate_season_thumbnail_cache(season)
+          Events.broadcast(scope, {:season_deleted, season})
+          Audit.log(scope, "season.deleted", season)
+          {:ok, season}
+        end
       end
     end
   end
@@ -1751,34 +1621,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def reorder_seasons(scope, %Series{} = series, ordered_season_ids) do
-    Marquee.Otel.with_span "marquee.content.reorder_seasons",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        # Two-pass to avoid unique constraint violations during swap
-        ordered_season_ids
-        |> Enum.with_index(1)
-        |> Enum.each(fn {id, position} ->
-          Season
-          |> where(id: ^id, series_id: ^series.id)
-          |> Repo.update_all(set: [season_number: -position])
-        end)
-
-        ordered_season_ids
-        |> Enum.with_index(1)
-        |> Enum.each(fn {id, position} ->
-          Season
-          |> where(id: ^id, series_id: ^series.id)
-          |> Repo.update_all(set: [season_number: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:seasons_reordered, series})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, series) do
+      authorized_reorder_seasons(scope, series, ordered_season_ids)
     end
   end
 
@@ -1839,41 +1683,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def add_episode(scope, %Season{} = season, %Video{} = video, attrs \\ %{}) do
-    Marquee.Otel.with_span "marquee.content.add_episode",
-                           %{"marquee.org.id" => scope.organization.id} do
-      episode_number =
-        attrs[:episode_number] || attrs["episode_number"] || next_episode_number(season)
-
-      result =
-        %Episode{
-          organization_id: scope.organization.id,
-          season_id: season.id
-        }
-        |> Episode.changeset(
-          Map.merge(attrs, %{episode_number: episode_number, video_id: video.id})
-        )
-        |> Repo.insert()
-
-      case result do
-        {:ok, episode} ->
-          update_episode_count(season)
-          invalidate_season_thumbnail_cache(season)
-          Events.broadcast(scope, {:episode_added, episode})
-
-          Audit.log(scope, "episode.added", episode, %{
-            video_id: video.id,
-            season_id: season.id
-          })
-
-          {:ok, Repo.preload(episode, :video)}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
-      end
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [season, video]) do
+      authorized_add_episode(scope, season, video, attrs)
     end
   end
 
@@ -1920,19 +1731,21 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def remove_episode(scope, %Season{} = season, %Video{} = video) do
-    Marquee.Otel.with_span "marquee.content.remove_episode",
-                           %{"marquee.org.id" => scope.organization.id} do
-      case Repo.get_by(Episode, season_id: season.id, video_id: video.id) do
-        nil ->
-          {:error, :not_found}
+    with :ok <- Marquee.AdminDemo.authorize_resources(scope, :catalog_edit, [season, video]) do
+      Marquee.Otel.with_span "marquee.content.remove_episode",
+                             %{"marquee.org.id" => scope.organization.id} do
+        case Repo.get_by(Episode, season_id: season.id, video_id: video.id) do
+          nil ->
+            {:error, :not_found}
 
-        episode ->
-          Repo.delete(episode)
-          update_episode_count(season)
-          invalidate_season_thumbnail_cache(season)
-          Events.broadcast(scope, {:episode_removed, episode})
-          Audit.log(scope, "episode.removed", episode, %{video_id: video.id})
-          :ok
+          episode ->
+            Repo.delete(episode)
+            update_episode_count(season)
+            invalidate_season_thumbnail_cache(season)
+            Events.broadcast(scope, {:episode_removed, episode})
+            Audit.log(scope, "episode.removed", episode, %{video_id: video.id})
+            :ok
+        end
       end
     end
   end
@@ -1943,34 +1756,8 @@ defmodule Marquee.Content do
   Exempt from doctest — hits the database.
   """
   def reorder_episodes(scope, %Season{} = season, ordered_video_ids) do
-    Marquee.Otel.with_span "marquee.content.reorder_episodes",
-                           %{"marquee.org.id" => scope.organization.id} do
-      Repo.transaction(fn ->
-        # Two-pass to avoid unique constraint violations during swap
-        ordered_video_ids
-        |> Enum.with_index(1)
-        |> Enum.each(fn {video_id, position} ->
-          Episode
-          |> where(season_id: ^season.id, video_id: ^video_id)
-          |> Repo.update_all(set: [episode_number: -position])
-        end)
-
-        ordered_video_ids
-        |> Enum.with_index(1)
-        |> Enum.each(fn {video_id, position} ->
-          Episode
-          |> where(season_id: ^season.id, video_id: ^video_id)
-          |> Repo.update_all(set: [episode_number: position])
-        end)
-      end)
-      |> case do
-        {:ok, _} ->
-          Events.broadcast(scope, {:episodes_reordered, season})
-          :ok
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+    with :ok <- Marquee.AdminDemo.authorize(scope, :catalog_edit, season) do
+      authorized_reorder_episodes(scope, season, ordered_video_ids)
     end
   end
 
@@ -2301,5 +2088,324 @@ defmodule Marquee.Content do
 
   defp mux_client do
     Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
+  end
+
+  defp authorized_reorder_episodes(scope, season, ordered_video_ids) do
+    Marquee.Otel.with_span "marquee.content.reorder_episodes",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        # Two-pass to avoid unique constraint violations during swap
+        ordered_video_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {video_id, position} ->
+          Episode
+          |> where(season_id: ^season.id, video_id: ^video_id)
+          |> Repo.update_all(set: [episode_number: -position])
+        end)
+
+        ordered_video_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {video_id, position} ->
+          Episode
+          |> where(season_id: ^season.id, video_id: ^video_id)
+          |> Repo.update_all(set: [episode_number: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:episodes_reordered, season})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_add_episode(scope, season, video, attrs) do
+    Marquee.Otel.with_span "marquee.content.add_episode",
+                           %{"marquee.org.id" => scope.organization.id} do
+      episode_number =
+        attrs[:episode_number] || attrs["episode_number"] || next_episode_number(season)
+
+      result =
+        %Episode{
+          organization_id: scope.organization.id,
+          season_id: season.id
+        }
+        |> Episode.changeset(
+          Map.merge(attrs, %{episode_number: episode_number, video_id: video.id})
+        )
+        |> Repo.insert()
+
+      case result do
+        {:ok, episode} ->
+          update_episode_count(season)
+          invalidate_season_thumbnail_cache(season)
+          Events.broadcast(scope, {:episode_added, episode})
+
+          Audit.log(scope, "episode.added", episode, %{
+            video_id: video.id,
+            season_id: season.id
+          })
+
+          {:ok, Repo.preload(episode, :video)}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_reorder_seasons(scope, series, ordered_season_ids) do
+    Marquee.Otel.with_span "marquee.content.reorder_seasons",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        # Two-pass to avoid unique constraint violations during swap
+        ordered_season_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {id, position} ->
+          Season
+          |> where(id: ^id, series_id: ^series.id)
+          |> Repo.update_all(set: [season_number: -position])
+        end)
+
+        ordered_season_ids
+        |> Enum.with_index(1)
+        |> Enum.each(fn {id, position} ->
+          Season
+          |> where(id: ^id, series_id: ^series.id)
+          |> Repo.update_all(set: [season_number: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:seasons_reordered, series})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_reorder_collection_items(scope, collection, ordered_item_ids) do
+    Marquee.Otel.with_span "marquee.content.reorder_collection_items",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_item_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {id, position} ->
+          CollectionItem
+          |> where(id: ^id, collection_id: ^collection.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:collection_items_reordered, %{collection: collection}})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_reorder_collection_videos(scope, collection, ordered_video_ids) do
+    Marquee.Otel.with_span "marquee.content.reorder_collection_videos",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_video_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {video_id, position} ->
+          CollectionItem
+          |> where(collection_id: ^collection.id, video_id: ^video_id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:collection_videos_reordered, %{collection: collection}})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp authorized_remove_video_from_collection(scope, collection, video) do
+    Marquee.Otel.with_span "marquee.content.remove_video_from_collection",
+                           %{"marquee.org.id" => scope.organization.id} do
+      case Repo.get_by(CollectionItem, collection_id: collection.id, video_id: video.id) do
+        nil ->
+          {:error, :not_found}
+
+        item ->
+          case Repo.delete(item) do
+            {:ok, _} ->
+              Events.broadcast(
+                scope,
+                {:collection_video_removed, %{collection: collection, video: video}}
+              )
+
+              Audit.log(scope, "collection.video_removed", item)
+              :ok
+
+            {:error, changeset} ->
+              {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_add_series_to_collection(scope, collection, series, position) do
+    Marquee.Otel.with_span "marquee.content.add_series_to_collection",
+                           %{"marquee.org.id" => scope.organization.id} do
+      position = position || next_collection_item_position(collection.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        collection_id: collection.id,
+        series_id: series.id,
+        item_type: :series,
+        position: position
+      }
+
+      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(scope, {:collection_item_added, item})
+
+          Audit.log(scope, "collection_item.added", item, %{
+            item_type: "series",
+            series_id: series.id
+          })
+
+          {:ok, item}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_add_season_to_collection(scope, collection, season, position) do
+    Marquee.Otel.with_span "marquee.content.add_season_to_collection",
+                           %{"marquee.org.id" => scope.organization.id} do
+      position = position || next_collection_item_position(collection.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        collection_id: collection.id,
+        season_id: season.id,
+        item_type: :season,
+        position: position
+      }
+
+      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(scope, {:collection_item_added, item})
+
+          Audit.log(scope, "collection_item.added", item, %{
+            item_type: "season",
+            season_id: season.id
+          })
+
+          {:ok, item}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_add_video_to_collection(scope, collection, video, position) do
+    Marquee.Otel.with_span "marquee.content.add_video_to_collection",
+                           %{"marquee.org.id" => scope.organization.id} do
+      position = position || next_collection_item_position(collection.id)
+
+      attrs = %{
+        organization_id: scope.organization.id,
+        collection_id: collection.id,
+        video_id: video.id,
+        item_type: :video,
+        position: position
+      }
+
+      case %CollectionItem{} |> CollectionItem.changeset(attrs) |> Repo.insert() do
+        {:ok, item} ->
+          Events.broadcast(
+            scope,
+            {:collection_video_added, %{collection: collection, video: video}}
+          )
+
+          Audit.log(scope, "collection.video_added", item)
+          {:ok, item}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_create_tag(scope, attrs) do
+    Marquee.Otel.with_span "marquee.content.create_tag",
+                           %{"marquee.org.id" => scope.organization.id} do
+      attrs = put_org_id(attrs, scope.organization.id)
+
+      case %Tag{} |> Tag.changeset(attrs) |> Repo.insert() do
+        {:ok, tag} ->
+          Events.broadcast(scope, {:tag_created, tag})
+          Audit.log(scope, "tag.created", tag)
+          {:ok, tag}
+
+        {:error, changeset} ->
+          if has_unique_constraint_error?(changeset) do
+            {:error, :already_exists}
+          else
+            {:error, :validation, changeset}
+          end
+      end
+    end
+  end
+
+  defp authorized_reorder_collections(scope, ordered_ids) do
+    Marquee.Otel.with_span "marquee.content.reorder_collections",
+                           %{"marquee.org.id" => scope.organization.id} do
+      Repo.transaction(fn ->
+        ordered_ids
+        |> Enum.with_index()
+        |> Enum.each(fn {id, position} ->
+          Collection
+          |> where(id: ^id, organization_id: ^scope.organization.id)
+          |> Repo.update_all(set: [position: position])
+        end)
+      end)
+      |> case do
+        {:ok, _} ->
+          Events.broadcast(scope, {:collections_reordered, ordered_ids})
+          :ok
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
   end
 end

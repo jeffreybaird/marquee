@@ -42,7 +42,12 @@ defmodule Marquee.Workers.NotifyLiveNowWorker do
 
       case load_event_and_org(event_id, org_id) do
         {:ok, event, org} ->
-          send_notifications_for_event(event, org)
+          with :ok <-
+                 Marquee.AdminDemo.worker_permission(
+                   Marquee.AdminDemo.external_resource(LiveEvent, event.id, org.id)
+                 ) do
+            send_notifications_for_event(event, org)
+          end
 
         {:error, :event_not_found} ->
           Logger.warning("NotifyLiveNowWorker: live event not found",

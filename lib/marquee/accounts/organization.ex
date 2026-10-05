@@ -23,6 +23,10 @@ defmodule Marquee.Accounts.Organization do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "organizations" do
+    field :demo_kind, Ecto.Enum, values: [:admin_demo_host, :admin_sandbox]
+    field :demo_expires_at, :utc_datetime_usec
+    field :demo_purged_at, :utc_datetime_usec
+    field :demo_entry_key_hash, :binary, redact: true
     field :name, :string
     field :slug, :string
     field :custom_domain, :string

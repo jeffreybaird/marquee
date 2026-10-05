@@ -13,6 +13,7 @@ defmodule MarqueeWeb.Admin.BillingLive do
   alias Marquee.Admin
   alias Marquee.PlatformBilling
   alias Marquee.PlatformBilling.UsageLimits
+  alias MarqueeWeb.Admin.DemoRestrictedLive
 
   @impl true
   def mount(_params, _session, socket) do
@@ -82,6 +83,10 @@ defmodule MarqueeWeb.Admin.BillingLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns) do
+    DemoRestrictedLive.render(assigns)
+  end
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

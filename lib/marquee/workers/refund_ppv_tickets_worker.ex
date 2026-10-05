@@ -26,27 +26,36 @@ defmodule Marquee.Workers.RefundPpvTicketsWorker do
   def perform(%Oban.Job{
         args: %{"live_event_id" => live_event_id, "organization_id" => org_id} = args
       }) do
-    Marquee.Otel.extract_trace_context(args["trace_context"])
+    with :ok <-
+           Marquee.AdminDemo.worker_permission(
+             Marquee.AdminDemo.external_resource(
+               Marquee.Streaming.LiveEvent,
+               live_event_id,
+               org_id
+             )
+           ) do
+      Marquee.Otel.extract_trace_context(args["trace_context"])
 
-    Logger.metadata(
-      live_event_id: live_event_id,
-      org_id: org_id,
-      worker: "RefundPpvTicketsWorker"
-    )
-
-    Tracer.with_span "marquee.worker.refund_ppv_tickets",
-                     %{"marquee.live_event.id" => live_event_id, "marquee.org.id" => org_id} do
-      tickets = fetch_refundable_tickets(live_event_id, org_id)
-
-      Logger.info("Refunding PPV tickets for canceled event",
+      Logger.metadata(
         live_event_id: live_event_id,
         org_id: org_id,
-        ticket_count: length(tickets)
+        worker: "RefundPpvTicketsWorker"
       )
 
-      Enum.each(tickets, &refund_ticket_safely(live_event_id, org_id, &1))
+      Tracer.with_span "marquee.worker.refund_ppv_tickets",
+                       %{"marquee.live_event.id" => live_event_id, "marquee.org.id" => org_id} do
+        tickets = fetch_refundable_tickets(live_event_id, org_id)
 
-      :ok
+        Logger.info("Refunding PPV tickets for canceled event",
+          live_event_id: live_event_id,
+          org_id: org_id,
+          ticket_count: length(tickets)
+        )
+
+        Enum.each(tickets, &refund_ticket_safely(live_event_id, org_id, &1))
+
+        :ok
+      end
     end
   end
 

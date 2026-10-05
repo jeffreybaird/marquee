@@ -238,17 +238,19 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — calls Mux.
   """
   def create_audio_upload_url(scope, %Show{source_type: "direct_upload"} = show, attrs) do
-    Marquee.Otel.with_span "marquee.podcasts.create_audio_upload_url",
-                           %{"marquee.org.id" => show.organization_id} do
-      title = Map.get(stringify_keys(attrs), "title") || "Untitled episode"
-      origin = Map.get(stringify_keys(attrs), "current_origin")
-      upload_params = build_audio_upload_params(show, origin)
+    with :ok <- Marquee.AdminDemo.authorize(scope, :upload, show) do
+      Marquee.Otel.with_span "marquee.podcasts.create_audio_upload_url",
+                             %{"marquee.org.id" => show.organization_id} do
+        title = Map.get(stringify_keys(attrs), "title") || "Untitled episode"
+        origin = Map.get(stringify_keys(attrs), "current_origin")
+        upload_params = build_audio_upload_params(show, origin)
 
-      with {:ok, upload} <- mux_client().create_audio_direct_upload(upload_params),
-           {:ok, episode} <- insert_draft_episode(scope, show, title, upload) do
-        Events.broadcast(scope, {:podcast_episode_upload_initiated, episode})
-        Audit.log(scope, "podcast_episode.upload_initiated", episode)
-        {:ok, %{episode: episode, upload_url: upload_url_from(upload)}}
+        with {:ok, upload} <- mux_client().create_audio_direct_upload(upload_params),
+             {:ok, episode} <- insert_draft_episode(scope, show, title, upload) do
+          Events.broadcast(scope, {:podcast_episode_upload_initiated, episode})
+          Audit.log(scope, "podcast_episode.upload_initiated", episode)
+          {:ok, %{episode: episode, upload_url: upload_url_from(upload)}}
+        end
       end
     end
   end

@@ -30,10 +30,13 @@ defmodule Marquee.Workers.PodcastFeedSync do
 
   @impl true
   def perform(%Oban.Job{args: %{"show_id" => show_id}}) do
-    case Repo.get(Show, show_id) do
-      nil -> :ok
-      %Show{deleted_at: %DateTime{}} -> :ok
-      %Show{} = show -> sync_show(show)
+    with :ok <-
+           Marquee.AdminDemo.worker_permission(Marquee.AdminDemo.external_resource(Show, show_id)) do
+      case Repo.get(Show, show_id) do
+        nil -> :ok
+        %Show{deleted_at: %DateTime{}} -> :ok
+        %Show{} = show -> sync_show(show)
+      end
     end
   end
 
@@ -57,14 +60,13 @@ defmodule Marquee.Workers.PodcastFeedSync do
       |> DateTime.add(-@sync_window_seconds, :second)
       |> DateTime.truncate(:second)
 
-    from(s in Show,
-      where:
-        s.source_type == "feed_import" and is_nil(s.deleted_at) and s.published == true and
-          s.remote_consecutive_failures < @failure_pause_threshold and
-          (is_nil(s.remote_last_synced_at) or s.remote_last_synced_at < ^cutoff),
-      select: s.id
-    )
-    |> Repo.all()
+    Stream.unfold(nil, fn cursor ->
+      case Marquee.Admin.due_customer_podcast_ids(cutoff, @failure_pause_threshold, cursor) do
+        [] -> nil
+        ids -> {ids, List.last(ids)}
+      end
+    end)
+    |> Stream.flat_map(& &1)
     |> Enum.each(fn id ->
       %{"show_id" => id} |> __MODULE__.new() |> Oban.insert()
     end)

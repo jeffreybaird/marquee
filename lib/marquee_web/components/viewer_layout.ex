@@ -51,6 +51,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
       end)
 
     ~H"""
+    <MarqueeWeb.Components.AdminDemo.bar organization={@organization} />
     <div
       class={["sv-root", Marquee.SubscriberDemo.demo_viewer?(@current_viewer) && "sv-subscriber-demo"]}
       style={Theme.build_css_vars(@resolved_theme)}

@@ -33,6 +33,58 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   alias MarqueeWeb.OrgURL
 
   def on_mount(:require_authenticated, _params, session, socket) do
+    if Marquee.AdminDemo.host?(request_host(socket)) and not demo_view_allowed?(socket.view) do
+      {:halt, redirect(socket, to: "/admin/demo/restricted")}
+    else
+      mount_authenticated(session, socket)
+    end
+  end
+
+  def on_mount(:assign_org, _params, session, socket) do
+    if not Marquee.AdminDemo.host?(request_host(socket)) and session["no_org_resolved"] == true and
+         (platform_host?(request_host(socket)) or not configured_hostname?()) do
+      # Honor the HTTP platform-home decision without overriding a tenant host.
+      user = load_user_from_session(session)
+
+      socket =
+        socket
+        |> assign(:current_scope, user && Scope.for_user(user))
+        |> assign(:current_user, user)
+        |> assign(:organization, nil)
+        |> assign(:current_membership, nil)
+        |> assign(:current_origin, derive_current_origin(socket))
+        |> assign(:current_path, derive_current_path(socket))
+        |> assign(:impersonating, false)
+        |> assign(:theme, nil)
+
+      {:cont, socket}
+    else
+      {:cont, mount_full_scope(socket, session)}
+    end
+  end
+
+  defp demo_view_allowed?(view) do
+    view in [
+      MarqueeWeb.Admin.DashboardLive,
+      MarqueeWeb.Admin.ContentLive,
+      MarqueeWeb.Admin.CollectionsLive,
+      MarqueeWeb.Admin.SeriesLive,
+      MarqueeWeb.Admin.SeasonLive,
+      MarqueeWeb.Admin.TagsLive,
+      MarqueeWeb.Admin.CatalogLive,
+      MarqueeWeb.Admin.AnalyticsLive,
+      MarqueeWeb.Admin.VideoAnalyticsLive,
+      MarqueeWeb.Admin.SeriesAnalyticsLive,
+      MarqueeWeb.Admin.SeasonAnalyticsLive,
+      MarqueeWeb.Admin.BrandingLive,
+      MarqueeWeb.Admin.AppearanceLive,
+      MarqueeWeb.Admin.BillingLive,
+      MarqueeWeb.Admin.DemoLibraryLive,
+      MarqueeWeb.Admin.DemoRestrictedLive
+    ]
+  end
+
+  defp mount_authenticated(session, socket) do
     socket =
       socket
       |> mount_full_scope(session)
@@ -69,29 +121,6 @@ defmodule MarqueeWeb.Hooks.AssignScope do
     end
   end
 
-  def on_mount(:assign_org, _params, session, socket) do
-    if session["no_org_resolved"] == true and
-         (platform_host?(request_host(socket)) or not configured_hostname?()) do
-      # Honor the HTTP platform-home decision without overriding a tenant host.
-      user = load_user_from_session(session)
-
-      socket =
-        socket
-        |> assign(:current_scope, user && Scope.for_user(user))
-        |> assign(:current_user, user)
-        |> assign(:organization, nil)
-        |> assign(:current_membership, nil)
-        |> assign(:current_origin, derive_current_origin(socket))
-        |> assign(:current_path, derive_current_path(socket))
-        |> assign(:impersonating, false)
-        |> assign(:theme, nil)
-
-      {:cont, socket}
-    else
-      {:cont, mount_full_scope(socket, session)}
-    end
-  end
-
   # Operator-only: summarize the org's trial for the admin layout banner.
   defp assign_trial_status(socket) do
     case socket.assigns[:organization] do
@@ -111,9 +140,52 @@ defmodule MarqueeWeb.Hooks.AssignScope do
 
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp mount_full_scope(socket, session) do
+    if Marquee.AdminDemo.host?(request_host(socket)) do
+      mount_demo_scope(socket, session)
+    else
+      mount_normal_scope(socket, session)
+    end
+  end
+
+  defp mount_demo_scope(socket, session) do
+    case Marquee.AdminDemo.get_session(session["admin_demo_token"]) do
+      {:ok, %{scope: scope}} ->
+        socket
+        |> assign(:current_scope, scope)
+        |> assign(:current_user, scope.user)
+        |> assign(:organization, scope.organization)
+        |> assign(:current_membership, scope.membership)
+        |> assign(:current_origin, derive_current_origin(socket))
+        |> assign(:current_path, derive_current_path(socket))
+        |> assign(:impersonating, false)
+        |> assign(:theme, Branding.get_theme_or_default_cached(scope.organization))
+        |> Phoenix.LiveView.attach_hook(:admin_demo_session, :handle_event, fn _event,
+                                                                               _params,
+                                                                               socket ->
+          validate_demo_event(socket, session["admin_demo_token"])
+        end)
+
+      _ ->
+        socket
+        |> assign(:current_scope, nil)
+        |> assign(:organization, nil)
+        |> assign(:current_user, nil)
+        |> redirect(to: "/demo/admin")
+    end
+  end
+
+  defp validate_demo_event(socket, token) do
+    case Marquee.AdminDemo.get_session(token) do
+      {:ok, _} -> {:cont, socket}
+      _ -> {:halt, redirect(socket, to: "/demo/admin")}
+    end
+  end
+
+  defp mount_normal_scope(socket, session) do
     user = load_user_from_session(session)
     host = request_host(socket)
-    org = resolve_current_org(host, session, user)
+    resolved_org = resolve_current_org(host, session, user)
+    org = if Marquee.AdminDemo.demo_organization?(resolved_org), do: nil, else: resolved_org
 
     impersonating =
       impersonating?(user, session) and
@@ -124,20 +196,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
         Accounts.get_membership(org, user)
       end
 
-    scope =
-      case Scope.for_user(user) do
-        nil ->
-          nil
-
-        s when not is_nil(org) and not is_nil(membership) ->
-          Scope.with_organization(s, org, membership)
-
-        s when not is_nil(org) and (impersonating or user.is_super_admin) ->
-          Scope.with_organization(s, org, nil)
-
-        s ->
-          s
-      end
+    scope = build_scope(user, org, membership, impersonating)
 
     theme = if org, do: Branding.get_theme_or_default_cached(org), else: nil
 
@@ -150,6 +209,22 @@ defmodule MarqueeWeb.Hooks.AssignScope do
     |> assign(:current_path, derive_current_path(socket))
     |> assign(:impersonating, impersonating)
     |> assign(:theme, theme)
+  end
+
+  defp build_scope(user, org, membership, impersonating) do
+    case Scope.for_user(user) do
+      nil ->
+        nil
+
+      scope when not is_nil(org) and not is_nil(membership) ->
+        Scope.with_organization(scope, org, membership)
+
+      scope when not is_nil(org) and (impersonating or user.is_super_admin) ->
+        Scope.with_organization(scope, org, nil)
+
+      scope ->
+        scope
+    end
   end
 
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity

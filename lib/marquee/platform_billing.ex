@@ -393,27 +393,29 @@ defmodule Marquee.PlatformBilling do
   end
 
   def create_org_checkout(%Organization{} = organization, %PlatformPlan{} = plan, user) do
-    Marquee.Otel.with_span "marquee.platform_billing.create_checkout",
-                           %{"marquee.org.id" => organization.id} do
-      key = Marquee.Idempotency.key("platform_checkout", organization.id, plan.id)
+    with :ok <- Marquee.AdminDemo.external_effect(organization) do
+      Marquee.Otel.with_span "marquee.platform_billing.create_checkout",
+                             %{"marquee.org.id" => organization.id} do
+        key = Marquee.Idempotency.key("platform_checkout", organization.id, plan.id)
 
-      params = %{
-        mode: "subscription",
-        line_items: [%{price: plan.stripe_price_id, quantity: 1}],
-        success_url:
-          OrgURL.org_url(
-            "#{base_url()}/admin/settings/billing/success?session_id={CHECKOUT_SESSION_ID}",
-            organization
-          ),
-        cancel_url: OrgURL.org_url("#{base_url()}/admin/settings/billing", organization),
-        customer_email: user.email,
-        metadata: %{
-          organization_id: organization.id,
-          platform_plan_id: plan.id
+        params = %{
+          mode: "subscription",
+          line_items: [%{price: plan.stripe_price_id, quantity: 1}],
+          success_url:
+            OrgURL.org_url(
+              "#{base_url()}/admin/settings/billing/success?session_id={CHECKOUT_SESSION_ID}",
+              organization
+            ),
+          cancel_url: OrgURL.org_url("#{base_url()}/admin/settings/billing", organization),
+          customer_email: user.email,
+          metadata: %{
+            organization_id: organization.id,
+            platform_plan_id: plan.id
+          }
         }
-      }
 
-      stripe_client().create_checkout_session(params, idempotency_key: key)
+        stripe_client().create_checkout_session(params, idempotency_key: key)
+      end
     end
   end
 
@@ -423,17 +425,19 @@ defmodule Marquee.PlatformBilling do
   Exempt from doctest — calls Stripe API.
   """
   def create_org_portal_session(%Organization{} = organization) do
-    Marquee.Otel.with_span "marquee.platform_billing.create_portal_session",
-                           %{"marquee.org.id" => organization.id} do
-      case get_subscription(organization) do
-        {:ok, sub} when not is_nil(sub.stripe_customer_id) ->
-          return_url =
-            OrgURL.org_url("#{base_url()}/admin/settings/billing", organization)
+    with :ok <- Marquee.AdminDemo.external_effect(organization) do
+      Marquee.Otel.with_span "marquee.platform_billing.create_portal_session",
+                             %{"marquee.org.id" => organization.id} do
+        case get_subscription(organization) do
+          {:ok, sub} when not is_nil(sub.stripe_customer_id) ->
+            return_url =
+              OrgURL.org_url("#{base_url()}/admin/settings/billing", organization)
 
-          stripe_client().create_billing_portal_session(sub.stripe_customer_id, return_url)
+            stripe_client().create_billing_portal_session(sub.stripe_customer_id, return_url)
 
-        _ ->
-          {:error, :no_subscription}
+          _ ->
+            {:error, :no_subscription}
+        end
       end
     end
   end
@@ -848,7 +852,8 @@ defmodule Marquee.PlatformBilling do
     now = DateTime.truncate(now, :second)
 
     PlatformSubscription
-    |> where([s], s.status == :trialing)
+    |> join(:inner, [s], o in Organization, on: o.id == s.organization_id)
+    |> where([s, o], s.status == :trialing and is_nil(o.demo_kind))
     |> where([s], not is_nil(s.trial_end) and s.trial_end <= ^now)
     |> Repo.all()
   end

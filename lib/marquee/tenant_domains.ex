@@ -14,14 +14,35 @@ defmodule Marquee.TenantDomains do
 
   @doc "Enrolls an active organization from a trusted backend caller and durably enqueues provisioning. Requires database access."
   def request_provisioning(%Organization{} = org, opts \\ []) do
-    Marquee.Otel.with_span "marquee.tenant_domains.request_provisioning", %{
-      "marquee.org.id" => org.id
-    } do
-      with {:ok, attrs} <- allocation_attrs(org, opts),
-           {:ok, domain} <- Repo.transaction(fn -> enroll_locked(org, attrs) end) do
-        emit_transition(org, domain)
-        {:ok, domain}
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_request_provisioning(org, opts)
+    end
+  end
+
+  @doc "Explicit release enrollment for the configured demo service host. Never enrolls a private sandbox. Requires database access."
+  def request_demo_host_provisioning(%Organization{id: id}) do
+    org = Repo.get(Organization, id)
+    host = Application.get_env(:marquee, :admin_demo, [])[:host]
+    pattern = config()[:host_pattern]
+
+    with %{demo_kind: :admin_demo_host, custom_domain: ^host} <- org,
+         true <- is_binary(host) and is_binary(pattern),
+         [prefix, suffix] <- String.split(pattern, "{slug}"),
+         true <- String.starts_with?(host, prefix) and String.ends_with?(host, suffix),
+         slug <-
+           String.slice(
+             host,
+             byte_size(prefix),
+             byte_size(host) - byte_size(prefix) - byte_size(suffix)
+           ),
+         true <- Regex.match?(~r/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, slug),
+         {:ok, attrs} <- allocation_attrs(%{org | slug: slug}, source: :backend),
+         true <- attrs.hostname == host,
+         {:ok, domain} <- Repo.transaction(fn -> enroll_locked(org, attrs) end) do
+      emit_transition(org, domain)
+      {:ok, domain}
+    else
+      _ -> {:error, :demo_forbidden}
     end
   end
 
@@ -286,6 +307,7 @@ defmodule Marquee.TenantDomains do
   defp provision_current(domain, attempt, max_attempts) do
     with {:ok, org} <- Accounts.get_organization(domain.organization_id),
          :ok <- validate_active_org(org),
+         :ok <- validate_demo_provisioning(org, domain),
          :ok <- validate_worker_configuration(domain),
          {:ok, claimed} <- claim_lease(domain) do
       try do
@@ -299,6 +321,16 @@ defmodule Marquee.TenantDomains do
       {:error, reason} -> cancel_domain(domain, reason)
     end
   end
+
+  defp validate_demo_provisioning(%{demo_kind: nil}, _domain), do: :ok
+
+  defp validate_demo_provisioning(%{demo_kind: :admin_demo_host, custom_domain: host}, domain) do
+    if host == Application.get_env(:marquee, :admin_demo, [])[:host] and domain.hostname == host,
+      do: :ok,
+      else: {:error, :demo_forbidden}
+  end
+
+  defp validate_demo_provisioning(_, _), do: {:error, :demo_forbidden}
 
   defp validate_active_org(%{deleted_at: nil}), do: :ok
   defp validate_active_org(_), do: {:error, :not_found}
@@ -485,4 +517,16 @@ defmodule Marquee.TenantDomains do
   defp error_code(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp error_code(_), do: "provider_failure"
   defp config, do: Application.get_env(:marquee, :tenant_domain_provisioning, [])
+
+  defp authorized_request_provisioning(org, opts) do
+    Marquee.Otel.with_span "marquee.tenant_domains.request_provisioning", %{
+      "marquee.org.id" => org.id
+    } do
+      with {:ok, attrs} <- allocation_attrs(org, opts),
+           {:ok, domain} <- Repo.transaction(fn -> enroll_locked(org, attrs) end) do
+        emit_transition(org, domain)
+        {:ok, domain}
+      end
+    end
+  end
 end

@@ -20,6 +20,7 @@ defmodule MarqueeWeb.Components.AdminLayout do
   def admin_layout(assigns) do
     ~H"""
     <div data-area="admin" class="flex flex-col h-screen bg-admin-bg font-body text-admin-fg">
+      <MarqueeWeb.Components.AdminDemo.bar organization={@organization} />
       <div
         :if={@impersonating}
         class="bg-error text-admin-on-accent font-ui text-sm px-4 py-2 flex items-center justify-between"
@@ -152,7 +153,11 @@ defmodule MarqueeWeb.Components.AdminLayout do
               >
                 Impersonating
               </p>
-              <p class="text-xs text-admin-muted truncate mt-1">{@current_user.email}</p>
+              <p class="text-xs text-admin-muted truncate mt-1">
+                {if @organization.demo_kind == :admin_sandbox,
+                  do: "Demo admin",
+                  else: @current_user.email}
+              </p>
             </div>
             <button
               phx-click={hide_sidebar()}
@@ -293,6 +298,8 @@ defmodule MarqueeWeb.Components.AdminLayout do
     </div>
     """
   end
+
+  defp viewer_site_url(%{demo_kind: :admin_sandbox}, _impersonating), do: "/?preview=member"
 
   defp viewer_site_url(org, impersonating) do
     base =

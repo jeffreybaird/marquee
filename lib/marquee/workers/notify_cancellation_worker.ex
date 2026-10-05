@@ -39,7 +39,12 @@ defmodule Marquee.Workers.NotifyCancellationWorker do
 
       case load_event_and_org(event_id, org_id) do
         {:ok, event, org} ->
-          send_cancellation_notifications(event, org)
+          with :ok <-
+                 Marquee.AdminDemo.worker_permission(
+                   Marquee.AdminDemo.external_resource(LiveEvent, event.id, org.id)
+                 ) do
+            send_cancellation_notifications(event, org)
+          end
 
         {:error, :event_not_found} ->
           Logger.warning("NotifyCancellationWorker: live event not found",

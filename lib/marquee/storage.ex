@@ -72,18 +72,20 @@ defmodule Marquee.Storage do
   """
   def presign_upload(%Organization{id: org_id}, kind, opts)
       when is_binary(kind) and is_list(opts) do
-    Marquee.Otel.with_span "marquee.storage.presign_upload",
-                           %{"marquee.org.id" => org_id, "marquee.storage.kind" => kind} do
-      content_type = Keyword.get(opts, :content_type, "application/octet-stream")
-      filename = Keyword.get(opts, :filename, "upload")
+    with :ok <- Marquee.AdminDemo.external_effect(org_id) do
+      Marquee.Otel.with_span "marquee.storage.presign_upload",
+                             %{"marquee.org.id" => org_id, "marquee.storage.kind" => kind} do
+        content_type = Keyword.get(opts, :content_type, "application/octet-stream")
+        filename = Keyword.get(opts, :filename, "upload")
 
-      key = build_key(org_id, kind, filename)
+        key = build_key(org_id, kind, filename)
 
-      client().presign_put(
-        key: key,
-        content_type: content_type,
-        expires_in: Keyword.get(opts, :expires_in, 900)
-      )
+        client().presign_put(
+          key: key,
+          content_type: content_type,
+          expires_in: Keyword.get(opts, :expires_in, 900)
+        )
+      end
     end
   end
 

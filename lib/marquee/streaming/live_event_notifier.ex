@@ -43,24 +43,26 @@ defmodule Marquee.Streaming.LiveEventNotifier do
   Exempt from doctest — sends email.
   """
   def deliver_live_now(viewer, event, org) do
-    subject = "[#{org.name}] #{event.title} is live now!"
-    watch_url = build_watch_url(event, org)
+    with :ok <- Marquee.AdminDemo.external_resource(Marquee.Streaming.LiveEvent, event.id, org.id) do
+      subject = "[#{org.name}] #{event.title} is live now!"
+      watch_url = build_watch_url(event, org)
 
-    body = """
+      body = """
 
-    ==============================
+      ==============================
 
-    Hi #{viewer.display_name || viewer.email},
+      Hi #{viewer.display_name || viewer.email},
 
-    #{event.title} is streaming live right now on #{org.name}!
+      #{event.title} is streaming live right now on #{org.name}!
 
-    Join the stream now:
-    #{watch_url}
+      Join the stream now:
+      #{watch_url}
 
-    ==============================
-    """
+      ==============================
+      """
 
-    deliver(viewer.email, subject, body)
+      deliver(viewer.email, subject, body)
+    end
   end
 
   @doc """
@@ -71,30 +73,32 @@ defmodule Marquee.Streaming.LiveEventNotifier do
   Exempt from doctest — sends email.
   """
   def deliver_cancellation(viewer, event, org) do
-    subject = "[#{org.name}] #{event.title} has been canceled"
-    scheduled = format_datetime(event.scheduled_start_at)
+    with :ok <- Marquee.AdminDemo.external_resource(Marquee.Streaming.LiveEvent, event.id, org.id) do
+      subject = "[#{org.name}] #{event.title} has been canceled"
+      scheduled = format_datetime(event.scheduled_start_at)
 
-    ppv_note =
-      if event.access_type == "pay_per_view" do
-        "\nAs this was a pay-per-view event, refunds are being processed for all ticket holders.\n"
-      else
-        ""
-      end
+      ppv_note =
+        if event.access_type == "pay_per_view" do
+          "\nAs this was a pay-per-view event, refunds are being processed for all ticket holders.\n"
+        else
+          ""
+        end
 
-    body = """
+      body = """
 
-    ==============================
+      ==============================
 
-    Hi #{viewer.display_name || viewer.email},
+      Hi #{viewer.display_name || viewer.email},
 
-    We're sorry to inform you that #{event.title}, scheduled for #{scheduled} on #{org.name}, has been canceled.
-    #{ppv_note}
-    We apologize for the inconvenience. We hope to see you at future events.
+      We're sorry to inform you that #{event.title}, scheduled for #{scheduled} on #{org.name}, has been canceled.
+      #{ppv_note}
+      We apologize for the inconvenience. We hope to see you at future events.
 
-    ==============================
-    """
+      ==============================
+      """
 
-    deliver(viewer.email, subject, body)
+      deliver(viewer.email, subject, body)
+    end
   end
 
   # ---------------------------------------------------------------------------

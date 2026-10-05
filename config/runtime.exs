@@ -30,6 +30,43 @@ if System.get_env("PHX_SERVER") do
   config :marquee, MarqueeWeb.Endpoint, server: true
 end
 
+admin_demo_enabled =
+  case System.get_env("ADMIN_DEMO_ENABLED") do
+    value when value in [nil, "", "false"] -> false
+    "true" -> true
+    _ -> raise "ADMIN_DEMO_ENABLED must be true or false"
+  end
+
+admin_demo_host = System.get_env("ADMIN_DEMO_HOST")
+
+valid_admin_demo_host =
+  is_binary(admin_demo_host) and byte_size(admin_demo_host) <= 253 and
+    Enum.all?(String.split(admin_demo_host || "", "."), fn label ->
+      byte_size(label) in 1..63 and Regex.match?(~r/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, label)
+    end)
+
+if (admin_demo_enabled or admin_demo_host not in [nil, ""]) and not valid_admin_demo_host,
+  do: raise("ADMIN_DEMO_HOST must be an exact lowercase hostname")
+
+admin_demo_trusted_proxy_ip =
+  case System.get_env("ADMIN_DEMO_TRUSTED_PROXY_IP") do
+    value when value in [nil, ""] ->
+      nil
+
+    value ->
+      case :inet.parse_strict_address(String.to_charlist(value)) do
+        {:ok, address} -> address
+        {:error, _} -> raise "ADMIN_DEMO_TRUSTED_PROXY_IP must be an exact IP address"
+      end
+  end
+
+config :marquee, :admin_demo,
+  enabled: admin_demo_enabled,
+  host: admin_demo_host,
+  trusted_proxy_ip: admin_demo_trusted_proxy_ip
+
+if admin_demo_enabled, do: config(:marquee, MarqueeWeb.Endpoint, check_origin: :conn)
+
 # Hostname routing is enabled only after its DNS and certificates are provisioned.
 case System.get_env("ORG_RESOLUTION") do
   value when value in [nil, "", "query_param"] ->

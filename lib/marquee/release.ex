@@ -86,6 +86,24 @@ defmodule Marquee.Release do
     Application.fetch_env!(@app, :ecto_repos)
   end
 
+  @doc "Prepares and enqueues only the exact configured admin-demo service hostname, even while visitor access is disabled."
+  def configure_admin_demo_host do
+    with_tenant_repo(fn ->
+      with_tenant_enqueue_services(fn ->
+        configure_admin_demo_host_with_services()
+      end)
+    end)
+  end
+
+  defp configure_admin_demo_host_with_services do
+    with {:ok, org} <-
+           Marquee.AdminDemo.configure_host(Application.get_env(:marquee, :admin_demo, [])[:host]),
+         {:ok, domain} <- Marquee.TenantDomains.request_demo_host_provisioning(org) do
+      IO.puts(Jason.encode!(%{hostname: domain.hostname, status: domain.status}))
+      {:ok, %{organization: org, domain: domain}}
+    end
+  end
+
   @doc "Prints a sanitized JSON hostname migration plan using only Repo. Accepts bounded cutoff, slug allowlist and keyset options."
   def tenant_domain_snapshot(opts \\ []) do
     with_tenant_repo(fn ->

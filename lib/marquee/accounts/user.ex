@@ -5,6 +5,8 @@ defmodule Marquee.Accounts.User do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "users" do
+    field :demo_kind, Ecto.Enum, values: [:admin_demo_owner, :admin_demo_visitor]
+    field :demo_revoked_at, :utc_datetime_usec
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true

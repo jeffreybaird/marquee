@@ -94,6 +94,7 @@ defmodule MarqueeWeb.Viewer.HomeLive do
     |> assign(:page_title, "Marquee — Your Video Platform")
     |> assign(:page_mode, :platform_marketing)
     |> assign(:subscriber_demo_url, subscriber_demo_url())
+    |> assign(:admin_demo_url, Marquee.AdminDemo.entry_url())
   end
 
   defp subscriber_demo_url do

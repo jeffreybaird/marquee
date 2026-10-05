@@ -18,6 +18,9 @@ defmodule Marquee.Workers.SeedStarterContentWorker do
   @impl true
   def perform(%Oban.Job{args: %{"organization_id" => org_id}}) do
     case Accounts.get_organization(org_id) do
+      {:ok, %{demo_kind: kind}} when not is_nil(kind) ->
+        {:cancel, :demo_forbidden}
+
       {:ok, org} ->
         seed(org)
 

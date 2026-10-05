@@ -47,7 +47,7 @@ defmodule MarqueeWeb.Admin.ContentLive do
     # Only walk operators who can actually manage content through the page;
     # its tour points at the upload control, which viewer-support cannot see.
     show_page_tour =
-      can_manage and
+      can_manage and not Marquee.AdminDemo.demo_organization?(org) and
         not Accounts.page_tour_completed?(socket.assigns.current_user, org, @page_tour_key)
 
     %{results: all_tags} = Content.list_tags(org)

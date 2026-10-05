@@ -256,36 +256,8 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def create_plan_with_stripe(%Organization{} = org, attrs) do
-    Marquee.Otel.with_span "marquee.billing.create_plan",
-                           %{"marquee.org.id" => org.id} do
-      with :ok <- ensure_stripe_connected(org),
-           {:ok, product} <- create_connected_product(org, attrs),
-           {:ok, price} <- create_connected_price(org, product, attrs) do
-        plan_attrs =
-          attrs
-          |> stringify_keys()
-          |> Map.merge(%{
-            "organization_id" => org.id,
-            "stripe_product_id" => product.id,
-            "stripe_price_id" => price.id,
-            "active" => true
-          })
-
-        scope = %Marquee.Accounts.Scope{organization: org}
-
-        case create_plan(scope, plan_attrs) do
-          {:ok, plan} ->
-            Audit.log(scope, "plan.created", plan, %{
-              amount: plan.amount,
-              interval: plan.interval
-            })
-
-            {:ok, plan}
-
-          error ->
-            error
-        end
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_create_plan_with_stripe(org, attrs)
     end
   end
 
@@ -296,18 +268,8 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def update_plan_with_stripe(%Organization{} = org, %Plan{} = plan, attrs) do
-    Marquee.Otel.with_span "marquee.billing.update_plan",
-                           %{"marquee.org.id" => org.id} do
-      scope = %Marquee.Accounts.Scope{organization: org}
-
-      if price_changed?(plan, attrs) do
-        with :ok <- ensure_stripe_connected(org),
-             {:ok, new_price} <- create_connected_price(org, plan, attrs) do
-          update_plan(scope, plan, Map.put(attrs, :stripe_price_id, new_price.id))
-        end
-      else
-        update_plan(scope, plan, attrs)
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_update_plan_with_stripe(org, plan, attrs)
     end
   end
 
@@ -318,9 +280,11 @@ defmodule Marquee.Billing do
   Exempt from doctest — hits the database.
   """
   def deactivate_plan(%Plan{} = plan) do
-    case plan |> Ecto.Changeset.change(active: false) |> Repo.update() do
-      {:ok, plan} -> {:ok, plan}
-      {:error, changeset} -> {:error, :validation, changeset}
+    with :ok <- Marquee.AdminDemo.external_effect(plan.organization_id) do
+      case plan |> Ecto.Changeset.change(active: false) |> Repo.update() do
+        {:ok, plan} -> {:ok, plan}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -330,9 +294,11 @@ defmodule Marquee.Billing do
   Exempt from doctest — hits the database.
   """
   def reactivate_plan(%Plan{} = plan) do
-    case plan |> Ecto.Changeset.change(active: true) |> Repo.update() do
-      {:ok, plan} -> {:ok, plan}
-      {:error, changeset} -> {:error, :validation, changeset}
+    with :ok <- Marquee.AdminDemo.external_effect(plan.organization_id) do
+      case plan |> Ecto.Changeset.change(active: true) |> Repo.update() do
+        {:ok, plan} -> {:ok, plan}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -434,40 +400,8 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def create_coupon(%Organization{} = org, attrs) do
-    Marquee.Otel.with_span "marquee.billing.create_coupon",
-                           %{"marquee.org.id" => org.id} do
-      with :ok <- ensure_stripe_connected(org),
-           {:ok, stripe_coupon} <-
-             stripe_client().create_connected_coupon(
-               build_stripe_coupon_params(attrs),
-               connect_account: org.stripe_connect_account_id
-             ),
-           {:ok, promo_code} <-
-             stripe_client().create_connected_promotion_code(
-               %{
-                 coupon: stripe_coupon.id,
-                 code: String.upcase(to_string(attrs[:code] || attrs["code"]))
-               },
-               connect_account: org.stripe_connect_account_id
-             ) do
-        coupon_attrs =
-          Map.merge(attrs, %{
-            organization_id: org.id,
-            stripe_coupon_id: stripe_coupon.id,
-            stripe_promotion_code_id: promo_code.id,
-            active: true
-          })
-
-        case %Coupon{} |> Coupon.changeset(coupon_attrs) |> Repo.insert() do
-          {:ok, coupon} ->
-            Events.broadcast(%{organization: org}, {:coupon_created, coupon})
-            Audit.log(nil, "coupon.created", coupon, %{code: coupon.code})
-            {:ok, coupon}
-
-          {:error, changeset} ->
-            {:error, :validation, changeset}
-        end
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_create_coupon(org, attrs)
     end
   end
 
@@ -478,9 +412,11 @@ defmodule Marquee.Billing do
   Exempt from doctest — hits the database.
   """
   def deactivate_coupon(%Coupon{} = coupon) do
-    case coupon |> Ecto.Changeset.change(active: false) |> Repo.update() do
-      {:ok, coupon} -> {:ok, coupon}
-      {:error, changeset} -> {:error, :validation, changeset}
+    with :ok <- Marquee.AdminDemo.external_effect(coupon.organization_id) do
+      case coupon |> Ecto.Changeset.change(active: false) |> Repo.update() do
+        {:ok, coupon} -> {:ok, coupon}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -490,11 +426,13 @@ defmodule Marquee.Billing do
   Exempt from doctest — hits the database.
   """
   def delete_coupon(%Coupon{} = coupon) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    with :ok <- Marquee.AdminDemo.external_effect(coupon.organization_id) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    case coupon |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
-      {:ok, coupon} -> {:ok, coupon}
-      {:error, changeset} -> {:error, :validation, changeset}
+      case coupon |> Ecto.Changeset.change(deleted_at: now) |> Repo.update() do
+        {:ok, coupon} -> {:ok, coupon}
+        {:error, changeset} -> {:error, :validation, changeset}
+      end
     end
   end
 
@@ -570,39 +508,8 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def create_viewer_checkout(%Organization{} = org, %Viewer{} = viewer, %Plan{} = plan) do
-    Marquee.Otel.with_span "marquee.billing.create_viewer_checkout",
-                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
-      with :ok <- ensure_stripe_connected(org) do
-        params = %{
-          organization_id: org.id,
-          viewer_id: viewer.id,
-          viewer_email: viewer.email,
-          stripe_connect_account_id: org.stripe_connect_account_id,
-          line_items: [%{price: plan.stripe_price_id, quantity: 1}],
-          success_url:
-            OrgURL.org_url(
-              "#{org_base_url(org)}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
-              org
-            ),
-          cancel_url: OrgURL.org_url("#{org_base_url(org)}/subscribe", org),
-          trial_period_days: plan.trial_period_days
-        }
-
-        case stripe_client().create_connected_checkout_session(params) do
-          {:ok, session} ->
-            Marquee.Metrics.checkout_initiated(org.id, plan.id)
-            {:ok, session}
-
-          {:error, :stripe_error, reason} ->
-            Logger.error("Viewer checkout failed",
-              org_id: org.id,
-              viewer_id: viewer.id,
-              reason: inspect(reason)
-            )
-
-            {:error, :stripe_error, reason}
-        end
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_create_viewer_checkout(org, viewer, plan)
     end
   end
 
@@ -612,16 +519,18 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def create_viewer_portal_session(%Organization{} = org, %Viewer{} = viewer) do
-    Marquee.Otel.with_span "marquee.billing.create_viewer_portal_session",
-                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
-      with :ok <- ensure_stripe_connected(org) do
-        stripe_client().create_connected_portal_session(
-          %{
-            customer: viewer.stripe_customer_id,
-            return_url: OrgURL.org_url("#{org_base_url(org)}/account", org)
-          },
-          connect_account: org.stripe_connect_account_id
-        )
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      Marquee.Otel.with_span "marquee.billing.create_viewer_portal_session",
+                             %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
+        with :ok <- ensure_stripe_connected(org) do
+          stripe_client().create_connected_portal_session(
+            %{
+              customer: viewer.stripe_customer_id,
+              return_url: OrgURL.org_url("#{org_base_url(org)}/account", org)
+            },
+            connect_account: org.stripe_connect_account_id
+          )
+        end
       end
     end
   end
@@ -642,45 +551,8 @@ defmodule Marquee.Billing do
         %Organization{} = org,
         %{success_url: _, cancel_url: _} = urls
       ) do
-    Marquee.Otel.with_span "marquee.billing.create_ppv_checkout",
-                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
-      with :ok <- ensure_stripe_connected(org) do
-        params = %{
-          organization_id: org.id,
-          viewer_id: viewer.id,
-          viewer_email: viewer.email,
-          live_event_id: event.id,
-          stripe_connect_account_id: org.stripe_connect_account_id,
-          line_items: [
-            %{
-              price_data: %{
-                currency: "usd",
-                unit_amount: event.ppv_price_cents,
-                product_data: %{name: event.title}
-              },
-              quantity: 1
-            }
-          ],
-          success_url: urls.success_url,
-          cancel_url: urls.cancel_url
-        }
-
-        case stripe_client().create_connected_payment_checkout_session(params) do
-          {:ok, session} ->
-            Marquee.Metrics.checkout_initiated(org.id, event.id)
-            {:ok, session.url}
-
-          {:error, :stripe_error, reason} ->
-            Logger.error("PPV checkout failed",
-              org_id: org.id,
-              viewer_id: viewer.id,
-              live_event_id: event.id,
-              reason: inspect(reason)
-            )
-
-            {:error, :stripe_error, reason}
-        end
-      end
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      authorized_create_ppv_checkout(event, viewer, org, urls)
     end
   end
 
@@ -950,31 +822,33 @@ defmodule Marquee.Billing do
   Exempt from doctest — calls external API.
   """
   def initiate_connect_onboarding(%Organization{} = org) do
-    Marquee.Otel.with_span "marquee.billing.initiate_connect_onboarding",
-                           %{"marquee.org.id" => org.id} do
-      with {:ok, account_id} <- ensure_connect_account(org),
-           {:ok, link} <-
-             stripe_client().create_connect_account_link(account_id, %{
-               return_url:
-                 OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/return", org),
-               refresh_url:
-                 OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/refresh", org)
-             }) do
-        {:ok, link.url}
-      else
-        {:error, :stripe_error, reason} ->
-          Logger.error(
-            "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
-          )
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      Marquee.Otel.with_span "marquee.billing.initiate_connect_onboarding",
+                             %{"marquee.org.id" => org.id} do
+        with {:ok, account_id} <- ensure_connect_account(org),
+             {:ok, link} <-
+               stripe_client().create_connect_account_link(account_id, %{
+                 return_url:
+                   OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/return", org),
+                 refresh_url:
+                   OrgURL.org_url("#{org_base_url(org)}/admin/settings/stripe/refresh", org)
+               }) do
+          {:ok, link.url}
+        else
+          {:error, :stripe_error, reason} ->
+            Logger.error(
+              "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
+            )
 
-          {:error, :stripe_error, reason}
+            {:error, :stripe_error, reason}
 
-        {:error, reason} ->
-          Logger.error(
-            "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
-          )
+          {:error, reason} ->
+            Logger.error(
+              "Stripe Connect onboarding failed org_id=#{org.id} reason=#{inspect(reason)}"
+            )
 
-          {:error, :stripe_error, reason}
+            {:error, :stripe_error, reason}
+        end
       end
     end
   end
@@ -986,22 +860,24 @@ defmodule Marquee.Billing do
   Exempt from doctest — hits the database.
   """
   def complete_connect_onboarding(%Organization{} = org, stripe_account_id) do
-    Marquee.Otel.with_span "marquee.billing.complete_connect_onboarding",
-                           %{"marquee.org.id" => org.id} do
-      org
-      |> Organization.changeset(%{
-        stripe_connect_account_id: stripe_account_id,
-        stripe_connect_onboarding_complete: true
-      })
-      |> Repo.update()
-      |> case do
-        {:ok, org} ->
-          Events.broadcast(%{organization: org}, {:stripe_connected, org})
-          Audit.log(nil, "organization.stripe_connected", org, %{})
-          {:ok, org}
+    with :ok <- Marquee.AdminDemo.external_effect(org) do
+      Marquee.Otel.with_span "marquee.billing.complete_connect_onboarding",
+                             %{"marquee.org.id" => org.id} do
+        org
+        |> Organization.changeset(%{
+          stripe_connect_account_id: stripe_account_id,
+          stripe_connect_onboarding_complete: true
+        })
+        |> Repo.update()
+        |> case do
+          {:ok, org} ->
+            Events.broadcast(%{organization: org}, {:stripe_connected, org})
+            Audit.log(nil, "organization.stripe_connected", org, %{})
+            {:ok, org}
 
-        {:error, changeset} ->
-          {:error, :validation, changeset}
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
       end
     end
   end
@@ -1076,6 +952,174 @@ defmodule Marquee.Billing do
       "http://#{host}:#{port}"
     else
       "https://#{slug}.#{host}"
+    end
+  end
+
+  defp authorized_create_plan_with_stripe(org, attrs) do
+    Marquee.Otel.with_span "marquee.billing.create_plan",
+                           %{"marquee.org.id" => org.id} do
+      with :ok <- ensure_stripe_connected(org),
+           {:ok, product} <- create_connected_product(org, attrs),
+           {:ok, price} <- create_connected_price(org, product, attrs) do
+        plan_attrs =
+          attrs
+          |> stringify_keys()
+          |> Map.merge(%{
+            "organization_id" => org.id,
+            "stripe_product_id" => product.id,
+            "stripe_price_id" => price.id,
+            "active" => true
+          })
+
+        scope = %Marquee.Accounts.Scope{organization: org}
+
+        case create_plan(scope, plan_attrs) do
+          {:ok, plan} ->
+            Audit.log(scope, "plan.created", plan, %{
+              amount: plan.amount,
+              interval: plan.interval
+            })
+
+            {:ok, plan}
+
+          error ->
+            error
+        end
+      end
+    end
+  end
+
+  defp authorized_update_plan_with_stripe(org, plan, attrs) do
+    Marquee.Otel.with_span "marquee.billing.update_plan",
+                           %{"marquee.org.id" => org.id} do
+      scope = %Marquee.Accounts.Scope{organization: org}
+
+      if price_changed?(plan, attrs) do
+        with :ok <- ensure_stripe_connected(org),
+             {:ok, new_price} <- create_connected_price(org, plan, attrs) do
+          update_plan(scope, plan, Map.put(attrs, :stripe_price_id, new_price.id))
+        end
+      else
+        update_plan(scope, plan, attrs)
+      end
+    end
+  end
+
+  defp authorized_create_coupon(org, attrs) do
+    Marquee.Otel.with_span "marquee.billing.create_coupon",
+                           %{"marquee.org.id" => org.id} do
+      with :ok <- ensure_stripe_connected(org),
+           {:ok, stripe_coupon} <-
+             stripe_client().create_connected_coupon(
+               build_stripe_coupon_params(attrs),
+               connect_account: org.stripe_connect_account_id
+             ),
+           {:ok, promo_code} <-
+             stripe_client().create_connected_promotion_code(
+               %{
+                 coupon: stripe_coupon.id,
+                 code: String.upcase(to_string(attrs[:code] || attrs["code"]))
+               },
+               connect_account: org.stripe_connect_account_id
+             ) do
+        coupon_attrs =
+          Map.merge(attrs, %{
+            organization_id: org.id,
+            stripe_coupon_id: stripe_coupon.id,
+            stripe_promotion_code_id: promo_code.id,
+            active: true
+          })
+
+        case %Coupon{} |> Coupon.changeset(coupon_attrs) |> Repo.insert() do
+          {:ok, coupon} ->
+            Events.broadcast(%{organization: org}, {:coupon_created, coupon})
+            Audit.log(nil, "coupon.created", coupon, %{code: coupon.code})
+            {:ok, coupon}
+
+          {:error, changeset} ->
+            {:error, :validation, changeset}
+        end
+      end
+    end
+  end
+
+  defp authorized_create_viewer_checkout(org, viewer, plan) do
+    Marquee.Otel.with_span "marquee.billing.create_viewer_checkout",
+                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
+      with :ok <- ensure_stripe_connected(org) do
+        params = %{
+          organization_id: org.id,
+          viewer_id: viewer.id,
+          viewer_email: viewer.email,
+          stripe_connect_account_id: org.stripe_connect_account_id,
+          line_items: [%{price: plan.stripe_price_id, quantity: 1}],
+          success_url:
+            OrgURL.org_url(
+              "#{org_base_url(org)}/subscribe/success?session_id={CHECKOUT_SESSION_ID}",
+              org
+            ),
+          cancel_url: OrgURL.org_url("#{org_base_url(org)}/subscribe", org),
+          trial_period_days: plan.trial_period_days
+        }
+
+        case stripe_client().create_connected_checkout_session(params) do
+          {:ok, session} ->
+            Marquee.Metrics.checkout_initiated(org.id, plan.id)
+            {:ok, session}
+
+          {:error, :stripe_error, reason} ->
+            Logger.error("Viewer checkout failed",
+              org_id: org.id,
+              viewer_id: viewer.id,
+              reason: inspect(reason)
+            )
+
+            {:error, :stripe_error, reason}
+        end
+      end
+    end
+  end
+
+  defp authorized_create_ppv_checkout(event, viewer, org, urls) do
+    Marquee.Otel.with_span "marquee.billing.create_ppv_checkout",
+                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
+      with :ok <- ensure_stripe_connected(org) do
+        params = %{
+          organization_id: org.id,
+          viewer_id: viewer.id,
+          viewer_email: viewer.email,
+          live_event_id: event.id,
+          stripe_connect_account_id: org.stripe_connect_account_id,
+          line_items: [
+            %{
+              price_data: %{
+                currency: "usd",
+                unit_amount: event.ppv_price_cents,
+                product_data: %{name: event.title}
+              },
+              quantity: 1
+            }
+          ],
+          success_url: urls.success_url,
+          cancel_url: urls.cancel_url
+        }
+
+        case stripe_client().create_connected_payment_checkout_session(params) do
+          {:ok, session} ->
+            Marquee.Metrics.checkout_initiated(org.id, event.id)
+            {:ok, session.url}
+
+          {:error, :stripe_error, reason} ->
+            Logger.error("PPV checkout failed",
+              org_id: org.id,
+              viewer_id: viewer.id,
+              live_event_id: event.id,
+              reason: inspect(reason)
+            )
+
+            {:error, :stripe_error, reason}
+        end
+      end
     end
   end
 end

@@ -156,6 +156,8 @@ jobs:
       TENANT_SLUGS: ${{ vars.TENANT_SLUGS }}
       ORG_RESOLUTION: ${{ vars.ORG_RESOLUTION || 'query_param' }}
       TENANT_HOST_PATTERN: ${{ vars.TENANT_HOST_PATTERN }}
+      ADMIN_DEMO_ENABLED: ${{ vars.ADMIN_DEMO_ENABLED || 'false' }}
+      ADMIN_DEMO_HOST: ${{ vars.ADMIN_DEMO_HOST }}
       TENANT_DOMAIN_PROVISIONING: ${{ vars.TENANT_DOMAIN_PROVISIONING || 'false' }}
       DNSIMPLE_ACCOUNT_ID: ${{ vars.DNSIMPLE_ACCOUNT_ID }}
       DNSIMPLE_API_TOKEN: ${{ secrets.DNSIMPLE_API_TOKEN }}
@@ -210,6 +212,8 @@ jobs:
           DOMAIN=${{ vars.DOMAIN }}
           ORG_RESOLUTION=${ORG_RESOLUTION}
           TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
+          ADMIN_DEMO_ENABLED=${ADMIN_DEMO_ENABLED}
+          ADMIN_DEMO_HOST=${ADMIN_DEMO_HOST}
           TENANT_DOMAIN_PROVISIONING=${TENANT_DOMAIN_PROVISIONING}
           DNSIMPLE_ACCOUNT_ID=${DNSIMPLE_ACCOUNT_ID}
           DNSIMPLE_API_TOKEN=${DNSIMPLE_API_TOKEN}
@@ -240,6 +244,8 @@ jobs:
           DOMAIN=${{ vars.DOMAIN }}
           ORG_RESOLUTION=${ORG_RESOLUTION}
           TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
+          ADMIN_DEMO_ENABLED=${ADMIN_DEMO_ENABLED}
+          ADMIN_DEMO_HOST=${ADMIN_DEMO_HOST}
           TENANT_DOMAIN_PROVISIONING=${TENANT_DOMAIN_PROVISIONING}
           DNSIMPLE_ACCOUNT_ID=${DNSIMPLE_ACCOUNT_ID}
           DNSIMPLE_API_TOKEN=${DNSIMPLE_API_TOKEN}
@@ -287,14 +293,14 @@ jobs:
         if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/compose.yaml deploy/swap.sh db-ca.pem .env \
+            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh db-ca.pem .env \
             root@"$HOST":"$STACK_DIR"/
 
       - name: Copy stack files + .env to droplet (SQLite)
         if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/compose.yaml deploy/swap.sh deploy/litestream.yml .env \
+            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh deploy/litestream.yml .env \
             root@"$HOST":"$STACK_DIR"/
 
       # Shared network + shared Caddy + this app's route, before the app starts.
@@ -308,6 +314,8 @@ jobs:
           fi
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
             "APP_SLUG='$APP_SLUG' DOMAIN='$DOMAIN' TENANT_SLUGS='$TENANT_SLUGS' TENANT_TLS_ON_DEMAND='$TENANT_DOMAIN_PROVISIONING' bash /root/caddy/edge.sh"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
+            "bash '$STACK_DIR'/admin-demo-proxy.sh '$STACK_DIR'"
 
       - name: Registry login + pull new image
         run: |
@@ -331,6 +339,11 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
             "bash '$STACK_DIR'/swap.sh"
+
+      - name: Bootstrap configured admin demo host after old workers stop
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
+            "bash '$STACK_DIR'/admin-demo-bootstrap.sh '$STACK_DIR' '${{ needs.build.outputs.app_name }}' '${{ needs.build.outputs.module }}' '$ADMIN_DEMO_HOST'"
 
       # Close the hole no matter how the deploy ended.
       - name: Revoke runner IP

@@ -55,12 +55,14 @@ defmodule Marquee.Podcasts.AudioProxy do
   def fetch_audio(%Episode{remote_audio_url: nil}), do: {:error, :no_remote_audio}
 
   def fetch_audio(%Episode{remote_audio_url: url} = episode) when is_binary(url) do
-    key = cache_key(episode)
+    with :ok <- Marquee.AdminDemo.external_resource(Marquee.Podcasts.Episode, episode.id) do
+      key = cache_key(episode)
 
-    case Storage.head_object(key) do
-      {:ok, _meta} -> read_cached(episode, key)
-      {:error, :not_found} -> populate_cache(episode, key, url)
-      {:error, reason} -> {:error, :storage_failed, reason}
+      case Storage.head_object(key) do
+        {:ok, _meta} -> read_cached(episode, key)
+        {:error, :not_found} -> populate_cache(episode, key, url)
+        {:error, reason} -> {:error, :storage_failed, reason}
+      end
     end
   end
 

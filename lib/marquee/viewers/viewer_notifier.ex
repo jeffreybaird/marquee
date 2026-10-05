@@ -30,24 +30,27 @@ defmodule Marquee.Viewers.ViewerNotifier do
   Exempt from doctest — sends email.
   """
   def deliver_magic_link(viewer, token, organization) do
-    url = viewer_magic_link_url(token, organization)
+    with :ok <-
+           Marquee.AdminDemo.external_resource(Marquee.Viewers.Viewer, viewer.id, organization.id) do
+      url = viewer_magic_link_url(token, organization)
 
-    deliver(viewer.email, "Sign in to #{organization.name}", """
+      deliver(viewer.email, "Sign in to #{organization.name}", """
 
-    ==============================
+      ==============================
 
-    Hi #{viewer.display_name || viewer.email},
+      Hi #{viewer.display_name || viewer.email},
 
-    You can sign in to #{organization.name} by visiting the URL below:
+      You can sign in to #{organization.name} by visiting the URL below:
 
-    #{url}
+      #{url}
 
-    This link will expire in 15 minutes.
+      This link will expire in 15 minutes.
 
-    If you didn't request this email, please ignore this.
+      If you didn't request this email, please ignore this.
 
-    ==============================
-    """)
+      ==============================
+      """)
+    end
   end
 
   @doc """
@@ -58,22 +61,24 @@ defmodule Marquee.Viewers.ViewerNotifier do
   Exempt from doctest — sends email.
   """
   def deliver_already_registered(email, organization) do
-    deliver(email, "Account already exists on #{organization.name}", """
+    with :ok <- Marquee.AdminDemo.external_effect(organization) do
+      deliver(email, "Account already exists on #{organization.name}", """
 
-    ==============================
+      ==============================
 
-    Hi,
+      Hi,
 
-    Someone tried to register a new account on #{organization.name}
-    using this email address, but you already have an account.
+      Someone tried to register a new account on #{organization.name}
+      using this email address, but you already have an account.
 
-    If this was you, you can sign in instead by requesting a
-    magic link at the login page.
+      If this was you, you can sign in instead by requesting a
+      magic link at the login page.
 
-    If you didn't request this, please ignore this email.
+      If you didn't request this, please ignore this email.
 
-    ==============================
-    """)
+      ==============================
+      """)
+    end
   end
 
   defp viewer_magic_link_url(token, organization) do

@@ -104,6 +104,7 @@ defmodule Marquee.Admin do
     include_deleted = Keyword.get(opts, :include_deleted, false)
 
     Organization
+    |> where([o], is_nil(o.demo_kind))
     |> apply_soft_delete_filter(include_deleted)
     |> apply_org_search(search)
     |> apply_org_order(order)
@@ -116,7 +117,8 @@ defmodule Marquee.Admin do
 
     query =
       from o in Organization,
-        where: is_nil(o.deleted_at) and o.inserted_at < ^cutoff,
+        where: is_nil(o.deleted_at) and is_nil(o.demo_kind),
+        where: o.inserted_at < ^cutoff,
         order_by: [asc: o.inserted_at, asc: o.id]
 
     query =
@@ -354,6 +356,7 @@ defmodule Marquee.Admin do
     search = Keyword.get(opts, :search)
 
     User
+    |> where([u], is_nil(u.demo_kind))
     |> apply_user_search(search)
     |> order_by(asc: :email)
     |> Pagination.paginate(opts)
@@ -413,16 +416,26 @@ defmodule Marquee.Admin do
   """
   def platform_stats do
     %{
-      total_organizations: Repo.aggregate(Organization, :count),
-      total_users: Repo.aggregate(User, :count),
-      total_videos: Repo.aggregate(Video, :count),
+      total_organizations:
+        Repo.aggregate(from(o in Organization, where: is_nil(o.demo_kind)), :count),
+      total_users: Repo.aggregate(from(u in User, where: is_nil(u.demo_kind)), :count),
+      total_videos:
+        Repo.aggregate(
+          from(v in Video,
+            join: o in Organization,
+            on: o.id == v.organization_id,
+            where: is_nil(o.demo_kind)
+          ),
+          :count
+        ),
       total_subscribers: active_subscriber_count()
     }
   end
 
   defp active_subscriber_count do
     Viewer
-    |> where([v], v.subscription_status in ["active", "trial"])
+    |> join(:inner, [v], o in Organization, on: o.id == v.organization_id)
+    |> where([v, o], v.subscription_status in ["active", "trial"] and is_nil(o.demo_kind))
     |> Repo.aggregate(:count)
   end
 
@@ -510,8 +523,22 @@ defmodule Marquee.Admin do
   """
   def platform_overview do
     Marquee.Otel.with_span "marquee.admin.platform_overview" do
-      total_orgs = Repo.aggregate(from(o in Organization, where: is_nil(o.deleted_at)), :count)
-      total_viewers = Repo.aggregate(Viewer, :count)
+      total_orgs =
+        Repo.aggregate(
+          from(o in Organization, where: is_nil(o.deleted_at) and is_nil(o.demo_kind)),
+          :count
+        )
+
+      total_viewers =
+        Repo.aggregate(
+          from(v in Viewer,
+            join: o in Organization,
+            on: o.id == v.organization_id,
+            where: is_nil(o.demo_kind)
+          ),
+          :count
+        )
+
       platform_mrr_cents = compute_platform_mrr()
       viewer_fee_revenue_cents = compute_viewer_fee_revenue()
 
@@ -577,7 +604,7 @@ defmodule Marquee.Admin do
       base_query =
         from o in Organization,
           as: :org,
-          where: is_nil(o.deleted_at),
+          where: is_nil(o.deleted_at) and is_nil(o.demo_kind),
           left_join: ps in PlatformSubscription,
           as: :platform_sub,
           on: ps.organization_id == o.id and ps.status == :active,
@@ -613,7 +640,7 @@ defmodule Marquee.Admin do
 
       count_query =
         from o in Organization,
-          where: is_nil(o.deleted_at),
+          where: is_nil(o.deleted_at) and is_nil(o.demo_kind),
           select: count()
 
       count_query = apply_org_search_simple(count_query, search)
@@ -804,5 +831,74 @@ defmodule Marquee.Admin do
           Repo.get_by(Marquee.Billing.PlatformSubscription, organization_id: org_id)
       }
     end
+  end
+
+  @doc "Finds the configured demo service organization, optionally locking its allocation row. Cross-tenant administrative lookup."
+  def admin_demo_host(host, lock? \\ false) do
+    query = from o in Organization, where: o.custom_domain == ^host
+    query = if lock?, do: lock(query, "FOR UPDATE"), else: query
+    Repo.one(query)
+  end
+
+  @doc "Checks the permanent consumed-entry tombstone. Cross-tenant administrative lookup."
+  def admin_demo_entry_consumed?(hash),
+    do: Repo.exists?(from o in Organization, where: o.demo_entry_key_hash == ^hash)
+
+  @doc "Counts currently active sandbox sessions under the service-host lock. Cross-tenant administrative query."
+  def active_admin_demo_count(now) do
+    Repo.aggregate(
+      from(s in Marquee.AdminDemo.Session,
+        where: is_nil(s.revoked_at) and s.expires_at > ^now
+      ),
+      :count
+    )
+  end
+
+  @doc "Selects a bounded batch of expired demo sessions for scoped cleanup. Cross-tenant administrative query."
+  def expired_admin_demo_sessions(now, limit) do
+    purge_before = DateTime.add(now, -86_400)
+    retention_before = DateTime.add(now, -30 * 86_400)
+
+    Repo.all(
+      from s in Marquee.AdminDemo.Session,
+        where: s.expires_at <= ^now,
+        where:
+          is_nil(s.revoked_at) or (is_nil(s.purged_at) and s.expires_at <= ^purge_before) or
+            s.expires_at <= ^retention_before,
+        order_by: [asc: s.expires_at, asc: s.id],
+        limit: ^limit
+    )
+  end
+
+  @doc "Returns a bounded customer-only page for platform automation. Cross-tenant administrative query."
+  def customer_organization_ids(after_id \\ nil) do
+    query =
+      from o in Organization,
+        where: is_nil(o.demo_kind) and is_nil(o.deleted_at),
+        order_by: o.id,
+        limit: 100,
+        select: o.id
+
+    query = if after_id, do: where(query, [o], o.id > ^after_id), else: query
+    Repo.all(query)
+  end
+
+  @doc "Returns a bounded customer-only page of due podcast feeds. Cross-tenant administrative query."
+  def due_customer_podcast_ids(cutoff, failure_limit, after_id \\ nil) do
+    query =
+      from s in Marquee.Podcasts.Show,
+        join: o in Organization,
+        on: o.id == s.organization_id,
+        where: is_nil(o.demo_kind) and is_nil(o.deleted_at),
+        where: s.source_type == "feed_import" and is_nil(s.deleted_at) and s.published == true,
+        where:
+          s.remote_consecutive_failures < ^failure_limit and
+            (is_nil(s.remote_last_synced_at) or s.remote_last_synced_at < ^cutoff),
+        order_by: s.id,
+        limit: 100,
+        select: s.id
+
+    query = if after_id, do: where(query, [s], s.id > ^after_id), else: query
+    Repo.all(query)
   end
 end

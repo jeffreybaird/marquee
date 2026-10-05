@@ -44,6 +44,7 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
     conn = OrgURL.redirect_legacy(conn)
 
     cond do
+      conn.assigns[:admin_demo_scope] -> conn
       conn.halted -> conn
       bare_platform_home?(conn, opts) -> clear_org_from_session(conn)
       true -> assign_resolved_organization(conn, opts)
@@ -60,6 +61,9 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
 
   defp assign_resolved_organization(conn, opts) do
     case resolve_organization(conn, opts) do
+      {:ok, %{demo_kind: kind}} when kind in [:admin_sandbox, :admin_demo_host] ->
+        conn |> send_resp(404, "Organization not found") |> halt()
+
       {:ok, organization} ->
         conn = put_org_in_session(conn, organization)
         scope = conn.assigns[:current_scope]

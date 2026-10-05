@@ -43,6 +43,7 @@ defmodule Marquee.PublishedDoctests do
 
   @stateful_modules [
     Marquee.Accounts,
+    Marquee.AdminDemo,
     Marquee.Billing,
     Marquee.Branding,
     Marquee.Catalog,

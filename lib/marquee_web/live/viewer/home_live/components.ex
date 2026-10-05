@@ -117,6 +117,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
   end
 
   attr :subscriber_demo_url, :string, default: nil
+  attr :admin_demo_url, :string, default: nil
 
   def platform_marketing(assigns) do
     ~H"""
@@ -158,6 +159,14 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
               and grow a branded video streaming service — no engineering team required.
             </p>
             <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:flex-wrap">
+              <.link
+                :if={@admin_demo_url}
+                href={@admin_demo_url}
+                class="btn btn-primary btn-lg min-h-11"
+                data-test="admin-demo-cta"
+              >
+                Explore the admin demo
+              </.link>
               <.link
                 :if={@subscriber_demo_url}
                 href={@subscriber_demo_url}

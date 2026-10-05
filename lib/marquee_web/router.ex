@@ -12,10 +12,19 @@ defmodule MarqueeWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_user
+    plug MarqueeWeb.Plugs.AdminDemoAccess
     plug MarqueeWeb.Plugs.SetRequestContext
   end
 
   defp redirect_legacy_tenant(conn, opts), do: MarqueeWeb.OrgURL.redirect_legacy(conn, opts)
+
+  scope "/demo", MarqueeWeb do
+    pipe_through :browser
+    get "/admin", AdminDemoController, :index
+    post "/admin", AdminDemoController, :create
+    post "/admin/reset", AdminDemoController, :reset
+    post "/admin/exit", AdminDemoController, :exit
+  end
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -147,6 +156,8 @@ defmodule MarqueeWeb.Router do
         {MarqueeWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", DashboardLive
+      live "/demo/library", DemoLibraryLive
+      live "/demo/restricted", DemoRestrictedLive
       live "/onboarding", OnboardingLive
       live "/content", ContentLive
       live "/collections", CollectionsLive
