@@ -7,8 +7,9 @@ locals {
   is_apex = var.dns_record == "" || var.dns_record == "@"
   fqdn    = local.is_apex ? var.dns_zone : "${var.dns_record}.${var.dns_zone}"
 
-  # The STAGING name, for the environment a pull request against main stands up
-  # on this same droplet (deploy/staging-down.sh, .github/workflows/staging.yml).
+  # The STAGING name on this same droplet. The record (and staging database) are
+  # still provisioned, but no workflow deploys to them: the staging workflow was
+  # removed.
   # On the apex the app has no label of its own to extend, so the project name
   # supplies one — the record must never be the apex itself.
   staging_label = local.is_apex ? "${var.project_name}-stg" : "${var.dns_record}-stg"
