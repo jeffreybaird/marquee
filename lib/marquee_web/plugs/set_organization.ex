@@ -22,6 +22,10 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
   admin session/membership fallback. Legacy platform GET/HEAD links redirect
   to their canonical tenant before resolving a scope.
 
+  The bare configured platform home ignores remembered tenant selection and
+  viewer identity for anonymous visitors. Explicit organization links and
+  authenticated operator flows keep their existing resolution behavior.
+
   Sets `conn.assigns.current_scope` (when user + membership found) or
   `conn.assigns.organization` (for public/viewer routes without membership).
   """
@@ -39,7 +43,19 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
   def call(conn, opts) do
     conn = OrgURL.redirect_legacy(conn)
 
-    if conn.halted, do: conn, else: assign_resolved_organization(conn, opts)
+    cond do
+      conn.halted -> conn
+      bare_platform_home?(conn, opts) -> clear_org_from_session(conn)
+      true -> assign_resolved_organization(conn, opts)
+    end
+  end
+
+  defp bare_platform_home?(conn, opts) do
+    scope = conn.assigns[:current_scope]
+
+    Keyword.get(opts, :optional, false) and conn.method in ["GET", "HEAD"] and
+      conn.request_path == "/" and platform_host?(conn.host) and
+      explicit_org_signal(conn) == :none and is_nil(scope && scope.user)
   end
 
   defp assign_resolved_organization(conn, opts) do

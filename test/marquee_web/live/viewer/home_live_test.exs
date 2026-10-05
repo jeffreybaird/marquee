@@ -1088,7 +1088,7 @@ defmodule MarqueeWeb.Viewer.HomeLiveTest do
   end
 
   describe "logged-in viewer without subdomain" do
-    test "redirects to / with explicit ?org=<slug> when viewer hits root without subdomain",
+    test "shows platform marketing and preserves viewer authentication at bare platform root",
          %{conn: conn} do
       org = insert(:organization, slug: "viewer-org")
       viewer = insert(:viewer, organization: org)
@@ -1099,7 +1099,12 @@ defmodule MarqueeWeb.Viewer.HomeLiveTest do
         |> Map.put(:host, "localhost")
         |> Phoenix.ConnTest.init_test_session(%{viewer_token: token})
 
-      assert {:error, {:redirect, %{to: "/?org=viewer-org"}}} = live(conn, ~p"/")
+      conn = get(conn, ~p"/")
+      assert html_response(conn, 200) =~ ~s(data-test="platform-marketing")
+      assert get_session(conn, :viewer_token) == token
+      assert Marquee.Viewers.get_viewer_by_session_token(token).id == viewer.id
+      assert {:ok, view, _html} = live(conn)
+      assert has_element?(view, "[data-test=platform-marketing]")
     end
 
     test "renders viewer home once the ?org= param is present", %{conn: conn} do

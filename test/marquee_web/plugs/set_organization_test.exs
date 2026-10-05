@@ -128,8 +128,10 @@ defmodule MarqueeWeb.Plugs.SetOrganizationTest do
     end
   end
 
-  describe "optional mode resolves org from viewer token" do
-    test "resolves org when viewer is logged in and mode is optional", %{conn: conn} do
+  describe "optional platform home with viewer token" do
+    test "clears passive organization context without discarding viewer authentication", %{
+      conn: conn
+    } do
       org = insert(:organization)
       viewer = insert(:viewer, organization: org)
       token = Marquee.Viewers.generate_viewer_session_token(viewer)
@@ -138,9 +140,16 @@ defmodule MarqueeWeb.Plugs.SetOrganizationTest do
         conn
         |> Map.put(:host, "localhost")
         |> Plug.Conn.put_session(:viewer_token, token)
+        |> Plug.Conn.put_session(:organization_id, org.id)
+        |> Plug.Conn.put_session(:org_slug, org.slug)
         |> SetOrganization.call(optional: true)
 
-      assert conn.assigns.organization.id == org.id
+      assert conn.assigns.organization == nil
+      assert Plug.Conn.get_session(conn, :organization_id) == nil
+      assert Plug.Conn.get_session(conn, :org_slug) == nil
+      assert Plug.Conn.get_session(conn, :no_org_resolved) == true
+      assert Plug.Conn.get_session(conn, :viewer_token) == token
+      assert Marquee.Viewers.get_viewer_by_session_token(token).id == viewer.id
     end
 
     test "shows marketing page when no viewer token in optional mode", %{conn: conn} do

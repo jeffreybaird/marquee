@@ -1,0 +1,8 @@
+{
+  "features/acceptance/platform_home_session.feature": "6208bbf6b700e7751d86369ea0d5298c39981945d44957fdc05d14e6221ca823",
+  "features/step_definitions/platform_home_session_steps.ex": "21d1659bbbb2f7356a69f6098513be127679fe79e516f3fb31116bf392995510",
+  "test/marquee_web/e2e/platform_home_session_test.exs": "a38f3328c36fd888d7ea15510b61a81b9ed507a76369f5dc1f036e225c7e11fd",
+  "test/marquee_web/live/viewer/home_live_test.exs": "3eb4015e45a1e2de3ba92b80c76b5221d0819459190ded68b6457d9d8c09c59c",
+  "test/marquee_web/live/viewer/platform_home_session_test.exs": "ba6ac10947ca095d8627dc9dd0d3d510a28b6f2e3c6091ba1362a69fd3899751",
+  "test/marquee_web/plugs/set_organization_test.exs": "ccad44f959eebbfac29b3a5b1eb1684c9418b85ff35c1be4c4330700c4611132"
+}

@@ -1,0 +1,4 @@
+{
+  "lib/marquee_web/hooks/assign_scope.ex": "94287cd0f82d5cfe36d8660044cc00d17d59b282419a204e22733a70ab5212e8",
+  "lib/marquee_web/plugs/set_organization.ex": "ad694eb4e4e7c46d92eaf8294d3fbc895830363da75c4e51ec7b84ef7cdc66a1"
+}

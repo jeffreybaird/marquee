@@ -70,8 +70,9 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   end
 
   def on_mount(:assign_org, _params, session, socket) do
-    if session["no_org_resolved"] == true and not configured_hostname?() do
-      # Super admin with no org — skip org resolution, let the LiveView handle it
+    if session["no_org_resolved"] == true and
+         (platform_host?(request_host(socket)) or not configured_hostname?()) do
+      # Honor the HTTP platform-home decision without overriding a tenant host.
       user = load_user_from_session(session)
 
       socket =
