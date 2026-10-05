@@ -25,6 +25,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :queued_ids, :any, default: MapSet.new()
   attr :preview_on_hover, :boolean, default: false
   attr :show_details, :boolean, default: true
+  attr :show_actions, :boolean, default: true
   attr :title_overlay, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
@@ -98,6 +99,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       queued_ids={@queued_ids}
       preview_on_hover={@preview_on_hover}
       show_details={@show_details}
+      show_actions={@show_actions}
       title_overlay={@title_overlay}
       aspect={@aspect}
     />
@@ -118,6 +120,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :queued_ids, :any, default: MapSet.new()
   attr :preview_on_hover, :boolean, default: false
   attr :show_details, :boolean, default: true
+  attr :show_actions, :boolean, default: true
   attr :title_overlay, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
@@ -184,7 +187,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
             <span :if={@video.duration} class="sv-card-meta">
               {format_duration(@video.duration)}
             </span>
-            <div class="sv-card-actions">
+            <div :if={@show_actions} class="sv-card-actions">
               <button
                 disabled={@readonly_sample?}
                 title={if @readonly_sample?, do: "Sample member preview is read-only"}

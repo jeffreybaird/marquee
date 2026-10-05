@@ -3,9 +3,11 @@ defmodule MarqueeWeb.SubscriberDemoController do
   use MarqueeWeb, :controller
 
   alias Marquee.{SubscriberDemo, Viewers}
+  alias MarqueeWeb.OrgURL
 
   @doc "Starts or resumes the resolved tenant's demo without replacing a real viewer."
   def create(conn, _params) do
+    conn = put_resp_header(conn, "cache-control", "private, no-store")
     org = request_organization(conn)
     token = get_session(conn, :viewer_token)
     viewer = token && Viewers.get_viewer_by_session_token(token)
@@ -18,7 +20,7 @@ defmodule MarqueeWeb.SubscriberDemoController do
         redirect(conn, to: ~p"/")
 
       viewer && viewer.organization_id == org.id ->
-        conn |> clear_preview() |> redirect(to: ~p"/")
+        conn |> clear_preview() |> redirect(to: home_path(conn, org))
 
       true ->
         start_demo(conn, org)
@@ -52,14 +54,22 @@ defmodule MarqueeWeb.SubscriberDemoController do
         |> clear_preview()
         |> put_session(:viewer_token, token)
         |> put_session(:live_socket_id, "viewers_sessions:#{Base.url_encode64(token)}")
-        |> redirect(to: ~p"/")
+        |> redirect(to: home_path(conn, org))
 
       {:error, :demo_unavailable} ->
-        send_resp(conn, 503, "The subscriber demo is being prepared. Please try again shortly.")
+        conn
+        |> put_resp_header("retry-after", "60")
+        |> send_resp(503, "The subscriber demo is being prepared. Please try again shortly.")
 
       {:error, :forbidden} ->
         send_resp(conn, 403, "Subscriber demo is not available for this organization.")
     end
+  end
+
+  defp home_path(conn, org) do
+    if conn.host == MarqueeWeb.Endpoint.config(:url)[:host],
+      do: OrgURL.org_url("/", org),
+      else: ~p"/"
   end
 
   defp clear_preview(conn) do

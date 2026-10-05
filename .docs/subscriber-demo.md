@@ -71,29 +71,24 @@ collections. Missing or invalid media returns `{:error, :media_not_configured}`
 and rolls back provisioning. Repeating the seed updates the same catalog entries.
 
 The platform homepage links to the first explicitly enabled demo organization,
-ordered by creation time and ID. A fresh browser visiting that organization's
-homepage starts its own private demo session and receives the catalog and demo
-bar directly. The HTTP entry boundary creates this anonymous, expiring demo
-identity before rendering; LiveView mounts do not create identities. Refreshing
-or connecting LiveView reuses the existing valid session.
+ordered by creation time and ID. A fresh browser sees that organization's themed
+landing page. Choosing **Begin demo** submits a CSRF-protected POST to
+`/demo/subscriber`, creates a private expiring viewer, and opens the catalog.
+Homepage GET, HEAD, prefetch, and LiveView mounts create no viewer or token rows.
 
-Automatic entry applies only to an explicitly enabled demo organization and an
-anonymous homepage GET. Existing ordinary viewers, operators, member previews,
-and viewer impersonation retain their current behavior. HEAD and prefetch
-requests do not create identities. Creation uses the existing tenant and
-authentication rate limits, and demo entry responses are private and uncached.
-If the configured demo catalog is unavailable, entry returns 503 rather than
-silently showing an empty landing page.
-
-The explicit `/demo/subscriber` POST remains available through the browser,
-tenant, and authentication rate-limit pipelines. The browser pipeline continues
-to enforce CSRF protection for this and other mutating requests.
+Valid returning demo sessions continue to open the catalog. Expired or foreign
+demo tokens do not allocate replacements until explicit entry. Ordinary viewers,
+operators, member previews, and viewer impersonation retain their existing
+identity behavior. The explicit POST retains the existing authentication rate
+limit, including retries with a valid viewer. Entry responses are private and
+uncached; unavailable media returns a retryable 503 on POST while the landing
+page remains available.
 
 ## Portfolio entry URL
 
 The Workshop's production entry is
-`https://the-workshop-marquee.jeffreybaird.com/`. A fresh visit opens the private
-subscriber demo directly. The former platform URL
+`https://the-workshop-marquee.jeffreybaird.com/`. A fresh visit opens the themed landing
+page with explicit demo entry. The former platform URL
 `https://marquee.jeffreybaird.com/?org=the-workshop` redirects to that hostname.
 Locally, use `http://localhost:4000/?org=the-workshop`.
 
@@ -101,7 +96,7 @@ The browser retains the selected organization for subsequent navigation. Link
 to the homepage, not `/demo/subscriber`, which continues to accept only POST.
 The platform homepage chooses the tenant URL for the configured resolution mode.
 Host-only cookies mean a browser moving from the old platform host receives its
-own new demo identity on the tenant hostname.
+own new demo identity after choosing Begin demo on the tenant hostname.
 
 ## Session lifecycle
 
@@ -131,3 +126,18 @@ the final Workshop catalog. Do not describe placeholder/test media as the delive
 portfolio content. Automated tests cover session identity, isolation, expiry,
 cleanup, seed behavior, and navigation flushing; real browser playback remains an
 explicit delivery check.
+
+## Landing template provisioning
+
+Anonymous requests compose temporary landing sections when a subscriber-demo
+organization has no configured sections. They do not write those defaults.
+Configured ordering, hidden sections, images, and secondary calls to action are
+preserved. Missing hero imagery can use approved, ready media from the same tenant.
+
+For an explicit landing-only setup, load the intended organization and call
+`Marquee.SubscriberDemo.seed_landing_page(org)`. It returns `{:ok, :seeded}` or
+`{:ok, :unchanged}`, locks that organization during provisioning, and leaves any
+existing section configuration intact. A non-demo organization returns
+`{:error, :forbidden}`; missing approved media returns
+`{:error, :media_not_configured}`. Do not run the broader production demo seeder
+to update only the landing page. Existing ephemeral rendering needs no seed run.

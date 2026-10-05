@@ -11,6 +11,25 @@ defmodule MarqueeFeatures.Steps.SubscriberDemo do
     Map.put(world, :session, session)
   end)
 
+  when_("the visitor chooses Begin demo from the themed landing page", fn world ->
+    import Wallaby.Browser, only: [assert_has: 2, execute_query: 2, click: 2]
+    assert_has(world.session, Wallaby.Query.css("[data-test=subscriber-demo-landing]"))
+
+    assert_has(
+      world.session,
+      Wallaby.Query.css("[data-test=subscriber-demo-entry]", text: "Begin demo")
+    )
+
+    org_id = world.demo_org.id
+    refute Repo.exists?(from v in Marquee.Viewers.Viewer, where: v.organization_id == ^org_id)
+
+    Map.put(
+      world,
+      :session,
+      click(world.session, Wallaby.Query.css("[data-test=subscriber-demo-entry]"))
+    )
+  end)
+
   then_("the Workshop catalog opens with a private demo session", fn world ->
     import Wallaby.Browser, only: [assert_has: 2, execute_query: 2]
     assert_has(world.session, Wallaby.Query.css("[data-test=subscriber-demo-banner]"))

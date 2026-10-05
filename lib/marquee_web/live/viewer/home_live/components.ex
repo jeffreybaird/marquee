@@ -13,6 +13,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
 
   alias Marquee.Catalog.Row
   alias MarqueeWeb.Components.ViewerComponents
+  alias MarqueeWeb.OrgURL
 
   attr :organization, :map, required: true
 
@@ -679,6 +680,8 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
 
   attr :section, :map, required: true
   attr :organization, :map, required: true
+  attr :demo_entry, :boolean, default: false
+  attr :anonymous_demo, :boolean, default: false
 
   def landing_section(assigns) do
     ~H"""
@@ -690,13 +693,21 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
         <% :hero_video -> %>
           <.landing_hero_video config={@section.config} />
         <% :hero_image -> %>
-          <.landing_hero_image config={@section.config} />
+          <.landing_hero_image
+            config={@section.config}
+            demo_entry={@demo_entry}
+            organization={@organization}
+          />
         <% :hero_slider -> %>
           <.landing_hero_slider config={@section.config} />
         <% :marketing_copy -> %>
           <.landing_marketing_copy config={@section.config} />
         <% :content_row -> %>
-          <.landing_content_row config={@section.config} />
+          <.landing_content_row
+            config={@section.config}
+            section_id={@section.id}
+            anonymous_demo={@anonymous_demo}
+          />
         <% :plan_display -> %>
           <.landing_plan_display config={@section.config} />
         <% :header_text -> %>
@@ -779,6 +790,9 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
 
   attr :config, :map, required: true
 
+  attr :demo_entry, :boolean, default: false
+  attr :organization, :map, default: nil
+
   def landing_hero_image(assigns) do
     ~H"""
     <div class="sv-hero-image" data-test="hero-image-section">
@@ -790,6 +804,9 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
       >
       </div>
       <div class="sv-hero-content">
+        <p :if={@demo_entry} class="sv-demo-eyebrow">
+          {@organization.name} / An invitation to explore
+        </p>
         <h1 :if={show_field?(@config, "headline")} class="sv-hero-headline">
           {@config["headline"]}
         </h1>
@@ -802,12 +819,31 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
         <.link
           :if={show_field?(@config, "cta") && @config["cta_text"]}
           navigate={@config["cta_link"] || "/subscribe"}
-          class="sv-hero-cta"
+          class={if @demo_entry, do: "sv-demo-secondary-cta", else: "sv-hero-cta"}
           data-test="hero-cta"
         >
           {@config["cta_text"]}
         </.link>
+        <.subscriber_demo_entry :if={@demo_entry} organization={@organization} />
       </div>
+    </div>
+    """
+  end
+
+  attr :organization, :map, required: true
+
+  def subscriber_demo_entry(assigns) do
+    ~H"""
+    <div class="sv-demo-entry">
+      <.link
+        href={OrgURL.org_url(~p"/demo/subscriber", @organization)}
+        method="post"
+        data-test="subscriber-demo-entry"
+        class="sv-hero-cta sv-demo-entry-link"
+      >
+        Begin demo <.icon name="hero-arrow-right" class="size-5" />
+      </.link>
+      <p>No account. No payment details. Two hours to explore.</p>
     </div>
     """
   end
@@ -858,15 +894,20 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
 
   attr :config, :map, required: true
 
+  attr :section_id, :string, default: "landing-row"
+  attr :anonymous_demo, :boolean, default: false
+
   def landing_content_row(assigns) do
     ~H"""
     <div class="sv-landing-row" data-test="content-row-section">
       <h2 :if={@config["title"]} class="sv-row-title">{@config["title"]}</h2>
       <div class="sv-row-scroll">
         <ViewerComponents.content_item_card
-          :for={item <- @config["items"] || []}
+          :for={{item, index} <- Enum.with_index(@config["items"] || [])}
           item={item}
           size="row"
+          card_id={"landing-#{@section_id}-#{index}"}
+          show_actions={not @anonymous_demo}
         />
       </div>
     </div>

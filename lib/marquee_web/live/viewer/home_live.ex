@@ -23,6 +23,7 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   alias Marquee.Content
   alias Marquee.Engagement
   alias Marquee.LandingPage
+  alias Marquee.SubscriberDemo.Landing, as: DemoLanding
   alias MarqueeWeb.Components.ViewerLayout
 
   @impl true
@@ -170,13 +171,23 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   end
 
   defp mount_landing_page(socket, org) do
-    %{results: raw_sections} = LandingPage.list_landing_sections(org, per_page: 100)
+    demo? = Marquee.SubscriberDemo.enabled?(org)
+
+    raw_sections =
+      if demo? do
+        DemoLanding.sections(org)
+      else
+        LandingPage.list_landing_sections(org, per_page: 100).results
+      end
+
     sections = Enum.map(raw_sections, &LandingPage.resolve_landing_section(org, &1))
 
     socket
     |> assign(:page_title, org.name)
     |> assign(:page_mode, :org_landing)
     |> assign(:landing_sections, sections)
+    |> assign(:subscriber_demo_landing?, demo?)
+    |> assign(:demo_entry_hero, Enum.find(sections, &(&1.section_type == :hero_image)))
   end
 
   defp mount_org_home(socket, org, viewer) do

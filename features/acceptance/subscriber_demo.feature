@@ -1,9 +1,10 @@
 Feature: Workshop subscriber portfolio demo
   Visitors can experience personal subscriber activity without signing up.
 
-  Scenario: A fresh visitor enters the subscriber catalog without a separate start action
+  Scenario: A fresh visitor previews the landing page and explicitly begins the subscriber demo
     Given The Workshop subscriber demo has a playable catalog
     When a fresh browser opens the Workshop homepage
+    And the visitor chooses Begin demo from the themed landing page
     Then the Workshop catalog opens with a private demo session
 
   Scenario: Visitors discover featured Workshop footage without explanatory catalog text

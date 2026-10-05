@@ -29,6 +29,23 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoTest do
     assert has_element?(home, "[data-test=subscriber-demo-entry]", "Try the subscriber demo")
   end
 
+  test "platform query entry returns to its tenant catalog and repeats without losing identity",
+       %{org: org} do
+    started =
+      build_conn()
+      |> Map.put(:host, MarqueeWeb.Endpoint.config(:url)[:host])
+      |> post("/demo/subscriber?org=#{org.slug}")
+
+    assert redirected_to(started) == "/?org=#{org.slug}"
+    token = get_session(started, :viewer_token)
+    assert SubscriberDemo.demo_viewer?(Viewers.get_viewer_by_session_token(token))
+    {:ok, view, _html} = live(recycle(started), redirected_to(started))
+    assert has_element?(view, "[data-test=subscriber-demo-banner]")
+    repeated = started |> recycle() |> post("/demo/subscriber?org=#{org.slug}")
+    assert redirected_to(repeated) == "/?org=#{org.slug}"
+    assert get_session(repeated, :viewer_token) == token
+  end
+
   test "existing real viewer remains authenticated when visiting demo entry", %{org: org} do
     viewer = insert(:subscribed_viewer, organization: org)
     conn = viewer |> conn_for_viewer() |> post("/demo/subscriber")
@@ -52,7 +69,8 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoTest do
     org: org
   } do
     {:ok, home, _} = live(conn, "/")
-    assert has_element?(home, "[data-test=subscriber-demo-banner]", "Demo")
+    assert has_element?(home, "[data-test=subscriber-demo-entry]", "Begin demo")
+    refute has_element?(home, "[data-test=subscriber-demo-banner]")
     started = post(conn, "/demo/subscriber")
     assert redirected_to(started) == "/"
     token = get_session(started, :viewer_token)

@@ -5,7 +5,8 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
   import Phoenix.LiveViewTest
 
   alias Marquee.{Engagement, Repo, SubscriberDemo, TenantDomains, Viewers}
-  alias Marquee.Viewers.Viewer
+  alias Marquee.LandingPage.LandingSection
+  alias Marquee.Viewers.{Viewer, ViewerToken}
   alias MarqueeWeb.Plugs.RateLimit
 
   setup do
@@ -60,41 +61,54 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
     %{org: org, catalog: catalog, host: domain.hostname}
   end
 
-  test "fresh ready-host GET returns full catalog and DemoBar with one private expiring session across socket and reload",
+  test "fresh ready-host GET renders themed landing without allocation and explicit POST enters catalog",
        %{org: org, catalog: catalog, host: host} do
+    section_count = Repo.aggregate(LandingSection, :count)
     conn = host_conn(host) |> get("/")
     html = html_response(conn, 200)
-    assert html =~ ~s(data-test="subscriber-demo-banner")
-    assert html =~ hd(catalog.videos).title
-    refute html =~ ~s(data-test="subscriber-demo-entry")
-    assert_no_store(conn)
-    viewer = session_viewer(conn)
+    assert html =~ ~s(data-test="subscriber-demo-landing")
+    refute html =~ ~s(data-test="subscriber-demo-banner")
+    assert html =~ "Begin demo"
+    refute get_session(conn, :viewer_token)
+    assert demo_count(org) == 0
+    assert Repo.aggregate(ViewerToken, :count) == 0
+    assert Repo.aggregate(LandingSection, :count) == section_count
+    assert {:ok, view, _} = live(conn)
+    assert has_element?(view, "[data-test=subscriber-demo-entry][data-method=post]", "Begin demo")
+    assert demo_count(org) == 0
+    assert Repo.aggregate(ViewerToken, :count) == 0
+    assert Repo.aggregate(LandingSection, :count) == section_count
+
+    started = recycle(conn) |> post("/demo/subscriber")
+    assert redirected_to(started) == "/"
+    assert_no_store(started)
+    viewer = session_viewer(started)
     assert SubscriberDemo.demo_viewer?(viewer)
     assert viewer.organization_id == org.id
     refute SubscriberDemo.expired?(viewer)
     assert demo_count(org) == 1
-    assert {:ok, view, _} = live(conn)
-    assert has_element?(view, "[data-test=subscriber-demo-banner]")
+    assert {:ok, catalog_view, _} = live(recycle(started), "/")
+    assert has_element?(catalog_view, "[data-test=subscriber-demo-banner]")
 
     assert has_element?(
-             view,
+             catalog_view,
              "[data-test=hero-primary-cta-0][href='/watch/#{hd(catalog.videos).id}']"
            )
 
-    assert demo_count(org) == 1
-    repeated = recycle(conn) |> get("/")
+    repeated = recycle(started) |> get("/")
     assert session_viewer(repeated).id == viewer.id
-    assert_no_store(repeated)
+    reused = recycle(repeated) |> post("/demo/subscriber")
+    assert session_viewer(reused).id == viewer.id
     assert demo_count(org) == 1
   end
 
-  test "two fresh browsers receive isolated identities and engagement", %{
+  test "two browsers explicitly start isolated identities and engagement", %{
     org: org,
     catalog: catalog,
     host: host
   } do
-    first = host_conn(host) |> get("/") |> session_viewer()
-    second = host_conn(host) |> get("/") |> session_viewer()
+    first = host_conn(host) |> post("/demo/subscriber") |> session_viewer()
+    second = host_conn(host) |> post("/demo/subscriber") |> session_viewer()
     assert first.id != second.id
     video = hd(catalog.videos)
     assert {:ok, _} = Engagement.add_to_watchlist(org, first, video)
@@ -102,7 +116,7 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
     refute Engagement.in_watchlist?(org, second, video)
   end
 
-  test "expired and wrong-tenant demo tokens renew without reusing another identity", %{
+  test "expired and wrong-tenant demo tokens require explicit POST before a new identity", %{
     org: org,
     host: host
   } do
@@ -121,11 +135,12 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
 
     for stale <- [expired, foreign] do
       conn = host_conn(host) |> init_test_session(%{viewer_token: stale.token}) |> get("/")
-      renewed = session_viewer(conn)
+      assert html_response(conn, 200) =~ ~s(data-test="subscriber-demo-entry")
+      assert get_session(conn, :viewer_token) == stale.token
+      renewed = conn |> recycle() |> post("/demo/subscriber") |> session_viewer()
       assert renewed.organization_id == org.id
       assert renewed.id != stale.viewer.id
       assert SubscriberDemo.demo_viewer?(renewed)
-      assert_no_store(conn)
     end
 
     assert Viewers.get_viewer_by_session_token(foreign.token).id == foreign.viewer.id
@@ -171,7 +186,10 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
        %{org: org, host: host} do
     other = insert(:organization)
     conn = host_conn(host) |> get("/?org=#{other.slug}")
-    assert session_viewer(conn).organization_id == org.id
+    assert html_response(conn, 200) =~ ~s(data-test="subscriber-demo-landing")
+    refute get_session(conn, :viewer_token)
+    started = conn |> recycle() |> post("/demo/subscriber?org=#{other.slug}")
+    assert session_viewer(started).organization_id == org.id
     ordinary = host_conn("localhost") |> get("/?org=#{other.slug}")
     assert html_response(ordinary, 200)
     refute get_session(ordinary, :viewer_token)
@@ -188,6 +206,7 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
     end
 
     assert demo_count(org) == 0
+    assert Repo.aggregate(ViewerToken, :count) == 0
   end
 
   test "missing playable catalog fails with retryable no-store response instead of empty demo", %{
@@ -198,19 +217,21 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
       set: [published: false]
     )
 
-    conn = host_conn(host) |> get("/")
+    landing = host_conn(host) |> get("/")
+    assert html_response(landing, 200) =~ "Begin demo"
+    conn = recycle(landing) |> post("/demo/subscriber")
     assert response(conn, 503) =~ "being prepared"
     assert_no_store(conn)
     refute get_session(conn, :viewer_token)
     assert demo_count(org) == 0
   end
 
-  test "allocation respects auth and tenant limits but valid existing demo bypasses allocation limits",
+  test "POST retains auth limits while landing and valid-session GET do not allocate",
        %{org: org, host: host} do
     Application.put_env(:marquee, :rate_limit_disabled, false)
     {:ok, existing} = SubscriberDemo.start_session(org)
 
-    for {bucket, limit, key} <- [{:auth, 10, :ip}, {:tenant_pages, 300, :organization_id}] do
+    for {bucket, limit, key} <- [{:auth, 10, :ip}] do
       RateLimit.reset()
 
       for _ <- 1..limit do
@@ -219,15 +240,29 @@ defmodule MarqueeWeb.Viewer.SubscriberDemoColdEntryTest do
         |> RateLimit.call(bucket: bucket, limit: limit, key: key)
       end
 
-      limited = host_conn(host) |> get("/")
+      landing = host_conn(host) |> get("/")
+      assert html_response(landing, 200) =~ "Begin demo"
+      limited = host_conn(host) |> post("/demo/subscriber")
       assert response(limited, 429)
       assert get_resp_header(limited, "retry-after") != []
       assert demo_count(org) == 1
       reused = host_conn(host) |> init_test_session(%{viewer_token: existing.token}) |> get("/")
       assert html_response(reused, 200)
+      reused = recycle(reused) |> post("/demo/subscriber")
+      assert response(reused, 429)
       assert session_viewer(reused).id == existing.viewer.id
       assert demo_count(org) == 1
     end
+  end
+
+  test "Begin demo requires CSRF", %{host: host, org: org} do
+    assert_raise Plug.CSRFProtection.InvalidCSRFTokenError, fn ->
+      host_conn(host)
+      |> put_private(:plug_skip_csrf_protection, false)
+      |> post("/demo/subscriber")
+    end
+
+    assert demo_count(org) == 0
   end
 
   defp session_viewer(conn) do

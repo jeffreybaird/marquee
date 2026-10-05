@@ -28,6 +28,8 @@ defmodule MarqueeWeb.E2E.PlatformHomeSessionTest do
     session =
       session
       |> visit("/?org=#{org.slug}")
+      |> assert_has(css("[data-test=subscriber-demo-entry]", text: "Begin demo"))
+      |> click(css("[data-test=subscriber-demo-entry]"))
       |> assert_has(css("[data-test=subscriber-demo-banner]"))
 
     assert [viewer] = Repo.all(from(v in Viewer, where: v.organization_id == ^org.id))

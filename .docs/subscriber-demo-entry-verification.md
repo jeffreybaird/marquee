@@ -1,6 +1,10 @@
-# Direct subscriber demo entry verification
+# Direct subscriber demo entry verification (historical)
 
-## Contract
+This automatic-GET contract is superseded by the explicit-entry landing work in
+[Workshop landing verification](workshop-landing-verification.md). The results
+below record the earlier implementation, not the current entry behavior.
+
+## Historical contract
 
 An anonymous browser's homepage GET for an organization with `subscriber_demo`
 set to exactly `true` receives a private demo session and the catalog/demo bar

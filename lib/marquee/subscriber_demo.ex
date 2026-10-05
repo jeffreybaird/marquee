@@ -17,6 +17,7 @@ defmodule Marquee.SubscriberDemo do
   alias Marquee.Events
   alias Marquee.Repo
   alias Marquee.SubscriberDemo.Catalog
+  alias Marquee.SubscriberDemo.Landing
   alias Marquee.Viewers
   alias Marquee.Viewers.Viewer
   alias Marquee.Workers.SubscriberDemoCleanup
@@ -78,6 +79,9 @@ defmodule Marquee.SubscriberDemo do
 
   @doc "Seeds the curated catalog without contacting external services."
   def seed_catalog(org), do: Catalog.seed(org)
+
+  @doc "Seeds an empty demo landing page without changing existing sections, media or branding. Requires database access."
+  def seed_landing_page(org), do: Landing.seed(org)
 
   @doc "Erases a bounded batch of expired demo identities and all their activity."
   def cleanup_expired(%Organization{} = org, opts \\ []) do

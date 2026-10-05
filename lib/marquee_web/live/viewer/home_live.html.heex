@@ -5,21 +5,7 @@
       admin_demo_url={@admin_demo_url}
     />
   <% :org_landing -> %>
-    <div
-      :if={Marquee.SubscriberDemo.enabled?(@organization)}
-      class="bg-stone-950 px-6 py-8 text-center text-white"
-    >
-      <p class="mb-4">The Workshop · Subscriber demo. No account or payment needed.</p>
-      <.link
-        href={~p"/demo/subscriber"}
-        method="post"
-        data-test="subscriber-demo-entry"
-        class="btn btn-primary min-h-11"
-      >
-        Try the subscriber demo
-      </.link>
-    </div>
-    <%= if @landing_sections == [] do %>
+    <%= if @landing_sections == [] and not @subscriber_demo_landing? do %>
       <.org_landing organization={@organization} />
     <% else %>
       <ViewerLayout.viewer_layout
@@ -28,11 +14,30 @@
         theme={@theme}
         flash={@flash}
       >
-        <div class="sv-landing" data-test="landing-page">
+        <div
+          class={["sv-landing", @subscriber_demo_landing? && "sv-demo-landing"]}
+          data-test={
+            if @subscriber_demo_landing?, do: "subscriber-demo-landing", else: "landing-page"
+          }
+        >
+          <header
+            :if={@subscriber_demo_landing? and is_nil(@demo_entry_hero)}
+            class="sv-demo-intro"
+          >
+            <p class="sv-demo-eyebrow">{@organization.name} / An invitation to explore</p>
+            <h1>Something worth discovering.</h1>
+            <.subscriber_demo_entry organization={@organization} />
+          </header>
           <.landing_section
             :for={section <- @landing_sections}
+            :if={
+              not (@subscriber_demo_landing? and section.section_type == :plan_display and
+                     section.config["plans"] == [])
+            }
             section={section}
             organization={@organization}
+            demo_entry={@subscriber_demo_landing? and section == @demo_entry_hero}
+            anonymous_demo={@subscriber_demo_landing?}
           />
         </div>
       </ViewerLayout.viewer_layout>
