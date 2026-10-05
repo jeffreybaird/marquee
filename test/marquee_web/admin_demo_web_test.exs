@@ -257,6 +257,15 @@ defmodule MarqueeWeb.AdminDemoWebTest do
     assert redirected_to(conn) == "/admin/demo/restricted"
   end
 
+  test "private demo visitors can browse their catalog without operational route restrictions" do
+    conn = entered_conn()
+    {:ok, _view, html} = live(recycle(conn), "/browse")
+    assert html =~ ~s(data-test="admin-demo-bar")
+    assert html =~ ~s(data-test="impersonation-banner")
+    assert html =~ "Travel fixture 1"
+    refute html =~ ~s(data-test="admin-demo-restricted")
+  end
+
   test "content page tour is opt-in for demo visitors including after reset" do
     conn = entered_conn()
 

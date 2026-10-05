@@ -26,7 +26,7 @@ defmodule MarqueeWeb.Plugs.AdminDemoAccess do
 
   defp viewer_path_allowed?(path),
     do:
-      path == "/" or
+      path in ["/", "/browse"] or
         Enum.any?(["/watch/", "/collections/", "/series/"], &String.starts_with?(path, &1))
 
   defp resolve_capability(conn) do

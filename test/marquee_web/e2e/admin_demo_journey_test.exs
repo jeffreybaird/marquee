@@ -2,7 +2,7 @@ defmodule MarqueeWeb.E2E.AdminDemoJourneyTest do
   use MarqueeWeb.WallabyCase
 
   import Ecto.Query
-  alias Marquee.{AdminDemo, Branding, Repo}
+  alias Marquee.{AdminDemo, AdminDemoGeometry, Branding, Repo}
 
   alias Marquee.Accounts.Organization
   alias Marquee.AdminDemo.Session
@@ -140,6 +140,44 @@ defmodule MarqueeWeb.E2E.AdminDemoJourneyTest do
   defp demo_visit(browser, path) do
     url = %{URI.parse(MarqueeWeb.Endpoint.url()) | host: "demo.localhost", path: nil, query: nil}
     visit(browser, URI.to_string(url) <> path)
+  end
+
+  test "demo viewer headers stay separated and reachable on desktop and mobile while ordinary navigation stays fixed",
+       %{session: browser} do
+    browser =
+      browser
+      |> demo_visit("/demo/admin")
+      |> click(css("[data-test=admin-demo-start]"))
+      |> assert_has(css("[data-test=admin-demo-bar]"))
+
+    [org] = Repo.all(from o in Organization, where: o.demo_kind == :admin_sandbox)
+    video = Repo.one!(from v in Video, where: v.organization_id == ^org.id, limit: 1)
+
+    for width <- [1280, 390], path <- ["/?preview=member", "/browse", "/watch/#{video.id}"] do
+      browser
+      |> resize_window(width, 900)
+      |> demo_visit(path)
+      |> execute_script("window.scrollTo(0,0);")
+      |> assert_has(css("[data-test=impersonation-banner]"))
+      |> assert_has(css("[data-phx-main].phx-connected"))
+      |> AdminDemoGeometry.assert_separated()
+    end
+
+    ordinary = insert(:organization)
+    metadata = Sandbox.metadata_for(Repo, self())
+    {:ok, control} = Wallaby.start_session(metadata: metadata)
+    on_exit(fn -> Wallaby.end_session(control) end)
+
+    control
+    |> visit("/browse?org=#{ordinary.slug}")
+    |> assert_has(css("[data-test=sv-nav]"))
+    |> assert_has(css("[data-test=admin-demo-bar]", count: 0))
+    |> execute_script(
+      "return getComputedStyle(document.querySelector('[data-test=sv-nav]')).position;",
+      fn position ->
+        assert position == "fixed"
+      end
+    )
   end
 
   defp replace_color(browser, value) do

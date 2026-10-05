@@ -161,3 +161,55 @@ No new compatible security upgrade was identified by these checks. The npm bulk
 refresh limitation remains explicit; the recent baseline and current public
 advisory delta are the available evidence.
 
+
+## Follow-up: private preview header separation
+
+This bounded follow-up corrects the fixed viewer header overlapping the private
+demo bar. Only admin-sandbox viewer roots receive the new marker: their header
+is sticky and opaque, their main content drops the fixed-header spacer, and
+their hero drops the compensating negative margin. Ordinary viewer navigation
+remains fixed. The exact `/browse` path is also allowed in private preview;
+account, payment, and other restricted routes retain their guards.
+
+The runner demonstrated the layout failure before implementation: preview banner
+bottom 155px while navigation began at 0px. A separate HTTP/LiveView regression
+showed `/browse` incorrectly redirecting to demo restrictions. Accepted browser
+geometry covers Home, Browse, and Watch at 1280px and 390px, banner/header/content
+separation, opaque header pixels, control hit testing, and an ordinary fixed-nav
+control. Scrolling to the top before visibility checks preserves that test's
+explicit initial-position contract. Assets must be rebuilt and digested together:
+an early check served stale compressed CSS until both variants were refreshed.
+
+Independent review accepted the three-file source manifest
+`/tmp/marquee-demo-navbar-reviewed-source.json`, SHA-256
+`158d8bd8f6b53439dea3f648cdf24bde773dfd04ac8619a24dbf315ae791f28c`,
+and five-file test manifest `/tmp/marquee-demo-navbar-reviewed-tests.json`,
+SHA-256 `db0fdfc731ed8859bf8bd5f16ec196a3b33e7adabdd6eb15b8bd905fd31977e5`.
+These supersede prior fingerprints only for this follow-up's changed paths.
+Final follow-up verification passed: 310 doctests and 2,754 tests, 79.2% coverage,
+24 browser tests with zero failures (337.8 seconds), and both focused Gherkin
+scenarios (2.252 seconds). Format, compilation, Credo, test-environment Dialyzer,
+TypeScript checking, all 157 asset tests and asset coverage, asset build/digest,
+and diff checks passed. Evidence:
+`/tmp/marquee-preview-layout-{verify,all-browser,coverage,cucumber,static-final,asset-coverage}.log`.
+The completed feature-suite counts above describe the preceding implementation.
+
+The root agent separately reported real-media visual acceptance: desktop Browse
+showed 12 clips with clear demo bar, preview banner, navigation, search, and grid;
+Watch played Venice with the header stack and player separated at the top; mobile
+Home also passed. This is root-observed visual evidence, not a claim that the
+independent reviewer captured those screenshots.
+
+Final manifest checks found no source or test drift. The six new audit rows
+include two ambiguous ownership annotations from runner commands overlapping
+with the test writer's changes. Neither is exclusively attributable to the
+runner; command inspection found no unauthorized edit. Independent source and
+contract review found no remaining blocker for this bounded follow-up.
+
+Security refresh used public GitHub advisory GETs with ecosystem `erlang` and
+`npm`, `modified=>=2026-10-05`, and `per_page=100`: both returned zero changed
+advisories. The Caddy repository advisory endpoint returned the same 17 records
+as the prior review. Lockfiles remain unchanged. No new affected dependency was
+identified; the prior npm bulk-audit limitation still applies. Evidence is
+`/tmp/marquee-demo-navbar-{hex,npm,caddy}-advisories.json`. No dependency metadata
+was transmitted for this refresh.

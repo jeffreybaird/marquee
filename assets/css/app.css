@@ -418,6 +418,20 @@
   backdrop-filter: blur(8px);
 }
 
+/* Private admin previews keep their variable-height controls in normal flow. */
+.sv-admin-demo .sv-nav {
+  position: sticky;
+  background: var(--sv-bg-primary);
+}
+
+.sv-admin-demo .sv-main {
+  padding-top: 0;
+}
+
+.sv-admin-demo .hero-carousel-wrapper {
+  margin-top: 0;
+}
+
 .sv-nav-inner {
   display: flex;
   align-items: center;

@@ -53,7 +53,11 @@ defmodule MarqueeWeb.Components.ViewerLayout do
     ~H"""
     <MarqueeWeb.Components.AdminDemo.bar organization={@organization} />
     <div
-      class={["sv-root", Marquee.SubscriberDemo.demo_viewer?(@current_viewer) && "sv-subscriber-demo"]}
+      class={[
+        "sv-root",
+        Marquee.SubscriberDemo.demo_viewer?(@current_viewer) && "sv-subscriber-demo",
+        Map.get(@organization, :demo_kind) == :admin_sandbox && "sv-admin-demo"
+      ]}
       style={Theme.build_css_vars(@resolved_theme)}
       data-test="sv-root"
     >
