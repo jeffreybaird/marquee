@@ -63,10 +63,10 @@ In production, Mux fires `video.live_stream.active` to trigger the live transiti
 ### OpenTelemetry → elixir_as_inf
 
 Production releases already export traces to `/v1/traces` and Logger events at
-info level and above to `/v1/logs`, using OTLP/HTTP protobuf and bearer auth.
-Both signals use `service.name=marquee`. Phoenix requests, Ecto queries, Oban
-jobs and the application's custom spans are instrumented. Metrics export is
-not enabled: the hub currently returns `501` for `/v1/metrics`.
+info level and above to `/v1/logs`, using OTLP/HTTP protobuf and bearer auth,
+and metrics to `/v1/metrics`. All signals use `service.name=marquee`.
+Phoenix requests, Ecto queries, Oban jobs and the application's custom spans
+are instrumented.
 
 The production GitHub Actions workflow writes these repository settings into
 the runtime `.env`, which Docker Compose passes to both app containers:
@@ -104,9 +104,7 @@ out; it does not expose `/health`. The log exporter drops failed batches rather
 than retrying, so successful source authentication alone does not prove every
 batch was stored.
 
-Dev and test leave export disabled even if these variables are present. This
-setup activates the production workflow; staging is currently disabled and its
-workflow would also need to forward the OTEL settings before re-enabling it.
+Dev and test leave export disabled even if these variables are present.
 
 **Create an admin user**
 
