@@ -35,7 +35,6 @@ Feature: Theme and Color Customization
     Given I have saved a new theme
     When the save completes
     Then a cache invalidation event is broadcast via PubSub
-    And all Fly cluster nodes reflect the new theme
     And viewers see the updated theme without a server restart
 
   Scenario: Operator previews a preset without applying

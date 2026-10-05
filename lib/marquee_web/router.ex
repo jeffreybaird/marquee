@@ -368,7 +368,7 @@ defmodule MarqueeWeb.Router do
   end
 
   ## ──────────────────────────────────────────────────────────────────────
-  ## Health check (no auth, used by Fly.io)
+  ## Health check (no auth, used by the deploy pipeline)
   ## ──────────────────────────────────────────────────────────────────────
 
   scope "/", MarqueeWeb do

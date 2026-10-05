@@ -3,9 +3,9 @@ defmodule MarqueeFeatures.Steps.Branding do
   Step definitions for branding.feature.
 
   Covers preset selection + apply flows on the appearance page. Custom
-  color overrides, font pickers, cluster-propagation, and custom domain
+  color overrides, font pickers, theme-propagation, and custom domain
   scenarios stay undefined — they need either deeper form mapping or
-  infra that sits outside Wallaby's reach (Fly cluster, DNS).
+  infra that sits outside Wallaby's reach (DNS).
   """
 
   use Cucumberex.DSL

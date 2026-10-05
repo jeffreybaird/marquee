@@ -132,12 +132,7 @@ defmodule Marquee.Streaming.LiveEventNotifier do
     if org.custom_domain && org.custom_domain != "" do
       "#{scheme}://#{org.custom_domain}#{port_suffix}/events/#{event.slug}"
     else
-      host =
-        if hostname_resolution?() and not String.contains?(base_host, ".fly.dev") do
-          "#{org.slug}.#{base_host}"
-        else
-          base_host
-        end
+      host = if hostname_resolution?(), do: "#{org.slug}.#{base_host}", else: base_host
 
       "#{scheme}://#{host}#{port_suffix}/events/#{event.slug}"
     end

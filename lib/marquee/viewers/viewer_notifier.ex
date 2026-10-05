@@ -102,7 +102,7 @@ defmodule Marquee.Viewers.ViewerNotifier do
       organization.custom_domain not in [nil, ""] ->
         organization.custom_domain
 
-      hostname_resolution?() and not String.contains?(base_host, ".fly.dev") ->
+      hostname_resolution?() ->
         "#{organization.slug}.#{base_host}"
 
       true ->
