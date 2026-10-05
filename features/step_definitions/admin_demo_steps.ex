@@ -1,13 +1,90 @@
 defmodule MarqueeFeatures.Steps.AdminDemo do
   @moduledoc "Acceptance contract for independent private operator workspaces."
   use Cucumberex.DSL
+  @endpoint MarqueeWeb.Endpoint
   import ExUnit.Assertions
   import Ecto.Query
   alias Marquee.{AdminDemo, Content, Podcasts, Repo, Viewers}
 
+  alias Marquee.Accounts.Organization
   alias Marquee.Content.Video
   alias Marquee.Podcasts.Show
   alias Marquee.Viewers.{Viewer, ViewerToken}
+
+  when_("a Wanderlust visitor returns to entry after their private session expires", fn world ->
+    import Phoenix.ConnTest
+    import Plug.Conn, only: [get_session: 2, put_private: 3]
+    original = Application.fetch_env(:marquee, :admin_demo)
+
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "admin-demo-recovery-#{System.unique_integer([:positive])}.json"
+      )
+
+    File.write!(path, Jason.encode!(Marquee.AdminDemoFixtures.catalog_manifest()))
+
+    Application.put_env(:marquee, :admin_demo,
+      enabled: true,
+      host: "recovery-demo.example.test",
+      catalog_path: path
+    )
+
+    try do
+      {:ok, _} = AdminDemo.configure_host("recovery-demo.example.test")
+
+      started =
+        build_conn()
+        |> Map.put(:host, "recovery-demo.example.test")
+        |> put_private(:plug_skip_csrf_protection, true)
+        |> get("/demo/admin")
+        |> recycle()
+        |> post("/demo/admin")
+
+      token = get_session(started, :admin_demo_token)
+      {:ok, %{session: session}} = AdminDemo.get_session(token)
+
+      Repo.update!(
+        Ecto.Changeset.change(session, expires_at: DateTime.add(DateTime.utc_now(), -1))
+      )
+
+      entry = started |> recycle() |> get("/demo/admin")
+      assert html_response(entry, 200) =~ "admin-demo-entry-form"
+      fresh = entry |> recycle() |> post("/demo/admin")
+      assert redirected_to(fresh) == "/admin"
+      fresh_token = get_session(fresh, :admin_demo_token)
+      refute fresh_token == token
+      assert {:ok, %{scope: scope}} = AdminDemo.get_session(fresh_token)
+      repeated = fresh |> recycle() |> post("/demo/admin")
+
+      Map.merge(world, %{
+        recovered_org_id: scope.organization.id,
+        recovered_token: fresh_token,
+        repeated_token: get_session(repeated, :admin_demo_token)
+      })
+    after
+      File.rm(path)
+
+      case original do
+        {:ok, value} -> Application.put_env(:marquee, :admin_demo, value)
+        :error -> Application.delete_env(:marquee, :admin_demo)
+      end
+    end
+  end)
+
+  then_("beginning again creates one fresh workspace and repeated entry reuses it", fn world ->
+    assert world.repeated_token == world.recovered_token
+
+    assert Repo.get!(Organization, world.recovered_org_id).demo_kind ==
+             :admin_sandbox
+
+    assert Repo.aggregate(
+             from(o in Organization, where: o.demo_kind == :admin_sandbox),
+             :count
+           ) == 2
+
+    world
+  end)
 
   when_("a Wanderlust visitor manages a sample member and a local podcast", fn world ->
     original = Application.fetch_env(:marquee, :admin_demo)

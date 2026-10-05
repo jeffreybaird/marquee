@@ -326,6 +326,16 @@ defmodule Marquee.AdminDemo do
 
   def get_session(_), do: {:error, :not_found}
 
+  @doc "Checks whether an entry nonce is unused or still resolves to an active demo. Requires database access; never allocates a sandbox."
+  def entry_key_reusable?(key) when is_binary(key) and byte_size(key) == 32 do
+    case get_session(capability("start-v1", key)) do
+      {:ok, _} -> true
+      {:error, _} -> not Admin.admin_demo_entry_consumed?(hash(key))
+    end
+  end
+
+  def entry_key_reusable?(_), do: false
+
   @doc "Atomically replaces a sandbox; retries return the same still-active replacement. Requires database access."
   def reset_session(token) when is_binary(token) do
     if enabled?() do

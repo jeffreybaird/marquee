@@ -45,6 +45,12 @@ defmodule MarqueeWeb.AdminDemoWebTest do
     assert_private(entry)
     assert is_binary(get_session(entry, :admin_demo_entry_key))
     assert sandbox_count() == 0
+    repeated_entry = entry |> recycle() |> get("/demo/admin")
+
+    assert get_session(repeated_entry, :admin_demo_entry_key) ==
+             get_session(entry, :admin_demo_entry_key)
+
+    assert sandbox_count() == 0
     conn = entry |> recycle() |> post("/demo/admin")
     assert redirected_to(conn) == "/admin"
     token = get_session(conn, :admin_demo_token)
@@ -58,6 +64,77 @@ defmodule MarqueeWeb.AdminDemoWebTest do
     repeated = conn |> recycle() |> post("/demo/admin")
     assert get_session(repeated, :admin_demo_token) == token
     assert sandbox_count() == 1
+  end
+
+  test "entry after reset resumes replacement rather than the revoked original nonce" do
+    started = entered_conn()
+    reset = started |> recycle() |> post("/demo/admin/reset")
+    replacement_token = get_session(reset, :admin_demo_token)
+    entry = reset |> recycle() |> get("/demo/admin")
+    assert html_response(entry, 200) =~ ~s(data-test="admin-demo-entry-form")
+    resumed = entry |> recycle() |> post("/demo/admin")
+    assert redirected_to(resumed) == "/admin"
+    assert get_session(resumed, :admin_demo_token) == replacement_token
+    assert {:ok, _} = AdminDemo.get_session(replacement_token)
+    assert sandbox_count() == 2
+    repeated = resumed |> recycle() |> Map.put(:remote_ip, {127, 0, 0, 2}) |> post("/demo/admin")
+    assert get_session(repeated, :admin_demo_token) == replacement_token
+    assert sandbox_count() == 2
+  end
+
+  test "expired browser can start afresh from entry and duplicate POST reuses the new session" do
+    started = entered_conn()
+    old_token = get_session(started, :admin_demo_token)
+    {:ok, %{session: session}} = AdminDemo.get_session(old_token)
+    Repo.update!(Ecto.Changeset.change(session, expires_at: DateTime.add(DateTime.utc_now(), -1)))
+    entry = started |> recycle() |> get("/demo/admin")
+    assert html_response(entry, 200) =~ ~s(data-test="admin-demo-entry-form")
+
+    refute get_session(entry, :admin_demo_entry_key) ==
+             get_session(started, :admin_demo_entry_key)
+
+    assert sandbox_count() == 1
+    fresh = entry |> recycle() |> post("/demo/admin")
+    assert redirected_to(fresh) == "/admin"
+    new_token = get_session(fresh, :admin_demo_token)
+    refute new_token == old_token
+    assert {:ok, _} = AdminDemo.get_session(new_token)
+    repeated = fresh |> recycle() |> post("/demo/admin")
+    assert get_session(repeated, :admin_demo_token) == new_token
+    assert sandbox_count() == 2
+  end
+
+  test "entry recovers a consumed nonce when its demo token was lost without allocating on GET" do
+    started = entered_conn()
+    old_key = get_session(started, :admin_demo_entry_key)
+    :ok = AdminDemo.revoke_session(get_session(started, :admin_demo_token))
+
+    entry =
+      host_conn()
+      |> init_test_session(Map.delete(get_session(started), "admin_demo_token"))
+      |> get("/demo/admin")
+
+    assert html_response(entry, 200) =~ ~s(data-test="admin-demo-entry-form")
+    refute get_session(entry, :admin_demo_entry_key) == old_key
+    assert sandbox_count() == 1
+    fresh = entry |> recycle() |> post("/demo/admin")
+    assert redirected_to(fresh) == "/admin"
+    refute get_session(fresh, :admin_demo_token) == get_session(started, :admin_demo_token)
+    assert sandbox_count() == 2
+  end
+
+  test "exited browser can start afresh without reviving the exited capability" do
+    started = entered_conn()
+    old_token = get_session(started, :admin_demo_token)
+    exited = started |> recycle() |> post("/demo/admin/exit")
+    entry = exited |> recycle() |> get("/demo/admin")
+    assert html_response(entry, 200) =~ ~s(data-test="admin-demo-entry-form")
+    fresh = entry |> recycle() |> post("/demo/admin")
+    assert redirected_to(fresh) == "/admin"
+    refute get_session(fresh, :admin_demo_token) == old_token
+    assert {:error, :revoked} = AdminDemo.get_session(old_token)
+    assert {:ok, _} = AdminDemo.get_session(get_session(fresh, :admin_demo_token))
+    assert sandbox_count() == 2
   end
 
   test "dedicated demo capability preserves real operator and viewer auth keys" do

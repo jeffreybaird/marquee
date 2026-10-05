@@ -8,10 +8,7 @@ defmodule MarqueeWeb.AdminDemoController do
   plug :require_demo_host
 
   def index(conn, _params) do
-    conn =
-      if get_session(conn, :admin_demo_entry_key),
-        do: conn,
-        else: put_session(conn, :admin_demo_entry_key, :crypto.strong_rand_bytes(32))
+    conn = prepare_entry(conn)
 
     csrf = Plug.CSRFProtection.get_csrf_token()
     disabled = if AdminDemo.enabled?(), do: "", else: "disabled"
@@ -30,11 +27,43 @@ defmodule MarqueeWeb.AdminDemoController do
     if conn.halted do
       conn
     else
-      key = get_session(conn, :admin_demo_entry_key)
+      token = get_session(conn, :admin_demo_token)
 
-      if is_binary(key),
-        do: finish(conn, AdminDemo.start_session(entry_key: key)),
-        else: conn |> send_resp(400, "Open the demo entry page first.") |> halt()
+      case AdminDemo.get_session(token) do
+        {:ok, demo} ->
+          finish(conn, {:ok, Map.put(demo, :token, token)})
+
+        {:error, _} ->
+          create_from_entry(conn)
+      end
+    end
+  end
+
+  defp create_from_entry(conn) do
+    key = get_session(conn, :admin_demo_entry_key)
+
+    if is_binary(key),
+      do: finish(conn, AdminDemo.start_session(entry_key: key)),
+      else: conn |> send_resp(400, "Open the demo entry page first.") |> halt()
+  end
+
+  defp prepare_entry(conn) do
+    case AdminDemo.get_session(get_session(conn, :admin_demo_token)) do
+      {:ok, _} ->
+        conn
+
+      {:error, _} ->
+        conn =
+          conn
+          |> delete_session(:admin_demo_token)
+          |> delete_session(:admin_demo_viewer_id)
+          |> delete_session(:admin_demo_live_socket_id)
+          |> delete_session(:member_preview_org_id)
+          |> delete_session(:member_preview_viewer_id)
+
+        if AdminDemo.entry_key_reusable?(get_session(conn, :admin_demo_entry_key)),
+          do: conn,
+          else: put_session(conn, :admin_demo_entry_key, :crypto.strong_rand_bytes(32))
     end
   end
 

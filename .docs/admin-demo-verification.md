@@ -341,3 +341,53 @@ diff checks passed. The 29 new audit rows contain six ambiguous ownership
 annotations and no exclusive violations. Commands overlapped with authorized
 source/test writers; inspection found no unauthorized edit. Independent review
 approves this bounded members, podcasts, and feature-preview change for delivery.
+
+
+## Incident correction: returning to admin-demo entry
+
+A returning browser could retain its original consumed entry nonce after reset or
+expiry. The entry page reused that nonce indefinitely, and POST replayed the
+revoked/expired original session instead of resuming the active reset replacement
+or beginning a fresh workspace. This produced a generic unavailable response.
+
+The correction is confined to the admin-demo context and lifecycle controller.
+Entry GET validates the current capability, clears stale demo-only state, and
+rotates only an unusable nonce; it allocates no workspace. POST resumes a valid
+current capability, including a reset replacement. Unused nonces remain stable,
+repeated POSTs remain idempotent, and the backend consumed-nonce tombstone still
+prevents resurrection. Normal authentication keys, CSRF, rate limits, capacity,
+and reset authorization retain their protections.
+
+The final accepted HTTP contract ran 23 tests with three genuine failures before
+implementation: reset re-entry returned 503, expired entry retained its nonce,
+and revoked entry with a lost token retained its nonce. Early lost-token setup
+errors were corrected before final acceptance; they are not behavioral evidence.
+All 37 focused lifecycle tests passed after the fix. The focused Gherkin expiry
+scenario supplements the original HTTP red evidence. Final `mix marquee.verify`
+passed every phase: 311 doctests, 2,780 tests, and 25 browser tests with zero
+failures (336.0 seconds), including formatting, compilation, Credo, Dialyzer,
+and asset checks. Coverage is 79.9%; all five focused Gherkin scenarios passed
+(3.779 seconds). Final evidence:
+`/tmp/marquee-admin-demo-entry-incident-{verify-final,coverage,cucumber}.log`.
+Logs: `/tmp/marquee-admin-demo-entry-incident-accepted-red.log` and
+`/tmp/marquee-admin-demo-entry-incident-green.log`.
+
+Reviewed two-file source manifest:
+`/tmp/marquee-demo-reentry-reviewed-source.json`, SHA-256
+`4582713c012e431eaf3ed5ab6fbca92fc2d7c2b868e43624e626bfbca9ef7485`.
+Accepted three-file test manifest:
+`/tmp/marquee-demo-reentry-reviewed-tests.json`, SHA-256
+`29991e8c336084dee263fd9bd40048ff626e5fd6ddbc57c84e93ac8048462ecb`.
+The paused subscriber-landing draft is outside this incident correction.
+
+No dependency or deployment pin changed. The public advisory review at October 5,
+2026, 11:29:55 UTC described above remains the current evidence: no changed public
+Hex/npm advisories, unchanged Caddy records, and the former Caddy finding patched
+by the 2.11.6 pin. The prior npm bulk-audit limitation remains explicit. No
+project dependency metadata was transmitted for this correction.
+
+Final source and accepted-test manifest comparisons found no drift; diff checks
+passed. The 15 new audit rows include three ambiguous ownership annotations,
+all from read-only/log/test commands overlapping authorized test-writer changes.
+There are no exclusive violations and no unauthorized edit finding. Independent
+review approves the incident correction for delivery.

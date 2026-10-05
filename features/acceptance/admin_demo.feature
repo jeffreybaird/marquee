@@ -16,3 +16,7 @@ Feature: Private Wanderlust operator demo
   Scenario: Sample members and podcasts remain local to a private workspace
     When a Wanderlust visitor manages a sample member and a local podcast
     Then the local changes persist without viewer credentials or remote podcast feeds
+
+  Scenario: An expired demo visitor can begin a fresh workspace
+    When a Wanderlust visitor returns to entry after their private session expires
+    Then beginning again creates one fresh workspace and repeated entry reuses it
