@@ -42,10 +42,16 @@ registration, invitation, password, confirmation, or magic-link workflows.
 
 The root-owned catalog is `priv/admin_demo/wanderlust_catalog.json`; see
 [media provenance](wanderlust-admin-demo-media.md). It contains a version and
-18 licensed travel shorts: 12 initial clips and six extras. Initial clips are
+60 licensed travel shorts: 48 initial clips and 12 extras. Each of the four
+collections starts with 12 clips and has three additional approved clips.
+Initial clips are
 organized into collections, series/seasons, curated homepage rows, and travel
 heroes. Source and creator attribution remains visible, with a prominent Pexels
 credit link. These are short travel clips, not full-length documentaries.
+
+New workspaces and Reset demo use the current catalog version. Existing active
+workspaces retain their content and edits until reset; they are not backfilled.
+Private demo Browse shows the complete bounded catalog, including added clips.
 
 Sandbox videos copy approved playback references and never own the shared Mux
 assets. Their `mux_asset_id` is nil. A permanent protected-asset registry also

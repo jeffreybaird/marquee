@@ -24,7 +24,7 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
   @impl true
   def mount(_params, _session, socket) do
     org = socket.assigns[:organization]
-    per_page = Application.get_env(:marquee, :browse_per_page, @default_per_page)
+    per_page = initial_page_size(org)
 
     if org do
       opts = demo_filter_opts([per_page: per_page], org, socket.assigns[:current_viewer])
@@ -52,6 +52,11 @@ defmodule MarqueeWeb.Viewer.BrowseLive do
        |> assign(:sort, "newest")}
     end
   end
+
+  defp initial_page_size(%{demo_kind: :admin_sandbox}), do: 100
+
+  defp initial_page_size(_org),
+    do: Application.get_env(:marquee, :browse_per_page, @default_per_page)
 
   @impl true
   def handle_params(params, _uri, socket) do

@@ -8,3 +8,7 @@ Feature: Private Wanderlust operator demo
   Scenario: Private viewer preview controls remain accessible on a narrow screen
     When a Wanderlust visitor opens private viewer preview on a narrow screen
     Then the private demo controls and viewer navigation do not overlap
+
+  Scenario: Expanded travel catalog is offered to new and reset visitors
+    When the Wanderlust catalog expands for a new and a reset visitor
+    Then both private catalogs contain forty-eight clips and the approved library can add another

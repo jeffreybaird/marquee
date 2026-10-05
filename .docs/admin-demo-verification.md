@@ -213,3 +213,54 @@ as the prior review. Lockfiles remain unchanged. No new affected dependency was
 identified; the prior npm bulk-audit limitation still applies. Evidence is
 `/tmp/marquee-demo-navbar-{hex,npm,caddy}-advisories.json`. No dependency metadata
 was transmitted for this refresh.
+
+
+## Follow-up: expanded travel catalog
+
+The template now contains 60 clips: 48 initially available and 12 approved library
+extras, balanced across the four existing collections (12 initial and three
+extras each). All 18 prior clip records remain unchanged, including media
+identities and initial/library flags. New and reset workspaces receive the larger
+catalog; existing workspaces retain their edits until reset. The only application
+change raises the initial Browse page size to 100 for admin sandboxes, preserving
+the ordinary tenant's configured default of 24.
+
+Authoritative red evidence was four tests with two expected failures: the old
+manifest version and missing demo Browse content beyond the original page size.
+Lifecycle/reset and ordinary pagination cases were green on their first run and
+are retained regression coverage. The second-mount fixture was corrected to
+retain its mocked session using a fresh connection with the same host and token;
+all 48 initial-title assertions and the exact 49-card assertion remain intact.
+Evidence: `/tmp/marquee-catalog-expansion-red.log`. The final focused four tests
+passed. Full `mix marquee.verify` passed every phase: 310 doctests and 2,758 tests,
+24 browser tests with zero failures (336.9 seconds), and static analysis and asset
+checks. Coverage is 79.2%; all three focused Gherkin scenarios passed (2.634
+seconds). Evidence:
+`/tmp/marquee-catalog-expansion-{verify,coverage,cucumber-final,final-green}.log`.
+Final source/data and test manifest comparisons found no drift; diff checks passed.
+The 13 new audit rows contain seven ambiguous ownership annotations and no
+exclusive violations. Reviewed commands overlap with the responsible writers;
+no unauthorized edit was established. Independent review approves this bounded
+catalog expansion.
+
+Accepted five-file test manifest:
+`/tmp/marquee-catalog-expansion-reviewed-tests.json`, SHA-256
+`154571e0dc8e839e6285073943e2d53fbccb42117d8b18f9ab306fc333c328bf`.
+Reviewed application/data manifest:
+`/tmp/marquee-catalog-expansion-reviewed-source.json`, SHA-256
+`7ca6fe3a366a1251b0c2c968afe625122452d82e02bf8e3c5dc15eee58f606a5`.
+Independent review confirmed unique slugs, source URLs, asset IDs, and playback
+IDs, HTTPS provenance, and balanced collection counts.
+
+The root media owner verified two seconds of HLS decoding and thumbnail responses
+for all 60 assets, then visually reviewed decoded contact frames for all 42 added
+clips. Results: `/tmp/wanderlust-expanded-verification/results.json`; log:
+`/tmp/wanderlust-expanded-playback.log`. Total duration is 1,229.2 seconds. This is
+root-observed media verification; the reviewer separately inspected the recorded
+results and manifest structure.
+
+Dependency lockfiles remain unchanged. The fresh public Hex/npm advisory delta
+and Caddy review recorded in the preceding follow-up remain applicable: no new
+affected dependencies were identified. The previous Caddy advisory is fixed by
+the current 2.11.6 pin; the documented npm bulk-audit limitation remains. No
+project dependency metadata was uploaded during this follow-up.

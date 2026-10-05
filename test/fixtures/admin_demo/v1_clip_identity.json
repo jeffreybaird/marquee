@@ -1,0 +1,110 @@
+[
+  {
+    "slug": "venice-by-gondola",
+    "mux_asset_id": "DMmoKBm2YyjJjhDf02BKDXmQZExqdiWPwZS702r02kPsS00",
+    "mux_playback_id": "8H7veeAShfJFgg5LVmoH8taTcUQv9FkvesoTOHrnzyE",
+    "initial": true
+  },
+  {
+    "slug": "along-the-grand-canal",
+    "mux_asset_id": "024MR6DAaIwBVUdahmZKsNbZUJIz3tkC9eQYtweppArk",
+    "mux_playback_id": "jLhKu78gbL58Gdcyyo01gQ17xCCGxFrw7Sb8rczrC3kY",
+    "initial": true
+  },
+  {
+    "slug": "palaces-on-the-water",
+    "mux_asset_id": "USUS7LKWtNPej5QXbmmE0002uZGU2FMJqe02NuRJdcNOPw",
+    "mux_playback_id": "Aedl01ydXiilIWFwGU600RLBTp6a6yfLF00PuEBhpz9s5Y",
+    "initial": false
+  },
+  {
+    "slug": "a-sea-of-green",
+    "mux_asset_id": "wRCKUeYZWKSNnMorhjO58ElcGR3nNuKHUyvhQSgQh8Y",
+    "mux_playback_id": "Yuz00J2il2Ez24UYjKdVZIiGwFtu1C792DRyciJvw8zQ",
+    "initial": true
+  },
+  {
+    "slug": "bali-from-above",
+    "mux_asset_id": "DWXXkiOMLsox7A8E4TonlQL9AB01naSvgWJ007Kcs7sjM",
+    "mux_playback_id": "4xANP3Dd54mw7jBmI8skf4xIJMTkR9uqYg00eS02E5T2w",
+    "initial": true
+  },
+  {
+    "slug": "the-shape-of-the-harvest",
+    "mux_asset_id": "e1NY8ewNbQbL5LcVAHHFMVlztHdBRjtQP46gjD82pdA",
+    "mux_playback_id": "Tb3nfH6LVFsX00vyJyHNBly2jFYlRUJTBaxNr02dats01k",
+    "initial": false
+  },
+  {
+    "slug": "turning-takoyaki",
+    "mux_asset_id": "Ti01HGAgzi1H7QKymEAI027fM1vlR3788M8xUVw01O02d800",
+    "mux_playback_id": "SUhk7b3u7Pa5QCVO01TcqdMcoHJjvdpYy02WzBYA7e5RE",
+    "initial": true
+  },
+  {
+    "slug": "a-taste-of-toyosu",
+    "mux_asset_id": "gdGKhbTBhszeLcvn4IYQDjpXBUHP5IKntbbBXuj36Ps",
+    "mux_playback_id": "RDAvFoAUIiQFPlSXgtNbwRAVyP6sRE2mdPExIeb2FuI",
+    "initial": true
+  },
+  {
+    "slug": "walking-asakusa",
+    "mux_asset_id": "RGokd7tFFatJRAx7eY2BsvvRIckvn02Mm3SimJQPQAmg",
+    "mux_playback_id": "VhnsUeWM007zHB01DXPORsHfzEFtF01mqV2gg7rzezvucQ",
+    "initial": false
+  },
+  {
+    "slug": "above-the-clouds",
+    "mux_asset_id": "dYvjAXAeMdTTsFoi22A451i02tKqaNT9Um7fxNl2Orc00",
+    "mux_playback_id": "eeF700qxioBlHk7DjMSEw4tX4hMiWn3PhP00DNiLunBoA",
+    "initial": true
+  },
+  {
+    "slug": "on-the-alpine-trail",
+    "mux_asset_id": "uVWm9K6s01LvTvXtSPBJ02YWrwh018kalIiUwDyL00RsqPw",
+    "mux_playback_id": "iyaWsxA02w9yGs027Ar4XQFjjS6GY025zWTV8POKgz00njY",
+    "initial": true
+  },
+  {
+    "slug": "the-summit-moment",
+    "mux_asset_id": "NB2HLlTlr00Yl01EmuzSYfgCPDfX8Zk4ZjY4bJgBJgfiI",
+    "mux_playback_id": "02bO2HfpWDK1QopgIZiNGMfXwki02p5IwwbrlSOmtsJEc",
+    "initial": false
+  },
+  {
+    "slug": "lagos-from-the-air",
+    "mux_asset_id": "qm4BSrKZHvaZcyKb1enipUn6XCcRq00OVpPnFS5x7Cts",
+    "mux_playback_id": "owMAR4f86svdyzTR02HpQ02oBTa9VZU01Bhm8WyYEEM01zU",
+    "initial": true
+  },
+  {
+    "slug": "light-on-the-atlantic",
+    "mux_asset_id": "PWg5TPlmXJuFot02m02FlQpPypGm5M02N02r02XKI8qa01tv8",
+    "mux_playback_id": "9WJzFZjbLwXV1YDegrT500tdhgvQbSIbrhC2fSlSH5lw",
+    "initial": true
+  },
+  {
+    "slug": "where-land-meets-sea",
+    "mux_asset_id": "ojNoq3z35s1SQ02FkfNzl02JMfK5WyQY02j4osWaMMUwEo",
+    "mux_playback_id": "OrMdcMdlksvk4kGQSWFbxOA6uLvq6P3B33M933ZpxoM",
+    "initial": false
+  },
+  {
+    "slug": "through-the-artisan-market",
+    "mux_asset_id": "cmhitSEFRelkRGvi6ZSQV02R02xi6d4dpFhyoUoZ00coQE",
+    "mux_playback_id": "mWf7pMWrl3rmwlzU7mAQ8nWYEk7CXZc8OP000001OijnoI",
+    "initial": true
+  },
+  {
+    "slug": "colors-of-chefchaouen",
+    "mux_asset_id": "FpHMtmz3M2jwoJ55j3TIfYdkK0102oY4fvEWaEScvBFQQ",
+    "mux_playback_id": "QBCZgYHQtl4h93oNj2F0164qtxjq1swAHp30001XBvRhf8",
+    "initial": true
+  },
+  {
+    "slug": "a-morning-in-the-medina",
+    "mux_asset_id": "86fUCr0230101iXbijGYLqmtSuIoX5Z3EI7Oj8nhOO32C4",
+    "mux_playback_id": "oTBxd6401eO5BCGfFh5B26PcQe2h8gIbpm8RW5tO4ZdU",
+    "initial": false
+  }
+]

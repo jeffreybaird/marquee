@@ -6,6 +6,69 @@ defmodule MarqueeFeatures.Steps.AdminDemo do
   alias Marquee.{AdminDemo, Content, Repo}
   alias Marquee.Content.Video
 
+  when_("the Wanderlust catalog expands for a new and a reset visitor", fn world ->
+    original = Application.fetch_env(:marquee, :admin_demo)
+
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "admin-demo-expanded-#{System.unique_integer([:positive])}.json"
+      )
+
+    File.write!(path, Jason.encode!(Marquee.AdminDemoFixtures.catalog_manifest()))
+
+    Application.put_env(:marquee, :admin_demo,
+      enabled: true,
+      host: "expanded.example.test",
+      catalog_path: path
+    )
+
+    try do
+      {:ok, _} = AdminDemo.configure_host("expanded.example.test")
+      {:ok, old} = AdminDemo.start_session()
+      manifest = Marquee.AdminDemoFixtures.expanded_catalog_manifest()
+      File.write!(path, Jason.encode!(manifest))
+      {:ok, fresh} = AdminDemo.start_session()
+      {:ok, reset} = AdminDemo.reset_session(old.token)
+
+      counts =
+        for org <- [fresh.organization, reset.organization],
+            do: Repo.aggregate(from(v in Video, where: v.organization_id == ^org.id), :count)
+
+      {:ok, %{scope: scope}} = AdminDemo.get_session(reset.token)
+      extra = Enum.find(manifest.clips, &(!&1.initial))
+      {:ok, video} = AdminDemo.add_sample_clip(scope, extra.slug)
+
+      Map.merge(world, %{
+        expanded_counts: counts,
+        expanded_org_id: reset.organization.id,
+        expanded_extra_id: video.id
+      })
+    after
+      File.rm(path)
+
+      case original do
+        {:ok, value} -> Application.put_env(:marquee, :admin_demo, value)
+        :error -> Application.delete_env(:marquee, :admin_demo)
+      end
+    end
+  end)
+
+  then_(
+    "both private catalogs contain forty-eight clips and the approved library can add another",
+    fn world ->
+      assert world.expanded_counts == [48, 48]
+
+      assert Repo.aggregate(
+               from(v in Video, where: v.organization_id == ^world.expanded_org_id),
+               :count
+             ) == 49
+
+      assert Repo.get!(Video, world.expanded_extra_id).mux_asset_id == nil
+      world
+    end
+  )
+
   when_("a Wanderlust visitor opens private viewer preview on a narrow screen", fn world ->
     import Wallaby.Browser
     import Wallaby.Query

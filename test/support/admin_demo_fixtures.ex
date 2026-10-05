@@ -24,4 +24,29 @@ defmodule Marquee.AdminDemoFixtures do
         end
     }
   end
+
+  @doc "Returns a separate sixty-clip fixture with twelve initial and three library clips per collection."
+  def expanded_catalog_manifest do
+    template = hd(catalog_manifest().clips)
+    collections = ["City journeys", "Coastal escapes", "Food & culture", "Wild horizons"]
+
+    %{
+      version: "fixture-travel-v2",
+      clips:
+        for {collection, group} <- Enum.with_index(collections), n <- 1..15 do
+          id = group * 15 + n
+
+          %{
+            template
+            | slug: "expanded-travel-#{id}",
+              title: "Expanded travel #{id}",
+              mux_playback_id: "expanded-playback-#{id}",
+              mux_asset_id: "expanded-protected-#{id}",
+              source_url: "https://media.example.test/expanded/#{id}",
+              collection: collection,
+              initial: n <= 12
+          }
+        end
+    }
+  end
 end
