@@ -54,17 +54,52 @@ defmodule MarqueeWeb.OrgURL do
       "https://demo.example.com/admin"
   """
   @spec org_url(String.t(), org(), mode()) :: String.t()
-  def org_url(base_url, %{slug: slug}, :query_param)
-      when is_binary(base_url) and is_binary(slug) do
+  def org_url(base_url, org, mode) do
+    if provisioning_enabled?(),
+      do: provisioned_url(base_url, org),
+      else: legacy_url(base_url, org, mode)
+  end
+
+  defp legacy_url(base_url, %{slug: slug}, :query_param)
+       when is_binary(base_url) and is_binary(slug) do
     append_org_param(base_url, slug)
   end
 
-  def org_url(base_url, %{slug: slug} = org, :hostname)
-      when is_binary(base_url) and is_binary(slug) do
+  defp legacy_url(base_url, %{slug: slug} = org, :hostname)
+       when is_binary(base_url) and is_binary(slug) do
     case Application.get_env(:marquee, :tenant_host_pattern) do
       nil -> base_url
       pattern -> canonical_url(base_url, org, pattern)
     end
+  end
+
+  defp provisioned_url(base_url, org) do
+    case Marquee.TenantDomains.ready_domain(org) do
+      nil ->
+        append_org_param(platform_url(base_url), org.slug)
+
+      domain ->
+        canonical_url(
+          base_url,
+          %{slug: org.slug, custom_domain: domain.hostname},
+          domain.host_pattern
+        )
+    end
+  end
+
+  defp platform_url(base_url) do
+    uri = URI.parse(base_url)
+    cfg = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
+
+    if uri.host,
+      do:
+        URI.to_string(%{
+          uri
+          | host: cfg[:host],
+            scheme: cfg[:scheme] || uri.scheme,
+            port: cfg[:port] || uri.port
+        }),
+      else: base_url
   end
 
   @doc """
@@ -103,6 +138,14 @@ defmodule MarqueeWeb.OrgURL do
 
   @doc "Resolves a custom domain or configured tenant hostname through Accounts."
   def resolve_host(host) when is_binary(host) do
+    if provisioning_enabled?(),
+      do: Marquee.TenantDomains.resolve_hostname(host),
+      else: resolve_static_host(host)
+  end
+
+  def resolve_host(_), do: {:error, :not_found}
+
+  defp resolve_static_host(host) do
     with {:error, _} <- Marquee.Accounts.get_organization_by_custom_domain(host),
          pattern when is_binary(pattern) <- Application.get_env(:marquee, :tenant_host_pattern),
          slug when is_binary(slug) <- tenant_slug(host, pattern) do
@@ -113,18 +156,18 @@ defmodule MarqueeWeb.OrgURL do
     end
   end
 
-  def resolve_host(_), do: {:error, :not_found}
-
   @doc "Redirects legacy platform GET/HEAD links to a known tenant, using Accounts lookup."
   def redirect_legacy(conn, _opts \\ []) do
     config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
     conn = Plug.Conn.fetch_query_params(conn)
 
-    with :hostname <- resolution_mode(),
+    with true <- provisioning_enabled?() or resolution_mode() == :hostname,
          pattern when is_binary(pattern) <- Application.get_env(:marquee, :tenant_host_pattern),
          true <- conn.host == config[:host] and conn.method in ["GET", "HEAD"],
          slug when is_binary(slug) and slug != "" <- conn.query_params["org"],
-         {:ok, org} <- Marquee.Accounts.get_organization_by_slug(slug) do
+         {:ok, org} <- Marquee.Accounts.get_organization_by_slug(slug),
+         true <-
+           not provisioning_enabled?() or not is_nil(Marquee.TenantDomains.ready_domain(org)) do
       url = %{
         URI.new!("#{config[:scheme] || "https"}://#{conn.host}")
         | port: config[:port],
@@ -132,7 +175,10 @@ defmodule MarqueeWeb.OrgURL do
           query: conn.query_string
       }
 
-      location = canonical_url(URI.to_string(url), org, pattern)
+      location =
+        if provisioning_enabled?(),
+          do: provisioned_url(URI.to_string(url), org),
+          else: canonical_url(URI.to_string(url), org, pattern)
 
       conn
       |> Plug.Conn.put_resp_header("location", location)
@@ -174,4 +220,7 @@ defmodule MarqueeWeb.OrgURL do
   defp resolution_mode do
     Application.get_env(:marquee, :org_resolution, :query_param)
   end
+
+  defp provisioning_enabled?,
+    do: Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true
 end

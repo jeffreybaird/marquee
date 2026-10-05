@@ -11,6 +11,7 @@ defmodule Marquee.TelemetryHandler do
   """
   def setup do
     events = [
+      [:marquee, :tenant_domain, :transition],
       [:marquee, :video, :viewed],
       [:marquee, :video, :upload_initiated],
       [:marquee, :subscription, :created],

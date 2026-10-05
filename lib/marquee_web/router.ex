@@ -21,6 +21,11 @@ defmodule MarqueeWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/", MarqueeWeb do
+    get "/internal/tenant-domains/ask", TenantDomainController, :ask
+    get "/.well-known/marquee-domain", TenantDomainController, :health
+  end
+
   pipeline :set_organization do
     plug MarqueeWeb.Plugs.SetOrganization
     plug MarqueeWeb.Plugs.MemberPreview

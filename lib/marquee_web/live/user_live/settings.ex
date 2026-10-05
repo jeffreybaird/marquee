@@ -160,7 +160,8 @@ defmodule MarqueeWeb.UserLive.Settings do
   end
 
   defp email_organization(socket) do
-    if Application.get_env(:marquee, :org_resolution) == :hostname do
+    if Application.get_env(:marquee, :org_resolution) == :hostname or
+         Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true do
       uri = Phoenix.LiveView.get_connect_info(socket, :uri) || socket.host_uri
 
       case MarqueeWeb.OrgURL.resolve_host(uri && uri.host) do

@@ -296,7 +296,9 @@ defmodule MarqueeWeb.Components.AdminLayout do
 
   defp viewer_site_url(org, impersonating) do
     base =
-      if not impersonating and Application.get_env(:marquee, :org_resolution) == :hostname and
+      if not impersonating and
+           (Application.get_env(:marquee, :org_resolution) == :hostname or
+              Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true) and
            is_binary(Application.get_env(:marquee, :tenant_host_pattern)) do
         config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
 

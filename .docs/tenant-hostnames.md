@@ -1,5 +1,13 @@
 # Tenant hostnames
 
+For automatic provisioning and migration of existing clients, follow
+[automatic tenant domain provisioning](tenant-domain-provisioning.md). That
+opt-in path gates each canonical URL on verified DNS and HTTPS readiness and
+does not require per-client Terraform resources or deployments. The explicit
+DNS/Caddy list below remains the manual provisioning path when automation is
+disabled. Do not combine ownership of a DNS record without the documented
+Terraform handoff.
+
 Production tenant URLs use `https://<slug>-<platform-host>`. With
 `PHX_HOST=marquee.jeffreybaird.com`, an organization whose stored slug is
 `the-workshop` uses `https://the-workshop-marquee.jeffreybaird.com`.

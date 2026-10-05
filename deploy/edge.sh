@@ -36,6 +36,12 @@ fail() { printf 'edge: %s\n' "$*" >&2; exit 1; }
 [[ "$APP_SLUG" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || fail "invalid APP_SLUG"
 addresses="$(bash ./tenant-hosts.sh)"
 
+# Seed only an absent global file. Existing shared configuration is never overwritten.
+[ -f Caddyfile ] || cp Caddyfile.template Caddyfile
+if [[ "${TENANT_TLS_ON_DEMAND:-false}" == true ]]; then
+  bash ./tenant-tls.sh check "$PWD"
+fi
+
 LEGACY_COMPOSE=/root/compose.yaml
 
 # ---- 1. the shared network -----------------------------------------------------
@@ -111,6 +117,12 @@ fi
 
 # ---- 3. the shared Caddy stack --------------------------------------------------
 mkdir -p sites
+
+if [[ "${TENANT_TLS_ON_DEMAND:-false}" == true ]]; then
+  docker compose up -d caddy
+  bash ./tenant-tls.sh apply "$PWD"
+  exit 0
+fi
 
 # This app's site file. Written every deploy so a domain change lands, and
 # compared first so an unchanged deploy doesn't churn the config.

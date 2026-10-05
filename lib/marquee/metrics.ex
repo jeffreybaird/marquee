@@ -288,4 +288,17 @@ defmodule Marquee.Metrics do
       %{org_id: org_id}
     )
   end
+
+  @doc """
+  Records a managed tenant domain's provisioning state.
+
+      iex> Marquee.Metrics.tenant_domain_transition("org-example", :ready)
+      :ok
+  """
+  def tenant_domain_transition(org_id, status) do
+    :telemetry.execute([:marquee, :tenant_domain, :transition], %{count: 1}, %{
+      org_id: org_id,
+      status: status
+    })
+  end
 end

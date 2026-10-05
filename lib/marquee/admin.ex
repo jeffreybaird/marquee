@@ -110,6 +110,35 @@ defmodule Marquee.Admin do
     |> Pagination.paginate(opts)
   end
 
+  @doc "System maintenance: returns a bounded keyset page of active organizations for a reviewed hostname snapshot. Requires database access."
+  def tenant_domain_candidates(cutoff, opts \\ []) do
+    size = opts |> Keyword.get(:per_page, 100) |> min(100) |> max(1)
+
+    query =
+      from o in Organization,
+        where: is_nil(o.deleted_at) and o.inserted_at < ^cutoff,
+        order_by: [asc: o.inserted_at, asc: o.id]
+
+    query =
+      case Keyword.get(opts, :slugs) do
+        nil -> query
+        slugs -> where(query, [o], o.slug in ^slugs)
+      end
+
+    query =
+      case Keyword.get(opts, :after) do
+        nil ->
+          query
+
+        {time, id} ->
+          where(query, [o], o.inserted_at > ^time or (o.inserted_at == ^time and o.id > ^id))
+      end
+
+    {results, rest} = query |> limit(^(size + 1)) |> Repo.all() |> Enum.split(size)
+    last = List.last(results)
+    %{results: results, next_cursor: if(rest != [], do: {last.inserted_at, last.id})}
+  end
+
   defp apply_soft_delete_filter(query, true), do: query
   defp apply_soft_delete_filter(query, false), do: where(query, [o], is_nil(o.deleted_at))
 
@@ -736,6 +765,7 @@ defmodule Marquee.Admin do
 
       %{
         organization: organization,
+        tenant_domain: Marquee.TenantDomains.get_domain(organization),
         memberships:
           Repo.all(from(m in Membership, where: m.organization_id == ^org_id, preload: [:user])),
         videos: Repo.all(from(v in Video, where: v.organization_id == ^org_id)),

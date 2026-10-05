@@ -107,13 +107,23 @@ defmodule MarqueeWeb.Viewer.HomeLive do
   end
 
   defp demo_url_for_org(org) do
-    hostname? = Application.get_env(:marquee, :org_resolution) == :hostname
+    hostname? =
+      Application.get_env(:marquee, :org_resolution) == :hostname or
+        Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true
 
     if hostname? and is_nil(Application.get_env(:marquee, :tenant_host_pattern)) do
       uri = URI.parse(MarqueeWeb.Endpoint.url())
       %{uri | host: org.custom_domain || "#{org.slug}.#{uri.host}", path: "/"} |> URI.to_string()
     else
-      base = if hostname?, do: MarqueeWeb.Endpoint.url() <> "/", else: "/"
+      base =
+        if hostname? do
+          config = Application.get_env(:marquee, MarqueeWeb.Endpoint, [])[:url] || []
+          uri = URI.new!("#{config[:scheme] || "https"}://#{config[:host]}")
+          URI.to_string(%{uri | port: config[:port], path: "/"})
+        else
+          "/"
+        end
+
       MarqueeWeb.OrgURL.org_url(base, org)
     end
   end

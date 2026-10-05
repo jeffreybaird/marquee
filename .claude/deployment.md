@@ -197,6 +197,16 @@ Two workflows, plus a manual rollback:
 
 ## Per-tenant hostnames
 
+The automatic path uses durable hostname allocations, DNSimple reconciliation,
+and Caddy on-demand TLS. Existing-client migration applies an explicitly
+reviewed snapshot; each tenant keeps its old URL until DNS and HTTPS are ready.
+See [automatic tenant provisioning](../.docs/tenant-domain-provisioning.md) for
+configuration, shared-edge prerequisites, release commands, and rollback. This
+path does not require Terraform resources or deployments for each client.
+
+The following explicit-list configuration is the manual alternative with
+automatic provisioning disabled.
+
 Tenant hostnames use `<slug>-<DOMAIN>`. `TENANT_SLUGS` supplies the explicit
 comma-separated tenant list to the edge deployment; Terraform's `tenant_slugs`
 set provisions the matching DNSimple A records. Caddy obtains normal automatic

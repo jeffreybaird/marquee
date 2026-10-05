@@ -156,6 +156,11 @@ jobs:
       TENANT_SLUGS: ${{ vars.TENANT_SLUGS }}
       ORG_RESOLUTION: ${{ vars.ORG_RESOLUTION || 'query_param' }}
       TENANT_HOST_PATTERN: ${{ vars.TENANT_HOST_PATTERN }}
+      TENANT_DOMAIN_PROVISIONING: ${{ vars.TENANT_DOMAIN_PROVISIONING || 'false' }}
+      DNSIMPLE_ACCOUNT_ID: ${{ vars.DNSIMPLE_ACCOUNT_ID }}
+      DNSIMPLE_API_TOKEN: ${{ secrets.DNSIMPLE_API_TOKEN }}
+      TENANT_DNS_ZONE: ${{ vars.TENANT_DNS_ZONE }}
+      TENANT_DNS_TARGET_IPV4: ${{ vars.TENANT_DNS_TARGET_IPV4 }}
     steps:
       - uses: actions/checkout@v6
 
@@ -205,6 +210,11 @@ jobs:
           DOMAIN=${{ vars.DOMAIN }}
           ORG_RESOLUTION=${ORG_RESOLUTION}
           TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
+          TENANT_DOMAIN_PROVISIONING=${TENANT_DOMAIN_PROVISIONING}
+          DNSIMPLE_ACCOUNT_ID=${DNSIMPLE_ACCOUNT_ID}
+          DNSIMPLE_API_TOKEN=${DNSIMPLE_API_TOKEN}
+          TENANT_DNS_ZONE=${TENANT_DNS_ZONE}
+          TENANT_DNS_TARGET_IPV4=${TENANT_DNS_TARGET_IPV4}
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
@@ -230,6 +240,11 @@ jobs:
           DOMAIN=${{ vars.DOMAIN }}
           ORG_RESOLUTION=${ORG_RESOLUTION}
           TENANT_HOST_PATTERN=${TENANT_HOST_PATTERN}
+          TENANT_DOMAIN_PROVISIONING=${TENANT_DOMAIN_PROVISIONING}
+          DNSIMPLE_ACCOUNT_ID=${DNSIMPLE_ACCOUNT_ID}
+          DNSIMPLE_API_TOKEN=${DNSIMPLE_API_TOKEN}
+          TENANT_DNS_ZONE=${TENANT_DNS_ZONE}
+          TENANT_DNS_TARGET_IPV4=${TENANT_DNS_TARGET_IPV4}
           APP_SLUG=${APP_SLUG}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
           DATABASE_PATH=${{ vars.DATABASE_PATH }}
@@ -263,8 +278,10 @@ jobs:
             deploy/edge-compose.yaml \
             root@"$HOST":/root/caddy/compose.yaml
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/Caddyfile deploy/site.caddy.tmpl deploy/edge.sh deploy/tenant-hosts.sh \
+            deploy/site.caddy.tmpl deploy/edge.sh deploy/tenant-hosts.sh deploy/tenant-tls.sh \
             root@"$HOST":/root/caddy/
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            deploy/Caddyfile root@"$HOST":/root/caddy/Caddyfile.template
 
       - name: Copy stack files + .env to droplet (Postgres)
         if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
@@ -286,8 +303,11 @@ jobs:
       - name: Prepare shared edge (network, Caddy, route)
         run: |
           bash deploy/tenant-hosts.sh >/dev/null
+          if [[ "$TENANT_DOMAIN_PROVISIONING" == true ]]; then
+            TENANT_TLS_ON_DEMAND=true bash deploy/tenant-tls.sh render "$(mktemp -d)"
+          fi
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
-            "APP_SLUG='$APP_SLUG' DOMAIN='$DOMAIN' TENANT_SLUGS='$TENANT_SLUGS' bash /root/caddy/edge.sh"
+            "APP_SLUG='$APP_SLUG' DOMAIN='$DOMAIN' TENANT_SLUGS='$TENANT_SLUGS' TENANT_TLS_ON_DEMAND='$TENANT_DOMAIN_PROVISIONING' bash /root/caddy/edge.sh"
 
       - name: Registry login + pull new image
         run: |

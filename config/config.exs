@@ -177,7 +177,7 @@ config :marquee, Oban,
        {"0 3 * * *", Marquee.Workers.ExpireTrialsWorker}
      ]}
   ],
-  queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3]
+  queues: [critical: 10, default: 20, mux: 10, stripe: 10, bulk: 5, imports: 3, tenant_domains: 2]
 
 # OpenTelemetry
 config :opentelemetry,

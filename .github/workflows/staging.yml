@@ -245,6 +245,7 @@ jobs:
           IMAGE=${IMAGE}
           DOMAIN=${DOMAIN}
           ORG_RESOLUTION=query_param
+          TENANT_DOMAIN_PROVISIONING=false
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
           SECRET_KEY_BASE=${STAGING_SECRET_KEY_BASE}
@@ -267,6 +268,7 @@ jobs:
           IMAGE=${IMAGE}
           DOMAIN=${DOMAIN}
           ORG_RESOLUTION=query_param
+          TENANT_DOMAIN_PROVISIONING=false
           APP_SLUG=${APP_SLUG}
           SECRET_KEY_BASE=${STAGING_SECRET_KEY_BASE}
           DATABASE_PATH=${{ vars.DATABASE_PATH }}

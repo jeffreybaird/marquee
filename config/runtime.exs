@@ -63,6 +63,59 @@ case System.get_env("ORG_RESOLUTION") do
     raise "ORG_RESOLUTION must be query_param or hostname"
 end
 
+case System.get_env("TENANT_DOMAIN_PROVISIONING") do
+  value when value in [nil, "", "false"] ->
+    config :marquee, :tenant_domain_provisioning, enabled: false
+
+  "true" ->
+    required = fn key ->
+      case System.get_env(key) do
+        value when is_binary(value) and value != "" -> value
+        _ -> raise "#{key} is required for managed tenant provisioning"
+      end
+    end
+
+    zone = required.("TENANT_DNS_ZONE")
+    target = required.("TENANT_DNS_TARGET_IPV4")
+    account = required.("DNSIMPLE_ACCOUNT_ID")
+    token = required.("DNSIMPLE_API_TOKEN")
+
+    pattern =
+      case System.get_env("TENANT_HOST_PATTERN") do
+        value when value in [nil, ""] -> "{slug}-#{System.get_env("PHX_HOST", "localhost")}"
+        value -> value
+      end
+
+    rendered = String.replace(pattern, "{slug}", "tenant")
+
+    valid_labels? =
+      Enum.all?(String.split(rendered, "."), fn label ->
+        byte_size(label) <= 63 and Regex.match?(~r/\A[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z/, label)
+      end)
+
+    unless match?({:ok, _}, :inet.parse_ipv4_address(String.to_charlist(target))) and
+             Regex.match?(~r/\A[0-9]+\z/, account) and valid_labels? and
+             byte_size(rendered) <= 253 and
+             length(String.split(pattern, "{slug}")) == 2 and
+             String.ends_with?(rendered, "." <> zone) do
+      raise "Invalid tenant DNS target, account or managed hostname namespace"
+    end
+
+    config :marquee, :tenant_domain_provisioning,
+      enabled: true,
+      zone: zone,
+      account_id: account,
+      api_token: token,
+      target_ipv4: target,
+      host_pattern: pattern
+
+    config :marquee, :tenant_host_pattern, pattern
+    config :marquee, MarqueeWeb.Endpoint, check_origin: :conn
+
+  _ ->
+    raise "TENANT_DOMAIN_PROVISIONING must be true or false"
+end
+
 if config_env() != :test do
   config :marquee, MarqueeWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]

@@ -120,11 +120,20 @@ defmodule MarqueeWeb.Plugs.SetOrganization do
   end
 
   defp resolve_organization(conn, opts) do
-    case resolution_mode() do
-      :query_param -> resolve_query_param_mode(conn, opts)
-      :hostname -> resolve_hostname_mode(conn, opts)
+    if provisioning_enabled?() do
+      if platform_host?(conn.host),
+        do: resolve_query_param_mode(conn, opts),
+        else: OrgURL.resolve_host(conn.host)
+    else
+      case resolution_mode() do
+        :query_param -> resolve_query_param_mode(conn, opts)
+        :hostname -> resolve_hostname_mode(conn, opts)
+      end
     end
   end
+
+  defp provisioning_enabled?,
+    do: Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true
 
   defp resolution_mode do
     Application.get_env(:marquee, :org_resolution, :query_param)

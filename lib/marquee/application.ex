@@ -37,6 +37,7 @@ defmodule Marquee.Application do
         Marquee.Events.AuditSubscriber,
         Marquee.Catalog.HeroCacheSubscriber,
         Marquee.Branding.CacheSubscriber,
+        Marquee.TenantDomains.CacheSubscriber,
         Marquee.Podcasts.LifecycleSubscriber,
         # Start to serve requests, typically the last entry
         MarqueeWeb.Endpoint

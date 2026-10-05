@@ -209,15 +209,40 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   end
 
   defp resolve_current_org(host, session, user) do
-    if configured_hostname?() do
-      case OrgURL.resolve_host(host) do
-        {:ok, org} -> org
-        _ -> resolve_platform_org(host, session, user)
-      end
-    else
-      resolve_org(host, session)
+    cond do
+      provisioning_enabled?() and platform_host?(host) ->
+        resolve_provisioning_platform_org(host, session, user)
+
+      provisioning_enabled?() ->
+        resolve_managed_org(host)
+
+      configured_hostname?() ->
+        case OrgURL.resolve_host(host) do
+          {:ok, org} -> org
+          _ -> resolve_platform_org(host, session, user)
+        end
+
+      true ->
+        resolve_org(host, session)
     end
   end
+
+  defp resolve_managed_org(host) do
+    case OrgURL.resolve_host(host) do
+      {:ok, org} -> org
+      _ -> nil
+    end
+  end
+
+  defp resolve_provisioning_platform_org(host, session, user) do
+    case resolve_org_from_session(session) do
+      {:ok, org} -> org
+      _ -> resolve_platform_org(host, session, user)
+    end
+  end
+
+  defp provisioning_enabled?,
+    do: Application.get_env(:marquee, :tenant_domain_provisioning, [])[:enabled] == true
 
   defp resolve_platform_org(host, session, user) do
     if platform_host?(host) and not is_nil(user) do
@@ -249,8 +274,9 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   end
 
   defp configured_hostname? do
-    Application.get_env(:marquee, :org_resolution) == :hostname and
-      is_binary(Application.get_env(:marquee, :tenant_host_pattern))
+    provisioning_enabled?() or
+      (Application.get_env(:marquee, :org_resolution) == :hostname and
+         is_binary(Application.get_env(:marquee, :tenant_host_pattern)))
   end
 
   defp platform_host?(host) do
