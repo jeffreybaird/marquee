@@ -52,6 +52,8 @@ defmodule Marquee.Viewers.ViewerToken do
     query =
       from t in by_token_and_context_query(token, "session"),
         join: v in assoc(t, :viewer),
+        join: org in assoc(v, :organization),
+        where: is_nil(org.demo_kind) and is_nil(org.deleted_at),
         where: t.inserted_at > ago(@session_validity_in_days, "day"),
         where: is_nil(v.deleted_at),
         select: v
@@ -83,6 +85,8 @@ defmodule Marquee.Viewers.ViewerToken do
         query =
           from t in by_token_and_context_query(hashed_token, "magic_link"),
             join: v in assoc(t, :viewer),
+            join: org in assoc(v, :organization),
+            where: is_nil(org.demo_kind) and is_nil(org.deleted_at),
             where: t.inserted_at > ago(^@magic_link_validity_in_minutes, "minute"),
             where: t.sent_to == v.email,
             where: is_nil(v.deleted_at),

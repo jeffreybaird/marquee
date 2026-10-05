@@ -13,9 +13,16 @@ defmodule MarqueeWeb.Admin.BillingLive do
   alias Marquee.Admin
   alias Marquee.PlatformBilling
   alias Marquee.PlatformBilling.UsageLimits
-  alias MarqueeWeb.Admin.DemoRestrictedLive
+  alias MarqueeWeb.Components.DemoFeaturePreview
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :billing)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     subscription = load_subscription(org)
@@ -83,9 +90,8 @@ defmodule MarqueeWeb.Admin.BillingLive do
   end
 
   @impl true
-  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns) do
-    DemoRestrictedLive.render(assigns)
-  end
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
 
   def render(assigns) do
     ~H"""

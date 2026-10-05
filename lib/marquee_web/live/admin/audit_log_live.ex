@@ -110,6 +110,19 @@ defmodule MarqueeWeb.Admin.AuditLogLive do
   end
 
   @impl true
+  def handle_event(
+        "export_csv",
+        _params,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do:
+        {:noreply,
+         put_flash(
+           socket,
+           :info,
+           "Exports are disabled in the demo. You can explore your local audit trail here."
+         )}
+
   def handle_event("export_csv", _params, socket) do
     org = socket.assigns.organization
     current_user = socket.assigns.current_user
@@ -155,6 +168,7 @@ defmodule MarqueeWeb.Admin.AuditLogLive do
           <button
             phx-click="export_csv"
             class="inline-flex items-center gap-1.5 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-ui text-sm font-medium text-admin-fg hover:border-admin-border"
+            disabled={@organization.demo_kind == :admin_sandbox}
             data-test="export-csv-btn"
           >
             Export CSV

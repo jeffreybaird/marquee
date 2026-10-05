@@ -19,14 +19,14 @@ defmodule MarqueeWeb.Plugs.AdminDemoAccess do
   end
 
   defp admin_path_allowed?(path) do
-    path in ~w(/admin /admin/content /admin/collections /admin/series /admin/tags /admin/catalog /admin/analytics /admin/branding /admin/appearance /admin/settings/billing /admin/demo/library /admin/demo/restricted) or
+    path in ~w(/admin /admin/content /admin/collections /admin/series /admin/tags /admin/catalog /admin/analytics /admin/branding /admin/appearance /admin/settings/billing /admin/demo/library /admin/demo/restricted /admin/members /admin/podcasts /admin/plans /admin/coupons /admin/webhooks /admin/live-events /admin/settings /admin/landing /admin/audit-log) or
       Regex.match?(~r{^/admin/series/[^/]+/seasons/[^/]+$}, path) or
       Regex.match?(~r{^/admin/analytics/(videos|series)/[^/]+(?:/seasons/[^/]+)?$}, path)
   end
 
   defp viewer_path_allowed?(path),
     do:
-      path in ["/", "/browse"] or
+      path in ["/", "/browse", "/watchlist", "/favorites", "/history", "/account", "/subscribe"] or
         Enum.any?(["/watch/", "/collections/", "/series/"], &String.starts_with?(path, &1))
 
   defp resolve_capability(conn) do
@@ -45,10 +45,11 @@ defmodule MarqueeWeb.Plugs.AdminDemoAccess do
           String.starts_with?(conn.request_path, "/admin") ->
             conn |> redirect(to: "/admin/demo/restricted") |> halt()
 
-          viewer_path_allowed?(conn.request_path) ->
+          conn.request_path == "/viewer-session/impersonate" and conn.method in ["POST", "DELETE"] ->
             conn
-            |> put_session(:member_preview_org_id, scope.organization.id)
-            |> put_session(:member_preview_viewer_id, session.generation)
+
+          viewer_path_allowed?(conn.request_path) ->
+            resolve_viewer_preview(conn, scope, session)
 
           true ->
             conn |> redirect(to: "/admin/demo/restricted") |> halt()
@@ -56,6 +57,29 @@ defmodule MarqueeWeb.Plugs.AdminDemoAccess do
 
       _ ->
         conn |> redirect(to: "/demo/admin") |> halt()
+    end
+  end
+
+  defp resolve_viewer_preview(conn, scope, session) do
+    case get_session(conn, :admin_demo_viewer_id) do
+      nil ->
+        conn
+        |> put_session(:member_preview_org_id, scope.organization.id)
+        |> put_session(:member_preview_viewer_id, session.generation)
+
+      id ->
+        case AdminDemo.sample_viewer(scope, id) do
+          {:ok, _} ->
+            conn
+            |> delete_session(:member_preview_org_id)
+            |> delete_session(:member_preview_viewer_id)
+
+          _ ->
+            conn
+            |> delete_session(:admin_demo_viewer_id)
+            |> redirect(to: "/admin/members")
+            |> halt()
+        end
     end
   end
 end

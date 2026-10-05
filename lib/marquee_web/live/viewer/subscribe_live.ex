@@ -12,9 +12,17 @@ defmodule MarqueeWeb.Viewer.SubscribeLive do
 
   alias Marquee.Billing
   alias Marquee.Viewers
+  alias MarqueeWeb.Components.DemoFeaturePreview
   alias MarqueeWeb.Components.ViewerLayout
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :subscribe)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     viewer = socket.assigns.current_viewer
@@ -77,6 +85,9 @@ defmodule MarqueeWeb.Viewer.SubscribeLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <ViewerLayout.viewer_layout

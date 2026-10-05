@@ -32,6 +32,13 @@ defmodule MarqueeWeb.Admin.MembersLive do
   end
 
   @impl true
+  def handle_event(
+        "switch_tab",
+        %{"tab" => "team"},
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: {:noreply, socket}
+
   def handle_event("switch_tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :tab, tab)}
   end
@@ -125,7 +132,7 @@ defmodule MarqueeWeb.Admin.MembersLive do
              |> put_flash(:info, "Viewer updated.")
              |> load_viewers(org)}
 
-          {:error, :forbidden} ->
+          {:error, reason} when reason in [:forbidden, :demo_forbidden, :demo_expired] ->
             {:noreply, put_flash(socket, :error, "You don't have permission to manage viewers.")}
 
           {:error, _, _} ->
@@ -164,12 +171,14 @@ defmodule MarqueeWeb.Admin.MembersLive do
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
+      flash={@flash}
     >
       <.header>Members</.header>
 
       <%!-- Tabs --%>
       <div class="mt-4 flex gap-2 border-b border-admin-border">
         <button
+          :if={@organization.demo_kind != :admin_sandbox}
           phx-click="switch_tab"
           phx-value-tab="team"
           class={"px-4 py-2 text-sm font-medium border-b-2 #{if @tab == "team", do: "border-admin-accent text-admin-accent", else: "border-transparent text-admin-muted hover:text-admin-fg"}"}
@@ -190,6 +199,9 @@ defmodule MarqueeWeb.Admin.MembersLive do
         <p class="text-admin-muted">Team member management coming soon.</p>
       </div>
 
+      <p :if={@organization.demo_kind == :admin_sandbox} class="mb-4 text-admin-muted">
+        Sample members — manage local access and explore a read-only view of their activity.
+      </p>
       <%!-- Viewers tab --%>
       <div :if={@tab == "viewers" && @can_view} class="mt-6">
         <%!-- Search and filters --%>

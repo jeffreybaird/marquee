@@ -10,10 +10,18 @@ defmodule MarqueeWeb.Admin.SettingsLive do
   use MarqueeWeb, :live_view
 
   alias Marquee.Billing
+  alias MarqueeWeb.Components.DemoFeaturePreview
 
   require Logger
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :settings)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
 
@@ -42,6 +50,9 @@ defmodule MarqueeWeb.Admin.SettingsLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

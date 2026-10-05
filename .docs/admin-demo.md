@@ -16,6 +16,25 @@ analytics are visibly labeled. The normal dashboard and optional tour are reused
 Billing, payments, invitations, webhooks, domains, uploads, and live broadcasting
 are explanation-only in this environment.
 
+Each new workspace includes six sample members with varied local access and
+private viewing activity, plus two podcast shows. Operators can manage member
+status/access and edit local podcast-show metadata. No playable podcast episodes
+are invented, and feed synchronization, uploads, feed tokens, and external
+publication remain unavailable. Existing workspaces receive these samples on
+Reset demo; their current edits are not replaced automatically.
+
+View as opens the selected sample member's read-only viewer experience,
+including their saved content and account summary. A named banner provides a
+return to Members. The selected identity is separate from normal viewer and
+operator authentication, restricted to the current sandbox, and invalidated by
+reset, expiry, exit, or feature disablement. Sample members cannot obtain normal
+viewer authentication tokens or enter registration and magic-link workflows.
+
+Unavailable integrations retain recognizable read-only pages with labeled sample
+cards and disabled external actions. The audit page displays the workspace's
+own events without export. Provider callbacks and unsupported mutation routes
+remain blocked; hiding controls is not the authorization boundary.
+
 ## Sessions and limits
 
 The dedicated host is configured with `ADMIN_DEMO_HOST`, expected to be

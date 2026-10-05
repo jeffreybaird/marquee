@@ -10,10 +10,18 @@ defmodule MarqueeWeb.Admin.LiveEventLive.Index do
 
   alias Marquee.Events
   alias Marquee.Streaming
+  alias MarqueeWeb.Components.DemoFeaturePreview
 
   @per_page 25
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :live)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
 
@@ -86,6 +94,9 @@ defmodule MarqueeWeb.Admin.LiveEventLive.Index do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

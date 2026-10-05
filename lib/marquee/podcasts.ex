@@ -111,6 +111,13 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — hits the database.
   """
   def create_show(scope, attrs) do
+    with :ok <- Marquee.AdminDemo.authorize_creation(scope, :podcast_edit, attrs),
+         :ok <- demo_show_attributes(scope, attrs) do
+      authorized_create_show(scope, attrs)
+    end
+  end
+
+  defp authorized_create_show(scope, attrs) do
     Marquee.Otel.with_span "marquee.podcasts.create_show" do
       org_id = scope.organization.id
       attrs = Map.put(stringify_keys(attrs), "organization_id", org_id)
@@ -144,6 +151,13 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — hits the database.
   """
   def update_show(scope, %Show{} = show, attrs) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :podcast_edit, show),
+         :ok <- demo_show_attributes(scope, attrs) do
+      authorized_update_show(scope, show, attrs)
+    end
+  end
+
+  defp authorized_update_show(scope, show, attrs) do
     Marquee.Otel.with_span "marquee.podcasts.update_show" do
       attrs = stringify_keys(attrs)
       tier_change? = Map.has_key?(attrs, "tier_plan_ids")
@@ -185,6 +199,12 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — hits the database.
   """
   def soft_delete_show(scope, %Show{} = show) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :podcast_edit, show) do
+      authorized_soft_delete_show(scope, show)
+    end
+  end
+
+  defp authorized_soft_delete_show(scope, show) do
     Marquee.Otel.with_span "marquee.podcasts.soft_delete_show" do
       Repo.transaction(fn ->
         case show |> Show.soft_delete_changeset() |> Repo.update() do
@@ -593,6 +613,13 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — hits the database.
   """
   def issue_feed_token(%Show{} = show, %Viewer{} = viewer) do
+    with :ok <- Marquee.AdminDemo.external_resource(Show, show.id),
+         :ok <- Marquee.AdminDemo.external_resource(Viewer, viewer.id, show.organization_id) do
+      authorized_issue_feed_token(show, viewer)
+    end
+  end
+
+  defp authorized_issue_feed_token(show, viewer) do
     Marquee.Otel.with_span "marquee.podcasts.issue_feed_token" do
       case existing_active_token(show.id, viewer.id) do
         nil ->
@@ -646,6 +673,13 @@ defmodule Marquee.Podcasts do
   Exempt from doctest — hits the database.
   """
   def regenerate_feed_token(%Show{} = show, %Viewer{} = viewer) do
+    with :ok <- Marquee.AdminDemo.external_resource(Show, show.id),
+         :ok <- Marquee.AdminDemo.external_resource(Viewer, viewer.id, show.organization_id) do
+      authorized_regenerate_feed_token(show, viewer)
+    end
+  end
+
+  defp authorized_regenerate_feed_token(show, viewer) do
     Repo.transaction(fn ->
       revoke_existing_or_rollback(show.id, viewer.id)
 
@@ -857,4 +891,25 @@ defmodule Marquee.Podcasts do
   defp mux_client do
     Application.get_env(:marquee, :mux_client, Marquee.Content.MuxClient)
   end
+
+  defp demo_show_attributes(%{admin_demo_session_id: id, organization: org}, attrs)
+       when is_binary(id) do
+    attrs = stringify_keys(attrs)
+
+    local_keys =
+      ~w(title slug description author owner_name owner_email language primary_category secondary_categories explicit copyright published source_type access_mode tier_plan_ids audio_only_plan_id organization_id)
+
+    if Map.get(attrs, "organization_id", org.id) == org.id and
+         Enum.all?(Map.keys(attrs), &(&1 in local_keys)) and
+         Map.get(attrs, "source_type", "direct_upload") == "direct_upload" and
+         Map.get(attrs, "access_mode", "any_active") == "any_active" and
+         Map.get(attrs, "tier_plan_ids", []) in [[], nil] and
+         Map.get(attrs, "audio_only_plan_id") in [nil, ""] do
+      :ok
+    else
+      {:error, :demo_forbidden}
+    end
+  end
+
+  defp demo_show_attributes(_, _), do: :ok
 end

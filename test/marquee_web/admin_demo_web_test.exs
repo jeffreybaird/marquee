@@ -145,10 +145,11 @@ defmodule MarqueeWeb.AdminDemoWebTest do
     assert conn |> recycle() |> get("/admin") |> redirected_to() == "/demo/admin"
   end
 
-  test "unsupported billing routes explain restrictions while approved sample library works" do
+  test "billing sample explains disabled actions while approved sample library works" do
     conn = entered_conn()
     {:ok, _view, html} = live(recycle(conn), "/admin/settings/billing")
-    assert html =~ ~s(data-test="admin-demo-restricted")
+    assert html =~ ~s(data-test="admin-demo-feature-sample")
+    assert html =~ ~s(data-test="admin-demo-feature-action")
     {:ok, view, _} = live(recycle(conn), "/admin/demo/library")
     view |> element("[data-test=sample-clip-travel-fixture-4]") |> render_click()
     {:ok, %{scope: scope}} = AdminDemo.get_session(get_session(conn, :admin_demo_token))
@@ -360,15 +361,21 @@ defmodule MarqueeWeb.AdminDemoWebTest do
     refute build_conn() |> get("/") |> html_response(200) =~ ~s(data-test="admin-demo-cta")
   end
 
-  test "connected unsupported navigation is restricted before operational views mount" do
+  test "connected navigation offers useful Plans and Podcasts while unsupported routes remain blocked" do
     conn = entered_conn()
 
-    for path <- ["/admin/plans", "/admin/podcasts"] do
+    for {path, selector} <- [
+          {"/admin/plans",
+           "[data-test=admin-demo-feature-sample] [data-test=admin-demo-feature-row]"},
+          {"/admin/podcasts", "[data-test=new-show-btn]"}
+        ] do
       {:ok, view, _} = live(recycle(conn), "/admin")
-
-      assert {:error, {:redirect, %{status: 302, to: "/admin/demo/restricted"}}} =
-               live_redirect(view, to: path)
+      assert {:ok, destination, _html} = live_redirect(view, to: path)
+      assert has_element?(destination, selector)
     end
+
+    assert conn |> recycle() |> get("/admin/settings/stripe/return") |> redirected_to() ==
+             "/admin/demo/restricted"
   end
 
   defp entered_conn do

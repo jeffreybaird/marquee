@@ -7,6 +7,8 @@ defmodule MarqueeWeb.E2E.AdminDemoJourneyTest do
   alias Marquee.Accounts.Organization
   alias Marquee.AdminDemo.Session
   alias Marquee.Content.Video
+  alias Marquee.Engagement.WatchlistItem
+  alias Marquee.Viewers.Viewer
   alias Phoenix.Ecto.SQL.Sandbox
 
   @moduletag :e2e
@@ -135,6 +137,49 @@ defmodule MarqueeWeb.E2E.AdminDemoJourneyTest do
     Repo.update!(Ecto.Changeset.change(session, expires_at: DateTime.add(DateTime.utc_now(), -1)))
     browser |> demo_visit("/admin") |> assert_has(css("[data-test=admin-demo-entry-form]"))
     other |> demo_visit("/admin") |> assert_has(css("[data-test=admin-demo-bar]"))
+  end
+
+  test "Members View as preserves selected activity through My Stuff and returns to Members", %{
+    session: browser
+  } do
+    browser =
+      browser
+      |> demo_visit("/demo/admin")
+      |> click(css("[data-test=admin-demo-start]"))
+      |> assert_has(css("[data-test=kpi-total-views]"))
+      |> demo_visit("/admin/members")
+      |> assert_has(css("[data-test=viewer-list]"))
+
+    [org] = Repo.all(from o in Organization, where: o.demo_kind == :admin_sandbox)
+
+    selected =
+      Repo.one!(
+        from v in Viewer,
+          join: w in WatchlistItem,
+          on: w.viewer_id == v.id,
+          where:
+            v.organization_id == ^org.id and v.status == :active and
+              v.subscription_status == "active",
+          limit: 1,
+          select: v
+      )
+
+    item = Repo.one!(from w in WatchlistItem, where: w.viewer_id == ^selected.id, limit: 1)
+
+    browser =
+      browser
+      |> click(css("[data-test=impersonate-viewer-#{selected.id}]"))
+      |> assert_has(css("[data-test=impersonation-banner]", text: selected.display_name))
+      |> assert_has(css("[data-phx-main].phx-connected"))
+      |> click(css("[data-test=nav-my-stuff]"))
+      |> assert_has(css("[data-test=sv-watchlist-item-#{item.id}]"))
+      |> assert_has(css("[data-test=impersonation-banner]", text: "read-only"))
+      |> click(css("[data-test=stop-impersonation-btn]"))
+      |> assert_has(css("[data-test=viewer-list]"))
+      |> assert_has(css("[data-test=viewer-row-#{selected.id}]"))
+
+    assert URI.parse(current_url(browser)).path == "/admin/members"
+    assert Repo.get!(WatchlistItem, item.id).deleted_at == nil
   end
 
   defp demo_visit(browser, path) do

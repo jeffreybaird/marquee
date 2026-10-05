@@ -140,6 +140,9 @@ defmodule MarqueeWeb.Components.ViewerLayout do
               Member preview — read-only.
             <% else %>
               You are impersonating {@current_viewer.display_name || @current_viewer.email}.
+              <span :if={@current_viewer.metadata["admin_demo_sample"]}>
+                Sample member — read-only.
+              </span>
             <% end %>
           </span>
         </div>

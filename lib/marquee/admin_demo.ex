@@ -146,9 +146,34 @@ defmodule Marquee.AdminDemo do
 
   def add_sample_clip(_, _), do: {:error, :demo_forbidden}
 
-  defp demo_scope?(scope, resource) do
-    demo_identity?(scope) or demo_id?(resource && Map.get(resource, :organization_id))
+  @doc "Resolves a persisted sample identity within an active private demo. Requires database access."
+  def sample_viewer(scope, id) when is_binary(id) do
+    with :ok <- authorize(scope, :members_read),
+         %{admin_demo_session_id: session_id, organization: org} when is_binary(session_id) <-
+           scope,
+         {:ok, viewer} <- Marquee.Viewers.get_viewer(org, id),
+         true <- viewer.metadata["admin_demo_sample"] == true do
+      {:ok, %{viewer | __impersonating__: true}}
+    else
+      _ -> {:error, :demo_forbidden}
+    end
   end
+
+  def sample_viewer(_, _), do: {:error, :demo_forbidden}
+
+  defp demo_scope?(scope, resource) do
+    demo_identity?(scope) or demo_resource?(resource)
+  end
+
+  defp demo_resource?(%{__struct__: schema, id: id}) when is_binary(id) do
+    case Repo.get(schema, id) do
+      %{organization_id: org_id} -> demo_id?(org_id)
+      %Organization{} = org -> not is_nil(org.demo_kind)
+      _ -> false
+    end
+  end
+
+  defp demo_resource?(resource), do: demo_id?(resource && Map.get(resource, :organization_id))
 
   defp demo_identity?(%{admin_demo_session_id: id}) when not is_nil(id), do: true
 
@@ -185,6 +210,9 @@ defmodule Marquee.AdminDemo do
              :catalog_edit,
              :branding_edit,
              :analytics_read,
+             :members_read,
+             :members_edit,
+             :podcast_edit,
              :viewer_preview,
              :tour
            ],
@@ -517,7 +545,13 @@ defmodule Marquee.AdminDemo do
   defp cleanup_one(session, now, counts) do
     revoked = if is_nil(session.revoked_at), do: 1, else: 0
     revoke_locked(session, now)
-    purge? = is_nil(session.purged_at) and DateTime.diff(now, session.expires_at) >= 86_400
+
+    ended_at =
+      if session.revoked_at && DateTime.before?(session.revoked_at, session.expires_at),
+        do: session.revoked_at,
+        else: session.expires_at
+
+    purge? = is_nil(session.purged_at) and DateTime.diff(now, ended_at) >= 86_400
     if purge?, do: purge_sandbox(session, now)
 
     if DateTime.diff(now, session.expires_at) >= 30 * 86_400 do
@@ -543,7 +577,26 @@ defmodule Marquee.AdminDemo do
   defp purge_sandbox(session, now) do
     org = Repo.get!(Organization, session.organization_id)
 
+    viewer_ids =
+      from v in Marquee.Viewers.Viewer, where: v.organization_id == ^org.id, select: v.id
+
+    Repo.delete_all(
+      from t in Marquee.Viewers.ViewerToken, where: t.viewer_id in subquery(viewer_ids)
+    )
+
     for schema <- [
+          Marquee.Podcasts.AudioRequest,
+          Marquee.Podcasts.FeedToken,
+          Marquee.Podcasts.Episode,
+          Marquee.Podcasts.ShowTier,
+          Marquee.Podcasts.Show,
+          Marquee.Engagement.ContinueWatchingDismissal,
+          Marquee.Engagement.PlaybackDropOff,
+          Marquee.Engagement.QueueItem,
+          Marquee.Engagement.Favorite,
+          Marquee.Engagement.WatchHistory,
+          Marquee.Engagement.Progress,
+          Marquee.Engagement.WatchlistItem,
           Marquee.Catalog.HeroSlide,
           Marquee.Catalog.RowItem,
           Marquee.Content.CollectionItem,
@@ -559,6 +612,7 @@ defmodule Marquee.AdminDemo do
           Marquee.Content.Video,
           Marquee.Analytics.Snapshot,
           Marquee.Branding.Theme,
+          Marquee.Viewers.Viewer,
           Membership
         ] do
       Repo.delete_all(from row in schema, where: row.organization_id == ^org.id)

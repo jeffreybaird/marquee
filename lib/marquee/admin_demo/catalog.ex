@@ -4,7 +4,10 @@ defmodule Marquee.AdminDemo.Catalog do
   alias Marquee.Branding.Theme
   alias Marquee.Catalog.{HeroSlide, Row, RowItem}
   alias Marquee.Content.{Collection, CollectionItem, Episode, Season, Series, Video}
+  alias Marquee.Engagement.{Favorite, Progress, WatchHistory, WatchlistItem}
+  alias Marquee.Podcasts.Show
   alias Marquee.Repo
+  alias Marquee.Viewers.Viewer
 
   @doc "Reads and validates the configured local template. Performs filesystem access only."
   def load do
@@ -83,6 +86,8 @@ defmodule Marquee.AdminDemo.Catalog do
     })
     |> Repo.insert!()
 
+    seed_members(org, videos)
+    seed_shows(org)
     seed_analytics(org)
     :ok
   end
@@ -192,6 +197,98 @@ defmodule Marquee.AdminDemo.Catalog do
         value: Decimal.new(value),
         metadata: %{"sample" => true, "label" => "Sample data"}
       })
+    end
+  end
+
+  defp seed_members(org, videos) do
+    profiles = [
+      {"Alex Morgan", :active, "active"},
+      {"Sam Rivera", :active, "trialing"},
+      {"Jordan Lee", :active, "none"},
+      {"Taylor Chen", :suspended, "active"},
+      {"Casey Brooks", :banned, "none"},
+      {"Riley Patel", :active, "canceled"}
+    ]
+
+    profiles
+    |> Enum.with_index(1)
+    |> Enum.each(fn {{name, status, subscription}, index} ->
+      viewer =
+        Repo.insert!(%Viewer{
+          organization_id: org.id,
+          display_name: name,
+          email: "sample-#{index}@wanderlust.example.invalid",
+          status: status,
+          subscription_status: subscription,
+          subscription_expires_at:
+            if(subscription == "active",
+              do: DateTime.add(DateTime.utc_now(), 30 * 86_400) |> DateTime.truncate(:second)
+            ),
+          trial_expires_at:
+            if(subscription == "trialing",
+              do: DateTime.add(DateTime.utc_now(), 7 * 86_400) |> DateTime.truncate(:second)
+            ),
+          confirmed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          onboarding_completed: true,
+          metadata: %{"admin_demo_sample" => true}
+        })
+
+      seed_member_activity(org, viewer, videos, index)
+    end)
+  end
+
+  defp seed_member_activity(org, viewer, videos, index) do
+    {_, video} = Enum.at(videos, rem(index - 1, length(videos)))
+    duration = (video.duration || 60) * 1.0
+    position = min(duration / 3, 30.0)
+
+    Repo.insert!(%Progress{
+      organization_id: org.id,
+      viewer_id: viewer.id,
+      video_id: video.id,
+      position: position,
+      duration: duration,
+      completed: false
+    })
+
+    Repo.insert!(%WatchlistItem{
+      organization_id: org.id,
+      viewer_id: viewer.id,
+      video_id: video.id,
+      item_type: :video,
+      position: 0
+    })
+
+    Repo.insert!(%Favorite{organization_id: org.id, viewer_id: viewer.id, video_id: video.id})
+
+    Repo.insert!(%WatchHistory{
+      organization_id: org.id,
+      viewer_id: viewer.id,
+      video_id: video.id,
+      watched_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    })
+  end
+
+  defp seed_shows(org) do
+    for {title, slug, description, published} <- [
+          {"Wanderlust Field Notes", "wanderlust-field-notes",
+           "Stories behind memorable journeys. Edit this sample show's details to plan your own series.",
+           true},
+          {"The Weekend Explorer", "weekend-explorer",
+           "A sample show for short escapes and thoughtful travel. Audio publishing is unavailable in this demo.",
+           false}
+        ] do
+      %Show{organization_id: org.id}
+      |> Show.changeset(%{
+        title: title,
+        slug: slug,
+        description: description,
+        author: "Wanderlust TV",
+        source_type: "direct_upload",
+        access_mode: "any_active",
+        published: published
+      })
+      |> Repo.insert!()
     end
   end
 end

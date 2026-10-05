@@ -26,6 +26,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
     {:ok,
      socket
      |> assign(:page_title, "Podcasts")
+     |> assign(:demo?, org.demo_kind == :admin_sandbox)
      |> assign(:shows, shows)
      |> assign(:plans, plans)
      |> assign(:show_form, false)
@@ -125,6 +126,15 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
     end
   end
 
+  def handle_event("sync_now", _params, %{assigns: %{demo?: true}} = socket),
+    do:
+      {:noreply,
+       put_flash(
+         socket,
+         :info,
+         "Feed sync is disabled in the demo. You can edit show details locally."
+       )}
+
   def handle_event("sync_now", %{"id" => id}, socket) do
     case Podcasts.get_show(socket.assigns.organization, id) do
       {:ok, %Show{source_type: "feed_import"} = show} ->
@@ -166,6 +176,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
+      flash={@flash}
     >
       <MarqueeWeb.Components.AdminUI.admin_panel
         title="Podcasts"
@@ -182,7 +193,16 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
           </MarqueeWeb.Components.AdminUI.admin_button>
         </:actions>
 
-        <.show_form :if={@show_form} form={@form} editing={@editing_show} plans={@plans} />
+        <p :if={@demo?} class="mb-4 text-admin-muted">
+          Sample podcast shows. Edit details and publishing status here. Audio uploads, imported feeds and distribution are disabled.
+        </p>
+        <.show_form
+          :if={@show_form}
+          form={@form}
+          editing={@editing_show}
+          plans={@plans}
+          demo?={@demo?}
+        />
 
         <MarqueeWeb.Components.AdminUI.admin_empty
           :if={!@show_form and @shows == []}
@@ -276,6 +296,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
   attr :form, :any, required: true
   attr :editing, :any, default: nil
   attr :plans, :list, default: []
+  attr :demo?, :boolean, default: false
 
   defp show_form(assigns) do
     ~H"""
@@ -361,7 +382,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
               name="show[source_type]"
               value="feed_import"
               checked={Phoenix.HTML.Form.input_value(@form, :source_type) == "feed_import"}
-              disabled={!is_nil(@editing)}
+              disabled={@demo? or !is_nil(@editing)}
               data-test="source-feed"
             />
             <span class="text-sm text-admin-fg">Import from feed URL</span>
@@ -405,6 +426,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
               name="show[access_mode]"
               value="specific_tiers"
               checked={Phoenix.HTML.Form.input_value(@form, :access_mode) == "specific_tiers"}
+              disabled={@demo?}
               data-test="access-tiers"
             />
             <span class="text-sm text-admin-fg">Specific tiers</span>
@@ -415,6 +437,7 @@ defmodule MarqueeWeb.Admin.PodcastsLive do
               name="show[access_mode]"
               value="audio_only_plan"
               checked={Phoenix.HTML.Form.input_value(@form, :access_mode) == "audio_only_plan"}
+              disabled={@demo?}
               data-test="access-audio-only"
             />
             <span class="text-sm text-admin-fg">Audio-only plan</span>

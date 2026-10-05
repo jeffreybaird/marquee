@@ -80,7 +80,16 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       MarqueeWeb.Admin.AppearanceLive,
       MarqueeWeb.Admin.BillingLive,
       MarqueeWeb.Admin.DemoLibraryLive,
-      MarqueeWeb.Admin.DemoRestrictedLive
+      MarqueeWeb.Admin.DemoRestrictedLive,
+      MarqueeWeb.Admin.MembersLive,
+      MarqueeWeb.Admin.PodcastsLive,
+      MarqueeWeb.Admin.PlansLive,
+      MarqueeWeb.Admin.CouponsLive,
+      MarqueeWeb.Admin.WebhooksLive,
+      MarqueeWeb.Admin.LiveEventLive.Index,
+      MarqueeWeb.Admin.SettingsLive,
+      MarqueeWeb.Admin.LandingLive,
+      MarqueeWeb.Admin.AuditLogLive
     ]
   end
 
@@ -176,8 +185,11 @@ defmodule MarqueeWeb.Hooks.AssignScope do
 
   defp validate_demo_event(socket, token) do
     case Marquee.AdminDemo.get_session(token) do
-      {:ok, _} -> {:cont, socket}
-      _ -> {:halt, redirect(socket, to: "/demo/admin")}
+      {:ok, _} ->
+        if socket.assigns[:demo_feature], do: {:halt, socket}, else: {:cont, socket}
+
+      _ ->
+        {:halt, redirect(socket, to: "/demo/admin")}
     end
   end
 

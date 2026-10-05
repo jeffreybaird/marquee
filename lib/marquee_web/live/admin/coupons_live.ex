@@ -11,8 +11,16 @@ defmodule MarqueeWeb.Admin.CouponsLive do
 
   alias Marquee.Billing
   alias Marquee.Billing.Coupon
+  alias MarqueeWeb.Components.DemoFeaturePreview
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :coupons)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     coupons = load_coupons(org)
@@ -153,6 +161,9 @@ defmodule MarqueeWeb.Admin.CouponsLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

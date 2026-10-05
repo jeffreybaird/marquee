@@ -3,8 +3,66 @@ defmodule MarqueeFeatures.Steps.AdminDemo do
   use Cucumberex.DSL
   import ExUnit.Assertions
   import Ecto.Query
-  alias Marquee.{AdminDemo, Content, Repo}
+  alias Marquee.{AdminDemo, Content, Podcasts, Repo, Viewers}
+
   alias Marquee.Content.Video
+  alias Marquee.Podcasts.Show
+  alias Marquee.Viewers.{Viewer, ViewerToken}
+
+  when_("a Wanderlust visitor manages a sample member and a local podcast", fn world ->
+    original = Application.fetch_env(:marquee, :admin_demo)
+
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "admin-demo-members-#{System.unique_integer([:positive])}.json"
+      )
+
+    File.write!(path, Jason.encode!(Marquee.AdminDemoFixtures.catalog_manifest()))
+
+    Application.put_env(:marquee, :admin_demo,
+      enabled: true,
+      host: "members-demo.example.test",
+      catalog_path: path
+    )
+
+    try do
+      {:ok, _} = AdminDemo.configure_host("members-demo.example.test")
+      {:ok, demo} = AdminDemo.start_session()
+      {:ok, %{scope: scope}} = AdminDemo.get_session(demo.token)
+      viewers = Viewers.list_viewers(demo.organization).results
+      assert length(viewers) == 6
+      viewer = Enum.find(viewers, &(&1.status == :active))
+      {:ok, _} = Viewers.suspend_viewer(scope, viewer)
+      shows = Repo.all(from s in Show, where: s.organization_id == ^demo.organization.id)
+      assert length(shows) == 2
+      show = hd(shows)
+      {:ok, _} = Podcasts.update_show(scope, show, %{title: "My local travel show"})
+      Map.merge(world, %{sample_member_id: viewer.id, sample_show_id: show.id})
+    after
+      File.rm(path)
+
+      case original do
+        {:ok, value} -> Application.put_env(:marquee, :admin_demo, value)
+        :error -> Application.delete_env(:marquee, :admin_demo)
+      end
+    end
+  end)
+
+  then_(
+    "the local changes persist without viewer credentials or remote podcast feeds",
+    fn world ->
+      viewer = Repo.get!(Viewer, world.sample_member_id)
+      show = Repo.get!(Show, world.sample_show_id)
+      assert viewer.status == :suspended
+      assert viewer.hashed_password == nil
+      refute Repo.exists?(from t in ViewerToken, where: t.viewer_id == ^viewer.id)
+      assert show.title == "My local travel show"
+      assert show.source_type == "direct_upload"
+      assert show.remote_feed_url == nil
+      world
+    end
+  )
 
   when_("the Wanderlust catalog expands for a new and a reset visitor", fn world ->
     original = Application.fetch_env(:marquee, :admin_demo)

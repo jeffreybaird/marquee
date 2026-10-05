@@ -51,6 +51,7 @@ defmodule MarqueeWeb.AdminDemoController do
     if is_binary(token), do: AdminDemo.revoke_session(token)
 
     conn
+    |> delete_session(:admin_demo_viewer_id)
     |> delete_session(:admin_demo_token)
     |> delete_session(:admin_demo_entry_key)
     |> delete_session(:admin_demo_live_socket_id)
@@ -74,6 +75,7 @@ defmodule MarqueeWeb.AdminDemoController do
   defp finish(conn, {:ok, demo}) do
     conn
     |> configure_session(renew: true)
+    |> delete_session(:admin_demo_viewer_id)
     |> put_session(:admin_demo_token, demo.token)
     |> put_session(:admin_demo_live_socket_id, "admin_demo:#{demo.session.id}")
     |> redirect(to: "/admin")

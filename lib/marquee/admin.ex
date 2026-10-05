@@ -863,7 +863,9 @@ defmodule Marquee.Admin do
       from s in Marquee.AdminDemo.Session,
         where: s.expires_at <= ^now,
         where:
-          is_nil(s.revoked_at) or (is_nil(s.purged_at) and s.expires_at <= ^purge_before) or
+          is_nil(s.revoked_at) or
+            (is_nil(s.purged_at) and
+               (s.expires_at <= ^purge_before or s.revoked_at <= ^purge_before)) or
             s.expires_at <= ^retention_before,
         order_by: [asc: s.expires_at, asc: s.id],
         limit: ^limit

@@ -18,6 +18,7 @@ defmodule MarqueeWeb.Admin.LandingLive do
   alias Marquee.Events
   alias Marquee.LandingPage
   alias Marquee.LandingPage.LandingSection
+  alias MarqueeWeb.Components.DemoFeaturePreview
 
   require Logger
 
@@ -33,6 +34,13 @@ defmodule MarqueeWeb.Admin.LandingLive do
   ]
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :landing)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
@@ -653,6 +661,9 @@ defmodule MarqueeWeb.Admin.LandingLive do
   ## ── Render ──────────────────────────────────────────────────────────
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

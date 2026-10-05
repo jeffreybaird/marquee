@@ -223,6 +223,10 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
                     queued_ids={@queued_ids}
                   />
                   <button
+                    disabled={readonly_sample?(@current_viewer)}
+                    title={
+                      if readonly_sample?(@current_viewer), do: "Sample member preview is read-only"
+                    }
                     phx-click="remove"
                     phx-value-video-id={item.video.id}
                     class="sv-btn sv-btn-ghost sv-library-action-btn"
@@ -233,6 +237,10 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
                 <% :season -> %>
                   <ViewerComponents.season_card season={item.season} size="grid" />
                   <button
+                    disabled={readonly_sample?(@current_viewer)}
+                    title={
+                      if readonly_sample?(@current_viewer), do: "Sample member preview is read-only"
+                    }
                     phx-click="remove_watchlist_item"
                     phx-value-item-id={item.id}
                     class="sv-btn sv-btn-ghost sv-library-action-btn"
@@ -243,6 +251,10 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
                 <% :series -> %>
                   <ViewerComponents.series_card series={item.series} size="grid" />
                   <button
+                    disabled={readonly_sample?(@current_viewer)}
+                    title={
+                      if readonly_sample?(@current_viewer), do: "Sample member preview is read-only"
+                    }
                     phx-click="remove_watchlist_item"
                     phx-value-item-id={item.id}
                     class="sv-btn sv-btn-ghost sv-library-action-btn"
@@ -275,6 +287,8 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
                 queued_ids={@queued_ids}
               />
               <button
+                disabled={readonly_sample?(@current_viewer)}
+                title={if readonly_sample?(@current_viewer), do: "Sample member preview is read-only"}
                 phx-click="unfavorite"
                 phx-value-video-id={fav.video_id}
                 class="sv-btn sv-btn-ghost sv-library-action-btn"
@@ -335,6 +349,8 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
                 </div>
               </.link>
               <button
+                disabled={readonly_sample?(@current_viewer)}
+                title={if readonly_sample?(@current_viewer), do: "Sample member preview is read-only"}
                 phx-click="remove_from_queue"
                 phx-value-video-id={item.video_id}
                 class="sv-queue-page-remove"
@@ -350,4 +366,9 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
     </ViewerLayout.viewer_layout>
     """
   end
+
+  defp readonly_sample?(%{__impersonating__: true, metadata: %{"admin_demo_sample" => true}}),
+    do: true
+
+  defp readonly_sample?(_), do: false
 end

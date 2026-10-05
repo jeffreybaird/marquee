@@ -49,9 +49,11 @@ defmodule Marquee.Workers.PodcastFeedSync do
   "Sync now" action.
   """
   def enqueue_for_show(%Show{id: show_id}) do
-    %{"show_id" => show_id, "manual" => true}
-    |> __MODULE__.new()
-    |> Oban.insert()
+    with :ok <- Marquee.AdminDemo.external_resource(Show, show_id) do
+      %{"show_id" => show_id, "manual" => true}
+      |> __MODULE__.new()
+      |> Oban.insert()
+    end
   end
 
   defp enqueue_due_shows do

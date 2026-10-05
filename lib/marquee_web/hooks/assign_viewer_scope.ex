@@ -80,6 +80,16 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
     end
   end
 
+  defp resolve_viewer(%{"admin_demo_viewer_id" => id}, %{
+         assigns: %{current_scope: %{admin_demo_session_id: demo_id} = scope}
+       })
+       when is_binary(demo_id) do
+    case Marquee.AdminDemo.sample_viewer(scope, id) do
+      {:ok, viewer} -> viewer
+      _ -> nil
+    end
+  end
+
   defp resolve_viewer(session, socket) do
     org = socket.assigns[:organization]
     scope = socket.assigns[:current_scope]
@@ -97,6 +107,13 @@ defmodule MarqueeWeb.Hooks.AssignViewerScope do
             nil
         end
     end
+  end
+
+  defp attach_preview_guard(
+         socket,
+         %{__preview__: false, metadata: %{"admin_demo_sample" => true}} = viewer
+       ) do
+    attach_preview_guard(socket, %{viewer | __preview__: true})
   end
 
   defp attach_preview_guard(socket, %{__preview__: true}) do

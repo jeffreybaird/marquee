@@ -63,6 +63,20 @@ defmodule MarqueeWeb.Viewer.SessionController do
   @doc """
   POST /viewer-session/impersonate — starts viewer impersonation (operator only).
   """
+  def start_impersonation(%{assigns: %{admin_demo_scope: scope}} = conn, params) do
+    case Marquee.AdminDemo.sample_viewer(scope, params["viewer_id"]) do
+      {:ok, viewer} ->
+        conn
+        |> put_session(:admin_demo_viewer_id, viewer.id)
+        |> delete_session(:member_preview_org_id)
+        |> delete_session(:member_preview_viewer_id)
+        |> redirect(to: "/")
+
+      _ ->
+        conn |> send_resp(403, "This sample member is unavailable.") |> halt()
+    end
+  end
+
   def start_impersonation(conn, %{"viewer_id" => viewer_id, "return_path" => return_path}) do
     conn
     |> put_session(:impersonating_viewer_id, viewer_id)
@@ -75,6 +89,14 @@ defmodule MarqueeWeb.Viewer.SessionController do
   @doc """
   DELETE /viewer-session/impersonate — stops viewer impersonation.
   """
+  def stop_impersonation(%{assigns: %{admin_demo_scope: _}} = conn, _params) do
+    conn
+    |> delete_session(:admin_demo_viewer_id)
+    |> delete_session(:member_preview_org_id)
+    |> delete_session(:member_preview_viewer_id)
+    |> redirect(to: "/admin/members")
+  end
+
   def stop_impersonation(conn, _params) do
     return_path = get_session(conn, :impersonating_return_path) || ~p"/admin/members"
 

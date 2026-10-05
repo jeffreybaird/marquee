@@ -36,6 +36,12 @@ defmodule Marquee.Viewers do
   Exempt from doctest — hits the database.
   """
   def register_viewer(%Organization{} = organization, attrs) do
+    with :ok <- Marquee.AdminDemo.external_effect(organization) do
+      authorized_register_viewer(organization, attrs)
+    end
+  end
+
+  defp authorized_register_viewer(organization, attrs) do
     case UsageLimits.check_register_viewer(organization) do
       :ok -> do_register_viewer(organization, attrs)
       {:error, _reason, _meta} = error -> error
@@ -104,6 +110,7 @@ defmodule Marquee.Viewers do
   def get_viewer_by_session_token(token) do
     {:ok, query} = ViewerToken.verify_session_token_query(token)
     viewer = Repo.one(query)
+
     if Marquee.SubscriberDemo.expired?(viewer), do: nil, else: viewer
   end
 
@@ -113,6 +120,12 @@ defmodule Marquee.Viewers do
   Exempt from doctest — hits the database.
   """
   def generate_viewer_session_token(%Viewer{} = viewer) do
+    with :ok <- Marquee.AdminDemo.external_resource(Viewer, viewer.id) do
+      authorized_generate_viewer_session_token(viewer)
+    end
+  end
+
+  defp authorized_generate_viewer_session_token(viewer) do
     {token, viewer_token} = ViewerToken.build_session_token(viewer)
     Repo.insert!(viewer_token)
     token
@@ -141,6 +154,12 @@ defmodule Marquee.Viewers do
   Exempt from doctest — sends email.
   """
   def deliver_viewer_magic_link(%Organization{} = organization, email) do
+    with :ok <- Marquee.AdminDemo.external_effect(organization) do
+      authorized_deliver_viewer_magic_link(organization, email)
+    end
+  end
+
+  defp authorized_deliver_viewer_magic_link(organization, email) do
     Marquee.Otel.with_span "marquee.viewers.deliver_magic_link",
                            %{"marquee.org.id" => organization.id} do
       case get_viewer_by_email(organization, email) do
@@ -357,6 +376,12 @@ defmodule Marquee.Viewers do
   end
 
   defp change_viewer_status(scope, viewer, status, action) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :members_edit, viewer) do
+      authorized_change_viewer_status(scope, viewer, status, action)
+    end
+  end
+
+  defp authorized_change_viewer_status(scope, viewer, status, action) do
     Marquee.Otel.with_span "marquee.viewers.#{action}",
                            %{"marquee.org.id" => viewer.organization_id} do
       case viewer |> Viewer.status_changeset(%{status: status}) |> Repo.update() do
@@ -377,6 +402,12 @@ defmodule Marquee.Viewers do
   Exempt from doctest — hits the database.
   """
   def grant_access(scope, %Viewer{} = viewer, expires_at \\ nil) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :members_edit, viewer) do
+      authorized_grant_access(scope, viewer, expires_at)
+    end
+  end
+
+  defp authorized_grant_access(scope, viewer, expires_at) do
     Marquee.Otel.with_span "marquee.viewers.grant_access",
                            %{"marquee.org.id" => viewer.organization_id} do
       attrs = %{subscription_status: "active", subscription_expires_at: expires_at}
@@ -399,6 +430,12 @@ defmodule Marquee.Viewers do
   Exempt from doctest — hits the database.
   """
   def revoke_access(scope, %Viewer{} = viewer) do
+    with :ok <- Marquee.AdminDemo.authorize(scope, :members_edit, viewer) do
+      authorized_revoke_access(scope, viewer)
+    end
+  end
+
+  defp authorized_revoke_access(scope, viewer) do
     Marquee.Otel.with_span "marquee.viewers.revoke_access",
                            %{"marquee.org.id" => viewer.organization_id} do
       attrs = %{subscription_status: "none", subscription_expires_at: nil}

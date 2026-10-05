@@ -11,9 +11,17 @@ defmodule MarqueeWeb.Admin.PlansLive do
 
   alias Marquee.Billing
   alias Marquee.Billing.Plan
+  alias MarqueeWeb.Components.DemoFeaturePreview
   alias Phoenix.HTML.Form, as: HTMLForm
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :plans)
+
   def mount(_params, _session, socket) do
     org = socket.assigns.organization
     plans = load_plans(org)
@@ -214,6 +222,9 @@ defmodule MarqueeWeb.Admin.PlansLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <MarqueeWeb.Components.AdminLayout.admin_layout

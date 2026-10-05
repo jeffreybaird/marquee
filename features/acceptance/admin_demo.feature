@@ -12,3 +12,7 @@ Feature: Private Wanderlust operator demo
   Scenario: Expanded travel catalog is offered to new and reset visitors
     When the Wanderlust catalog expands for a new and a reset visitor
     Then both private catalogs contain forty-eight clips and the approved library can add another
+
+  Scenario: Sample members and podcasts remain local to a private workspace
+    When a Wanderlust visitor manages a sample member and a local podcast
+    Then the local changes persist without viewer credentials or remote podcast feeds

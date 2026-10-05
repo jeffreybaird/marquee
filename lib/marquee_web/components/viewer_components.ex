@@ -142,6 +142,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
         assigns[:card_id] || "card-#{assigns.video.id}"
       end)
       |> assign(:thumbnail_url, video_thumbnail_url(assigns.video, aspect: assigns.aspect))
+      |> assign(:readonly_sample?, readonly_sample?(assigns[:current_viewer]))
 
     ~H"""
     <div
@@ -185,6 +186,8 @@ defmodule MarqueeWeb.Components.ViewerComponents do
             </span>
             <div class="sv-card-actions">
               <button
+                disabled={@readonly_sample?}
+                title={if @readonly_sample?, do: "Sample member preview is read-only"}
                 phx-click="card_toggle_favorite"
                 phx-value-video-id={@video.id}
                 class={["sv-card-action-btn", @video.id in @favorited_ids && "active"]}
@@ -199,6 +202,8 @@ defmodule MarqueeWeb.Components.ViewerComponents do
               </button>
 
               <button
+                disabled={@readonly_sample?}
+                title={if @readonly_sample?, do: "Sample member preview is read-only"}
                 phx-click="card_add_to_watchlist"
                 phx-value-video-id={@video.id}
                 class={["sv-card-action-btn", @video.id in @watchlisted_ids && "active"]}
@@ -219,6 +224,8 @@ defmodule MarqueeWeb.Components.ViewerComponents do
               </button>
 
               <button
+                disabled={@readonly_sample?}
+                title={if @readonly_sample?, do: "Sample member preview is read-only"}
                 phx-click="card_add_to_queue"
                 phx-value-video-id={@video.id}
                 class={["sv-card-action-btn", @video.id in @queued_ids && "active"]}
@@ -981,4 +988,9 @@ defmodule MarqueeWeb.Components.ViewerComponents do
     |> String.trim_trailing()
     |> Kernel.<>("...")
   end
+
+  defp readonly_sample?(%{__impersonating__: true, metadata: %{"admin_demo_sample" => true}}),
+    do: true
+
+  defp readonly_sample?(_), do: false
 end

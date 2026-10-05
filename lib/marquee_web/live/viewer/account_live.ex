@@ -12,10 +12,18 @@ defmodule MarqueeWeb.Viewer.AccountLive do
   alias Marquee.Billing
   alias Marquee.Podcasts
   alias Marquee.Viewers
+  alias MarqueeWeb.Components.DemoFeaturePreview
   alias MarqueeWeb.Components.ViewerLayout
   alias MarqueeWeb.Endpoint
 
   @impl true
+  def mount(
+        _params,
+        _session,
+        %{assigns: %{organization: %{demo_kind: :admin_sandbox}}} = socket
+      ),
+      do: DemoFeaturePreview.mount(socket, :account)
+
   def mount(_params, _session, socket) do
     viewer = socket.assigns.current_viewer
     org = socket.assigns.organization
@@ -148,6 +156,9 @@ defmodule MarqueeWeb.Viewer.AccountLive do
   end
 
   @impl true
+  def render(%{organization: %{demo_kind: :admin_sandbox}} = assigns),
+    do: DemoFeaturePreview.render(assigns)
+
   def render(assigns) do
     ~H"""
     <ViewerLayout.viewer_layout

@@ -36,6 +36,7 @@ defmodule Marquee.PublishedDoctests do
     MarqueeWeb.Admin.ContentLive.Components,
     MarqueeWeb.Admin.DashboardNudges,
     MarqueeWeb.Admin.OnboardingLive,
+    MarqueeWeb.Components.DemoFeaturePreview,
     MarqueeWeb.Viewer.LiveEventController,
     MarqueeWeb.Viewer.WatchLive.Components,
     Mix.Tasks.Marquee.Verify

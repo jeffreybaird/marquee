@@ -264,3 +264,80 @@ and Caddy review recorded in the preceding follow-up remain applicable: no new
 affected dependencies were identified. The previous Caddy advisory is fixed by
 the current 2.11.6 pin; the documented npm bulk-audit limitation remains. No
 project dependency metadata was uploaded during this follow-up.
+
+
+## Follow-up: sample members, podcasts, and useful feature previews
+
+New and reset workspaces receive six varied sample members with local engagement
+and two podcast shows without invented episodes or remote feeds. Member access
+and show metadata remain editable within the active sandbox. View as uses a
+separate selected-member session key, preserves real authentication, resolves the
+persisted sample within the same sandbox, and returns to Members. Actual member
+access applies; viewer mutations are denied, with visible mutation controls
+disabled. Account and subscription previews retain the viewer layout and named
+return banner. Previously restricted sidebar destinations now offer recognizable
+sample cards or scoped local views; provider callbacks and unsupported mutation
+routes remain restricted.
+
+The accepted core contract began with nine expected behavioral failures. A later
+forged-resource regression demonstrated that caller-supplied organization fields
+could bypass classification; persisted-resource classification now closes that
+path. Strengthened web contracts recorded eight tests with seven expected
+failures, and the real-cookie Members journey recorded one expected missing-list
+failure. The disabled-control regression separately failed on the missing
+`disabled` attribute. Account assertions were added after the original identity
+requirement was already implemented and passed on first execution; no separate
+red result is claimed. The Gherkin addition likewise covers already implemented
+core behavior. Legacy restriction expectations were explicitly replaced with
+useful page assertions while retaining the blocked Stripe callback.
+
+Final verification passed every `mix marquee.verify` phase: 311 doctests and
+2,776 tests, 25 browser tests with zero failures (334.8 seconds), and all required
+format, compile, Credo, Dialyzer, and asset checks. Coverage is 79.9%; all four
+focused Gherkin scenarios passed (3.466 seconds). The registered pure preview
+helper doctest executed successfully. Evidence:
+`/tmp/marquee-admin-demo-members-{verify-final,coverage,cucumber-final}.log`.
+An initial format failure was corrected by the source owner with a whitespace-only
+change. A browser startup resource incident was resolved by runner cleanup of
+idle orphan drivers; the final full runs completed successfully. Red logs:
+`/tmp/marquee-admin-demo-members-{red,forged-red,web-final-red,browser-red,controls-red}.log`.
+
+Accepted seven-file test manifest:
+`/tmp/marquee-demo-exploration-reviewed-tests.json`, SHA-256
+`8d52075cb5b1bb55694ae59f41275b3a66699c5706b9a8f2250cbb6263ab8457`.
+Reviewed 28-file source manifest, including the new untracked preview component:
+`/tmp/marquee-demo-exploration-reviewed-source.json`, SHA-256
+`f309c86d6d98994cf498abdab0fb16489f65fed9a4cfbfdf2cbfd521671bef55`.
+No source/test drift was found at freeze. Review covered both HTTP and connected
+navigation guards, same-sandbox identity checks, preserved real session keys,
+normal-token rejection for sandbox members, provider/worker boundaries,
+read-only events, cleanup ordering, and ordinary auth query cost. The normal
+viewer verifier checks the persisted organization in its existing query rather
+than adding duplicate resource lookups.
+
+The root agent reported desktop/mobile visual acceptance of Members, selected
+identity, My Stuff, Account, Stop/return, two editable podcast shows, Webhooks,
+and Billing. A forged/visible Remove attempt preserved data and showed read-only
+feedback; the final disabled presentation was then visually confirmed. Root
+screenshot: `wanderlust-member-takeover.jpg` in its visualization output. The root
+review server on port 4101 was stopped and its temporary database removed. These
+are root-observed results, not independent-reviewer screenshot captures.
+
+Security review refreshed public GitHub data at October 5, 2026, 11:29:55 UTC.
+Sandbox DNS resolution initially failed; an approved public-only GET retry
+returned HTTP 200 with no pagination for Hex and npm advisory deltas
+(`modified=>=2026-10-05`), both empty, and the same 17 Caddy advisory records.
+Lockfiles remain unchanged. Evidence:
+`/tmp/marquee-demo-exploration-{hex,npm,caddy}-advisories.json`.
+The pre-existing Caddy GHSA-6365-7ppr-5r92 affected the former 2.11.4 installation,
+was patched in 2.11.5, and is addressed by the current 2.11.6 pin; exposure depended
+on `forward_auth`/`reverse_proxy` conditions. No new affected dependency was found.
+The earlier npm bulk-audit auto-review rejection remains documented above; this
+public advisory delta does not claim fresh npm-registry audit coverage and sent
+no project dependency metadata.
+
+Final source and accepted test hashes remain unchanged from the manifests above;
+diff checks passed. The 29 new audit rows contain six ambiguous ownership
+annotations and no exclusive violations. Commands overlapped with authorized
+source/test writers; inspection found no unauthorized edit. Independent review
+approves this bounded members, podcasts, and feature-preview change for delivery.
