@@ -152,8 +152,9 @@ defmodule Marquee.Storage.SpacesClient do
       _ ->
         Logger.error(
           "Spaces credentials not configured. Set SPACES_ACCESS_KEY_ID and " <>
-            "SPACES_SECRET_ACCESS_KEY in the environment (.env in dev, Fly " <>
-            "secrets in prod) and restart the server so runtime.exs re-reads them."
+            "SPACES_SECRET_ACCESS_KEY in the environment (.env in dev; in prod, " <>
+            "GitHub Actions secrets that deploy.yml must also write into the " <>
+            "deploy .env) and restart the server so runtime.exs re-reads them."
         )
 
         {:error, :spaces_credentials_not_configured}

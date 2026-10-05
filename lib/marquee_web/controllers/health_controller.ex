@@ -1,7 +1,7 @@
 defmodule MarqueeWeb.HealthController do
   @moduledoc """
-  Health check endpoint used by Fly.io to verify the app is ready
-  to serve traffic. Checks that critical services are running.
+  Health check endpoint used by the deploy pipeline to verify the app
+  is ready to serve traffic. Checks that critical services are running.
   """
 
   use MarqueeWeb, :controller

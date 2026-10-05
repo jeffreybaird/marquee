@@ -157,7 +157,7 @@ if config_env() != :test do
   config :marquee, MarqueeWeb.Endpoint,
     http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
-  # Mux credentials — read from env vars (set via .env in dev, Fly secrets in prod)
+  # Mux credentials — read from env vars (set via .env in dev, GitHub Actions secrets in prod)
   if mux_token_id = System.get_env("MUX_TOKEN_ID") do
     config :marquee,
       mux_token_id: mux_token_id,

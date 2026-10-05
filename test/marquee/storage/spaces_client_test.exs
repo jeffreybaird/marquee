@@ -41,6 +41,8 @@ defmodule Marquee.Storage.SpacesClientTest do
 
       assert log =~ "Spaces credentials not configured"
       assert log =~ "SPACES_ACCESS_KEY_ID"
+      assert log =~ "GitHub Actions"
+      refute log =~ "Fly"
     end
 
     test "returns :spaces_credentials_not_configured when only access key is set" do
