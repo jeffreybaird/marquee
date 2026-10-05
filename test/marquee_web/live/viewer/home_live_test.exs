@@ -1134,6 +1134,27 @@ defmodule MarqueeWeb.Viewer.HomeLiveTest do
   end
 
   describe "platform marketing page (no org)" do
+    test "portfolio disclosure is accessible on platform HTTP and connected home only" do
+      message = "Marquee is a portfolio project, not a real business."
+
+      platform =
+        build_conn() |> Map.put(:host, MarqueeWeb.Endpoint.config(:url)[:host]) |> get("/")
+
+      assert html_response(platform, 200) =~ message
+      {:ok, view, _} = live(platform)
+      assert has_element?(view, "[data-test=portfolio-disclosure][role=note]", message)
+
+      org = insert(:organization)
+      tenant = build_conn() |> Map.put(:host, "#{org.slug}.localhost")
+      {:ok, landing, landing_html} = live(tenant, "/")
+      refute has_element?(landing, "[data-test=portfolio-disclosure]")
+      refute landing_html =~ message
+      viewer = insert(:subscribed_viewer, organization: org)
+      {:ok, catalog, catalog_html} = live(conn_for_viewer(viewer), "/")
+      refute has_element?(catalog, "[data-test=portfolio-disclosure]")
+      refute catalog_html =~ message
+    end
+
     test "shows platform marketing when no org resolved", %{conn: conn} do
       conn =
         conn

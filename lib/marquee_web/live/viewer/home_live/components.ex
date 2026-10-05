@@ -145,6 +145,14 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
         </nav>
       </header>
 
+      <aside
+        role="note"
+        data-test="portfolio-disclosure"
+        class="w-full border-b border-base-300 bg-base-200 px-6 py-4 text-center text-sm leading-6 text-base-content"
+      >
+        Marquee is a portfolio project, not a real business.
+      </aside>
+
       <main>
         <%!-- Hero --%>
         <section class="relative overflow-hidden bg-gradient-to-br from-primary/10 via-base-100 to-accent/10 py-24 sm:py-32">
