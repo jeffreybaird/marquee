@@ -262,8 +262,9 @@ defmodule Marquee.Events.CacheSubscriber do
 end
 ```
 
-Since Phoenix PubSub propagates across the Fly cluster, cache invalidation
-on one node invalidates on all nodes.
+Production is a single node today (one droplet, no clustering), so invalidation
+is local. Because it is PubSub-driven, it will propagate to every node once
+nodes are clustered — keep it broadcast-based.
 
 ---
 
@@ -414,8 +415,8 @@ end
 
 ### At scale
 
-The ETS-based rate limiter works on a single node. In a multi-node Fly
-cluster, each node has its own counters — effective limits are multiplied
+The ETS-based rate limiter works on a single node. Production runs one node
+today; with more than one node, each node has its own counters — effective limits are multiplied
 by the number of nodes. For strict enforcement at scale, move to a shared
 Redis counter with `INCR` + `EXPIRE`. The plug interface stays the same.
 

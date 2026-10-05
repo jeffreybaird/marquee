@@ -29,10 +29,20 @@ Fly.io is gone: no `fly.toml`, no `flyctl` step, no `FLY_*` handling in
 ### Terraform roots (`infra/`)
 
 ```
-infra/state/        the Spaces bucket holding the other roots' state (own state is local)
-infra/persistent/   VPC, reserved IP, managed Postgres, DNSimple A record — prevent_destroy
-infra/app/          droplet, reserved-IP assignment, firewall — disposable
+infra/state/        versioned Spaces bucket holding the other roots' state (own state is local)
+infra/persistent/   DO project, VPC, reserved IP, managed Postgres (+ staging DB),
+                    DNSimple A records (app, staging, tenants) — prevent_destroy
+                    on the cluster, reserved IP and state bucket
+infra/app/          droplet (Ubuntu 24.04, s-1vcpu-1gb), reserved-IP assignment,
+                    firewall — disposable
 ```
+
+Defaults worth knowing: region `nyc3`, Postgres 17 on `db-s-1vcpu-1gb` (one
+node), DNS record `app` with TTL 300. `enable_staging` (default `true`) creates
+`<record>-stg.<zone>` and a `<project>-staging` database in the same cluster.
+`tenant_slugs` creates one `<slug>-<record>.<zone>` A record per tenant.
+The firewall opens 80/443 to the world and 22 only to `ssh_cidrs` (plus an
+optional `gitea_runner_cidr`).
 
 Destroying `infra/app` never touches data: the DB firewall trusts a *tag* the
 droplet wears, not the droplet itself. See `infra/README.md`.
@@ -63,9 +73,10 @@ workflow writes them into a mode-600 `.env` on the runner, ships it to the
 droplet over SSH, and compose loads it. Nothing secret is in the image, in
 cloud-init, or in droplet metadata.
 
-An unset name interpolates to nothing, so `deploy.yml` strips `NAME=` lines
-before shipping — `""` is truthy in Elixir and would otherwise configure Mux,
-Stripe or Spaces with blank credentials instead of leaving them off.
+An unset secret or var interpolates to an empty string, and `deploy.yml` ships
+those `NAME=` lines as-is — nothing strips them. `""` is truthy in Elixir, so an
+unset integration secret reaches `runtime.exs` as a blank value rather than as
+absent.
 
 ### Required repo configuration
 
@@ -89,16 +100,26 @@ hub base URL, e.g. `https://elixir-as-inf.diviningdad.com`; `/v1/traces` and
 token, obtained once by registering "marquee" at the hub's `/sources/new` —
 never commit it). They replace the former `OTEL_EXPORTER_OTLP_AUTH_HEADER`.
 
-Marquee's own runtime configuration, all optional (an unset name disables that
-integration): secrets `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`,
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`,
-`SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`, `RESEND_API_KEY`,
-`PEXELS_API_KEY`, `GRAFANA_LOKI_AUTH`; vars `POOL_SIZE`, `SPACES_BUCKET`,
-`SPACES_REGION`, `SPACES_HOST`, `SPACES_PUBLIC_URL_BASE`, `MAILER_FROM`,
-`GRAFANA_LOKI_URL`.
+Integration settings `deploy.yml` writes into the `.env`: secrets
+`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `RESEND_API_KEY`,
+`PEXELS_API_KEY`; var `MAILER_FROM`.
+
+Tenant-hostname settings it also writes (see [Per-tenant hostnames](#per-tenant-hostnames)):
+vars `ORG_RESOLUTION` (default `query_param`), `TENANT_HOST_PATTERN`,
+`TENANT_DOMAIN_PROVISIONING` (default `false`), `DNSIMPLE_ACCOUNT_ID`,
+`TENANT_DNS_ZONE`, `TENANT_DNS_TARGET_IPV4`, `TENANT_SLUGS` (edge only);
+secret `DNSIMPLE_API_TOKEN`.
+
+**Not shipped:** `runtime.exs` also reads `SPACES_*`, `GRAFANA_LOKI_URL`,
+`GRAFANA_LOKI_AUTH` and `POOL_SIZE`, but no workflow writes them, so in
+production Spaces uploads and Loki log shipping are off and the pool size is
+the default of 5. Setting them as repo secrets/vars does nothing until
+`deploy.yml` adds the lines.
 
 `PHX_SERVER`, `PHX_HOST`, `PORT` and `DATABASE_CA_FILE` are set by
-`deploy/compose.yaml`, not by the `.env`.
+`deploy/compose.yaml`, not by the `.env`. The migration container runs with
+`POOL_SIZE=2`.
 
 ### `config/runtime.exs` is the only place for prod config
 
@@ -157,18 +178,36 @@ wget. `GET /health` (`HealthController`) remains the app-level check.
 
 ## CI/CD: GitHub Actions
 
-Two workflows, plus a manual rollback:
+Four workflows in `.github/workflows/`:
 
-- **`ci.yml`** — the full quality gate on every push and PR: format check,
-  `mix compile --warnings-as-errors`, `mix test --exclude e2e`, then a separate
-  `e2e` job that provisions Chrome/chromedriver and runs `mix test --only e2e`.
-- **`deploy.yml`** — push to `main`: `mix test --exclude e2e` (deploy's own
-  red-tests-block-the-deploy gate) → build and push a SHA-pinned image to DOCR →
-  ship `.env` and stack files over SSH → run migrations → blue/green swap.
-  `workflow_dispatch` redeploys `main` without a commit, which is how a changed
-  repo *variable* reaches the droplet.
-- **`rollback.yml`** — `gh workflow run rollback.yml -f tag=<sha>` pins a prior
-  image and re-swaps. No rebuild, no migration.
+- **`ci.yml`** — every push to `main` and every PR against it. Three parallel
+  jobs: `release` (prod deps, `mix compile --warnings-as-errors`,
+  `mix assets.deploy`, `mix release`); `test` (asset type-check and coverage,
+  `mix format --check-formatted`, warnings-as-errors compile,
+  `mix coveralls --exclude e2e`); `e2e` (matching Chrome/ChromeDriver,
+  `mix test --only e2e`, Wallaby screenshots uploaded as an artifact).
+- **`deploy.yml`** — push to `main` or `workflow_dispatch`. `test`
+  (`mix test --exclude e2e`, Elixir/OTP pins parsed from the `Dockerfile`) →
+  `build` (amd64 image tagged with the commit SHA, pushed to DOCR) → `deploy`
+  (hole-punch SSH, write `.env` + `db-ca.pem`, copy shared edge files to
+  `/root/caddy` and stack files to `/root/apps/$APP_SLUG`, run `edge.sh`, pull,
+  migrate, `swap.sh`, revoke SSH). It does **not** wait for `ci.yml`, so e2e
+  failures do not block a deploy. `workflow_dispatch` redeploys `main` without a
+  commit, which is how a changed repo *variable* reaches the droplet.
+- **`rollback.yml`** — `gh workflow run rollback.yml -f tag=<sha>` verifies the
+  tag exists in DOCR, rewrites `.env` with that image, and re-swaps. No rebuild,
+  no migration. Shares the `deploy-<ref>` concurrency group with `deploy.yml`.
+  Its `.env` carries only `DATABASE_URL`, `SECRET_KEY_BASE` and the tenant
+  settings — **no Mux, Stripe, Resend, Pexels or OTEL values**. Because OTEL is
+  required at boot, a rollback as written produces a release that fails its
+  healthcheck (the old color keeps serving). Fix `rollback.yml` before relying
+  on it.
+- **`staging.yml`** — **disabled**: its `pull_request` trigger is commented
+  out, leaving only `workflow_dispatch`. When enabled it deploys a PR to
+  `$STAGING_DOMAIN` as stack `$APP_SLUG-stg` on the same droplet, using
+  `STAGING_DATABASE_URL` and a staging `SECRET_KEY_BASE` derived from the prod
+  one, comments the URL on the PR, and tears the stack and its images down on
+  close (`deploy/staging-down.sh`). One PR holds the staging slot at a time.
 
 ### Rules
 
@@ -177,10 +216,11 @@ Two workflows, plus a manual rollback:
 - One deploy at a time: the `concurrency` group queues rather than cancels, so
   an in-flight migration is never interrupted
 - The runner's SSH hole is revoked in an `always()` step
-- `deploy.yml`, `rollback.yml`, `Dockerfile`, `.dockerignore` and `deploy/*` are
-  **copied unconditionally** by `bootstrap.sh`. They carry local modifications
-  (see the header note in `deploy.yml`); re-apply them after any bootstrap
-  re-run. Only `infra/` is seed-once.
+- `deploy.yml`, `rollback.yml`, `staging.yml`, `Dockerfile`, `.dockerignore`
+  and `deploy/*` are **copied unconditionally** by `bootstrap.sh` and carry
+  Marquee-specific changes (the Mux/Stripe/OTEL/tenant `.env` lines, the tenant
+  edge scripts, staging being disabled). Diff them after any bootstrap re-run
+  and re-apply what it overwrote. Only `infra/` is seed-once.
 
 ### Day 2
 
