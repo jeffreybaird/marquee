@@ -163,7 +163,7 @@ must produce the same result.
 | `STRIPE_SECRET_KEY`     | Yes      | Stripe API secret key            |
 | `STRIPE_WEBHOOK_SECRET` | Yes      | Webhook signature verification   |
 
-These live in Fly secrets and GitHub Actions secrets. Never in source code.
+These live in GitHub Actions secrets and reach the droplet in the deploy-time `.env` (see `.claude/deployment.md`). Never in source code.
 
 ---
 

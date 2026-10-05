@@ -176,7 +176,7 @@ Use the Mux event ID or asset ID + event type as an Oban unique key.
 | `MUX_TOKEN_SECRET` | Yes      | Mux API access token secret |
 | `MUX_WEBHOOK_SECRET` | Yes    | Webhook signature verification |
 
-These live in Fly secrets and GitHub Actions secrets. Never in source code.
+These live in GitHub Actions secrets and reach the droplet in the deploy-time `.env` (see `.claude/deployment.md`). Never in source code.
 
 ---
 

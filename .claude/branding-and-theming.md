@@ -172,6 +172,6 @@ what their viewers will see.
 
 For the MVP, logos and favicons can be stored as URLs (the operator provides a
 hosted URL). Later, we can add direct file upload to an object store
-(Fly Tigris, S3, or Cloudflare R2).
+(DigitalOcean Spaces — see `.claude/digital-ocean-spaces.md`).
 
 Do not store binary file data in Postgres.

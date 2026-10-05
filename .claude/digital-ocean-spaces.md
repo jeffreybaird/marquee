@@ -18,8 +18,10 @@ code lives in:
 ## Environment variables
 
 The app reads the following from the runtime env. In dev they can live
-in `.env` (auto-loaded by `config/runtime.exs`); in prod set them as
-Fly secrets.
+in `.env` (auto-loaded by `config/runtime.exs`). In prod they must be GitHub
+Actions secrets/vars **and** written into the `.env` by `deploy.yml` — which
+does not do so today, so Spaces is unconfigured in production (see
+`.claude/deployment.md`).
 
 | Variable | Required | Example | Purpose |
 | --- | --- | --- | --- |

@@ -305,7 +305,7 @@ Legend: ✅ covered · ⚠️ partial · ❌ missing
 
 - **MT-1** Tenant resolved from subdomain or custom domain. ⚠️ (design doc only)
 - **MT-2** One org cannot read/mutate another org's data. ⚠️ (RBAC scenarios present partially in viewer/team mgmt)
-- **OPS-1** Health check endpoint for Fly.io. n/a (infra)
+- **OPS-1** Health check endpoint (`GET /health`). n/a (infra)
 
 ---
 

@@ -111,7 +111,7 @@ workflow would also need to forward the OTEL settings before re-enabling it.
 **Create an admin user**
 
 ```bash
-fly ssh console -C 'bin/marquee eval "Marquee.Release.create_admin_with_login(\"user@example.com\", \"https://your-app.fly.dev/\")"'
+ssh root@<reserved-ip> "cd /root/apps/$APP_SLUG && docker compose run --rm migrate bin/marquee eval 'Marquee.Release.create_admin_with_login(\"user@example.com\", \"https://<DOMAIN>/\")'"
 ```
 
 ## License
