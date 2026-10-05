@@ -29,7 +29,7 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
-# Structured JSON logging for Grafana Cloud Loki ingestion.
+# Structured JSON logging, shipped to the OTLP hub by Marquee.Otel.Export.
 # Includes trace context for log-to-trace correlation.
 config :logger, :default_handler,
   formatter:

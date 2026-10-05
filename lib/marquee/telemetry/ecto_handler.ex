@@ -6,7 +6,7 @@ defmodule Marquee.Telemetry.EctoHandler do
 
   When a query has no associated schema table, Ecto's telemetry metadata
   sets `source: nil`. The `opentelemetry_ecto` library writes this as the
-  literal string `"nil"`, polluting Grafana dashboards grouped by source.
+  literal string `"nil"`, polluting dashboards grouped by source.
 
   This handler intercepts the metadata before delegation, replacing nil
   sources with a descriptive value based on the query type.
