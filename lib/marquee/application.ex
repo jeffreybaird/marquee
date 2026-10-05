@@ -42,7 +42,6 @@ defmodule Marquee.Application do
         # Start to serve requests, typically the last entry
         MarqueeWeb.Endpoint
       ]
-      |> maybe_add_log_shipper()
       |> maybe_add_otlp_export()
       |> maybe_exclude_audit_subscriber()
       |> maybe_exclude_podcast_lifecycle_subscriber()
@@ -58,18 +57,6 @@ defmodule Marquee.Application do
   # its Finch pool and buffer; dev/test leave :otlp_export unset, so this is a
   # no-op there. See Marquee.Otel.Export.
   defp maybe_add_otlp_export(children), do: children ++ Export.child_specs()
-
-  defp maybe_add_log_shipper(children) do
-    url = Application.get_env(:marquee, :grafana_loki_url)
-    auth = Application.get_env(:marquee, :grafana_loki_auth)
-
-    if url && auth do
-      Marquee.LogShipper.attach_logger_handler()
-      children ++ [{Marquee.LogShipper, url: url, auth: auth}]
-    else
-      children
-    end
-  end
 
   # In test, Oban runs inline which sets scheduled_at to nil,
   # causing OpentelemetryOban's handler to crash on DateTime.to_iso8601(nil).

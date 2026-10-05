@@ -217,13 +217,6 @@ if config_env() == :prod do
     endpoint: Marquee.Otel.ExporterConfig.endpoint(),
     token: Marquee.Otel.ExporterConfig.token()
 
-  # Grafana Cloud Loki — ship logs directly from the app
-  if loki_url = System.get_env("GRAFANA_LOKI_URL") do
-    config :marquee,
-      grafana_loki_url: loki_url,
-      grafana_loki_auth: System.get_env("GRAFANA_LOKI_AUTH")
-  end
-
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
