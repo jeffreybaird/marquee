@@ -54,7 +54,7 @@ defmodule MarqueeWeb.AdminDemoRuntimeTest do
     end
   end
 
-  test "deploy and rollback forward opt-in config to both database env variants while staging stays off" do
+  test "deploy and rollback forward opt-in config to both database env variants" do
     for name <- ["deploy", "rollback"] do
       workflow = File.read!(".github/workflows/#{name}.yml")
       assert workflow =~ "ADMIN_DEMO_ENABLED: ${{ vars.ADMIN_DEMO_ENABLED || 'false' }}"
@@ -66,9 +66,11 @@ defmodule MarqueeWeb.AdminDemoRuntimeTest do
 
       assert length(Regex.scan(~r/^\s*ADMIN_DEMO_HOST=\$\{ADMIN_DEMO_HOST\}\s*$/m, workflow)) == 2
     end
+  end
 
-    staging = File.read!(".github/workflows/staging.yml")
-    assert length(Regex.scan(~r/^\s*ADMIN_DEMO_ENABLED=false\s*$/m, staging)) == 2
+  test "the staging workflow and its teardown script no longer exist" do
+    refute File.exists?(".github/workflows/staging.yml")
+    refute File.exists?("deploy/staging-down.sh")
   end
 
   defp read_config, do: Config.Reader.read!("config/runtime.exs", env: :test)
