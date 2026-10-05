@@ -750,7 +750,8 @@ end
 
 ## Environment Variables Needed
 
-Add these to your dev `.env` file and Fly secrets:
+Add these to your dev `.env` file and to the GitHub Actions secrets shipped
+in the deploy `.env`:
 
 - `MUX_TOKEN_ID` — from your Mux dashboard
 - `MUX_TOKEN_SECRET` — from your Mux dashboard

@@ -84,8 +84,9 @@ config :opentelemetry,
 
 ### Add OTEL_EXPORTER_OTLP_ENDPOINT to required env vars
 
-Update `.claude/deployment.md`. Export goes to the OTLP hub; the endpoint and
-`OTEL_HUB_TOKEN` are GitHub Actions settings shipped in the deploy `.env`.
+Update `.claude/deployment.md` and the GitHub Actions secrets shipped in the
+deploy `.env`. The endpoint points at the OTLP hub; keep it configurable and
+document it.
 
 ---
 
