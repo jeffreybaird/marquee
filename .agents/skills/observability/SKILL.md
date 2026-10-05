@@ -11,6 +11,25 @@ every operation that matters to the business must be observable.
 
 ---
 
+## Export: the OTLP hub
+
+All three signals go to the personal OTLP hub — there is no Grafana/Loki or
+other backend.
+
+| Signal | Shipped by | Hub path |
+|---|---|---|
+| Traces | `:opentelemetry_exporter` (configured in `config/runtime.exs`) | `/v1/traces` |
+| Logs | `OtlpShipper.LogHandler`, started by `Marquee.Otel.Export` | `/v1/logs` |
+| Metrics | `OtlpShipper.MetricsReporter`, started by `Marquee.Otel.Export` | `/v1/metrics` |
+
+`Marquee.Otel.ExporterConfig` builds the settings from
+`OTEL_EXPORTER_OTLP_ENDPOINT` (hub base URL) and `OTEL_HUB_TOKEN` (per-source
+bearer token). Both are **required in prod** — the release raises at boot if
+either is missing. Dev and test export nothing. See `.claude/deployment.md`
+for how the values reach the droplet.
+
+---
+
 ## Principles
 
 1. **Every context mutation gets a span.** If a function creates, updates, or
@@ -79,10 +98,13 @@ Oban workers:
 
 ```elixir
 %{
-  "marquee.user.id" => user.id,
-  "marquee.user.email" => user.email
+  "marquee.user.id" => user.id
 }
 ```
+
+**No PII in span attributes.** Never put email addresses, names, or other
+personally identifiable information in span attributes. User ID is sufficient
+for trace correlation. PII in the telemetry pipeline creates compliance risk.
 
 ### On external API calls
 
@@ -372,7 +394,88 @@ end
 
 ---
 
-## Checklist for New Features
+## LiveView Spans and HTTP Attributes
+
+LiveView spans do **not** carry HTTP semantic convention attributes
+(`http.route`, `http.method`, `http.status_code`, `http.target`,
+`http.scheme`). This is by design — LiveView operates over an existing
+WebSocket connection, so there is no HTTP request/response cycle per mount
+or event.
+
+HTTP-level observability comes from the **initial page load** span, which is
+a regular HTTP request instrumented by `OpentelemetryPhoenix`. Once the page
+loads and the LiveView WebSocket connects, subsequent mounts and events
+produce LiveView-specific spans instead.
+
+### SpanEnrichment on_mount hook
+
+`MarqueeWeb.Hooks.SpanEnrichment` runs as the **last** `on_mount` hook in
+every `live_session`. It enriches the current span with:
+
+- `marquee.liveview.module` — the LiveView module name (e.g. `MarqueeWeb.Admin.ContentLive`)
+- `marquee.liveview.connected` — `true` on connected mount, `false` on static render
+- `marquee.org.id` — the current tenant's ID (if resolved)
+- `marquee.org.slug` — the current tenant's slug (if resolved)
+- `marquee.user.id` — the current operator user's ID (if authenticated)
+
+This hook must always be listed **after** `AssignScope` (or equivalent)
+in the `on_mount` list so that `current_scope` is populated.
+
+### TelemetryOrgPlug for controller requests
+
+`MarqueeWeb.Plugs.TelemetryOrgPlug` runs in the `:set_organization` pipeline
+after `SetOrganization`. It sets `marquee.org.id`, `marquee.org.slug`, and
+`marquee.user.id` on the current span for all non-LiveView HTTP requests
+that resolve an organization.
+
+---
+
+## Mux Span Conventions
+
+All Mux API calls produce spans named `marquee.mux.<operation>`. The
+`MuxClient` module instruments every call with:
+
+| Attribute | Description |
+|---|---|
+| `marquee.service` | Always `"mux"` |
+| `marquee.mux.operation` | The operation name (e.g. `"create_direct_upload"`) |
+| `marquee.org.id` | Tenant ID, read from Logger metadata |
+| `http.status_code` | HTTP status on success |
+| `duration_ms` | Client-side latency in milliseconds |
+
+On error, the span status is set to `:error` with the reason.
+
+### Example Mux span queries (TraceQL)
+
+```
+{resource.service.name="marquee" && span.marquee.service = "mux"}
+{resource.service.name="marquee" && span.marquee.service = "mux" && duration > 500ms}
+{resource.service.name="marquee" && span.marquee.mux.operation = "create_direct_upload"}
+```
+
+---
+
+## Oban Worker Org Attribution
+
+Every Oban worker that has `organization_id` in its args **must** call
+`Tracer.set_attributes([{"marquee.org.id", org_id}])` at the start of
+`perform/1`. This enables per-tenant filtering of background job traces.
+
+```elixir
+def perform(%Oban.Job{args: %{"organization_id" => org_id} = _args}) do
+  Logger.metadata(org_id: org_id)
+  Tracer.set_attributes([{"marquee.org.id", org_id}])
+  # ... rest of worker logic
+end
+```
+
+Workers that resolve org_id during processing (e.g. `StripeWebhookProcessor`
+which reads it from event metadata) should set the attribute as soon as the
+org_id is known.
+
+---
+
+
 
 When adding a new feature, verify:
 

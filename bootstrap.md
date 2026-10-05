@@ -334,28 +334,20 @@ git add -A
 git commit -m "Set up TypeScript with hooks directory structure"
 
 # ============================================================================
-# 12. FLY.IO SETUP
+# 12. DEPLOYMENT (DigitalOcean via push-button-deploy)
 # ============================================================================
-# Make sure flyctl is installed, then:
+# Provision the droplet, managed Postgres, DNS and the deploy workflows with
+# the push-button-deploy bootstrap (Postgres backend — the default is sqlite):
 
-fly launch
+DATABASE_BACKEND=postgres ~/src/push-button-deploy/bootstrap.sh .
 
-# This will:
-# - Detect Phoenix
-# - Generate fly.toml
-# - Create a Fly Postgres database
-# - Generate a Dockerfile
-# - Set up the release command for migrations
-#
-# After launch, set your secrets:
-
-
-
-# Deploy:
-fly deploy
+# This seeds infra/ (Terraform), Dockerfile, deploy/ and
+# .github/workflows/{deploy,rollback}.yml, applies the Terraform roots and sets
+# the GitHub repo secrets/vars. Every push to main then deploys.
+# See .claude/deployment.md for the full process.
 
 git add -A
-git commit -m "Add Fly.io deployment configuration"
+git commit -m "Add DigitalOcean deployment configuration"
 
 # ============================================================================
 # 13. GITHUB ACTIONS CI
@@ -387,7 +379,7 @@ git push -u origin main
 # ✅ Mux + Stripe SDK dependencies
 # ✅ Test infrastructure (ExMachina, Mox)
 # ✅ TypeScript hooks setup
-# ✅ Deployed to Fly.io
+# ✅ Deployed to DigitalOcean
 # ✅ GitHub Actions CI pipeline
 #
 # NEXT STEPS:

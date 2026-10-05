@@ -38,8 +38,9 @@ infra/app/          droplet (Ubuntu 24.04, s-1vcpu-1gb), reserved-IP assignment,
 ```
 
 Defaults worth knowing: region `nyc3`, Postgres 17 on `db-s-1vcpu-1gb` (one
-node), DNS record `app` with TTL 300. `enable_staging` (default `true`) creates
-`<record>-stg.<zone>` and a `<project>-staging` database in the same cluster.
+node), DNS record `app` with TTL 300. `enable_staging` (default `true`) still
+creates `<record>-stg.<zone>` and a `<project>-staging` database in the same
+cluster, but nothing deploys to them now that the staging workflow is gone.
 `tenant_slugs` creates one `<slug>-<record>.<zone>` A record per tenant.
 The firewall opens 80/443 to the world and 22 only to `ssh_cidrs` (plus an
 optional `gitea_runner_cidr`).
@@ -74,7 +75,7 @@ droplet over SSH, and compose loads it. Nothing secret is in the image, in
 cloud-init, or in droplet metadata.
 
 An unset secret or var interpolates to an empty string, and `deploy.yml` ships
-those `NAME=` lines as-is — nothing strips them. `""` is truthy in Elixir, so an
+those `KEY=` lines with an empty value — nothing strips them. `""` is truthy in Elixir, so an
 unset integration secret reaches `runtime.exs` as a blank value rather than as
 absent.
 
@@ -95,8 +96,8 @@ absent.
 
 OpenTelemetry export to the hub is **required in prod** (both must be set, or
 the release fails to boot — see below): var `OTEL_EXPORTER_OTLP_ENDPOINT` (the
-hub base URL, e.g. `https://elixir-as-inf.diviningdad.com`; `/v1/traces` and
-`/v1/logs` are appended) and secret `OTEL_HUB_TOKEN` (the per-source bearer
+hub base URL, e.g. `https://elixir-as-inf.diviningdad.com`; `/v1/traces`,
+`/v1/logs` and `/v1/metrics` are appended — see `.claude/observability.md`) and secret `OTEL_HUB_TOKEN` (the per-source bearer
 token, obtained once by registering "marquee" at the hub's `/sources/new` —
 never commit it). They replace the former `OTEL_EXPORTER_OTLP_AUTH_HEADER`.
 
@@ -111,9 +112,8 @@ vars `ORG_RESOLUTION` (default `query_param`), `TENANT_HOST_PATTERN`,
 `TENANT_DNS_ZONE`, `TENANT_DNS_TARGET_IPV4`, `TENANT_SLUGS` (edge only);
 secret `DNSIMPLE_API_TOKEN`.
 
-**Not shipped:** `runtime.exs` also reads `SPACES_*`, `GRAFANA_LOKI_URL`,
-`GRAFANA_LOKI_AUTH` and `POOL_SIZE`, but no workflow writes them, so in
-production Spaces uploads and Loki log shipping are off and the pool size is
+**Not shipped:** `runtime.exs` also reads `SPACES_*` and `POOL_SIZE`, but no
+workflow writes them, so in production Spaces uploads are off and the pool size is
 the default of 5. Setting them as repo secrets/vars does nothing until
 `deploy.yml` adds the lines.
 
@@ -178,7 +178,7 @@ wget. `GET /health` (`HealthController`) remains the app-level check.
 
 ## CI/CD: GitHub Actions
 
-Four workflows in `.github/workflows/`:
+Three workflows in `.github/workflows/`:
 
 - **`ci.yml`** — every push to `main` and every PR against it. Three parallel
   jobs: `release` (prod deps, `mix compile --warnings-as-errors`,
@@ -202,12 +202,6 @@ Four workflows in `.github/workflows/`:
   required at boot, a rollback as written produces a release that fails its
   healthcheck (the old color keeps serving). Fix `rollback.yml` before relying
   on it.
-- **`staging.yml`** — **disabled**: its `pull_request` trigger is commented
-  out, leaving only `workflow_dispatch`. When enabled it deploys a PR to
-  `$STAGING_DOMAIN` as stack `$APP_SLUG-stg` on the same droplet, using
-  `STAGING_DATABASE_URL` and a staging `SECRET_KEY_BASE` derived from the prod
-  one, comments the URL on the PR, and tears the stack and its images down on
-  close (`deploy/staging-down.sh`). One PR holds the staging slot at a time.
 
 ### Rules
 
@@ -216,10 +210,10 @@ Four workflows in `.github/workflows/`:
 - One deploy at a time: the `concurrency` group queues rather than cancels, so
   an in-flight migration is never interrupted
 - The runner's SSH hole is revoked in an `always()` step
-- `deploy.yml`, `rollback.yml`, `staging.yml`, `Dockerfile`, `.dockerignore`
+- `deploy.yml`, `rollback.yml`, `Dockerfile`, `.dockerignore`
   and `deploy/*` are **copied unconditionally** by `bootstrap.sh` and carry
   Marquee-specific changes (the Mux/Stripe/OTEL/tenant `.env` lines, the tenant
-  edge scripts, staging being disabled). Diff them after any bootstrap re-run
+  edge scripts, the removed `staging.yml`). Diff them after any bootstrap re-run
   and re-apply what it overwrote. Only `infra/` is seed-once.
 
 ### Day 2
@@ -254,7 +248,7 @@ HTTPS certificates for these explicit names. This does not require a wildcard
 certificate, a custom Caddy build, or on-demand certificate issuance.
 
 `ORG_RESOLUTION=hostname` enables host-based tenant URLs after DNS and TLS are
-ready. It defaults to `query_param`, including staging. Runtime
+ready. It defaults to `query_param`. Runtime
 `TENANT_HOST_PATTERN` defaults to `{slug}-<PHX_HOST>`; an alternate pattern needs
 matching DNS and edge provisioning outside this convention. Deploy and rollback
 must preserve the tenant list and runtime settings.

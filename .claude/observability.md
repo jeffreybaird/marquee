@@ -6,6 +6,25 @@ every operation that matters to the business must be observable.
 
 ---
 
+## Export: the OTLP hub
+
+All three signals go to the personal OTLP hub — there is no Grafana/Loki or
+other backend.
+
+| Signal | Shipped by | Hub path |
+|---|---|---|
+| Traces | `:opentelemetry_exporter` (configured in `config/runtime.exs`) | `/v1/traces` |
+| Logs | `OtlpShipper.LogHandler`, started by `Marquee.Otel.Export` | `/v1/logs` |
+| Metrics | `OtlpShipper.MetricsReporter`, started by `Marquee.Otel.Export` | `/v1/metrics` |
+
+`Marquee.Otel.ExporterConfig` builds the settings from
+`OTEL_EXPORTER_OTLP_ENDPOINT` (hub base URL) and `OTEL_HUB_TOKEN` (per-source
+bearer token). Both are **required in prod** — the release raises at boot if
+either is missing. Dev and test export nothing. See `.claude/deployment.md`
+for how the values reach the droplet.
+
+---
+
 ## Principles
 
 1. **Every context mutation gets a span.** If a function creates, updates, or
@@ -421,7 +440,7 @@ All Mux API calls produce spans named `marquee.mux.<operation>`. The
 
 On error, the span status is set to `:error` with the reason.
 
-### Filtering Mux spans in Grafana
+### Example Mux span queries (TraceQL)
 
 ```
 {resource.service.name="marquee" && span.marquee.service = "mux"}

@@ -84,9 +84,8 @@ config :opentelemetry,
 
 ### Add OTEL_EXPORTER_OTLP_ENDPOINT to required env vars
 
-Update `.claude/deployment.md` and the Fly secrets list. The endpoint depends
-on which backend is chosen (Honeycomb, Grafana Cloud, Jaeger, etc.). For now,
-make it configurable and document it.
+Update `.claude/deployment.md`. Export goes to the OTLP hub; the endpoint and
+`OTEL_HUB_TOKEN` are GitHub Actions settings shipped in the deploy `.env`.
 
 ---
 
