@@ -188,6 +188,13 @@ Exception: value used more than once, or naming improves readability.
 
 Every public function (`def`, not `defp`) must have `@doc` block with at least one doctest for happy path.
 
+Use representative valid inputs that exercise the function's intended behavior.
+Examples using only `nil`, empty inputs, or fallback/error clauses do not satisfy
+the happy-path requirement. Predicate examples must cover a matching input;
+time-dependent predicates should demonstrate valid inputs on both sides of the
+time condition. Keep useful edge cases as additional examples. Register each
+documented module with `doctest` in an ExUnit test so its examples actually run.
+
 Exempt: functions hit DB or call external services — use unit tests with mocks.
 
 ### Error Handling with Tagged Tuples
