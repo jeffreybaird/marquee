@@ -233,6 +233,12 @@ jobs:
           MAILER_FROM=${{ vars.MAILER_FROM }}
           OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
           OTEL_HUB_TOKEN=${{ secrets.OTEL_HUB_TOKEN }}
+          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
+          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
+          SPACES_REGION=${{ vars.SPACES_REGION }}
+          SPACES_HOST=${{ vars.SPACES_HOST }}
+          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
           EOF
 
       - name: Write .env (SQLite)
@@ -260,6 +266,12 @@ jobs:
           BACKUP_ENDPOINT=${{ vars.BACKUP_ENDPOINT }}
           BACKUP_REGION=${{ vars.BACKUP_REGION }}
           BACKUP_PATH=${{ vars.BACKUP_PATH }}
+          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
+          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
+          SPACES_REGION=${{ vars.SPACES_REGION }}
+          SPACES_HOST=${{ vars.SPACES_HOST }}
+          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
           EOF
 
       # Postgres only: the DB cluster CA — public cert material (the container

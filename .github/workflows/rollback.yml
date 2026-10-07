@@ -117,6 +117,23 @@ jobs:
           APP_SLUG=${APP_SLUG}
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
+          MUX_TOKEN_ID=${{ secrets.MUX_TOKEN_ID }}
+          MUX_TOKEN_SECRET=${{ secrets.MUX_TOKEN_SECRET }}
+          MUX_WEBHOOK_SECRET=${{ secrets.MUX_WEBHOOK_SECRET }}
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_CONNECT_WEBHOOK_SECRET=${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
+          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+          MAILER_FROM=${{ vars.MAILER_FROM }}
+          OTEL_EXPORTER_OTLP_ENDPOINT=${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+          OTEL_HUB_TOKEN=${{ secrets.OTEL_HUB_TOKEN }}
+          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
+          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
+          SPACES_REGION=${{ vars.SPACES_REGION }}
+          SPACES_HOST=${{ vars.SPACES_HOST }}
+          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
           EOF
 
       - name: Write .env (SQLite, pinned image)
@@ -144,6 +161,12 @@ jobs:
           BACKUP_ENDPOINT=${{ vars.BACKUP_ENDPOINT }}
           BACKUP_REGION=${{ vars.BACKUP_REGION }}
           BACKUP_PATH=${{ vars.BACKUP_PATH }}
+          SPACES_ACCESS_KEY_ID=${{ secrets.SPACES_ACCESS_KEY_ID }}
+          SPACES_SECRET_ACCESS_KEY=${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          SPACES_BUCKET=${{ vars.SPACES_BUCKET }}
+          SPACES_REGION=${{ vars.SPACES_REGION }}
+          SPACES_HOST=${{ vars.SPACES_HOST }}
+          SPACES_PUBLIC_URL_BASE=${{ vars.SPACES_PUBLIC_URL_BASE }}
           EOF
 
       - name: Write db-ca.pem
