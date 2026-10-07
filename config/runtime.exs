@@ -180,24 +180,32 @@ if config_env() != :test do
 
   # DigitalOcean Spaces (S3-compatible) credentials. Required for image
   # uploads; absent credentials fail fast in the client so we don't ship
-  # broken presigned URLs.
-  if spaces_key = System.get_env("SPACES_ACCESS_KEY_ID") do
+  # broken presigned URLs. Deploys write unset secrets/vars as `KEY=`, so an
+  # empty value is treated exactly like an unset one. A blank secret with a
+  # key id set is passed through; SpacesClient rejects it at call time.
+  spaces_env = fn name ->
+    case System.get_env(name) do
+      value when value in [nil, ""] -> nil
+      value -> value
+    end
+  end
+
+  if spaces_key = spaces_env.("SPACES_ACCESS_KEY_ID") do
     config :ex_aws,
       access_key_id: spaces_key,
       secret_access_key: System.get_env("SPACES_SECRET_ACCESS_KEY")
   end
 
   # Allow env-time override of the bucket / region for staging buckets, etc.
-  if spaces_bucket = System.get_env("SPACES_BUCKET") do
+  if spaces_bucket = spaces_env.("SPACES_BUCKET") do
+    spaces_host = spaces_env.("SPACES_HOST") || "nyc3.digitaloceanspaces.com"
+
     config :marquee, Marquee.Storage,
       bucket: spaces_bucket,
-      region: System.get_env("SPACES_REGION", "nyc3"),
-      host: System.get_env("SPACES_HOST", "nyc3.digitaloceanspaces.com"),
+      region: spaces_env.("SPACES_REGION") || "nyc3",
+      host: spaces_host,
       public_url_base:
-        System.get_env(
-          "SPACES_PUBLIC_URL_BASE",
-          "https://#{spaces_bucket}.#{System.get_env("SPACES_HOST", "nyc3.digitaloceanspaces.com")}"
-        )
+        spaces_env.("SPACES_PUBLIC_URL_BASE") || "https://#{spaces_bucket}.#{spaces_host}"
   end
 end
 
