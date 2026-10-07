@@ -75,9 +75,9 @@ droplet over SSH, and compose loads it. Nothing secret is in the image, in
 cloud-init, or in droplet metadata.
 
 An unset secret or var interpolates to an empty string, and `deploy.yml` ships
-those `KEY=` lines with an empty value — nothing strips them. `""` is truthy in Elixir, so an
-unset integration secret reaches `runtime.exs` as a blank value rather than as
-absent.
+those `KEY=` lines with an empty value — nothing strips them. `""` is truthy in
+Elixir, so `runtime.exs` must treat `""` as unset for any setting it reads
+(`MAILER_FROM`, `RESEND_API_KEY` and `SPACES_*` do; Mux and Stripe do not yet).
 
 ### Required repo configuration
 
@@ -104,7 +104,10 @@ never commit it). They replace the former `OTEL_EXPORTER_OTLP_AUTH_HEADER`.
 Integration settings `deploy.yml` writes into the `.env`: secrets
 `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`,
 `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `RESEND_API_KEY`,
-`PEXELS_API_KEY`; var `MAILER_FROM`.
+`PEXELS_API_KEY`, `SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`; vars
+`MAILER_FROM`, `SPACES_BUCKET`, `SPACES_REGION`, `SPACES_HOST`,
+`SPACES_PUBLIC_URL_BASE` (empty Spaces vars fall back to the `marquee` bucket in
+`nyc3`).
 
 Tenant-hostname settings it also writes (see [Per-tenant hostnames](#per-tenant-hostnames)):
 vars `ORG_RESOLUTION` (default `query_param`), `TENANT_HOST_PATTERN`,
@@ -112,10 +115,8 @@ vars `ORG_RESOLUTION` (default `query_param`), `TENANT_HOST_PATTERN`,
 `TENANT_DNS_ZONE`, `TENANT_DNS_TARGET_IPV4`, `TENANT_SLUGS` (edge only);
 secret `DNSIMPLE_API_TOKEN`.
 
-**Not shipped:** `runtime.exs` also reads `SPACES_*` and `POOL_SIZE`, but no
-workflow writes them, so in production Spaces uploads are off and the pool size is
-the default of 5. Setting them as repo secrets/vars does nothing until
-`deploy.yml` adds the lines.
+**Not shipped:** `runtime.exs` also reads `POOL_SIZE`, but no workflow writes
+it, so the app's pool size is the default of 5.
 
 `PHX_SERVER`, `PHX_HOST`, `PORT` and `DATABASE_CA_FILE` are set by
 `deploy/compose.yaml`, not by the `.env`. The migration container runs with
@@ -197,11 +198,9 @@ Three workflows in `.github/workflows/`:
 - **`rollback.yml`** — `gh workflow run rollback.yml -f tag=<sha>` verifies the
   tag exists in DOCR, rewrites `.env` with that image, and re-swaps. No rebuild,
   no migration. Shares the `deploy-<ref>` concurrency group with `deploy.yml`.
-  Its `.env` carries only `DATABASE_URL`, `SECRET_KEY_BASE` and the tenant
-  settings — **no Mux, Stripe, Resend, Pexels or OTEL values**. Because OTEL is
-  required at boot, a rollback as written produces a release that fails its
-  healthcheck (the old color keeps serving). Fix `rollback.yml` before relying
-  on it.
+  Its `.env` must match `deploy.yml`'s apart from `IMAGE`;
+  `test/marquee_web/deploy_env_parity_test.exs` enforces this, so add any new
+  `.env` line to both workflows.
 
 ### Rules
 

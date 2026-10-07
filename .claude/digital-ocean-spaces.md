@@ -18,10 +18,10 @@ code lives in:
 ## Environment variables
 
 The app reads the following from the runtime env. In dev they can live
-in `.env` (auto-loaded by `config/runtime.exs`). In prod they must be GitHub
-Actions secrets/vars **and** written into the `.env` by `deploy.yml` — which
-does not do so today, so Spaces is unconfigured in production (see
-`.claude/deployment.md`).
+in `.env` (auto-loaded by `config/runtime.exs`). In prod they are GitHub
+Actions secrets (`SPACES_ACCESS_KEY_ID`, `SPACES_SECRET_ACCESS_KEY`) and vars
+(the rest), written into the deploy `.env` by `deploy.yml` and `rollback.yml`.
+An empty value is treated as unset (see `.claude/deployment.md`).
 
 | Variable | Required | Example | Purpose |
 | --- | --- | --- | --- |
