@@ -5,7 +5,14 @@
  *
  * Auto-advancing carousel for the homepage hero section.
  * Handles slide transitions, pagination dots, auto-advance timer,
- * pause-on-hover, prev/next arrow navigation, and keyboard support.
+ * pause-on-hover, prev/next arrow navigation, keyboard support, and
+ * touch swipe navigation.
+ *
+ * Swipes: a horizontal touch of at least 50px (and longer than its
+ * vertical travel) moves one slide -- left for next, right for previous.
+ * Taps and mostly vertical gestures leave the slide alone so page scrolling
+ * still works. Auto-advance pauses while a finger is down and restarts a
+ * full interval from the touchend.
  *
  * DOM attributes read:
  *   - data-auto-advance: Interval in ms between auto-advances.
@@ -20,6 +27,9 @@
  */
 import { ViewHook } from "phoenix_live_view"
 
+/** Minimum horizontal travel, in CSS pixels, for a touch to count as a swipe. */
+const SWIPE_THRESHOLD_PX = 50
+
 class HeroCarousel extends ViewHook {
   private slides!: NodeListOf<HTMLElement>
   private dots!: NodeListOf<HTMLElement>
@@ -28,7 +38,10 @@ class HeroCarousel extends ViewHook {
   private activeIndex = 0
   private totalSlides = 0
   private prefersReducedMotion = false
+  private interval = 0
   private timer: ReturnType<typeof setInterval> | null = null
+  private touchStartX = 0
+  private touchStartY = 0
 
   mounted() {
     this.slides = this.el.querySelectorAll<HTMLElement>(".hero-slide")
@@ -47,7 +60,7 @@ class HeroCarousel extends ViewHook {
       return
     }
 
-    const interval = parseInt(this.el.dataset.autoAdvance || "8000", 10)
+    this.interval = parseInt(this.el.dataset.autoAdvance || "8000", 10)
 
     // Dot click handlers
     this.dots.forEach((dot: HTMLElement, index: number) => {
@@ -69,16 +82,48 @@ class HeroCarousel extends ViewHook {
       }
     })
 
+    // Touch swipe navigation (passive: the hook never cancels scrolling)
+    this.el.addEventListener("touchstart", this.onTouchStart, { passive: true })
+    this.el.addEventListener("touchend", this.onTouchEnd, { passive: true })
+
     // Auto-advance (only if interval > 0 and user hasn't requested reduced motion)
-    if (interval > 0 && !this.prefersReducedMotion) {
-      this.startAutoAdvance(interval)
+    if (this.interval > 0 && !this.prefersReducedMotion) {
+      this.startAutoAdvance(this.interval)
 
       // Pause on hover
       this.el.addEventListener("mouseenter", () => this.stopAutoAdvance())
       this.el.addEventListener("mouseleave", () =>
-        this.startAutoAdvance(interval)
+        this.startAutoAdvance(this.interval)
       )
     }
+  }
+
+  private onTouchStart = (e: TouchEvent) => {
+    const touch = e.touches[0]
+    if (!touch) return
+
+    this.touchStartX = touch.clientX
+    this.touchStartY = touch.clientY
+    this.stopAutoAdvance()
+  }
+
+  private onTouchEnd = (e: TouchEvent) => {
+    const touch = e.changedTouches[0]
+    if (touch) {
+      const dx = touch.clientX - this.touchStartX
+      const dy = touch.clientY - this.touchStartY
+
+      if (Math.abs(dx) >= SWIPE_THRESHOLD_PX && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          this.nextSlide()
+        } else {
+          this.prevSlide()
+        }
+      }
+    }
+
+    // A full interval elapses from the end of the gesture.
+    this.startAutoAdvance(this.interval)
   }
 
   private goToSlide(index: number) {
@@ -120,6 +165,8 @@ class HeroCarousel extends ViewHook {
 
   destroyed() {
     this.stopAutoAdvance()
+    this.el.removeEventListener("touchstart", this.onTouchStart)
+    this.el.removeEventListener("touchend", this.onTouchEnd)
   }
 }
 
