@@ -90,6 +90,7 @@ defmodule MarqueeWeb.Viewer.RegisterLive do
       impersonating_viewer={@impersonating_viewer}
       current_path="/register"
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="max-w-md mx-auto px-4 py-8 sm:px-6 lg:px-8">

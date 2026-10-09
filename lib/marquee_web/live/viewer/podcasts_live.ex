@@ -38,6 +38,7 @@ defmodule MarqueeWeb.Viewer.PodcastsLive do
       impersonating_viewer={@impersonating_viewer}
       current_path="/podcasts"
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="sv-page-content">

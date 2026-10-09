@@ -54,6 +54,7 @@ defmodule MarqueeWeb.Viewer.ViewAllLive do
       impersonating_viewer={@impersonating_viewer}
       current_path={~p"/browse/#{@source}"}
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="sv-collection-header" data-test="sv-view-all-header">

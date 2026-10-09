@@ -31,6 +31,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
   alias Marquee.Branding
   alias Marquee.Onboarding.StarterContent
   alias MarqueeWeb.OrgURL
+  alias MarqueeWeb.Plugs.MemberPreview
 
   def on_mount(:require_authenticated, _params, session, socket) do
     if Marquee.AdminDemo.host?(request_host(socket)) and not demo_view_allowed?(socket.view) do
@@ -56,6 +57,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
         |> assign(:current_path, derive_current_path(socket))
         |> assign(:impersonating, false)
         |> assign(:theme, nil)
+        |> assign(:theme_preview, nil)
 
       {:cont, socket}
     else
@@ -167,7 +169,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
         |> assign(:current_origin, derive_current_origin(socket))
         |> assign(:current_path, derive_current_path(socket))
         |> assign(:impersonating, false)
-        |> assign(:theme, Branding.get_theme_or_default_cached(scope.organization))
+        |> assign_theme(session, scope, scope.organization)
         |> Phoenix.LiveView.attach_hook(:admin_demo_session, :handle_event, fn _event,
                                                                                _params,
                                                                                socket ->
@@ -210,8 +212,6 @@ defmodule MarqueeWeb.Hooks.AssignScope do
 
     scope = build_scope(user, org, membership, impersonating)
 
-    theme = if org, do: Branding.get_theme_or_default_cached(org), else: nil
-
     socket
     |> assign(:current_scope, scope)
     |> assign(:current_user, user)
@@ -220,7 +220,30 @@ defmodule MarqueeWeb.Hooks.AssignScope do
     |> assign(:current_origin, derive_current_origin(socket))
     |> assign(:current_path, derive_current_path(socket))
     |> assign(:impersonating, impersonating)
-    |> assign(:theme, theme)
+    |> assign_theme(session, scope, org)
+  end
+
+  # The viewer theme is the saved one unless the operator is browsing with an
+  # unsaved appearance draft, in which case the draft's theme wins and the
+  # draft itself is exposed so layouts can apply its accent and font.
+  defp assign_theme(socket, _session, _scope, nil) do
+    socket
+    |> assign(:theme, nil)
+    |> assign(:theme_preview, nil)
+  end
+
+  defp assign_theme(socket, session, scope, org) do
+    case MemberPreview.theme_preview(session, scope, org) do
+      nil ->
+        socket
+        |> assign(:theme, Branding.get_theme_or_default_cached(org))
+        |> assign(:theme_preview, nil)
+
+      %{theme: theme} = draft ->
+        socket
+        |> assign(:theme, theme)
+        |> assign(:theme_preview, draft)
+    end
   end
 
   defp build_scope(user, org, membership, impersonating) do

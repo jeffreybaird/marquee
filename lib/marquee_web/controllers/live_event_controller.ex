@@ -26,11 +26,12 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
   def index(conn, _params) do
     org = conn.assigns[:organization] || conn.assigns.current_scope.organization
 
-    viewer =
-      MemberPreview.viewer(get_session(conn), conn.assigns[:current_scope], org) ||
-        resolve_viewer(conn)
+    session = get_session(conn)
+    scope = conn.assigns[:current_scope]
 
-    theme = Branding.get_theme_or_default_cached(org)
+    viewer = MemberPreview.viewer(session, scope, org) || resolve_viewer(conn)
+    theme_preview = MemberPreview.theme_preview(session, scope, org)
+    theme = resolve_theme(org, theme_preview)
 
     %{results: live_now} = Streaming.list_live_events(org, status: "live", per_page: 20)
     %{results: upcoming} = Streaming.list_live_events(org, status: "scheduled", per_page: 50)
@@ -41,6 +42,7 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
       current_viewer: viewer,
       impersonating_viewer: impersonating?(conn, viewer),
       theme: theme,
+      theme_preview: theme_preview,
       live_now: live_now,
       upcoming: upcoming,
       past: past
@@ -123,6 +125,9 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp resolve_theme(org, nil), do: Branding.get_theme_or_default_cached(org)
+  defp resolve_theme(_org, %{theme: theme}), do: theme
 
   defp resolve_viewer(conn) do
     case get_session(conn, :viewer_token) do

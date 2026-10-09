@@ -43,6 +43,7 @@ defmodule MarqueeWeb.Viewer.CollectionLive do
       impersonating_viewer={@impersonating_viewer}
       current_path={~p"/collections/#{@collection.slug}"}
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <%!-- Collection header --%>

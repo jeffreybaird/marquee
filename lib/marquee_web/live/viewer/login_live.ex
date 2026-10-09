@@ -49,6 +49,7 @@ defmodule MarqueeWeb.Viewer.LoginLive do
       impersonating_viewer={@impersonating_viewer}
       current_path="/login"
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <section
