@@ -134,6 +134,35 @@ describe("HeroCarousel", () => {
     expect(activeSlide(el)).toBe(0)
   })
 
+  it("reads the reduced-motion preference once at mount: turning it on later does not stop auto-advance", () => {
+    const el = carousel(3, "1000")
+    mountHook(HeroCarousel, el)
+
+    setReducedMotion(true)
+    vi.advanceTimersByTime(1000)
+
+    expect(activeSlide(el)).toBe(1)
+  })
+
+  it("reads the reduced-motion preference once at mount: turning it off later never starts auto-advance", () => {
+    setReducedMotion(true)
+    const el = carousel(3, "1000")
+    mountHook(HeroCarousel, el)
+
+    setReducedMotion(false)
+    vi.advanceTimersByTime(10_000)
+    expect(activeSlide(el)).toBe(0)
+
+    // Interactions that would normally restart the timer still honour the
+    // preference captured at mount.
+    el.dispatchEvent(new Event("mouseenter"))
+    el.dispatchEvent(new Event("mouseleave"))
+    swipe(el, 300, 100)
+    expect(activeSlide(el)).toBe(1)
+    vi.advanceTimersByTime(10_000)
+    expect(activeSlide(el)).toBe(1)
+  })
+
   it("hides the arrows and does nothing with a single slide", () => {
     const el = carousel(1, "1000")
     mountHook(HeroCarousel, el)
