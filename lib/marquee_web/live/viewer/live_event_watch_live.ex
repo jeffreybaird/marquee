@@ -170,6 +170,7 @@ defmodule MarqueeWeb.Viewer.LiveEventWatchLive do
       impersonating_viewer={@impersonating_viewer}
       current_path="/events"
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="sv-page-content" data-test="live-event-watch">

@@ -23,6 +23,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
   attr :current_path, :string, required: true
   attr :nav_items, :list, default: nil
   attr :theme, :map, default: nil
+  attr :theme_preview, :map, default: nil
   attr :flash, :map, required: true
   slot :inner_block, required: true
 
@@ -50,6 +51,8 @@ defmodule MarqueeWeb.Components.ViewerLayout do
         end
       end)
 
+    assigns = assign(assigns, :root_style, root_style(assigns))
+
     ~H"""
     <MarqueeWeb.Components.AdminDemo.bar organization={@organization} />
     <div
@@ -58,12 +61,13 @@ defmodule MarqueeWeb.Components.ViewerLayout do
         Marquee.SubscriberDemo.demo_viewer?(@current_viewer) && "sv-subscriber-demo",
         Map.get(@organization, :demo_kind) == :admin_sandbox && "sv-admin-demo"
       ]}
-      style={Theme.build_css_vars(@resolved_theme)}
+      style={@root_style}
       data-test="sv-root"
     >
       <.impersonation_banner
         :if={@impersonating_viewer && @current_viewer}
         current_viewer={@current_viewer}
+        theme_preview={@theme_preview}
       />
 
       <.viewer_header
@@ -123,7 +127,15 @@ defmodule MarqueeWeb.Components.ViewerLayout do
     """
   end
 
+  # An unsaved appearance draft replaces the saved theme's variables and adds
+  # the draft accent + display font so the viewer site matches the editor.
+  defp root_style(%{theme_preview: %{theme: %Theme{}} = draft}),
+    do: Theme.build_preview_css_vars(draft)
+
+  defp root_style(%{resolved_theme: theme}), do: Theme.build_css_vars(theme)
+
   attr :current_viewer, :map, required: true
+  attr :theme_preview, :map, default: nil
 
   defp impersonation_banner(assigns) do
     ~H"""
@@ -138,6 +150,20 @@ defmodule MarqueeWeb.Components.ViewerLayout do
           <span>
             <%= if @current_viewer.__preview__ do %>
               Member preview — read-only.
+              <span
+                :if={@theme_preview}
+                class="font-normal"
+                data-test="appearance-preview-notice"
+              >
+                Showing unsaved appearance changes.
+                <.link
+                  href={~p"/admin/appearance"}
+                  class="rounded underline underline-offset-2 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-white"
+                  data-test="appearance-preview-editor-link"
+                >
+                  Back to editor
+                </.link>
+              </span>
             <% else %>
               You are impersonating {@current_viewer.display_name || @current_viewer.email}.
               <span :if={@current_viewer.metadata["admin_demo_sample"]}>

@@ -260,11 +260,33 @@ defmodule MarqueeWeb.Layouts do
   already present as CSS custom property default).
   """
   attr :organization, :map, default: nil
+  attr :theme_preview, :map, default: nil
 
-  def tenant_font_tags(%{organization: %{display_font: font}} = assigns)
-      when is_binary(font) and font != "" do
-    assigns = assign(assigns, :href, google_fonts_href(font))
+  def tenant_font_tags(assigns) do
+    assigns = assign(assigns, :href, tenant_font_href(assigns))
 
+    ~H"""
+    <%= if @href do %>
+      <.tenant_font_links href={@href} />
+    <% end %>
+    """
+  end
+
+  # An operator browsing with an unsaved appearance draft needs the draft's
+  # display font loaded instead of the saved one.
+  defp tenant_font_href(%{theme_preview: %{display_font: font}})
+       when is_binary(font) and font != "",
+       do: google_fonts_href(font)
+
+  defp tenant_font_href(%{organization: %{display_font: font}})
+       when is_binary(font) and font != "",
+       do: google_fonts_href(font)
+
+  defp tenant_font_href(_assigns), do: nil
+
+  attr :href, :string, required: true
+
+  defp tenant_font_links(assigns) do
     ~H"""
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -280,8 +302,6 @@ defmodule MarqueeWeb.Layouts do
     </noscript>
     """
   end
-
-  def tenant_font_tags(assigns), do: ~H""
 
   @doc """
   Inline `<style>` block scoped to the tenant's `data-tenant` attribute,

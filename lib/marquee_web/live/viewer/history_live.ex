@@ -56,6 +56,7 @@ defmodule MarqueeWeb.Viewer.HistoryLive do
       impersonating_viewer={@impersonating_viewer}
       current_path="/history"
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="sv-page-content">

@@ -148,6 +148,7 @@ defmodule MarqueeWeb.Viewer.WatchlistLive do
       impersonating_viewer={@impersonating_viewer}
       current_path={tab_path(@active_tab)}
       theme={@theme}
+      theme_preview={@theme_preview}
       flash={@flash}
     >
       <div class="sv-page-content">
