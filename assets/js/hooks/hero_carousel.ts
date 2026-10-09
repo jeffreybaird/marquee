@@ -19,13 +19,16 @@
  *     Set to "0" to disable auto-advance entirely. Default: 8000.
  *
  * Accessibility:
- *   - Respects prefers-reduced-motion (disables auto-advance + transitions)
+ *   - Respects prefers-reduced-motion (disables auto-advance + transitions).
+ *     The preference is read once at mount, since that is when the
+ *     auto-advance timer and its hover listeners are installed.
  *   - Arrow key navigation when carousel is focused
  *   - Updates aria-selected on pagination dots
  *
  * No server events -- this is purely client-side behavior.
  */
 import { ViewHook } from "phoenix_live_view"
+import { prefersReducedMotion } from "../motion"
 
 /** Minimum horizontal travel, in CSS pixels, for a touch to count as a swipe. */
 const SWIPE_THRESHOLD_PX = 50
@@ -50,9 +53,7 @@ class HeroCarousel extends ViewHook {
     this.nextBtn = this.el.querySelector<HTMLElement>(".hero-arrow-next")
     this.activeIndex = 0
     this.totalSlides = this.slides.length
-    this.prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches
+    this.prefersReducedMotion = prefersReducedMotion()
 
     if (this.totalSlides <= 1) {
       this.prevBtn?.classList.add("hidden")
