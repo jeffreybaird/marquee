@@ -56,6 +56,7 @@ assets/
 │   │   ├── spaces_uploader.ts        # Direct-to-Spaces image upload
 │   │   ├── stagger_reveal.ts         # Entrance animation for row items
 │   │   └── viewer_nav.ts             # Transparent → solid nav on scroll
+│   ├── motion.ts                     # prefersReducedMotion(), scrollBehavior(): reduced-motion helpers
 │   ├── tour/
 │   │   ├── steps.ts                  # Admin tour step data (pure)
 │   │   └── index.ts                  # Builds the Shepherd tour from the steps, pause/resume
@@ -69,6 +70,7 @@ assets/
 │   │   ├── media.ts                  # setReducedMotion()
 │   │   └── xhr.ts                    # XMLHttpRequest double for the upload hooks
 │   ├── hooks/*.test.ts               # One test file per hook, plus index.test.ts
+│   ├── motion.test.ts                # prefersReducedMotion()/scrollBehavior() reduced-motion helpers
 │   └── tour/*.test.ts                # Step data integrity, tour wiring
 ├── vendor/
 │   ├── chart.js + chart.d.ts         # Vendored builds with their declarations
@@ -302,7 +304,9 @@ timers — is production code, so drive it with real DOM events
 What jsdom lacks and how the tests cover it:
 
 - `matchMedia`: `test/setup.ts` installs one; `setReducedMotion(true)` in
-  `test/support/media.ts` flips the reduced-motion query.
+  `test/support/media.ts` flips the reduced-motion query. Hooks read the
+  preference through `js/motion.ts` (`prefersReducedMotion()`,
+  `scrollBehavior()`) rather than calling `matchMedia` directly.
 - Layout (`clientWidth`, `scrollHeight`, `getBoundingClientRect`): define the
   properties on the element under test with `Object.defineProperty` or
   `vi.spyOn`.
