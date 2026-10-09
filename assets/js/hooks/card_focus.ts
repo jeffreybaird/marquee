@@ -10,11 +10,13 @@
  * area for a video preview. Cleans up the player on hide.
  *
  * Skips focus when the card overlaps a row navigation arrow.
- * Respects prefers-reduced-motion by removing the show delay.
+ * Respects prefers-reduced-motion by removing the show delay; the
+ * preference is checked when the pointer enters, not at mount.
  *
  * No server events — purely client-side behavior.
  */
 import { ViewHook } from "phoenix_live_view"
+import { prefersReducedMotion } from "../motion"
 
 const SHOW_DELAY_MS = 500
 const HIDE_DELAY_MS = 300
@@ -23,13 +25,8 @@ class CardFocus extends ViewHook {
   private _showTimer: ReturnType<typeof setTimeout> | null = null
   private _hideTimer: ReturnType<typeof setTimeout> | null = null
   private _player: HTMLElement | null = null
-  private _reducedMotion = false
 
   mounted() {
-    this._reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches
-
     this.el.addEventListener("mouseenter", () => this.scheduleShow())
     this.el.addEventListener("mouseleave", () => this.scheduleHide())
     this.el.addEventListener("focusin", () => {
@@ -84,7 +81,7 @@ class CardFocus extends ViewHook {
 
     if (this.overlapsArrow()) return
 
-    const delay = this._reducedMotion ? 0 : SHOW_DELAY_MS
+    const delay = prefersReducedMotion() ? 0 : SHOW_DELAY_MS
     this._showTimer = setTimeout(() => this.show(), delay)
   }
 

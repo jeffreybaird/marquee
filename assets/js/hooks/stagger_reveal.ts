@@ -7,12 +7,15 @@
  * translateY 12px and transitions to visible with a 50ms stagger
  * between items, capped at 400ms total regardless of item count.
  *
- * Skipped entirely when `prefers-reduced-motion: reduce` is set.
+ * Skipped entirely when `prefers-reduced-motion: reduce` is set; the
+ * preference is checked on every reveal, so children inserted after the
+ * setting changes follow the current value.
  * Re-runs on `updated()` only for newly-inserted children.
  *
  * No server events — purely client-side behavior.
  */
 import { ViewHook } from "phoenix_live_view"
+import { prefersReducedMotion } from "../motion"
 
 const STAGGER_MS = 50
 const MAX_STAGGER_MS = 400
@@ -20,13 +23,7 @@ const TRANSITION_MS = 350
 const REVEALED_ATTR = "data-stagger-revealed"
 
 class StaggerReveal extends ViewHook {
-  private _reducedMotion = false
-
   mounted() {
-    this._reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches
-
     this.reveal()
   }
 
@@ -37,7 +34,7 @@ class StaggerReveal extends ViewHook {
   private reveal() {
     const children = Array.from(this.el.children) as HTMLElement[]
 
-    if (this._reducedMotion) {
+    if (prefersReducedMotion()) {
       children.forEach((child) => {
         child.setAttribute(REVEALED_ATTR, "true")
         child.style.opacity = ""
