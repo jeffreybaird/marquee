@@ -305,6 +305,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
   attr :queued_ids, :any, default: MapSet.new()
   attr :hero_id, :string, default: "hero-carousel"
   attr :catalog_rows_test, :string, default: "catalog-rows"
+  attr :member_preview, :boolean, default: false
 
   def viewer_home_body(assigns) do
     ~H"""
@@ -338,6 +339,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
             />
           <% true -> %>
             <.content_row
+              member_preview={@member_preview}
               row={row}
               items={items}
               view_all_path={Map.get(entry, :view_all_path)}
@@ -500,6 +502,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
   attr :row, :map, required: true
   attr :items, :list, required: true
   attr :view_all_path, :string, default: nil
+  attr :member_preview, :boolean, default: false
   attr :current_viewer, :map, default: nil
   attr :favorited_ids, :any, default: MapSet.new()
   attr :watchlisted_ids, :any, default: MapSet.new()
@@ -540,6 +543,7 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
         <div class="content-row-items" data-card-variant={@card_variant}>
           <ViewerComponents.content_item_card
             :for={item <- @items}
+            member_preview={@member_preview}
             item={item}
             size="row"
             current_viewer={@current_viewer}

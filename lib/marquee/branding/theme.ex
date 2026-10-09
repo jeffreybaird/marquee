@@ -2,6 +2,8 @@ defmodule Marquee.Branding.Theme do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Marquee.Accounts.Organization
+
   # Wave B: brand_primary / brand_primary_hover / accent still live on the
   # schema so presets and backfills keep working, but the Branding UI
   # hides them — the tenant accent is authoritative on Organization now.
@@ -304,7 +306,7 @@ defmodule Marquee.Branding.Theme do
       ...> })
       iex> String.starts_with?(css, "--sv-bg-primary: #123456")
       true
-      iex> String.ends_with?(css, "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF; --font-display: 'Playfair Display', Georgia, serif")
+      iex> String.ends_with?(css, "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF; --color-accent-active: #ABCDEF; --color-accent-subtle: #ABCDEF; --font-display: 'Playfair Display', Georgia, serif")
       true
 
       iex> theme = %Marquee.Branding.Theme{background: "#123456"}
@@ -314,24 +316,200 @@ defmodule Marquee.Branding.Theme do
 
   """
   def build_preview_css_vars(%{theme: %__MODULE__{} = theme} = draft) do
+    branding =
+      draft
+      |> Map.drop([:theme])
+      |> preview_params(:organization)
+      |> derive_accent_variants()
+
+    safe_theme =
+      struct(__MODULE__, theme |> Map.from_struct() |> preview_params(:theme) |> atomize_params())
+
     [
-      build_css_vars(theme),
-      accent_override(Map.get(draft, :accent_color_base)),
-      display_font_override(Map.get(draft, :display_font))
+      build_css_vars(safe_theme),
+      accent_overrides(branding),
+      display_font_override(branding["display_font"])
     ]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("; ")
   end
 
-  defp accent_override(accent) when is_binary(accent) and accent != "",
-    do: "--color-accent: #{accent}; --color-accent-hover: #{accent}"
-
-  defp accent_override(_accent), do: nil
+  defp accent_overrides(branding) do
+    [
+      {"accent_color_base", "--color-accent"},
+      {"accent_color_hover", "--color-accent-hover"},
+      {"accent_color_active", "--color-accent-active"},
+      {"accent_color_subtle", "--color-accent-subtle"}
+    ]
+    |> Enum.flat_map(fn {field, token} ->
+      case branding[field] do
+        value when is_binary(value) and value != "" -> ["#{token}: #{value}"]
+        _ -> []
+      end
+    end)
+    |> case do
+      [] -> nil
+      values -> Enum.join(values, "; ")
+    end
+  end
 
   defp display_font_override(font) when is_binary(font) and font != "",
     do: "--font-display: '#{font}', Georgia, serif"
 
   defp display_font_override(_font), do: nil
+
+  @doc """
+  Keeps only supported, safe values for an unsaved theme or organization preview.
+
+      iex> Marquee.Branding.Theme.preview_params(%{"background" => "#123456", "surface" => "red; color: red"}, :theme)
+      %{"background" => "#123456"}
+      iex> Marquee.Branding.Theme.preview_params(%{"display_font" => "Playfair Display", "accent_color_base" => "#ABCDEF"}, :organization)
+      %{"display_font" => "Playfair Display", "accent_color_base" => "#ABCDEF"}
+  """
+  def preview_params(params, kind) do
+    params
+    |> Enum.map(fn {key, value} -> {to_string(key), value} end)
+    |> Enum.filter(fn {key, value} -> safe_preview_value?(kind, key, value) end)
+    |> Map.new()
+  end
+
+  @preview_color_fields ~w(brand_primary brand_secondary background surface elevated text_primary text_secondary text_on_accent accent brand_primary_hover border_color divider_color nav_background card_background overlay_color form_text form_placeholder)
+  @preview_accent_fields ~w(accent_color_base accent_color_hover accent_color_active accent_color_subtle)
+  @preview_asset_fields ~w(logo_url favicon_url login_background_image_url)
+  @color_number "(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)"
+  @preview_color ~r/\A(?:\#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?|\#[0-9a-fA-F]{8}|oklch\(\s*#{@color_number}\s+#{@color_number}\s+#{@color_number}\s*\)|rgba?\(\s*#{@color_number}\s*,\s*#{@color_number}\s*,\s*#{@color_number}(?:\s*,\s*#{@color_number})?\s*\))\z/
+
+  defp safe_preview_value?(:organization, "display_font", value),
+    do: value in [nil, "" | Organization.approved_display_fonts()]
+
+  defp safe_preview_value?(:organization, field, value) when field in @preview_accent_fields,
+    do: safe_preview_color?(value)
+
+  defp safe_preview_value?(:theme, field, value) when field in @preview_color_fields,
+    do: safe_preview_color?(value)
+
+  defp safe_preview_value?(:theme, "font_heading", value),
+    do:
+      value in [
+        nil,
+        ""
+        | Organization.approved_display_fonts() ++
+            Organization.approved_body_fonts()
+      ]
+
+  defp safe_preview_value?(:theme, "font_body", value),
+    do: value in [nil, "" | Organization.approved_body_fonts()]
+
+  defp safe_preview_value?(:theme, field, value) when field in @preview_asset_fields,
+    do:
+      is_nil(value) or
+        (is_binary(value) and
+           (value == "" or String.starts_with?(value, ["https://", "http://", "/"])))
+
+  defp safe_preview_value?(:theme, field, value)
+       when field in ~w(border_radius card_border_radius),
+       do:
+         is_nil(value) or
+           (is_binary(value) and
+              Regex.match?(~r/\A(?:[0-9]+(?:\.[0-9]+)?(?:px|rem|em|%)?|)\z/, value))
+
+  defp safe_preview_value?(_, _, _), do: false
+
+  defp safe_preview_color?(value) when value in [nil, ""], do: true
+
+  defp safe_preview_color?(value) when is_binary(value),
+    do: byte_size(value) <= 100 and Regex.match?(@preview_color, value)
+
+  defp safe_preview_color?(_), do: false
+
+  defp atomize_params(params),
+    do: Map.new(params, fn {key, value} -> {String.to_existing_atom(key), value} end)
+
+  @doc """
+  Fills blank accent variants using the same values for preview and persistence.
+
+      iex> Marquee.Branding.Theme.derive_accent_variants(%{"accent_color_base" => "oklch(0.6 0.2 30)"})
+      %{"accent_color_base" => "oklch(0.6 0.2 30)", "accent_color_hover" => "oklch(0.660 0.200 30.000)", "accent_color_active" => "oklch(0.540 0.200 30.000)", "accent_color_subtle" => "oklch(0.28 0.100 30.000)"}
+  """
+  def derive_accent_variants(%{"accent_color_base" => base} = params)
+      when is_binary(base) and base != "" do
+    params
+    |> put_if_blank("accent_color_hover", shift_lightness(base, +0.06))
+    |> put_if_blank("accent_color_active", shift_lightness(base, -0.06))
+    |> put_if_blank("accent_color_subtle", subtle_from(base))
+  end
+
+  def derive_accent_variants(params), do: params
+
+  @doc """
+  Derives changed accent values against the organization's current branding.
+
+  Unchanged explicit variants are preserved, and a cleared variant derives from
+  the effective base. Only actual changes are returned for persistence.
+
+      iex> org = %Marquee.Accounts.Organization{accent_color_base: "#112233", accent_color_hover: "#223344", accent_color_active: "#334455", accent_color_subtle: "#445566"}
+      iex> Marquee.Branding.Theme.derive_accent_variants(%{"accent_color_base" => "#AABBCC"}, org)
+      %{"accent_color_base" => "#AABBCC"}
+      iex> Marquee.Branding.Theme.derive_accent_variants(%{"accent_color_hover" => nil}, org)
+      %{"accent_color_hover" => "#112233"}
+  """
+  def derive_accent_variants(params, org) do
+    if Enum.any?(@preview_accent_fields, &Map.has_key?(params, &1)) do
+      org
+      |> Map.from_struct()
+      |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+      |> Map.take(@preview_accent_fields)
+      |> Map.merge(params)
+      |> derive_accent_variants()
+      |> then(&Organization.branding_changeset(org, &1))
+      |> Map.fetch!(:changes)
+      |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+    else
+      params
+    end
+  end
+
+  defp put_if_blank(params, key, value) do
+    case Map.get(params, key) do
+      v when is_binary(v) and v != "" -> params
+      _ -> Map.put(params, key, value)
+    end
+  end
+
+  defp shift_lightness(oklch, delta) do
+    case parse_oklch(oklch) do
+      {:ok, l, c, h} ->
+        "oklch(#{format_number(clamp(l + delta, 0.0, 1.0))} #{format_number(c)} #{format_number(h)})"
+
+      :error ->
+        oklch
+    end
+  end
+
+  defp subtle_from(oklch) do
+    case parse_oklch(oklch) do
+      {:ok, _l, c, h} -> "oklch(0.28 #{format_number(c / 2)} #{format_number(h)})"
+      :error -> oklch
+    end
+  end
+
+  defp parse_oklch(str) do
+    case Regex.run(
+           ~r/\Aoklch\(\s*(#{@color_number})\s+(#{@color_number})\s+(#{@color_number})\s*\)\z/,
+           str
+         ) do
+      [_, l, c, h] -> {:ok, parse_number(l), parse_number(c), parse_number(h)}
+      _ -> :error
+    end
+  end
+
+  defp parse_number(s) do
+    {number, ""} = Float.parse(if String.starts_with?(s, "."), do: "0" <> s, else: s)
+    number
+  end
+
+  defp clamp(v, lo, hi), do: v |> max(lo) |> min(hi)
+  defp format_number(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 3)
 
   @doc """
   Returns the castable theme attributes of `draft` that differ from `saved`,

@@ -27,22 +27,22 @@ defmodule MarqueeFeatures.Steps.Branding do
   @unsaved_background "#123456"
   @background_input "[data-test=color-input-background] input[type=text]"
 
-  when_ "I select a preset theme such as midnight or daybreak", fn world ->
+  when_("I select a preset theme such as midnight or daybreak", fn world ->
     session =
       world.session
       |> click(css("[data-test=preset-drawer] summary"))
       |> click(css("[data-test=preset-card-#{@preview_preset_name}]"))
 
     Map.merge(world, %{session: session, preview_preset: @preview_preset_name})
-  end
+  end)
 
-  then_ "a preview of the theme colors is displayed", fn world ->
+  then_("a preview of the theme colors is displayed", fn world ->
     assert_text(world.session, "Previewing")
     assert_text(world.session, world.preview_preset)
     world
-  end
+  end)
 
-  then_ "when I apply it the viewer site reflects the new color scheme", fn world ->
+  then_("when I apply it the viewer site reflects the new color scheme", fn world ->
     # Catalog may or may not be empty; the app shows apply-preset-btn
     # when empty, overwrite-preset-btn when populated (with data-confirm).
     %{results: rows} = Catalog.list_rows(world.org)
@@ -62,9 +62,9 @@ defmodule MarqueeFeatures.Steps.Branding do
     assert theme, "expected a theme to be saved for #{world.org.slug}"
 
     Map.put(world, :session, session)
-  end
+  end)
 
-  given_ "I have previewed a theme preset", fn world ->
+  given_("I have previewed a theme preset", fn world ->
     session =
       world.session
       |> visit("/admin/appearance?org=#{world.org.slug}")
@@ -72,9 +72,9 @@ defmodule MarqueeFeatures.Steps.Branding do
       |> click(css("[data-test=preset-card-#{@preview_preset_name}]"))
 
     Map.merge(world, %{session: session, preview_preset: @preview_preset_name})
-  end
+  end)
 
-  when_ "I confirm and apply the preset", fn world ->
+  when_("I confirm and apply the preset", fn world ->
     %{results: rows} = Catalog.list_rows(world.org)
 
     session =
@@ -87,73 +87,76 @@ defmodule MarqueeFeatures.Steps.Branding do
       end
 
     Map.put(world, :session, session)
-  end
+  end)
 
-  then_ "the theme is saved", fn world ->
+  then_("the theme is saved", fn world ->
     theme = Branding.get_theme_by_org(world.org)
     assert theme, "expected a theme to be saved for #{world.org.slug}"
     world
-  end
+  end)
 
-  then_ "the viewer site immediately reflects the new theme", fn world ->
+  then_("the viewer site immediately reflects the new theme", fn world ->
     # The viewer site reads the same saved theme — asserting the DB
     # write (above) is the necessary condition. No page navigation
     # required since preset application broadcasts via PubSub to any
     # live session.
     world
-  end
+  end)
 
   # ---- Preview without applying -------------------------------------------
 
-  when_ "I hover over or click preview on a preset", fn world ->
+  when_("I hover over or click preview on a preset", fn world ->
     session =
       world.session
       |> click(css("[data-test=preset-drawer] summary"))
       |> click(css("[data-test=preset-card-#{@preview_preset_name}]"))
 
     Map.merge(world, %{session: session, preview_preset: @preview_preset_name})
-  end
+  end)
 
-  then_ "the color preview updates in the UI", fn world ->
+  then_("the color preview updates in the UI", fn world ->
     assert_text(world.session, "Previewing")
     world
-  end
+  end)
 
-  then_ "but the live viewer site is not changed until I apply", fn world ->
+  then_("but the live viewer site is not changed until I apply", fn world ->
     # The saved theme should still match the pre-preview state (i.e.
     # whatever was active before this scenario started — for a fresh
     # org that's the default theme, not the previewed one).
     theme = Branding.get_theme_by_org(world.org)
+
     refute theme && theme.preset_name == world.preview_preset,
            "expected #{world.preview_preset} NOT to be persisted before apply"
 
     world
-  end
+  end)
 
   # ---- Mini preview reuses canonical viewer components ---------------------
 
-  then_ "the mini preview renders the canonical hero carousel component", fn world ->
+  then_("the mini preview renders the canonical hero carousel component", fn world ->
     assert_has(world.session, css("[data-test=preview-frame] [data-test=hero-carousel]"))
     world
-  end
+  end)
 
-  then_ "the mini preview renders the canonical content row component", fn world ->
+  then_("the mini preview renders the canonical content row component", fn world ->
     assert_has(world.session, css("[data-test=preview-catalog-rows] .content-row"))
     world
-  end
+  end)
 
-  then_ "default hero, landscape, and portrait images populate the preview when the catalog is empty",
-       fn world ->
-    %{results: rows} = Catalog.list_rows(world.org)
-    assert rows == [], "expected an empty catalog for default-image preview check"
-    assert_has(world.session, css("[data-test=hero-slide-0] img[src*='picsum.photos']"))
-    assert_has(world.session, css("[data-test=preview-catalog-rows] img[src*='picsum.photos']"))
-    world
-  end
+  then_(
+    "default hero, landscape, and portrait images populate the preview when the catalog is empty",
+    fn world ->
+      %{results: rows} = Catalog.list_rows(world.org)
+      assert rows == [], "expected an empty catalog for default-image preview check"
+      assert_has(world.session, css("[data-test=hero-slide-0] img[src*='picsum.photos']"))
+      assert_has(world.session, css("[data-test=preview-catalog-rows] img[src*='picsum.photos']"))
+      world
+    end
+  )
 
   # ---- Unsaved draft survives navigating into the viewer site (issue #21) --
 
-  given_ "my catalog has a published video", fn world ->
+  given_("my catalog has a published video", fn world ->
     video =
       insert(:video,
         organization: world.org,
@@ -176,9 +179,9 @@ defmodule MarqueeFeatures.Steps.Branding do
     insert(:row_item, organization: world.org, row: row, video: video, position: 0)
 
     Map.put(world, :video, video)
-  end
+  end)
 
-  when_ "I change the background color without saving", fn world ->
+  when_("I change the background color without saving", fn world ->
     session =
       world.session
       |> fill_in(css(@background_input), with: @unsaved_background)
@@ -191,9 +194,9 @@ defmodule MarqueeFeatures.Steps.Branding do
     )
 
     Map.merge(world, %{session: session, unsaved_background: @unsaved_background})
-  end
+  end)
 
-  when_ "I click a video inside the preview", fn world ->
+  when_("I click a video inside the preview", fn world ->
     session =
       world.session
       |> click(css("[data-test=preview-frame] .sv-card-thumb-link", at: 0))
@@ -208,25 +211,25 @@ defmodule MarqueeFeatures.Steps.Branding do
            "expected the preview card to open the viewer watch page, landed on #{landed_on}"
 
     Map.put(world, :session, session)
-  end
+  end)
 
-  then_ "the viewer page shows my unsaved background color", fn world ->
+  then_("the viewer page shows my unsaved background color", fn world ->
     root = find(world.session, css("[data-test=sv-root]"))
 
     assert Element.attr(root, "style") =~ "--sv-bg-primary: #{world.unsaved_background}",
            "expected the viewer site to render the unsaved background colour"
 
     world
-  end
+  end)
 
-  then_ "a banner offers to take me back to the editor", fn world ->
+  then_("a banner offers to take me back to the editor", fn world ->
     assert_has(world.session, css("[data-test=impersonation-banner]"))
     assert_has(world.session, css("[data-test=appearance-preview-notice]"))
     assert_has(world.session, css("[data-test=appearance-preview-editor-link]"))
     world
-  end
+  end)
 
-  when_ "I return to the editor from the banner", fn world ->
+  when_("I return to the editor from the banner", fn world ->
     session =
       world.session
       |> click(css("[data-test=appearance-preview-editor-link]"))
@@ -235,14 +238,46 @@ defmodule MarqueeFeatures.Steps.Branding do
     assert String.contains?(current_path(session), "/admin/appearance")
 
     Map.put(world, :session, session)
-  end
+  end)
 
-  then_ "the background color input still holds my unsaved value", fn world ->
+  then_("the background color input still holds my unsaved value", fn world ->
     input = find(world.session, css(@background_input))
 
     assert Element.value(input) == world.unsaved_background,
            "expected the editor to restore the unsaved background colour"
 
     world
-  end
+  end)
+
+  when_("I open Appearance from the admin sidebar", fn world ->
+    session =
+      world.session
+      |> resize_window(1440, 1000)
+      |> visit("/admin?org=#{world.org.slug}")
+      |> click(css("[data-test=admin-nav-appearance]"))
+      |> assert_has(css("[data-test=preview-frame]"))
+
+    Map.put(world, :session, session)
+  end)
+
+  when_("I leave Appearance through the dashboard sidebar", fn world ->
+    session =
+      world.session
+      |> resize_window(1440, 1000)
+      |> click(css("[data-test=admin-nav-dashboard]"))
+      |> assert_has(css("h1", text: "Dashboard"))
+
+    Map.put(world, :session, session)
+  end)
+
+  then_("the public browse page shows no draft or member preview", fn world ->
+    session =
+      world.session
+      |> visit("/browse")
+      |> refute_has(css("[data-test=appearance-preview-notice]"))
+      |> refute_has(css("[data-test=impersonation-banner]"))
+      |> refute_has(css("[data-test=sv-root][style*='--sv-bg-primary: #{@unsaved_background}']"))
+
+    Map.put(world, :session, session)
+  end)
 end

@@ -158,7 +158,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
                 Showing unsaved appearance changes.
                 <.link
                   href={~p"/admin/appearance"}
-                  class="rounded underline underline-offset-2 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-white"
+                  class="inline-flex min-h-11 items-center rounded underline underline-offset-2 hover:decoration-2 focus-visible:outline-2 focus-visible:outline-white"
                   data-test="appearance-preview-editor-link"
                 >
                   Back to editor

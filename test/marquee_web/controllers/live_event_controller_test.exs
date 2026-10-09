@@ -1,7 +1,55 @@
 defmodule MarqueeWeb.Viewer.LiveEventControllerTest do
   use MarqueeWeb.ConnCase, async: true
 
+  alias Marquee.Accounts.Scope
+  alias MarqueeWeb.Plugs.MemberPreview
   alias MarqueeWeb.Viewer.LiveEventController
+
+  test "events index reuses the draft already resolved by the plug", %{conn: conn} do
+    org = insert(:organization)
+    user = insert(:user)
+    membership = insert(:membership, organization: org, user: user, role: :admin)
+
+    scope =
+      Scope.for_user(user)
+      |> Scope.with_organization(org, membership)
+
+    preview_id = Ecto.UUID.generate()
+
+    draft = %{
+      theme: %Marquee.Branding.Theme{background: "#123456"},
+      accent_color_base: "#ABCDEF",
+      display_font: "Playfair Display"
+    }
+
+    :ok = Marquee.Branding.put_theme_preview(org, preview_id, draft)
+
+    conn =
+      conn
+      |> init_test_session(%{
+        appearance_preview_id: preview_id,
+        member_preview_org_id: org.id,
+        member_preview_viewer_id: Ecto.UUID.generate()
+      })
+      |> fetch_query_params()
+      |> assign(:organization, org)
+      |> assign(:current_scope, scope)
+      |> MemberPreview.call([])
+
+    assert conn.assigns.theme_preview == draft
+    :ok = Marquee.Branding.clear_theme_preview(org, preview_id)
+
+    conn =
+      conn
+      |> assign(:flash, %{})
+      |> Phoenix.Controller.put_view(html: MarqueeWeb.Viewer.LiveEventHTML)
+      |> Phoenix.Controller.put_layout(false)
+      |> Phoenix.Controller.put_format("html")
+      |> LiveEventController.index(%{})
+
+    assert html_response(conn, 200) =~ "--sv-bg-primary: #123456"
+    assert html_response(conn, 200) =~ "appearance-preview-notice"
+  end
 
   # ---------------------------------------------------------------------------
   # GET /events — index

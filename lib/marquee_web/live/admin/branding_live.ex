@@ -9,7 +9,7 @@ defmodule MarqueeWeb.Admin.BrandingLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, push_navigate(socket, to: ~p"/admin/appearance")}
+    {:ok, redirect(socket, to: ~p"/admin/appearance")}
   end
 
   @impl true
