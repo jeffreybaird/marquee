@@ -82,4 +82,45 @@ describe("StaggerReveal", () => {
     }
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  it("checks reduced motion on each reveal: children added after it is turned on skip the animation", () => {
+    const el = track(2)
+    const { hook } = mountHook(StaggerReveal, el)
+    vi.runAllTimers()
+
+    setReducedMotion(true)
+    const added = document.createElement("article")
+    el.appendChild(added)
+    hook.updated()
+
+    expect(added.getAttribute("data-stagger-revealed")).toBe("true")
+    expect(added.style.opacity).toBe("")
+    expect(added.style.transform).toBe("")
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("checks reduced motion on each reveal: children added after it is turned off animate in", () => {
+    setReducedMotion(true)
+    const el = track(2)
+    const { hook } = mountHook(StaggerReveal, el)
+    const [first, second] = children(el)
+
+    setReducedMotion(false)
+    const added = document.createElement("article")
+    el.appendChild(added)
+    hook.updated()
+
+    expect(added.style.opacity).toBe("0")
+    expect(added.style.transform).toBe("translateY(12px)")
+    expect(added.getAttribute("data-stagger-revealed")).toBe("true")
+    // The children revealed at mount were already marked, so they stay untouched.
+    expect(first.style.opacity).toBe("")
+    expect(second.style.opacity).toBe("")
+
+    vi.runAllTimers()
+    expect(added.style.opacity).toBe("1")
+    expect(added.style.transform).toBe("translateY(0)")
+    expect(first.style.opacity).toBe("")
+    expect(second.style.opacity).toBe("")
+  })
 })

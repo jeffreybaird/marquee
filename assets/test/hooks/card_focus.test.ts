@@ -105,6 +105,29 @@ describe("CardFocus", () => {
     expect(focused(el)).toBe(true)
   })
 
+  it("checks reduced motion when the pointer enters, not when mounted", () => {
+    const { el } = card()
+    setReducedMotion(true)
+
+    el.dispatchEvent(new Event("mouseenter"))
+    vi.advanceTimersByTime(0)
+
+    expect(focused(el)).toBe(true)
+  })
+
+  it("restores the 500ms delay once reduced motion is turned off after mount", () => {
+    setReducedMotion(true)
+    const { el } = card()
+    setReducedMotion(false)
+
+    el.dispatchEvent(new Event("mouseenter"))
+    vi.advanceTimersByTime(499)
+    expect(focused(el)).toBe(false)
+
+    vi.advanceTimersByTime(1)
+    expect(focused(el)).toBe(true)
+  })
+
   it("does not inject a player without a playback id, and only one player at a time", () => {
     const { el } = card()
 
