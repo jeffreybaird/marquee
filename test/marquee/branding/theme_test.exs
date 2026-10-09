@@ -143,6 +143,75 @@ defmodule Marquee.Branding.ThemeTest do
     end
   end
 
+  describe "build_preview_css_vars/1" do
+    test "appends accent and display font overrides after the theme variables" do
+      theme = %Theme{background: "#123456", surface: "#1A1A1A"}
+
+      css =
+        Theme.build_preview_css_vars(%{
+          theme: theme,
+          accent_color_base: "#ABCDEF",
+          display_font: "Playfair Display"
+        })
+
+      assert css ==
+               Theme.build_css_vars(theme) <>
+                 "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF" <>
+                 "; --font-display: 'Playfair Display', Georgia, serif"
+    end
+
+    test "adds nothing for nil accent and font" do
+      theme = %Theme{background: "#123456"}
+
+      assert Theme.build_preview_css_vars(%{
+               theme: theme,
+               accent_color_base: nil,
+               display_font: nil
+             }) == Theme.build_css_vars(theme)
+    end
+
+    test "adds nothing for empty-string accent and font" do
+      theme = %Theme{background: "#123456"}
+
+      assert Theme.build_preview_css_vars(%{
+               theme: theme,
+               accent_color_base: "",
+               display_font: ""
+             }) == Theme.build_css_vars(theme)
+    end
+
+    test "emits only the accent override when the font is absent" do
+      theme = %Theme{}
+
+      css =
+        Theme.build_preview_css_vars(%{
+          theme: theme,
+          accent_color_base: "#ABCDEF",
+          display_font: nil
+        })
+
+      assert css ==
+               Theme.build_css_vars(theme) <>
+                 "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF"
+
+      refute css =~ "--font-display"
+    end
+
+    test "emits only the font override when the accent is absent" do
+      theme = %Theme{}
+
+      css =
+        Theme.build_preview_css_vars(%{
+          theme: theme,
+          accent_color_base: nil,
+          display_font: "Lora"
+        })
+
+      assert css == Theme.build_css_vars(theme) <> "; --font-display: 'Lora', Georgia, serif"
+      refute css =~ "--color-accent:"
+    end
+  end
+
   describe "changeset/2" do
     test "allows all viewer theme fields" do
       org = insert(:organization)

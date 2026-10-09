@@ -287,6 +287,75 @@ defmodule Marquee.Branding.Theme do
   end
 
   @doc """
+  Builds the inline style for an unsaved appearance draft: the theme's CSS
+  custom properties followed by the organization-level accent and display
+  font overrides, when present.
+
+  The editor's preview frame and the viewer site both render drafts through
+  this function so the two surfaces cannot drift.
+
+  ## Examples
+
+      iex> theme = %Marquee.Branding.Theme{background: "#123456"}
+      iex> css = Marquee.Branding.Theme.build_preview_css_vars(%{
+      ...>   theme: theme,
+      ...>   accent_color_base: "#ABCDEF",
+      ...>   display_font: "Playfair Display"
+      ...> })
+      iex> String.starts_with?(css, "--sv-bg-primary: #123456")
+      true
+      iex> String.ends_with?(css, "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF; --font-display: 'Playfair Display', Georgia, serif")
+      true
+
+      iex> theme = %Marquee.Branding.Theme{background: "#123456"}
+      iex> Marquee.Branding.Theme.build_preview_css_vars(%{theme: theme, accent_color_base: nil, display_font: nil}) ==
+      ...>   Marquee.Branding.Theme.build_css_vars(theme)
+      true
+
+  """
+  def build_preview_css_vars(%{theme: %__MODULE__{} = theme} = draft) do
+    [
+      build_css_vars(theme),
+      accent_override(Map.get(draft, :accent_color_base)),
+      display_font_override(Map.get(draft, :display_font))
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("; ")
+  end
+
+  defp accent_override(accent) when is_binary(accent) and accent != "",
+    do: "--color-accent: #{accent}; --color-accent-hover: #{accent}"
+
+  defp accent_override(_accent), do: nil
+
+  defp display_font_override(font) when is_binary(font) and font != "",
+    do: "--font-display: '#{font}', Georgia, serif"
+
+  defp display_font_override(_font), do: nil
+
+  @doc """
+  Returns the castable theme attributes of `draft` that differ from `saved`,
+  keyed by string so they can seed a changeset or form.
+
+  ## Examples
+
+      iex> saved = %Marquee.Branding.Theme{background: "#000000", surface: "#111111"}
+      iex> draft = %Marquee.Branding.Theme{background: "#123456", surface: "#111111"}
+      iex> Marquee.Branding.Theme.changed_attrs(draft, saved)
+      %{"background" => "#123456"}
+
+      iex> theme = %Marquee.Branding.Theme{background: "#000000"}
+      iex> Marquee.Branding.Theme.changed_attrs(theme, theme)
+      %{}
+
+  """
+  def changed_attrs(%__MODULE__{} = draft, %__MODULE__{} = saved) do
+    @castable_fields
+    |> Enum.reject(fn field -> Map.get(draft, field) == Map.get(saved, field) end)
+    |> Map.new(fn field -> {Atom.to_string(field), Map.get(draft, field)} end)
+  end
+
+  @doc """
   Builds CSS custom property string from the default theme preset.
 
   ## Examples

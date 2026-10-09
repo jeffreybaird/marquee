@@ -195,6 +195,50 @@ defmodule Marquee.Branding do
     end)
   end
 
+  @theme_preview_ttl 3_600_000
+
+  @doc """
+  Stores an operator's unsaved appearance draft under an org-scoped cache key.
+
+  The draft is a plain map of the editor's live preview state
+  (`%{theme: %Theme{}, accent_color_base: String.t() | nil, display_font: String.t() | nil}`).
+  It lives for one hour so an abandoned editor cannot leave a stale draft on
+  the viewer site indefinitely.
+
+  Exempt from doctest — uses the cache.
+  """
+  def put_theme_preview(%Marquee.Accounts.Organization{} = org, preview_id, draft)
+      when is_binary(preview_id) and is_map(draft) do
+    Cache.put(theme_preview_key(org, preview_id), draft, ttl: @theme_preview_ttl)
+  end
+
+  @doc """
+  Returns the stored appearance draft for an organization, or `nil`.
+
+  Exempt from doctest — uses the cache.
+  """
+  def get_theme_preview(_org, nil), do: nil
+
+  def get_theme_preview(%Marquee.Accounts.Organization{} = org, preview_id)
+      when is_binary(preview_id) do
+    case Cache.get(theme_preview_key(org, preview_id)) do
+      {:ok, draft} -> draft
+      :miss -> nil
+    end
+  end
+
+  @doc """
+  Removes a stored appearance draft. A no-op when nothing is stored.
+
+  Exempt from doctest — uses the cache.
+  """
+  def clear_theme_preview(%Marquee.Accounts.Organization{} = org, preview_id)
+      when is_binary(preview_id) do
+    Cache.delete(theme_preview_key(org, preview_id))
+  end
+
+  defp theme_preview_key(%{id: org_id}, preview_id), do: "theme_preview:#{org_id}:#{preview_id}"
+
   @doc """
   Returns the CSS custom property string for an organization's theme.
 
