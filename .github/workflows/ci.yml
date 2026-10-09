@@ -126,10 +126,22 @@ jobs:
       - name: Compile (warnings as errors)
         run: mix compile --warnings-as-errors
 
+      - name: Lint (credo)
+        run: mix credo --strict
+
+      - name: Audit dependencies
+        run: mix deps.audit
+
       - name: Run unit & integration tests (with coverage)
         run: mix coveralls --exclude e2e
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/marquee_test
+
+      # Dialyxir keeps its PLT under _build/test/, which the "Cache build" step
+      # above restores (keyed on mix.lock with a prefix fallback), so the PLT
+      # survives between runs without a separate cache entry.
+      - name: Dialyzer
+        run: mix dialyzer --format github
 
   e2e:
     name: E2E Tests
