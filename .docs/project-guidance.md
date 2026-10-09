@@ -263,9 +263,11 @@ Every create, update, delete logged via event system + `AuditSubscriber`. Audit 
 
 Before **every commit**:
 
-- Run `mix precommit` (starts with `mix format --force`, then `mix marquee.verify`) — format, compile (warnings as errors), credo, assets
+- Run `mix precommit` (starts with `mix format --force`, then `mix marquee.verify`) — format, compile (warnings as errors), credo,
+  `mix deps.audit` (dependency security advisories via `mix_audit`), assets
   type-check + tests + build, `mix test`, dialyzer, e2e; stops at first failure.
-  `--no-dialyzer` / `--no-e2e` skip the slow steps while iterating; run the full
+  `--no-dialyzer` / `--no-e2e` skip the slow steps while iterating; `--no-deps-audit`
+  skips the audit for offline runs (it fetches advisory data). Run the full
   suite before pushing.
 
 No commit if checks fail.

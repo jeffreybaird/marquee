@@ -7,12 +7,13 @@ defmodule Mix.Tasks.Marquee.Verify do
   1. `mix format --check-formatted`
   2. `mix compile --force --warnings-as-errors`
   3. `mix credo --strict`
-  4. `npm run typecheck --prefix assets` (`tsc --noEmit`)
-  5. `npm test --prefix assets` (vitest)
-  6. `mix esbuild marquee`
-  7. `mix test` (unit and integration, e2e excluded)
-  8. `mix dialyzer`
-  9. `mix test --only e2e` (needs Chrome and ChromeDriver)
+  4. `mix deps.audit` (dependency security advisories via `mix_audit`)
+  5. `npm run typecheck --prefix assets` (`tsc --noEmit`)
+  6. `npm test --prefix assets` (vitest)
+  7. `mix esbuild marquee`
+  8. `mix test` (unit and integration, e2e excluded)
+  9. `mix dialyzer`
+  10. `mix test --only e2e` (needs Chrome and ChromeDriver)
 
   Each step runs as its own `mix` or `npm` process so it behaves exactly as it
   does on the command line and in CI. The suite stops at the first failing
@@ -23,11 +24,14 @@ defmodule Mix.Tasks.Marquee.Verify do
       mix marquee.verify
       mix marquee.verify --no-e2e
       mix marquee.verify --no-dialyzer --no-e2e
+      mix marquee.verify --no-deps-audit
 
   ## Options
 
     * `--no-e2e` - skip the Wallaby browser suite
     * `--no-dialyzer` - skip dialyzer (slow until its PLT is built)
+    * `--no-deps-audit` - skip the dependency security audit, e.g. when
+      offline; the audit fetches advisory data from the network
   """
 
   use Mix.Task
@@ -36,6 +40,7 @@ defmodule Mix.Tasks.Marquee.Verify do
           :format
           | :compile
           | :credo
+          | :deps_audit
           | :assets_typecheck
           | :assets_test
           | :assets_build
@@ -46,7 +51,7 @@ defmodule Mix.Tasks.Marquee.Verify do
   @type step :: {step_name(), command()}
   @type runner :: (command() -> non_neg_integer())
 
-  @switches [e2e: :boolean, dialyzer: :boolean]
+  @switches [e2e: :boolean, dialyzer: :boolean, deps_audit: :boolean]
 
   @impl Mix.Task
   def run(args) do
@@ -61,10 +66,10 @@ defmodule Mix.Tasks.Marquee.Verify do
   Returns the ordered steps for the given options as `{name, {executable, args}}`.
 
       iex> Mix.Tasks.Marquee.Verify.steps([]) |> Enum.map(&elem(&1, 0))
-      [:format, :compile, :credo, :assets_typecheck, :assets_test, :assets_build, :test, :dialyzer, :e2e]
+      [:format, :compile, :credo, :deps_audit, :assets_typecheck, :assets_test, :assets_build, :test, :dialyzer, :e2e]
 
       iex> Mix.Tasks.Marquee.Verify.steps(e2e: false, dialyzer: false) |> Enum.map(&elem(&1, 0))
-      [:format, :compile, :credo, :assets_typecheck, :assets_test, :assets_build, :test]
+      [:format, :compile, :credo, :deps_audit, :assets_typecheck, :assets_test, :assets_build, :test]
 
       iex> Mix.Tasks.Marquee.Verify.steps([]) |> List.keyfind(:e2e, 0)
       {:e2e, {"mix", ["test", "--only", "e2e"]}}
@@ -75,6 +80,7 @@ defmodule Mix.Tasks.Marquee.Verify do
       {:format, {"mix", ["format", "--check-formatted"]}},
       {:compile, {"mix", ["compile", "--force", "--warnings-as-errors"]}},
       {:credo, {"mix", ["credo", "--strict"]}},
+      {:deps_audit, {"mix", ["deps.audit"]}},
       {:assets_typecheck, {"npm", ["run", "typecheck", "--prefix", "assets"]}},
       {:assets_test, {"npm", ["test", "--prefix", "assets"]}},
       {:assets_build, {"mix", ["esbuild", "marquee"]}},
