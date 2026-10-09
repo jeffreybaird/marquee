@@ -78,18 +78,12 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   ]
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     org = socket.assigns.organization
 
     {:ok, layout} = Catalog.get_or_create_layout(org)
     theme = Branding.get_theme_or_default(org)
-
-    branding_form =
-      org
-      |> Organization.branding_changeset(%{})
-      |> to_form()
-
-    theme_form = theme |> Branding.change_theme() |> to_form()
+    preview_id = session["appearance_preview_id"]
 
     {:ok,
      socket
@@ -97,14 +91,11 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
      |> assign(:layout_config, layout)
      |> assign(:selected_preset, layout.preset_name)
      |> assign(:presets, Presets.list())
-     |> assign(:branding_form, branding_form)
-     |> assign(:accent_preview, org.accent_color_base)
-     |> assign(:display_font_preview, org.display_font)
      |> assign(:display_fonts, Organization.approved_display_fonts())
      |> assign(:body_fonts, Organization.approved_body_fonts())
      |> assign(:theme, theme)
-     |> assign(:preview_theme, theme)
-     |> assign(:theme_form, theme_form)
+     |> assign(:appearance_preview_id, preview_id)
+     |> assign_editor_state(org, theme, Branding.get_theme_preview(org, preview_id))
      |> assign_catalog_state(org)
      |> assign_preview_rows(org)
      |> assign_preview_hero_slides(org)
@@ -135,11 +126,19 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
 
     theme = socket.assigns.theme
     preview = apply_theme_preview(theme, theme_params)
+    accent = Map.get(org_params, "accent_color_base") || ""
+    display_font = Map.get(org_params, "display_font") || ""
+
+    store_theme_preview(socket, %{
+      theme: preview,
+      accent_color_base: accent,
+      display_font: display_font
+    })
 
     {:noreply,
      socket
-     |> assign(:accent_preview, Map.get(org_params, "accent_color_base") || "")
-     |> assign(:display_font_preview, Map.get(org_params, "display_font") || "")
+     |> assign(:accent_preview, accent)
+     |> assign(:display_font_preview, display_font)
      |> assign(
        :branding_form,
        socket.assigns.organization
@@ -162,11 +161,14 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
     with {:branding, {:ok, updated_org}} <-
            {:branding, Accounts.update_organization_branding(scope, org, org_params)},
          {:theme, {:ok, updated_theme}} <- {:theme, save_theme(scope, theme, theme_params, org)} do
+      clear_theme_preview(socket)
+
       {:noreply,
        socket
        |> assign(:organization, updated_org)
        |> assign(:theme, updated_theme)
        |> assign(:preview_theme, updated_theme)
+       |> assign(:preview_restored?, false)
        |> assign(:theme_form, to_form(Branding.change_theme(updated_theme)))
        |> assign(
          :branding_form,
@@ -193,6 +195,56 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   def handle_event(event, _params, socket)
       when event in ~w(card_toggle_favorite card_add_to_watchlist card_add_to_queue dismiss_continue),
       do: {:noreply, socket}
+
+  # Without a draft the editor opens on the saved values. With one (the
+  # operator navigated the viewer site and came back) the forms and preview
+  # pick up where they left off so Save persists what they were looking at.
+  defp assign_editor_state(socket, org, theme, nil) do
+    socket
+    |> assign(:branding_form, org |> Organization.branding_changeset(%{}) |> to_form())
+    |> assign(:accent_preview, org.accent_color_base)
+    |> assign(:display_font_preview, org.display_font)
+    |> assign(:preview_theme, theme)
+    |> assign(:theme_form, theme |> Branding.change_theme() |> to_form())
+    |> assign(:preview_restored?, false)
+  end
+
+  defp assign_editor_state(socket, org, theme, %{theme: %Theme{} = draft_theme} = draft) do
+    accent = Map.get(draft, :accent_color_base)
+    display_font = Map.get(draft, :display_font)
+
+    branding_form =
+      org
+      |> Organization.branding_changeset(draft_branding_params(accent, display_font))
+      |> to_form()
+
+    socket
+    |> assign(:branding_form, branding_form)
+    |> assign(:accent_preview, accent)
+    |> assign(:display_font_preview, display_font)
+    |> assign(:preview_theme, draft_theme)
+    |> assign(
+      :theme_form,
+      theme |> Branding.change_theme(Theme.changed_attrs(draft_theme, theme)) |> to_form()
+    )
+    |> assign(:preview_restored?, true)
+  end
+
+  defp draft_branding_params(accent, display_font) do
+    [{"accent_color_base", accent}, {"display_font", display_font}]
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp store_theme_preview(%{assigns: %{appearance_preview_id: nil}}, _draft), do: :ok
+
+  defp store_theme_preview(%{assigns: assigns}, draft),
+    do: Branding.put_theme_preview(assigns.organization, assigns.appearance_preview_id, draft)
+
+  defp clear_theme_preview(%{assigns: %{appearance_preview_id: nil}}), do: :ok
+
+  defp clear_theme_preview(%{assigns: assigns}),
+    do: Branding.clear_theme_preview(assigns.organization, assigns.appearance_preview_id)
 
   defp save_theme(_scope, %Theme{id: nil}, params, %{id: org_id}) do
     Branding.create_theme(Map.put(params, "organization_id", org_id))
@@ -608,6 +660,15 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
         data-test="branding-editor"
       >
         <div class="space-y-10">
+          <p
+            :if={@preview_restored?}
+            class="rounded-md border border-admin-border bg-admin-card px-4 py-3 text-sm text-admin-fg"
+            role="status"
+            data-test="appearance-preview-restored"
+          >
+            Restored your unsaved appearance changes.
+          </p>
+
           <.form
             for={@branding_form}
             phx-change="validate_appearance"
@@ -822,10 +883,10 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
         <div
           class="sv-root min-h-full"
           style={
-            preview_style(%{
-              preview_theme: @preview_theme,
-              accent_preview: @accent_preview,
-              display_font_preview: @display_font_preview
+            Theme.build_preview_css_vars(%{
+              theme: @preview_theme,
+              accent_color_base: @accent_preview,
+              display_font: @display_font_preview
             })
           }
         >
@@ -859,7 +920,16 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   attr :expanded, :boolean, default: false
 
   defp preview_panel(assigns) do
-    assigns = assign(assigns, :style, preview_style(assigns))
+    assigns =
+      assign(
+        assigns,
+        :style,
+        Theme.build_preview_css_vars(%{
+          theme: assigns.preview_theme,
+          accent_color_base: assigns.accent_preview,
+          display_font: assigns.display_font_preview
+        })
+      )
 
     ~H"""
     <div class="relative">
@@ -928,32 +998,6 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   end
 
   defp presence(value), do: value
-
-  # Merge Theme-driven `--sv-*` vars with Organization-driven tokens so the
-  # preview reflects both the Brand form (accent + display font) and the
-  # Surface colors form (everything else) in real time.
-  defp preview_style(assigns) do
-    theme_css = Theme.build_css_vars(assigns.preview_theme)
-
-    accent =
-      case assigns.accent_preview do
-        a when is_binary(a) and a != "" -> "--color-accent: #{a}; --color-accent-hover: #{a};"
-        _ -> ""
-      end
-
-    font =
-      case assigns.display_font_preview do
-        f when is_binary(f) and f != "" ->
-          "--font-display: '#{f}', Georgia, serif;"
-
-        _ ->
-          ""
-      end
-
-    [theme_css, accent, font]
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join("; ")
-  end
 
   attr :form, :map, required: true
   attr :field, :atom, required: true

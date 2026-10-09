@@ -67,3 +67,13 @@ Feature: Theme and Color Customization
     And the mini preview renders the canonical content row component
     And default hero, landscape, and portrait images populate the preview when the catalog is empty
 
+  Scenario: Operator keeps unsaved colors while navigating the viewer site from the preview
+    Given my catalog has a published video
+    And I am on the appearance settings page
+    When I change the background color without saving
+    And I click a video inside the preview
+    Then the viewer page shows my unsaved background color
+    And a banner offers to take me back to the editor
+    When I return to the editor from the banner
+    Then the background color input still holds my unsaved value
+

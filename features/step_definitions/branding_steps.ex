@@ -13,6 +13,7 @@ defmodule MarqueeFeatures.Steps.Branding do
   use Wallaby.DSL
   import Wallaby.Query
   import ExUnit.Assertions
+  import Marquee.Factory
 
   alias Marquee.Branding
   alias Marquee.Catalog
@@ -20,6 +21,11 @@ defmodule MarqueeFeatures.Steps.Branding do
   # Pick a preset the app ships. Midnight and daybreak are first-class
   # in the feature wording; either one exercises the same code path.
   @preview_preset_name "midnight"
+
+  # A colour no preset ships, so its presence proves the unsaved draft is
+  # what the viewer site rendered.
+  @unsaved_background "#123456"
+  @background_input "[data-test=color-input-background] input[type=text]"
 
   when_ "I select a preset theme such as midnight or daybreak", fn world ->
     session =
@@ -142,6 +148,101 @@ defmodule MarqueeFeatures.Steps.Branding do
     assert rows == [], "expected an empty catalog for default-image preview check"
     assert_has(world.session, css("[data-test=hero-slide-0] img[src*='picsum.photos']"))
     assert_has(world.session, css("[data-test=preview-catalog-rows] img[src*='picsum.photos']"))
+    world
+  end
+
+  # ---- Unsaved draft survives navigating into the viewer site (issue #21) --
+
+  given_ "my catalog has a published video", fn world ->
+    video =
+      insert(:video,
+        organization: world.org,
+        title: "Draft Preview Video",
+        mux_status: "ready",
+        published: true
+      )
+
+    # A visible curated row holding the video makes the appearance preview
+    # render a real `/watch/<id>` card link, exactly like the viewer home.
+    row =
+      insert(:row,
+        organization: world.org,
+        title: "Draft Preview Row",
+        source_type: :curated,
+        visible: true,
+        position: 0
+      )
+
+    insert(:row_item, organization: world.org, row: row, video: video, position: 0)
+
+    Map.put(world, :video, video)
+  end
+
+  when_ "I change the background color without saving", fn world ->
+    session =
+      world.session
+      |> fill_in(css(@background_input), with: @unsaved_background)
+
+    # `phx-change` streams the draft into the inline preview; wait for it so
+    # the navigation that follows happens after the draft has been stored.
+    assert_has(
+      session,
+      css("[data-test=preview-frame] [style*='--sv-bg-primary: #{@unsaved_background}']")
+    )
+
+    Map.merge(world, %{session: session, unsaved_background: @unsaved_background})
+  end
+
+  when_ "I click a video inside the preview", fn world ->
+    session =
+      world.session
+      |> click(css("[data-test=preview-frame] .sv-card-thumb-link", at: 0))
+
+    # The card is a real viewer link, so this is a full page load into the
+    # viewer site's watch page. Landing anywhere else (for example `/login`)
+    # means the preview session did not carry over into the viewer site.
+    assert_has(session, css("[data-test=sv-root]"))
+    landed_on = current_path(session)
+
+    assert landed_on =~ "/watch/#{world.video.id}",
+           "expected the preview card to open the viewer watch page, landed on #{landed_on}"
+
+    Map.put(world, :session, session)
+  end
+
+  then_ "the viewer page shows my unsaved background color", fn world ->
+    root = find(world.session, css("[data-test=sv-root]"))
+
+    assert Element.attr(root, "style") =~ "--sv-bg-primary: #{world.unsaved_background}",
+           "expected the viewer site to render the unsaved background colour"
+
+    world
+  end
+
+  then_ "a banner offers to take me back to the editor", fn world ->
+    assert_has(world.session, css("[data-test=impersonation-banner]"))
+    assert_has(world.session, css("[data-test=appearance-preview-notice]"))
+    assert_has(world.session, css("[data-test=appearance-preview-editor-link]"))
+    world
+  end
+
+  when_ "I return to the editor from the banner", fn world ->
+    session =
+      world.session
+      |> click(css("[data-test=appearance-preview-editor-link]"))
+
+    assert_has(session, css("[data-test=appearance-preview-restored]"))
+    assert String.contains?(current_path(session), "/admin/appearance")
+
+    Map.put(world, :session, session)
+  end
+
+  then_ "the background color input still holds my unsaved value", fn world ->
+    input = find(world.session, css(@background_input))
+
+    assert Element.value(input) == world.unsaved_background,
+           "expected the editor to restore the unsaved background colour"
+
     world
   end
 end
