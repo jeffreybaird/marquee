@@ -40,6 +40,50 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
       assert :dialyzer not in step_names(dialyzer: false)
       assert length(step_names(dialyzer: false, e2e: false)) == length(step_names([])) - 2
     end
+
+    test "audits dependencies right after credo and before the asset checks" do
+      names = step_names([])
+      credo_index = Enum.find_index(names, &(&1 == :credo))
+
+      assert Enum.at(names, credo_index + 1) == :deps_audit
+      assert Enum.at(names, credo_index + 2) == :assets_typecheck
+
+      assert names == [
+               :format,
+               :compile,
+               :credo,
+               :deps_audit,
+               :assets_typecheck,
+               :assets_test,
+               :assets_build,
+               :test,
+               :dialyzer,
+               :e2e
+             ]
+    end
+
+    test "runs the dependency audit as mix deps.audit" do
+      commands = Verify.steps([]) |> Enum.map(&elem(&1, 1))
+
+      assert {"mix", ["deps.audit"]} in commands
+
+      assert List.keyfind(Verify.steps([]), :deps_audit, 0) ==
+               {:deps_audit, {"mix", ["deps.audit"]}}
+    end
+
+    test "--no-deps-audit drops only the dependency audit" do
+      names = step_names(deps_audit: false)
+
+      assert :deps_audit not in names
+      assert names == List.delete(step_names([]), :deps_audit)
+      assert length(names) == length(step_names([])) - 1
+    end
+
+    test "--no-e2e and --no-dialyzer keep the dependency audit" do
+      assert :deps_audit in step_names(e2e: false, dialyzer: false)
+      assert :deps_audit in step_names(e2e: false)
+      assert :deps_audit in step_names(dialyzer: false)
+    end
   end
 
   describe "run_steps/2" do
@@ -56,6 +100,8 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
 
       assert_received {:mix_shell, :info,
                        ["==> marquee.verify: format (mix format --check-formatted)"]}
+
+      assert_received {:mix_shell, :info, ["==> marquee.verify: deps_audit (mix deps.audit)"]}
 
       assert_received {:mix_shell, :info, ["==> marquee.verify: e2e (mix test --only e2e)"]}
     end
