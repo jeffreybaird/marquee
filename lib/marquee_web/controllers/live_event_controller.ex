@@ -30,7 +30,7 @@ defmodule MarqueeWeb.Viewer.LiveEventController do
     scope = conn.assigns[:current_scope]
 
     viewer = MemberPreview.viewer(session, scope, org) || resolve_viewer(conn)
-    theme_preview = MemberPreview.theme_preview(session, scope, org)
+    theme_preview = conn.assigns[:theme_preview]
     theme = resolve_theme(org, theme_preview)
 
     %{results: live_now} = Streaming.list_live_events(org, status: "live", per_page: 20)

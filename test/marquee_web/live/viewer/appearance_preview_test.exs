@@ -3,8 +3,8 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
   Issue #21 — unsaved appearance changes must survive navigating from the
   `/admin/appearance` preview into the real viewer site and back.
 
-  Opening the editor starts an appearance preview session. While it is active
-  the operator browses the viewer site as a read-only member preview that
+  Opening the editor starts a draft session. Explicit preview navigation lets
+  the operator browse the viewer site as a read-only member preview that
   renders the *draft* theme, with a banner back to the editor. Returning to
   the editor restores the draft. Any other admin page, or saving, ends it.
   """
@@ -15,6 +15,7 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
 
   alias Marquee.Branding
   alias Marquee.Branding.Theme
+  alias Plug.Conn.Query
 
   @draft_background "#123456"
   @draft_accent "#ABCDEF"
@@ -78,7 +79,7 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
     assert Branding.get_theme_preview(org, get_session(conn, :appearance_preview_id)),
            "expected validate_appearance to store a draft for the session's preview id"
 
-    {conn, view}
+    {conn |> recycle() |> get("/browse?preview=member"), view}
   end
 
   # The inline `style` attribute of the viewer root element, read precisely
@@ -123,7 +124,7 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
   describe "opening the appearance editor" do
     setup :setup_org
 
-    test "starts an appearance preview session and a member preview", %{
+    test "starts a draft session without replacing the viewer identity", %{
       conn: conn,
       user: user,
       org: org
@@ -131,8 +132,8 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
       conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
 
       assert is_binary(get_session(conn, :appearance_preview_id))
-      assert get_session(conn, :member_preview_org_id) == org.id
-      assert is_binary(get_session(conn, :member_preview_viewer_id))
+      refute get_session(conn, :member_preview_org_id)
+      refute get_session(conn, :member_preview_viewer_id)
       refute html_response(conn, 200) =~ "appearance-preview-restored"
     end
 
@@ -219,11 +220,14 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
       org: org
     } do
       other_org = insert(:organization)
+      insert(:membership, organization: other_org, user: user, role: :admin)
       {conn, _view} = open_editor_with_draft(conn, user, org)
 
       other = conn |> recycle() |> get("/browse?org=#{other_org.slug}")
 
-      refute get_session(other, :appearance_preview_id)
+      assert get_session(other, :appearance_preview_id) ==
+               get_session(conn, :appearance_preview_id)
+
       refute get_session(other, :member_preview_org_id)
       refute other.assigns[:theme_preview]
 
@@ -232,6 +236,14 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
       html = html_response(other, 200)
       refute html =~ @draft_background
       refute html =~ "appearance-preview-notice"
+
+      {:ok, editor, _} = live(recycle(other), "/admin/appearance?org=#{org.slug}")
+      assert has_element?(editor, "[data-test=appearance-preview-restored]")
+
+      assert has_element?(
+               editor,
+               "[data-test=color-input-background] input[value='#{@draft_background}']"
+             )
     end
   end
 
@@ -367,5 +379,295 @@ defmodule MarqueeWeb.Viewer.AppearancePreviewTest do
                "[data-test=color-input-background] input[type=text][value='#654321']"
              )
     end
+  end
+
+  describe "review regressions" do
+    setup :setup_org
+
+    test "editor visit preserves a signed-in viewer until explicit preview", %{
+      user: user,
+      org: org
+    } do
+      viewer = insert(:viewer, organization: org, display_name: "Real Viewer")
+      conn = conn_for_viewer(viewer)
+      conn = put_session(conn, :user_token, Marquee.Accounts.generate_user_session_token(user))
+      conn = get(conn, "/admin/appearance")
+
+      {:ok, account, _} = live(recycle(conn), "/account")
+      assert has_element?(account, "[data-test=account-display-name]", "Real Viewer")
+      assert has_element?(account, "[data-test=account-edit-btn]")
+      refute has_element?(account, "[data-test=impersonation-banner]")
+
+      preview = conn |> recycle() |> get("/browse?preview=member")
+      {:ok, account, _} = live(recycle(preview), "/account")
+      assert has_element?(account, "[data-test=account-display-name]", "Member preview")
+      refute has_element?(account, "[data-test=account-edit-btn]")
+      render_click(account, "save", %{"viewer" => %{"display_name" => "Tampered"}})
+      assert Marquee.Viewers.get_viewer_by_id(viewer.id).display_name == "Real Viewer"
+    end
+
+    test "restored notice clears on the first subsequent edit", %{
+      conn: conn,
+      user: user,
+      org: org
+    } do
+      {conn, _} = open_editor_with_draft(conn, user, org)
+      {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+      assert has_element?(editor, "[data-test=appearance-preview-restored]")
+      editor |> form(@form, %{theme: %{background: "#654321"}}) |> render_change()
+      refute has_element?(editor, "[data-test=appearance-preview-restored]")
+    end
+
+    for restore? <- [false, true] do
+      @restore_draft restore?
+      test "full form preserves concurrent untouched values, restore=#{restore?}", %{
+        conn: conn,
+        user: user,
+        org: org,
+        saved_theme: saved_theme
+      } do
+        conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
+        {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+        params = full_form_params(editor) |> put_in(["theme", "background"], @draft_background)
+        render_change(editor, "validate_appearance", params)
+
+        {:ok, _} = Branding.update_theme(saved_theme, %{surface: "#456789"})
+
+        {:ok, _} =
+          Marquee.Accounts.update_organization_branding(org, %{
+            display_font: "Bodoni Moda",
+            accent_color_base: "#224466"
+          })
+
+        {editor, params} =
+          if @restore_draft do
+            preview = conn |> recycle() |> get("/browse?preview=member")
+            {:ok, browse, _} = live(recycle(preview), "/browse")
+            assert sv_root_style(browse) =~ "--sv-bg-secondary: #456789"
+            assert sv_root_style(browse) =~ "--sv-bg-primary: #{@draft_background}"
+            html = preview |> recycle() |> get("/browse") |> html_response(200)
+            assert html =~ "family=Bodoni+Moda"
+            refute html =~ "family=DM+Serif+Display"
+
+            {:ok, restored, _} = live(recycle(preview), "/admin/appearance")
+
+            assert has_element?(
+                     restored,
+                     "[data-test=color-input-surface] input[value='#456789']"
+                   )
+
+            assert has_element?(
+                     restored,
+                     "[data-test=color-input-accent_color_base] input[value='#224466']"
+                   )
+
+            params = full_form_params(restored) |> put_in(["theme", "text_primary"], "#EEEEEE")
+            render_change(restored, "validate_appearance", params)
+            {restored, params}
+          else
+            {editor, params}
+          end
+
+        render_submit(editor, "save_appearance", params)
+        saved = Branding.get_theme_or_default(org)
+        assert saved.background == @draft_background
+        assert saved.surface == "#456789"
+        if @restore_draft, do: assert(saved.text_primary == "#EEEEEE")
+        {:ok, updated_org} = Marquee.Accounts.get_organization(org.id)
+        assert updated_org.display_font == "Bodoni Moda"
+        assert updated_org.accent_color_base == "#224466"
+      end
+    end
+
+    test "preview accent variants match persisted values", %{conn: conn, user: user, org: org} do
+      conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
+      {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+
+      params = %{
+        organization: %{
+          accent_color_base: "oklch(0.6 0.2 30)",
+          accent_color_hover: "",
+          accent_color_active: "",
+          accent_color_subtle: ""
+        }
+      }
+
+      editor |> form(@form, params) |> render_change()
+      preview = conn |> recycle() |> get("/browse?preview=member")
+      {:ok, browse, _} = live(recycle(preview), "/browse")
+      style = sv_root_style(browse)
+      assert style =~ "--color-accent-hover: oklch(0.660 0.200 30.000)"
+      assert style =~ "--color-accent-active: oklch(0.540 0.200 30.000)"
+      assert style =~ "--color-accent-subtle: oklch(0.28 0.100 30.000)"
+      editor |> form(@form, params) |> render_submit()
+      {:ok, saved} = Marquee.Accounts.get_organization(org.id)
+      assert style =~ "--color-accent-hover: #{saved.accent_color_hover}"
+      assert style =~ "--color-accent-active: #{saved.accent_color_active}"
+      assert style =~ "--color-accent-subtle: #{saved.accent_color_subtle}"
+    end
+
+    test "explicit accent variants survive form preview and save", %{
+      conn: conn,
+      user: user,
+      org: org
+    } do
+      conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
+      {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+
+      params = %{
+        organization: %{
+          accent_color_base: "#112233",
+          accent_color_hover: "#223344",
+          accent_color_active: "#334455",
+          accent_color_subtle: "#445566"
+        }
+      }
+
+      editor |> form(@form, params) |> render_change()
+
+      [inline] =
+        editor
+        |> element("[data-test=preview-frame]")
+        |> render()
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("[data-test=preview-frame] > .sv-root")
+        |> LazyHTML.attribute("style")
+
+      preview = conn |> recycle() |> get("/browse?preview=member")
+      {:ok, browse, _} = live(recycle(preview), "/browse")
+
+      for style <- [inline, sv_root_style(browse)] do
+        assert style =~ "--color-accent-hover: #223344"
+        assert style =~ "--color-accent-active: #334455"
+        assert style =~ "--color-accent-subtle: #445566"
+      end
+
+      editor |> form(@form, params) |> render_submit()
+      {:ok, saved} = Marquee.Accounts.get_organization(org.id)
+      assert saved.accent_color_hover == "#223344"
+      assert saved.accent_color_active == "#334455"
+      assert saved.accent_color_subtle == "#445566"
+    end
+
+    for edit <- [:base, :clear_hover] do
+      @accent_edit edit
+      test "full form accent edit #{@accent_edit} preserves explicit variants and derives cleared slots",
+           %{
+             conn: conn,
+             user: user,
+             org: org
+           } do
+        {:ok, org} =
+          Marquee.Accounts.update_organization_branding(org, %{
+            accent_color_base: "oklch(0.6 0.2 30)",
+            accent_color_hover: "#223344",
+            accent_color_active: "#334455",
+            accent_color_subtle: "#445566"
+          })
+
+        conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
+        {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+        params = full_form_params(editor)
+        assert params["organization"]["accent_color_hover"] == "#223344"
+        assert params["organization"]["accent_color_active"] == "#334455"
+        assert params["organization"]["accent_color_subtle"] == "#445566"
+
+        {params, base, hover} =
+          if @accent_edit == :base do
+            {put_in(params, ["organization", "accent_color_base"], "oklch(0.7 0.2 30)"),
+             "oklch(0.7 0.2 30)", "#223344"}
+          else
+            {put_in(params, ["organization", "accent_color_hover"], ""), "oklch(0.6 0.2 30)",
+             "oklch(0.660 0.200 30.000)"}
+          end
+
+        render_change(editor, "validate_appearance", params)
+
+        [inline] =
+          editor
+          |> element("[data-test=preview-frame]")
+          |> render()
+          |> LazyHTML.from_fragment()
+          |> LazyHTML.query("[data-test=preview-frame] > .sv-root")
+          |> LazyHTML.attribute("style")
+
+        preview = conn |> recycle() |> get("/browse?preview=member")
+        {:ok, browse, _} = live(recycle(preview), "/browse")
+        viewer_style = sv_root_style(browse)
+        render_submit(editor, "save_appearance", params)
+        {:ok, saved} = Marquee.Accounts.get_organization(org.id)
+
+        assert saved.accent_color_base == base
+        assert saved.accent_color_hover == hover
+        assert saved.accent_color_active == "#334455"
+        assert saved.accent_color_subtle == "#445566"
+
+        for style <- [inline, viewer_style] do
+          assert style =~ "--color-accent: #{base}"
+          assert style =~ "--color-accent-hover: #{hover}"
+          assert style =~ "--color-accent-active: #334455"
+          assert style =~ "--color-accent-subtle: #445566"
+        end
+      end
+    end
+
+    test "invalid font and CSS colors never reach preview rendering", %{
+      conn: conn,
+      user: user,
+      org: org
+    } do
+      conn = conn |> log_in_user(user) |> get("/admin/appearance?org=#{org.slug}")
+      {:ok, editor, _} = live(recycle(conn), "/admin/appearance")
+      malicious_font = "Foo&family=Injected'; --injected: yes; /*"
+      malicious_color = "red; --injected: yes"
+
+      render_change(editor, "validate_appearance", %{
+        "organization" => %{
+          "display_font" => malicious_font,
+          "accent_color_base" => malicious_color
+        },
+        "theme" => %{"background" => @draft_background, "surface" => malicious_color}
+      })
+
+      [frame_style] =
+        editor
+        |> element("[data-test=preview-frame]")
+        |> render()
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("[data-test=preview-frame] > .sv-root")
+        |> LazyHTML.attribute("style")
+
+      refute frame_style =~ "Injected"
+      refute frame_style =~ "--injected"
+      preview = conn |> recycle() |> get("/browse?preview=member")
+      html = html_response(preview, 200)
+      refute html =~ "Injected"
+      refute html =~ "--injected"
+      assert html =~ "--sv-bg-primary: #{@draft_background}"
+    end
+  end
+
+  # Use every successful named form control, matching the browser payload.
+  defp full_form_params(view) do
+    document = view |> element(@form) |> render() |> LazyHTML.from_fragment()
+
+    inputs =
+      document
+      |> LazyHTML.query("input[name]")
+      |> Enum.map(fn input ->
+        {[name], values} = {LazyHTML.attribute(input, "name"), LazyHTML.attribute(input, "value")}
+        {name, List.first(values) || ""}
+      end)
+
+    selects =
+      document
+      |> LazyHTML.query("select[name]")
+      |> Enum.map(fn select ->
+        [name] = LazyHTML.attribute(select, "name")
+        values = select |> LazyHTML.query("option[selected]") |> LazyHTML.attribute("value")
+        {name, List.first(values) || ""}
+      end)
+
+    (inputs ++ selects) |> URI.encode_query() |> Query.decode()
   end
 end

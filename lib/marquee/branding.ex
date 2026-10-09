@@ -200,8 +200,10 @@ defmodule Marquee.Branding do
   @doc """
   Stores an operator's unsaved appearance draft under an org-scoped cache key.
 
-  The draft is a plain map of the editor's live preview state
-  (`%{theme: %Theme{}, accent_color_base: String.t() | nil, display_font: String.t() | nil}`).
+  The editor stores `%{theme_params: map, organization_params: map}` containing
+  only changes relative to its saved baseline. Resolve these with
+  `resolve_theme_preview/2` before rendering. Legacy full-preview maps are also
+  accepted and round-trip unchanged.
   It lives for one hour so an abandoned editor cannot leave a stale draft on
   the viewer site indefinitely.
 
@@ -226,6 +228,48 @@ defmodule Marquee.Branding do
       :miss -> nil
     end
   end
+
+  @doc """
+  Resolves an editor delta against the latest persisted theme and branding.
+
+  Legacy full-preview maps remain supported. Exempt from doctest — reads the database.
+  """
+  def resolve_theme_preview(org, %{theme_params: theme_params, organization_params: org_params}) do
+    {:ok, current_org} = Marquee.Accounts.get_organization(org.id)
+    theme_params = Theme.preview_params(theme_params, :theme)
+
+    org_params =
+      org_params
+      |> Theme.preview_params(:organization)
+      |> Theme.derive_accent_variants(current_org)
+
+    preview_org =
+      current_org
+      |> Organization.branding_changeset(org_params)
+      |> Ecto.Changeset.apply_changes()
+
+    preview_theme =
+      org
+      |> get_theme_or_default()
+      |> Theme.changeset(theme_params)
+      |> Ecto.Changeset.apply_changes()
+
+    preview_org
+    |> Map.take([
+      :accent_color_base,
+      :accent_color_hover,
+      :accent_color_active,
+      :accent_color_subtle,
+      :display_font
+    ])
+    |> Map.merge(%{
+      theme: preview_theme,
+      theme_params: theme_params,
+      organization_params: org_params
+    })
+  end
+
+  def resolve_theme_preview(_org, draft), do: draft
 
   @doc """
   Removes a stored appearance draft. A no-op when nothing is stored.

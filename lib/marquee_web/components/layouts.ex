@@ -5,6 +5,8 @@ defmodule MarqueeWeb.Layouts do
   """
   use MarqueeWeb, :html
 
+  alias Marquee.Accounts.Organization
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -359,7 +361,9 @@ defmodule MarqueeWeb.Layouts do
   end
 
   defp google_fonts_href(font) do
-    family = font |> String.replace(" ", "+")
-    "https://fonts.googleapis.com/css2?family=#{family}:wght@400;500;600&display=swap"
+    if font in Organization.approved_display_fonts() do
+      family = font |> String.replace(" ", "+")
+      "https://fonts.googleapis.com/css2?family=#{family}:wght@400;500;600&display=swap"
+    end
   end
 end

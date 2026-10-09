@@ -7,7 +7,7 @@ defmodule MarqueeWeb.Admin.BrandingLiveTest do
     test "admin is redirected to /admin/appearance", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
 
-      assert {:error, {:live_redirect, %{to: path}}} =
+      assert {:error, {:redirect, %{to: path}}} =
                live(conn_for(membership), ~p"/admin/branding")
 
       assert path == ~p"/admin/appearance"

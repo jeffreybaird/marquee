@@ -40,8 +40,27 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
       preview_id = Ecto.UUID.generate()
       :ok = Branding.put_theme_preview(org, preview_id, draft())
 
-      assert MemberPreview.theme_preview(%{"appearance_preview_id" => preview_id}, scope, org) ==
+      assert MemberPreview.theme_preview(
+               %{
+                 "appearance_preview_id" => preview_id,
+                 "member_preview_org_id" => org.id,
+                 "member_preview_viewer_id" => Ecto.UUID.generate()
+               },
+               scope,
+               org
+             ) ==
                draft()
+    end
+
+    test "does not expose a stored draft without explicit member preview" do
+      org = insert(:organization)
+      scope = scope_for(org, :admin)
+      preview_id = Ecto.UUID.generate()
+      :ok = Branding.put_theme_preview(org, preview_id, draft())
+      assert Branding.get_theme_preview(org, preview_id) == draft()
+
+      assert MemberPreview.theme_preview(%{"appearance_preview_id" => preview_id}, scope, org) ==
+               nil
     end
 
     test "returns nil when the session carries no preview id" do
@@ -97,8 +116,8 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
       conn = run_plug("/admin/appearance", %{}, scope, org)
 
       assert is_binary(get_session(conn, :appearance_preview_id))
-      assert get_session(conn, :member_preview_org_id) == org.id
-      assert is_binary(get_session(conn, :member_preview_viewer_id))
+      refute get_session(conn, :member_preview_org_id)
+      refute get_session(conn, :member_preview_viewer_id)
     end
 
     test "keeps an existing appearance preview id across repeat visits" do
@@ -115,10 +134,10 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
         )
 
       assert get_session(conn, :appearance_preview_id) == existing
-      assert get_session(conn, :member_preview_org_id) == org.id
+      refute get_session(conn, :member_preview_org_id)
     end
 
-    test "keeps the existing member preview identity for the same organization" do
+    test "clears the existing member preview identity for the same organization" do
       org = insert(:organization)
       scope = scope_for(org, :admin)
       viewer_id = Ecto.UUID.generate()
@@ -131,7 +150,8 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
           org
         )
 
-      assert get_session(conn, :member_preview_viewer_id) == viewer_id
+      refute get_session(conn, :member_preview_viewer_id)
+      refute get_session(conn, :member_preview_org_id)
     end
 
     test "does not start a preview session for an operator below admin" do
@@ -218,7 +238,7 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
       assert get_session(conn, :member_preview_org_id) == org.id
     end
 
-    test "clears every preview key when the preview targets another organization" do
+    test "preserves the draft key but clears member identity when visiting another organization" do
       org = insert(:organization)
       other_org = insert(:organization)
       scope = scope_for(org, :admin)
@@ -237,13 +257,14 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
           other_org
         )
 
-      refute get_session(conn, :appearance_preview_id)
+      assert get_session(conn, :appearance_preview_id) == preview_id
+      assert Branding.get_theme_preview(org, preview_id) == draft()
       refute get_session(conn, :member_preview_org_id)
       refute get_session(conn, :member_preview_viewer_id)
       refute conn.assigns[:theme_preview]
     end
 
-    test "clears every preview key when the operator is no longer authorized" do
+    test "retains the inaccessible draft id but clears identity when access is revoked" do
       org = insert(:organization)
       scope = scope_for(org, :editor)
       preview_id = Ecto.UUID.generate()
@@ -261,7 +282,7 @@ defmodule MarqueeWeb.Plugs.MemberPreviewTest do
           org
         )
 
-      refute get_session(conn, :appearance_preview_id)
+      assert get_session(conn, :appearance_preview_id) == preview_id
       refute get_session(conn, :member_preview_org_id)
       refute get_session(conn, :member_preview_viewer_id)
       refute conn.assigns[:theme_preview]

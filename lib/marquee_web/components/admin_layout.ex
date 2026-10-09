@@ -340,9 +340,12 @@ defmodule MarqueeWeb.Components.AdminLayout do
   attr :data_test, :string, required: true
 
   defp nav_link(assigns) do
+    assigns = assign(assigns, :http?, "/admin/appearance" in [assigns.href, assigns.current_path])
+
     ~H"""
     <.link
-      navigate={@href}
+      href={if @http?, do: @href}
+      navigate={if !@http?, do: @href}
       class={nav_link_class(@current_path, @href)}
       aria-current={if @current_path == @href, do: "page"}
       data-test={@data_test}

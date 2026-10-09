@@ -3,11 +3,12 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
   Persists an authorized, tenant-scoped member preview across viewer navigation.
   Returning to the admin dashboard ends preview mode. No viewer account is created.
 
-  Opening the appearance editor (`/admin/appearance`) also starts an
+  Opening the appearance editor (`/admin/appearance`) starts an
   *appearance preview session*: the session carries an `:appearance_preview_id`
   under which the editor stores its unsaved draft (see
-  `Marquee.Branding.put_theme_preview/3`). While it is active the operator
-  browses the viewer site as a member preview that renders the draft, and the
+  `Marquee.Branding.put_theme_preview/3`). Only explicit `?preview=member` navigation activates a read-only viewer
+  identity and renders the draft. Opening the editor preserves the real viewer
+  account. The
   plug exposes that draft as `conn.assigns.theme_preview` so dead-rendered
   pages and the root layout can use it. Any other `/admin*` request ends it.
   """
@@ -36,7 +37,7 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
         |> assign_theme_preview(scope, org)
 
       preview_invalid?(conn, scope, org) ->
-        clear_preview(conn)
+        clear_member_preview(conn)
 
       true ->
         assign_theme_preview(conn, scope, org)
@@ -45,6 +46,9 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
 
   @doc """
   Checks whether an operator can preview the resolved organization.
+
+      iex> MarqueeWeb.Plugs.MemberPreview.authorized?(%{user: %{is_super_admin: true}}, %{id: "org"})
+      true
 
       iex> MarqueeWeb.Plugs.MemberPreview.authorized?(nil, nil)
       false
@@ -62,6 +66,12 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
 
   @doc """
   Resolves a read-only preview identity after checking the current operator's access.
+
+      iex> scope = %{user: %{is_super_admin: true, email: "operator@example.com"}}
+      iex> session = %{"member_preview_org_id" => "org", "member_preview_viewer_id" => "preview"}
+      iex> viewer = MarqueeWeb.Plugs.MemberPreview.viewer(session, scope, %{id: "org"})
+      iex> {viewer.id, viewer.organization_id, viewer.__preview__}
+      {"preview", "org", true}
 
       iex> MarqueeWeb.Plugs.MemberPreview.viewer(%{}, nil, nil)
       nil
@@ -88,14 +98,26 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
   when the session carries an appearance preview id and the current operator
   may preview `org`; otherwise `nil`.
 
+      iex> org = %Marquee.Accounts.Organization{id: Ecto.UUID.generate()}
+      iex> id = Ecto.UUID.generate()
+      iex> draft = %{theme: %Marquee.Branding.Theme{background: "#123456"}}
+      iex> :ok = Marquee.Branding.put_theme_preview(org, id, draft)
+      iex> session = %{"appearance_preview_id" => id, "member_preview_org_id" => org.id, "member_preview_viewer_id" => "preview"}
+      iex> scope = %{user: %{is_super_admin: true}}
+      iex> MarqueeWeb.Plugs.MemberPreview.theme_preview(session, scope, org) == draft
+      true
+      iex> Marquee.Branding.clear_theme_preview(org, id)
+      :ok
+
       iex> MarqueeWeb.Plugs.MemberPreview.theme_preview(%{}, nil, nil)
       nil
   """
   def theme_preview(session, scope, org) do
     preview_id = session["appearance_preview_id"]
 
-    if org && is_binary(preview_id) && authorized?(scope, org) do
-      Branding.get_theme_preview(org, preview_id)
+    if org && is_binary(preview_id) && session["member_preview_org_id"] == org.id &&
+         is_binary(session["member_preview_viewer_id"]) && authorized?(scope, org) do
+      Branding.resolve_theme_preview(org, Branding.get_theme_preview(org, preview_id))
     end
   end
 
@@ -107,26 +129,13 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
 
   defp handle_admin_request(conn, _scope, _org), do: clear_preview(conn)
 
-  defp start_appearance_preview(conn, org) do
+  defp start_appearance_preview(conn, _org) do
     conn
+    |> clear_member_preview()
     |> put_session(
       :appearance_preview_id,
       get_session(conn, :appearance_preview_id) || Ecto.UUID.generate()
     )
-    |> put_session(:member_preview_viewer_id, member_preview_viewer_id(conn, org))
-    |> put_session(:member_preview_org_id, org.id)
-  end
-
-  # Keep the operator's existing preview identity when it already targets this
-  # organization so repeat editor visits do not look like a new viewer.
-  defp member_preview_viewer_id(conn, org) do
-    existing = get_session(conn, :member_preview_viewer_id)
-
-    if get_session(conn, :member_preview_org_id) == org.id && is_binary(existing) do
-      existing
-    else
-      Ecto.UUID.generate()
-    end
   end
 
   defp assign_theme_preview(conn, scope, org) do
@@ -144,6 +153,11 @@ defmodule MarqueeWeb.Plugs.MemberPreview do
   defp clear_preview(conn) do
     conn
     |> delete_session(:appearance_preview_id)
+    |> clear_member_preview()
+  end
+
+  defp clear_member_preview(conn) do
+    conn
     |> delete_session(:member_preview_org_id)
     |> delete_session(:member_preview_viewer_id)
   end

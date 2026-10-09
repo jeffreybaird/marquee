@@ -27,6 +27,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :show_details, :boolean, default: true
   attr :show_actions, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :member_preview, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
   @doc """
@@ -43,6 +44,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       card_id={@card_id}
       show_details={@show_details}
       title_overlay={@title_overlay}
+      member_preview={@member_preview}
     />
     """
   end
@@ -55,6 +57,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       card_id={@card_id}
       show_details={@show_details}
       title_overlay={@title_overlay}
+      member_preview={@member_preview}
     />
     """
   end
@@ -101,10 +104,14 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       show_details={@show_details}
       show_actions={@show_actions}
       title_overlay={@title_overlay}
+      member_preview={@member_preview}
       aspect={@aspect}
     />
     """
   end
+
+  defp card_navigation(path, true), do: [href: path <> "?preview=member"]
+  defp card_navigation(path, false), do: [navigate: path]
 
   # ---------------------------------------------------------------------------
   # Content Card
@@ -122,6 +129,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :show_details, :boolean, default: true
   attr :show_actions, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :member_preview, :boolean, default: false
   attr :aspect, :atom, values: [:landscape, :portrait], default: :landscape
 
   @doc """
@@ -155,7 +163,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       data-test={"sv-card-#{@video.id}"}
     >
       <div class={["sv-card", "sv-card-#{@size}"]}>
-        <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-thumb-link">
+        <.link {card_navigation(~p"/watch/#{@video.id}", @member_preview)} class="sv-card-thumb-link">
           <div class="sv-card-thumb">
             <img
               :if={@thumbnail_url}
@@ -180,7 +188,10 @@ defmodule MarqueeWeb.Components.ViewerComponents do
           </div>
         </.link>
         <div :if={@show_details} class="sv-card-info">
-          <.link navigate={~p"/watch/#{@video.id}"} class="sv-card-title-link">
+          <.link
+            {card_navigation(~p"/watch/#{@video.id}", @member_preview)}
+            class="sv-card-title-link"
+          >
             <span class="sv-card-title">{@video.title}</span>
           </.link>
           <div class="sv-card-meta-row">
@@ -515,6 +526,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :card_id, :string, default: nil
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :member_preview, :boolean, default: false
 
   @doc """
   Renders a card for a series. Shape and size match `content_card/1` so
@@ -545,7 +557,10 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       class={["sv-card-container", "sv-card-container-#{@size}"]}
       data-test={"series-card-#{@series.id}"}
     >
-      <.link navigate={~p"/series/#{@series.slug}"} class={["sv-card", "sv-card-#{@size}"]}>
+      <.link
+        {card_navigation(~p"/series/#{@series.slug}", @member_preview)}
+        class={["sv-card", "sv-card-#{@size}"]}
+      >
         <div class="sv-card-thumb">
           <img src={@thumbnail_url} alt={@series.title} loading="lazy" />
           <span
@@ -585,6 +600,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
   attr :card_id, :string, default: nil
   attr :show_details, :boolean, default: true
   attr :title_overlay, :boolean, default: false
+  attr :member_preview, :boolean, default: false
 
   @doc """
   Renders a card for a season. Same shape as `content_card/1` and
@@ -609,7 +625,7 @@ defmodule MarqueeWeb.Components.ViewerComponents do
       data-test={"season-card-#{@season.id}"}
     >
       <.link
-        navigate={~p"/series/#{@season.series.slug}/season/#{@season.season_number}"}
+        {card_navigation(~p"/series/#{@season.series.slug}/season/#{@season.season_number}", @member_preview)}
         class={["sv-card", "sv-card-#{@size}"]}
       >
         <div class="sv-card-thumb">

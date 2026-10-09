@@ -157,6 +157,7 @@ defmodule Marquee.Branding.ThemeTest do
       assert css ==
                Theme.build_css_vars(theme) <>
                  "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF" <>
+                 "; --color-accent-active: #ABCDEF; --color-accent-subtle: #ABCDEF" <>
                  "; --font-display: 'Playfair Display', Georgia, serif"
     end
 
@@ -192,7 +193,8 @@ defmodule Marquee.Branding.ThemeTest do
 
       assert css ==
                Theme.build_css_vars(theme) <>
-                 "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF"
+                 "; --color-accent: #ABCDEF; --color-accent-hover: #ABCDEF" <>
+                 "; --color-accent-active: #ABCDEF; --color-accent-subtle: #ABCDEF"
 
       refute css =~ "--font-display"
     end
@@ -204,11 +206,45 @@ defmodule Marquee.Branding.ThemeTest do
         Theme.build_preview_css_vars(%{
           theme: theme,
           accent_color_base: nil,
-          display_font: "Lora"
+          display_font: "Playfair Display"
         })
 
-      assert css == Theme.build_css_vars(theme) <> "; --font-display: 'Lora', Georgia, serif"
+      assert css ==
+               Theme.build_css_vars(theme) <>
+                 "; --font-display: 'Playfair Display', Georgia, serif"
+
       refute css =~ "--color-accent:"
+    end
+  end
+
+  test "preview honors explicit accent variants" do
+    css =
+      Theme.build_preview_css_vars(%{
+        theme: %Theme{},
+        accent_color_base: "#112233",
+        accent_color_hover: "#223344",
+        accent_color_active: "#334455",
+        accent_color_subtle: "#445566"
+      })
+
+    assert css =~ "--color-accent: #112233"
+    assert css =~ "--color-accent-hover: #223344"
+    assert css =~ "--color-accent-active: #334455"
+    assert css =~ "--color-accent-subtle: #445566"
+  end
+
+  test "preview rejects unapproved fonts and color declarations" do
+    for font <- ["Lora", "Foo&family=Injected", "Foo'; --injected: yes; /*"] do
+      css =
+        Theme.build_preview_css_vars(%{
+          theme: %Theme{},
+          display_font: font,
+          accent_color_base: "red; --injected: yes"
+        })
+
+      refute css =~ "--font-display"
+      refute css =~ "--color-accent:"
+      refute css =~ "--injected"
     end
   end
 

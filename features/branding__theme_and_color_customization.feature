@@ -77,3 +77,21 @@ Feature: Theme and Color Customization
     When I return to the editor from the banner
     Then the background color input still holds my unsaved value
 
+
+  Scenario: Sidebar entry preserves a draft through preview navigation
+    Given my catalog has a published video
+    When I open Appearance from the admin sidebar
+    And I change the background color without saving
+    And I click a video inside the preview
+    Then the viewer page shows my unsaved background color
+    When I return to the editor from the banner
+    Then the background color input still holds my unsaved value
+
+  Scenario: Leaving Appearance through the sidebar ends the draft preview
+    Given my catalog has a published video
+    And I am on the appearance settings page
+    When I change the background color without saving
+    And I click a video inside the preview
+    And I return to the editor from the banner
+    And I leave Appearance through the dashboard sidebar
+    Then the public browse page shows no draft or member preview

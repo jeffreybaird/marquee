@@ -95,7 +95,11 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
      |> assign(:body_fonts, Organization.approved_body_fonts())
      |> assign(:theme, theme)
      |> assign(:appearance_preview_id, preview_id)
-     |> assign_editor_state(org, theme, Branding.get_theme_preview(org, preview_id))
+     |> assign_editor_state(
+       org,
+       theme,
+       Branding.resolve_theme_preview(org, Branding.get_theme_preview(org, preview_id))
+     )
      |> assign_catalog_state(org)
      |> assign_preview_rows(org)
      |> assign_preview_hero_slides(org)
@@ -125,38 +129,46 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
     theme_params = Map.get(params, "theme", %{})
 
     theme = socket.assigns.theme
-    preview = apply_theme_preview(theme, theme_params)
-    accent = Map.get(org_params, "accent_color_base") || ""
-    display_font = Map.get(org_params, "display_font") || ""
+    org = socket.assigns.organization
+    safe_theme_params = Theme.preview_params(theme_params, :theme)
+    safe_org_params = Theme.preview_params(org_params, :organization)
 
-    store_theme_preview(socket, %{
-      theme: preview,
-      accent_color_base: accent,
-      display_font: display_font
-    })
+    draft = %{
+      theme_params: theme |> Branding.change_theme(safe_theme_params) |> changed_params(),
+      organization_params:
+        org |> Organization.branding_changeset(safe_org_params) |> changed_params()
+    }
+
+    store_theme_preview(socket, draft)
+    preview = Branding.resolve_theme_preview(org, draft)
 
     {:noreply,
      socket
-     |> assign(:accent_preview, accent)
-     |> assign(:display_font_preview, display_font)
-     |> assign(
-       :branding_form,
-       socket.assigns.organization
-       |> Organization.branding_changeset(org_params)
-       |> to_form()
-     )
+     |> assign(:preview_restored?, false)
+     |> assign_preview_branding(preview)
+     |> assign(:branding_form, org |> Organization.branding_changeset(org_params) |> to_form())
      |> assign(:theme_form, theme |> Branding.change_theme(theme_params) |> to_form())
-     |> assign(:preview_theme, preview)}
+     |> assign(:preview_theme, preview.theme)}
   end
 
   @impl true
   def handle_event("save_appearance", params, socket) do
-    org = socket.assigns.organization
+    baseline_org = socket.assigns.organization
+    baseline_theme = socket.assigns.theme
     scope = socket.assigns.current_scope
-    theme = socket.assigns.theme
+    {:ok, org} = Accounts.get_organization(baseline_org.id)
+    theme = Branding.get_theme_or_default(org)
 
-    org_params = params |> Map.get("organization", %{}) |> maybe_derive_accent_variants()
-    theme_params = Map.get(params, "theme", %{})
+    org_params =
+      baseline_org
+      |> Organization.branding_changeset(Map.get(params, "organization", %{}))
+      |> changed_params()
+      |> Theme.derive_accent_variants(org)
+
+    theme_params =
+      baseline_theme
+      |> Branding.change_theme(Map.get(params, "theme", %{}))
+      |> changed_params()
 
     with {:branding, {:ok, updated_org}} <-
            {:branding, Accounts.update_organization_branding(scope, org, org_params)},
@@ -167,6 +179,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
        socket
        |> assign(:organization, updated_org)
        |> assign(:theme, updated_theme)
+       |> assign_preview_branding(updated_org)
        |> assign(:preview_theme, updated_theme)
        |> assign(:preview_restored?, false)
        |> assign(:theme_form, to_form(Branding.change_theme(updated_theme)))
@@ -202,39 +215,48 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   defp assign_editor_state(socket, org, theme, nil) do
     socket
     |> assign(:branding_form, org |> Organization.branding_changeset(%{}) |> to_form())
-    |> assign(:accent_preview, org.accent_color_base)
-    |> assign(:display_font_preview, org.display_font)
+    |> assign_preview_branding(org)
     |> assign(:preview_theme, theme)
     |> assign(:theme_form, theme |> Branding.change_theme() |> to_form())
     |> assign(:preview_restored?, false)
   end
 
   defp assign_editor_state(socket, org, theme, %{theme: %Theme{} = draft_theme} = draft) do
-    accent = Map.get(draft, :accent_color_base)
-    display_font = Map.get(draft, :display_font)
-
-    branding_form =
-      org
-      |> Organization.branding_changeset(draft_branding_params(accent, display_font))
-      |> to_form()
+    org_params = Map.get(draft, :organization_params, draft_branding_params(draft))
+    theme_params = Map.get(draft, :theme_params, Theme.changed_attrs(draft_theme, theme))
 
     socket
-    |> assign(:branding_form, branding_form)
-    |> assign(:accent_preview, accent)
-    |> assign(:display_font_preview, display_font)
+    |> assign(:branding_form, org |> Organization.branding_changeset(org_params) |> to_form())
+    |> assign_preview_branding(draft)
     |> assign(:preview_theme, draft_theme)
-    |> assign(
-      :theme_form,
-      theme |> Branding.change_theme(Theme.changed_attrs(draft_theme, theme)) |> to_form()
-    )
+    |> assign(:theme_form, theme |> Branding.change_theme(theme_params) |> to_form())
     |> assign(:preview_restored?, true)
   end
 
-  defp draft_branding_params(accent, display_font) do
-    [{"accent_color_base", accent}, {"display_font", display_font}]
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new()
+  defp draft_branding_params(draft) do
+    draft
+    |> Map.take([
+      :accent_color_base,
+      :accent_color_hover,
+      :accent_color_active,
+      :accent_color_subtle,
+      :display_font
+    ])
+    |> Theme.preview_params(:organization)
   end
+
+  defp assign_preview_branding(socket, branding) do
+    socket
+    |> assign(:accent_preview, Map.get(branding, :accent_color_base))
+    |> assign(:display_font_preview, Map.get(branding, :display_font))
+    |> assign(
+      :accent_variants_preview,
+      Map.take(branding, [:accent_color_hover, :accent_color_active, :accent_color_subtle])
+    )
+  end
+
+  defp changed_params(changeset),
+    do: Map.new(changeset.changes, fn {key, value} -> {Atom.to_string(key), value} end)
 
   defp store_theme_preview(%{assigns: %{appearance_preview_id: nil}}, _draft), do: :ok
 
@@ -487,73 +509,6 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
 
   defp picsum_url(seed, w, h),
     do: "https://picsum.photos/seed/marquee-preview-#{seed}/#{w}/#{h}"
-
-  defp maybe_derive_accent_variants(%{"accent_color_base" => base} = params)
-       when is_binary(base) and base != "" do
-    params
-    |> put_if_blank("accent_color_hover", shift_lightness(base, +0.06))
-    |> put_if_blank("accent_color_active", shift_lightness(base, -0.06))
-    |> put_if_blank("accent_color_subtle", subtle_from(base))
-  end
-
-  defp maybe_derive_accent_variants(params), do: params
-
-  defp put_if_blank(params, key, value) do
-    case Map.get(params, key) do
-      v when is_binary(v) and v != "" -> params
-      _ -> Map.put(params, key, value)
-    end
-  end
-
-  defp shift_lightness(oklch, delta) do
-    case parse_oklch(oklch) do
-      {:ok, l, c, h} ->
-        "oklch(#{format_number(clamp(l + delta, 0.0, 1.0))} #{format_number(c)} #{format_number(h)})"
-
-      :error ->
-        oklch
-    end
-  end
-
-  defp subtle_from(oklch) do
-    case parse_oklch(oklch) do
-      {:ok, _l, c, h} -> "oklch(0.28 #{format_number(c / 2)} #{format_number(h)})"
-      :error -> oklch
-    end
-  end
-
-  defp parse_oklch(str) do
-    case Regex.run(~r/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/, str) do
-      [_, l, c, h] ->
-        {:ok, String.to_float(ensure_dot(l)), String.to_float(ensure_dot(c)),
-         String.to_float(ensure_dot(h))}
-
-      _ ->
-        :error
-    end
-  end
-
-  defp ensure_dot(s), do: if(String.contains?(s, "."), do: s, else: s <> ".0")
-  defp clamp(v, lo, hi), do: v |> max(lo) |> min(hi)
-
-  defp format_number(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 3)
-
-  defp apply_theme_preview(%Theme{} = base, params) do
-    Enum.reduce(params, base, fn {key, value}, acc ->
-      atom_key =
-        try do
-          String.to_existing_atom(key)
-        rescue
-          ArgumentError -> nil
-        end
-
-      if atom_key && Map.has_key?(acc, atom_key) && value != "" do
-        Map.put(acc, atom_key, value)
-      else
-        acc
-      end
-    end)
-  end
 
   @impl true
   def render(assigns) do
@@ -859,6 +814,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
             preview_theme={@preview_theme}
             accent_preview={@accent_preview}
             display_font_preview={@display_font_preview}
+            accent_variants_preview={@accent_variants_preview}
             rows={@preview_rows}
             hero_slides={@preview_hero_slides}
             expanded={@preview_expanded}
@@ -883,14 +839,17 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
         <div
           class="sv-root min-h-full"
           style={
-            Theme.build_preview_css_vars(%{
-              theme: @preview_theme,
-              accent_color_base: @accent_preview,
-              display_font: @display_font_preview
-            })
+            Theme.build_preview_css_vars(
+              Map.merge(@accent_variants_preview, %{
+                theme: @preview_theme,
+                accent_color_base: @accent_preview,
+                display_font: @display_font_preview
+              })
+            )
           }
         >
           <ViewerHome.viewer_home_body
+            member_preview={true}
             hero_slides={@preview_hero_slides}
             rows={@preview_rows}
             hero_id="appearance-preview-hero"
@@ -915,6 +874,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   attr :preview_theme, :map, required: true
   attr :accent_preview, :string, default: nil
   attr :display_font_preview, :string, default: nil
+  attr :accent_variants_preview, :map, default: %{}
   attr :rows, :list, default: []
   attr :hero_slides, :list, default: []
   attr :expanded, :boolean, default: false
@@ -924,11 +884,13 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
       assign(
         assigns,
         :style,
-        Theme.build_preview_css_vars(%{
-          theme: assigns.preview_theme,
-          accent_color_base: assigns.accent_preview,
-          display_font: assigns.display_font_preview
-        })
+        Theme.build_preview_css_vars(
+          Map.merge(assigns.accent_variants_preview, %{
+            theme: assigns.preview_theme,
+            accent_color_base: assigns.accent_preview,
+            display_font: assigns.display_font_preview
+          })
+        )
       )
 
     ~H"""
@@ -982,6 +944,7 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
           >
             <ViewerHome.content_row
               :for={%{row: row, items: items} <- @rows}
+              member_preview={true}
               row={row}
               items={items}
             />
