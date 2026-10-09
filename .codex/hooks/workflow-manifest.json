@@ -1,7 +1,7 @@
 {
   "installer": {
-    "source_commit": "4313db32b07320492217c7c22991f5e4f5d7d0c2ef035c00b695e1237f1851d2",
-    "version": "0.5.0"
+    "source_commit": "6d9f311669391cc36310e172c9c9ea0490954699356e925284b88767f5a316e0",
+    "version": "0.5.2"
   },
   "sha256": {
     ".claude/agents/workflow-implementer.md": "971948a213686ba721ef5c94087a10958c8984d7e909da9f53c15ea1e6701a45",
@@ -10,7 +10,7 @@
     ".claude/agents/workflow-runner.md": "c6d02f1023b5c307199ca697f4a48aaeae7057db6c1ba606107307ee5c3dea31",
     ".claude/agents/workflow-spec-writer.md": "6c635dfbe1ce50bfbdd46aee1d4aa75c9db6cc0a45e3d2e9b63e696c554a447d",
     ".claude/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
-    ".claude/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".claude/hooks/workflow_audit.py": "6bece732788a03cff27e0b5416c70d40b393efda959ae8d4fa63f06679c1df07",
     ".claude/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
     ".claude/settings.json": "8fd9cf7868cdb550c8d48e2b4a8b91f513c444bd5918fdb87e6a40daa618419c",
     ".claude/testing.md": "776e5499bced487fdd2310deb021087ebcc30ef4b0c24e4fcab716390bc8cd4d",
@@ -23,9 +23,9 @@
     ".codex/hooks.json": "75ca000dc761dd8f041f3779063f2358677940aade870b76cc7abe4c69329875",
     ".codex/hooks/hook_diagnostics.py": "65f6352b57f49e202946299b0ae8fc4fc138ea3f406a693fd65ae3325df919c3",
     ".codex/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
-    ".codex/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".codex/hooks/workflow_audit.py": "6bece732788a03cff27e0b5416c70d40b393efda959ae8d4fa63f06679c1df07",
     ".codex/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
-    ".docs/agent-workflow.md": "0d480d04b6473fae1c9b4fcb3ff2f84d3d653875e1f89c1061e00f48b27d74dc",
+    ".docs/agent-workflow.md": "0ab19e0d084f8b78211a9375f5c10f0dcad6f01189f7736c99cf00793611741e",
     ".docs/hook-diagnostics.md": "920fc41ab7eb1d23241b75cfb7453c0e4cafb8aab7686aedee026f88be358f7a",
     ".gitattributes": "2292927f73ce12c647a5f03fc0fc1b5847709bc1dfd5ec1493bbde4dddd6f326",
     ".gitignore": "b85b497deb2280f37ab238882724db1c291cadb3df6baa766a2cfba3d3811e4a",

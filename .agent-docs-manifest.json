@@ -10,7 +10,7 @@
     ".claude/agents/workflow-spec-writer.md": "6c635dfbe1ce50bfbdd46aee1d4aa75c9db6cc0a45e3d2e9b63e696c554a447d",
     ".claude/cloud-setup.sh": "02cd26413dad4ee5d0cb38a1c6be7da1175f44bc52e58eb39f6ae625ae111f9d",
     ".claude/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
-    ".claude/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".claude/hooks/workflow_audit.py": "6bece732788a03cff27e0b5416c70d40b393efda959ae8d4fa63f06679c1df07",
     ".claude/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
     ".claude/settings.json": "b87848fad2ca7f548cd23ac17a2f74571f58a89640344be424ec343f23152f21",
     ".claude/testing.md": "8d398b66f122b71c7b9d9de8a253753db0cf53ecbcb42301758a26540d944b44",
@@ -23,11 +23,11 @@
     ".codex/hooks.json": "054f9d3a79e2296fdf47ca2b65d9c0e7f5592fa25641f413ec95a68f7ee4f7b0",
     ".codex/hooks/hook_diagnostics.py": "65f6352b57f49e202946299b0ae8fc4fc138ea3f406a693fd65ae3325df919c3",
     ".codex/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
-    ".codex/hooks/workflow-manifest.json": "52002df6174bf5de98ce30c24e4d6f28e5eec59146ab06888d338907d6006e85",
-    ".codex/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".codex/hooks/workflow-manifest.json": "b88f1d600ca4f9473b43f42c7a371a7c2a8489fd1174c0c9f5b516e0482e5ec9",
+    ".codex/hooks/workflow_audit.py": "6bece732788a03cff27e0b5416c70d40b393efda959ae8d4fa63f06679c1df07",
     ".codex/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
     ".docs/a11y-audit.md": "d20c869a30747bfd5d1adaf5122100ba76741b5a68977f02461fc1121ec4659f",
-    ".docs/agent-workflow.md": "0d480d04b6473fae1c9b4fcb3ff2f84d3d653875e1f89c1061e00f48b27d74dc",
+    ".docs/agent-workflow.md": "0ab19e0d084f8b78211a9375f5c10f0dcad6f01189f7736c99cf00793611741e",
     ".docs/architecture-decisions.md": "2d02c69185f3a5337dec5844bcd2e73e166a9c3190df9758b66dc6cea872b60e",
     ".docs/deployment.md": "646c99dd7296ff972bcebef743e741a042698567f5a7841e9da9abf8baa08075",
     ".docs/design-system.md": "8f3d8618eb5866a9d92a97286b802c28922c58d3a6f6039dad8798e1746fff1c",
@@ -54,8 +54,8 @@
   },
   "framework": "phoenix",
   "installer": {
-    "source_commit": "4313db32b07320492217c7c22991f5e4f5d7d0c2ef035c00b695e1237f1851d2",
-    "version": "0.5.0"
+    "source_commit": "6d9f311669391cc36310e172c9c9ea0490954699356e925284b88767f5a316e0",
+    "version": "0.5.2"
   },
   "names": {
     "app": "marquee",
