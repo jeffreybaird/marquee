@@ -54,6 +54,15 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/doc/hooks/cloud-setup.sh",
+            "timeout": 900,
+            "type": "command"
+          }
+        ]
       }
     ]
   }

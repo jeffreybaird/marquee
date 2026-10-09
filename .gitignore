@@ -62,3 +62,4 @@ error.log
 .claire/
 .claude/scheduled_tasks.lock
 .playwright-mcp/
+/.agent-diagnostics/

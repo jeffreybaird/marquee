@@ -1,0 +1,208 @@
+{
+  "app_type": "service",
+  "files": {
+    ".claude/agents/code-reviewer.md": "fcf068ec28271edbe418585c67acb7a2fe9842d510b703c80330a5e9d58796bc",
+    ".claude/agents/test-writer.md": "2f98e0ee11b67629f7ea9ca9dd3d182d68980d244a7e337e1b0282cf955a293e",
+    ".claude/agents/workflow-implementer.md": "971948a213686ba721ef5c94087a10958c8984d7e909da9f53c15ea1e6701a45",
+    ".claude/agents/workflow-orchestrator.md": "0501578f72d6c994e4e561498c0a429bd0e0ebe16da0ee42b91996ec1a47184f",
+    ".claude/agents/workflow-reviewer.md": "36f9493babca9290f524ccfe4688efb1a79c9a51b42ff7e443c3c41b42789f45",
+    ".claude/agents/workflow-runner.md": "c6d02f1023b5c307199ca697f4a48aaeae7057db6c1ba606107307ee5c3dea31",
+    ".claude/agents/workflow-spec-writer.md": "6c635dfbe1ce50bfbdd46aee1d4aa75c9db6cc0a45e3d2e9b63e696c554a447d",
+    ".claude/cloud-setup.sh": "02cd26413dad4ee5d0cb38a1c6be7da1175f44bc52e58eb39f6ae625ae111f9d",
+    ".claude/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
+    ".claude/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".claude/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
+    ".claude/settings.json": "b87848fad2ca7f548cd23ac17a2f74571f58a89640344be424ec343f23152f21",
+    ".claude/testing.md": "8d398b66f122b71c7b9d9de8a253753db0cf53ecbcb42301758a26540d944b44",
+    ".codex/agents/workflow_implementer.toml": "256d8da394bba8d8461f3d3c81007bce27784bfb2a81dfcff012bbe06bcef804",
+    ".codex/agents/workflow_orchestrator.toml": "2f92cbb8e235aadf987db5dd7661f7cb4071fccfdc2d57ac88113da160de8908",
+    ".codex/agents/workflow_reviewer.toml": "bda0aa118c9f59c40c4ad246b13eb03d92ba0a47a38915294b0fa34b5b34f972",
+    ".codex/agents/workflow_runner.toml": "45c0d964987416822070843551360c7630f5c20f9caf38b7848f18d28eb64a02",
+    ".codex/agents/workflow_spec_writer.toml": "fefea48906f986383d428498afc44f2534758ca4bfd5947764a3de9c604dc287",
+    ".codex/config.toml": "833f696460f50ed15147686f0fcff0c7c8e5270472c044e5e2db69aeddae7d2a",
+    ".codex/hooks.json": "054f9d3a79e2296fdf47ca2b65d9c0e7f5592fa25641f413ec95a68f7ee4f7b0",
+    ".codex/hooks/hook_diagnostics.py": "65f6352b57f49e202946299b0ae8fc4fc138ea3f406a693fd65ae3325df919c3",
+    ".codex/hooks/policy.json": "cb4442d0936a191e8ccd220007a3b058f0fe95f74d595c993c85d202a102c49b",
+    ".codex/hooks/workflow-manifest.json": "52002df6174bf5de98ce30c24e4d6f28e5eec59146ab06888d338907d6006e85",
+    ".codex/hooks/workflow_audit.py": "5474b963a35b168980a8fdbf47d2438d3d1a160b53c78f8dc9190e83e2d3abb7",
+    ".codex/hooks/workflow_guard.py": "65994a7959d9cfd06a7ba5114706fcae8316914cd8b1e950aafd529b1a747807",
+    ".docs/a11y-audit.md": "d20c869a30747bfd5d1adaf5122100ba76741b5a68977f02461fc1121ec4659f",
+    ".docs/agent-workflow.md": "0d480d04b6473fae1c9b4fcb3ff2f84d3d653875e1f89c1061e00f48b27d74dc",
+    ".docs/architecture-decisions.md": "2d02c69185f3a5337dec5844bcd2e73e166a9c3190df9758b66dc6cea872b60e",
+    ".docs/deployment.md": "646c99dd7296ff972bcebef743e741a042698567f5a7841e9da9abf8baa08075",
+    ".docs/design-system.md": "8f3d8618eb5866a9d92a97286b802c28922c58d3a6f6039dad8798e1746fff1c",
+    ".docs/external-service-integration.md": "7bf4581e60999eb37cc615b43a9ef4cde1174fe9f1efbeb7abddef2cf510437a",
+    ".docs/frontend-map.md": "a8091c4b9864502e151d55feaffdbfccc2f3bcb30e05a7c811fa0d49c0d1c8a5",
+    ".docs/hook-diagnostics.md": "920fc41ab7eb1d23241b75cfb7453c0e4cafb8aab7686aedee026f88be358f7a",
+    ".docs/multi-tenancy.md": "46e6c099b44d3fe41360fc9ec59c66e01802afa58e6bdb61c7a682abd27eed85",
+    ".docs/object-storage-integration.md": "abae868c92937760847ecead0f2c32d4cfd16eb632498ffb86aea1bd39065456",
+    ".docs/observability.md": "cb96b26d1f5e7cfd87d0a8baf4ccf36a8f0890473808b246f82bebf715e42a92",
+    ".docs/payment-integration.md": "9f588ccdd2526abe1c611a00db348d236f5ff2b0b3cdd055e2f74bc91f41465f",
+    ".docs/rbac.md": "bd1406442f1216d4960f74f393eebe1a6618f66ae028cc05873bfc7a080b3e39",
+    ".docs/scalability.md": "2350041ad458b82bdaec2e3aaeedd877f10d44a38ae47719a93094a4a4bb9f64",
+    ".docs/separation-of-concerns.md": "fb68f5bd077c9673b67d328d48e75b6fd76b33ae99bf749053cb1896a1192760",
+    ".docs/testing.md": "5e0d152bbd90910300b8e36842770c4b9f9cfdc7a9e56cbb96fb6e4db702c9dc",
+    ".docs/theming.md": "8889a6a9bd053ae4e03cd2e0e75ea0bcb15c6a4e971884eced294050a2733f15",
+    ".docs/typescript-hooks.md": "6510c7e01331c0f2878beefd1511e3b87f26348ea3e05445ae27095b85398f89",
+    ".gitattributes": "2d989683e692720406585d20a6dce708fb3d00eed3068be8936cca35bfe1e2d2",
+    ".gitignore": "522b2ddbd14b8e74035c8212ce36389ee2ec63e93be141a54a253db9548b3c02",
+    "AGENTS.md": "1dad5f9fef42563cbbad03e8fcf7e7662eaa6fc94ed7cf5043b67d13b3dbfb99",
+    "CLAUDE.md": "cb20fe2c0b72de399c0d30a0e7921905837b1b812737ab58555b5be9b1694556",
+    "doc/agents/code-reviewer.md": "a3aa8d872a7be6871e1feaa18f762d8541b0072ad0e7c267e2395a12d3c5baae",
+    "doc/agents/test-writer.md": "d2d33964810bfd1a546ad0377469cca4f862fa9095e66652d41c2ebe6db9edd0",
+    "doc/hooks/cloud-setup.sh": "02cd26413dad4ee5d0cb38a1c6be7da1175f44bc52e58eb39f6ae625ae111f9d"
+  },
+  "framework": "phoenix",
+  "installer": {
+    "source_commit": "4313db32b07320492217c7c22991f5e4f5d7d0c2ef035c00b695e1237f1851d2",
+    "version": "0.5.0"
+  },
+  "names": {
+    "app": "marquee",
+    "module": "Marquee"
+  },
+  "owned_hooks": {
+    ".claude/settings.json": {
+      "PostToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_audit.py\" --root \"$CLAUDE_PROJECT_DIR\" --policy \"$CLAUDE_PROJECT_DIR/.claude/hooks/policy.json\"",
+              "timeout": 10,
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash|Write|Edit|NotebookEdit"
+        }
+      ],
+      "PostToolUseFailure": [
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_audit.py\" --root \"$CLAUDE_PROJECT_DIR\" --policy \"$CLAUDE_PROJECT_DIR/.claude/hooks/policy.json\"",
+              "timeout": 10,
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash|Write|Edit|NotebookEdit"
+        }
+      ],
+      "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_guard.py\" --platform claude --root \"$CLAUDE_PROJECT_DIR\" --policy \"$CLAUDE_PROJECT_DIR/.claude/hooks/policy.json\"",
+              "timeout": 5,
+              "type": "command"
+            }
+          ],
+          "matcher": "Write|Edit|NotebookEdit"
+        },
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/workflow_audit.py\" --root \"$CLAUDE_PROJECT_DIR\" --policy \"$CLAUDE_PROJECT_DIR/.claude/hooks/policy.json\"",
+              "timeout": 10,
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash|Write|Edit|NotebookEdit"
+        }
+      ],
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "command": "\"$CLAUDE_PROJECT_DIR\"/doc/hooks/cloud-setup.sh",
+              "timeout": 900,
+              "type": "command"
+            }
+          ]
+        }
+      ]
+    },
+    ".codex/hooks.json": {
+      "PostToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_diagnostics.py\" --hook workflow_audit --event PostToolUse --root \"$(git rev-parse --show-toplevel)\" -- python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/workflow_audit.py\" --platform codex --root \"$(git rev-parse --show-toplevel)\" --policy \"$(git rev-parse --show-toplevel)/.codex/hooks/policy.json\"",
+              "timeout": 10,
+              "type": "command"
+            }
+          ],
+          "matcher": "^(Bash|apply_patch)$"
+        }
+      ],
+      "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_diagnostics.py\" --hook workflow_guard --event PreToolUse --root \"$(git rev-parse --show-toplevel)\" -- python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/workflow_guard.py\" --platform codex --root \"$(git rev-parse --show-toplevel)\" --policy \"$(git rev-parse --show-toplevel)/.codex/hooks/policy.json\"",
+              "timeout": 5,
+              "type": "command"
+            }
+          ],
+          "matcher": ".*"
+        },
+        {
+          "hooks": [
+            {
+              "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/hook_diagnostics.py\" --hook workflow_audit --event PreToolUse --root \"$(git rev-parse --show-toplevel)\" -- python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/workflow_audit.py\" --platform codex --root \"$(git rev-parse --show-toplevel)\" --policy \"$(git rev-parse --show-toplevel)/.codex/hooks/policy.json\"",
+              "timeout": 10,
+              "type": "command"
+            }
+          ],
+          "matcher": "^(Bash|apply_patch)$"
+        }
+      ]
+    }
+  },
+  "schema_version": 1,
+  "selection": {
+    "hook": "",
+    "no_setup": false,
+    "skip_agents": [],
+    "skip_modules": []
+  },
+  "template_files": [
+    ".claude/agents/code-reviewer.md",
+    ".claude/agents/test-writer.md",
+    ".claude/cloud-setup.sh",
+    ".claude/settings.json",
+    ".docs/a11y-audit.md",
+    ".docs/architecture-decisions.md",
+    ".docs/deployment.md",
+    ".docs/design-system.md",
+    ".docs/external-service-integration.md",
+    ".docs/frontend-map.md",
+    ".docs/multi-tenancy.md",
+    ".docs/object-storage-integration.md",
+    ".docs/observability.md",
+    ".docs/payment-integration.md",
+    ".docs/rbac.md",
+    ".docs/scalability.md",
+    ".docs/separation-of-concerns.md",
+    ".docs/testing.md",
+    ".docs/theming.md",
+    ".docs/typescript-hooks.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "doc/agents/code-reviewer.md",
+    "doc/agents/test-writer.md",
+    "doc/hooks/cloud-setup.sh"
+  ],
+  "template_hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "\"$CLAUDE_PROJECT_DIR\"/doc/hooks/cloud-setup.sh",
+            "timeout": 900,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
