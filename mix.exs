@@ -116,6 +116,7 @@ defmodule Marquee.MixProject do
       # Structured JSON logging for production
       {:logger_json, "~> 6.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:cucumberex, "~> 0.2.1", only: :test},
       {:excoveralls, "~> 0.18", only: :test}
     ]
