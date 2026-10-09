@@ -13,6 +13,7 @@
 
 import Shepherd from "../../vendor/shepherd"
 import type { StepOptionsButton, Tour } from "../../vendor/shepherd"
+import { scrollBehavior } from "../motion"
 import { ADMIN_TOUR_STEPS, TourButton, TourStep, TourText } from "./steps"
 
 const MODAL_PADDING = 6
@@ -103,13 +104,18 @@ function setupPauseResume(tour: Tour) {
 
 // ── Tour factory ─────────────────────────────────────────────────────────────
 
-/** Build a Shepherd tour from an arbitrary list of steps. */
+/**
+ * Build a Shepherd tour from an arbitrary list of steps.
+ *
+ * The scroll behavior is decided when the tour is built (not at module load),
+ * so a tour started after the user changes the reduce-motion setting honours it.
+ */
 export function buildTour(steps: TourStep[], brand: string): Tour {
   const tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
       cancelIcon: { enabled: true },
-      scrollTo: { behavior: "smooth", block: "center" },
+      scrollTo: { behavior: scrollBehavior(), block: "center" },
       modalOverlayOpeningPadding: MODAL_PADDING,
       modalOverlayOpeningRadius: MODAL_RADIUS,
     },

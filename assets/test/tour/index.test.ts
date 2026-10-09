@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Tour } from "../../vendor/shepherd"
 import { buildAdminTour, resolve } from "../../js/tour"
 import { ADMIN_TOUR_STEPS } from "../../js/tour/steps"
+import { setReducedMotion } from "../support/media"
 
 const buttonsOf = (tour: Tour, index: number) => tour.steps[index].options.buttons ?? []
 const continueButton = () => document.querySelector<HTMLButtonElement>("#tour-continue-btn")
@@ -22,6 +23,7 @@ describe("buildAdminTour", () => {
     tour = null
     document.body.innerHTML = ""
     document.body.className = ""
+    setReducedMotion(false)
   })
 
   it("builds one Shepherd step per definition with the brand substituted", () => {
@@ -30,6 +32,37 @@ describe("buildAdminTour", () => {
     expect(tour.steps.map((s) => s.id)).toEqual(ADMIN_TOUR_STEPS.map((s) => s.id))
     expect(tour.steps[0].options.title).toBe("Welcome to Acme!")
     expect(tour.steps[1].options.attachTo).toEqual(ADMIN_TOUR_STEPS[1].attachTo)
+  })
+
+  it("scrolls each step smoothly into the center when motion is allowed", () => {
+    setReducedMotion(false)
+    tour = buildAdminTour("Acme")
+
+    expect(tour.options.defaultStepOptions?.scrollTo).toEqual({ behavior: "smooth", block: "center" })
+    expect(tour.steps[0].options.scrollTo).toEqual({ behavior: "smooth", block: "center" })
+  })
+
+  it("scrolls each step into the center without animation under reduced motion", () => {
+    setReducedMotion(true)
+    tour = buildAdminTour("Acme")
+
+    expect(tour.options.defaultStepOptions?.scrollTo).toEqual({ behavior: "auto", block: "center" })
+    expect(tour.steps[0].options.scrollTo).toEqual({ behavior: "auto", block: "center" })
+  })
+
+  it("decides the scroll behavior when the tour is built", () => {
+    setReducedMotion(false)
+    const smoothTour = buildAdminTour("Acme")
+    expect(smoothTour.options.defaultStepOptions?.scrollTo).toEqual({ behavior: "smooth", block: "center" })
+
+    // Flipping the preference afterwards leaves the built tour alone; only a
+    // tour built from now on picks it up.
+    setReducedMotion(true)
+    expect(smoothTour.options.defaultStepOptions?.scrollTo).toEqual({ behavior: "smooth", block: "center" })
+    smoothTour.cancel()
+
+    tour = buildAdminTour("Acme")
+    expect(tour.options.defaultStepOptions?.scrollTo).toEqual({ behavior: "auto", block: "center" })
   })
 
   it("wires Back, Next and Got it! buttons to the tour", () => {
