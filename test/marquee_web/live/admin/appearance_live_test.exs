@@ -4,6 +4,8 @@ defmodule MarqueeWeb.Admin.AppearanceLiveTest do
   import Ecto.Query
   import Phoenix.LiveViewTest
 
+  alias Marquee.Branding
+  alias Marquee.Branding.Theme
   alias Marquee.Catalog
   alias Marquee.Catalog.Row
 
@@ -214,6 +216,86 @@ defmodule MarqueeWeb.Admin.AppearanceLiveTest do
 
       assert has_element?(view, "[data-test='theme-editor']")
       assert has_element?(view, "[data-test='save-branding-btn']")
+    end
+  end
+
+  describe "preview style uses the shared Theme.build_preview_css_vars/1 builder" do
+    # The editor's preview frame and expanded overlay must build their inline
+    # style through the same function the viewer site uses, so unsaved
+    # accent + display-font overrides cannot drift between the two surfaces.
+    test "preview frame style equals the shared builder output after validate_appearance",
+         %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+
+      {:ok, _theme} =
+        Branding.create_theme(
+          Theme.preset_attrs("midnight")
+          |> Map.put(:organization_id, org.id)
+        )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      html =
+        view
+        |> form("form[phx-submit='save_appearance']",
+          organization: %{accent_color_base: "#ABCDEF", display_font: "Playfair Display"}
+        )
+        |> render_change()
+
+      expected =
+        Theme.build_preview_css_vars(%{
+          theme: Branding.get_theme_or_default(org),
+          accent_color_base: "#ABCDEF",
+          display_font: "Playfair Display"
+        })
+
+      [style] =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("[data-test='preview-frame'] > .sv-root")
+        |> LazyHTML.attribute("style")
+
+      # The frame's scroll prefix is incidental; only the builder output is
+      # the contract.
+      assert String.ends_with?(style, expected)
+      assert style =~ "--color-accent: #ABCDEF; --color-accent-hover: #ABCDEF"
+      assert style =~ "--font-display: 'Playfair Display', Georgia, serif"
+    end
+
+    test "expanded overlay style equals the shared builder output", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/appearance")
+
+      view
+      |> form("form[phx-submit='save_appearance']",
+        organization: %{accent_color_base: "#ABCDEF", display_font: "Playfair Display"},
+        theme: %{background: "#123456"}
+      )
+      |> render_change()
+
+      html =
+        view
+        |> element("[data-test='expand-preview-btn']")
+        |> render_click()
+
+      expected =
+        Theme.build_preview_css_vars(%{
+          theme: %{Branding.get_theme_or_default(org) | background: "#123456"},
+          accent_color_base: "#ABCDEF",
+          display_font: "Playfair Display"
+        })
+
+      [style] =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query("[data-test='preview-expanded-overlay'] > .sv-root")
+        |> LazyHTML.attribute("style")
+
+      assert style == expected
+      assert style =~ "--sv-bg-primary: #123456"
     end
   end
 
