@@ -118,3 +118,7 @@ config :phoenix,
 # flushing explicitly via ProgressBuffer.flush/0 (sandbox-safe), so disable the
 # timer here. Production keeps the default 30s interval.
 config :marquee, Marquee.Buffers.ProgressBuffer, flush_interval_ms: :infinity
+
+# The engagement buffer also writes from its own global process; tests flush
+# it explicitly via EngagementBuffer.flush/0, so disable its periodic timer.
+config :marquee, :engagement_buffer_flush_ms, :infinity
