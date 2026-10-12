@@ -66,6 +66,154 @@ defmodule Marquee.Workers.MuxWebhookProcessorTest do
     end
   end
 
+  describe "video.asset.ready aspect ratio" do
+    defp ready_payload(asset_id, extra) do
+      %{
+        "type" => "video.asset.ready",
+        "data" =>
+          Map.merge(
+            %{
+              "id" => asset_id,
+              "duration" => 21.0,
+              "max_stored_resolution" => "HD",
+              "playback_ids" => [%{"id" => "pb_#{asset_id}", "policy" => "public"}]
+            },
+            extra
+          )
+      }
+    end
+
+    test "persists a portrait aspect ratio reported by Mux" do
+      org = insert(:organization)
+
+      video =
+        insert(:video, organization: org, mux_asset_id: "asset_vert", mux_status: "preparing")
+
+      payload = ready_payload("asset_vert", %{"aspect_ratio" => "9:16"})
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+      assert updated.aspect_ratio == "9:16"
+    end
+
+    test "persists a landscape aspect ratio reported by Mux" do
+      org = insert(:organization)
+
+      video =
+        insert(:video, organization: org, mux_asset_id: "asset_wide", mux_status: "preparing")
+
+      payload = ready_payload("asset_wide", %{"aspect_ratio" => "16:9"})
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      assert Content.get_video!(org, video.id).aspect_ratio == "16:9"
+    end
+
+    test "a malformed aspect ratio still marks the video ready with no ratio" do
+      org = insert(:organization)
+
+      video =
+        insert(:video, organization: org, mux_asset_id: "asset_bad", mux_status: "preparing")
+
+      payload = ready_payload("asset_bad", %{"aspect_ratio" => "banana"})
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+      assert updated.mux_playback_id == "pb_asset_bad"
+      assert updated.aspect_ratio == nil
+    end
+
+    test "a missing aspect ratio still marks the video ready with no ratio" do
+      org = insert(:organization)
+
+      video =
+        insert(:video, organization: org, mux_asset_id: "asset_none", mux_status: "preparing")
+
+      payload = ready_payload("asset_none", %{})
+      assert :ok = perform_job(MuxWebhookProcessor, %{"payload" => payload})
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+      assert updated.aspect_ratio == nil
+    end
+
+    test "Content.mark_video_ready/2 stores the aspect ratio from metadata" do
+      org = insert(:organization)
+
+      video =
+        insert(:video, organization: org, mux_asset_id: "asset_meta", mux_status: "preparing")
+
+      assert {:ok, ready} =
+               Content.mark_video_ready("asset_meta", %{
+                 duration: 12.0,
+                 max_resolution: "HD",
+                 playback_id: "pb_meta",
+                 aspect_ratio: "9:16"
+               })
+
+      assert ready.id == video.id
+      assert ready.aspect_ratio == "9:16"
+    end
+
+    test "reconciling a ready Mux asset captures its aspect ratio" do
+      org = insert(:organization)
+
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_reconcile_vert",
+          mux_status: "preparing",
+          mux_playback_id: nil
+        )
+
+      expect(Marquee.Content.MockMuxClient, :get_asset, fn "asset_reconcile_vert" ->
+        {:ok,
+         %{
+           "status" => "ready",
+           "duration" => 15.0,
+           "max_stored_resolution" => "HD",
+           "aspect_ratio" => "9:16",
+           "playback_ids" => [%{"id" => "pb_reconcile_vert", "policy" => "public"}]
+         }}
+      end)
+
+      assert %{ready: 1} = Content.reconcile_pending_mux_assets()
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+      assert updated.aspect_ratio == "9:16"
+    end
+
+    test "reconciling a ready Mux asset with a malformed ratio still marks it ready" do
+      org = insert(:organization)
+
+      video =
+        insert(:video,
+          organization: org,
+          mux_asset_id: "asset_reconcile_bad",
+          mux_status: "preparing",
+          mux_playback_id: nil
+        )
+
+      expect(Marquee.Content.MockMuxClient, :get_asset, fn "asset_reconcile_bad" ->
+        {:ok,
+         %{
+           "status" => "ready",
+           "duration" => 15.0,
+           "aspect_ratio" => "nine-by-sixteen",
+           "playback_ids" => [%{"id" => "pb_reconcile_bad", "policy" => "public"}]
+         }}
+      end)
+
+      assert %{ready: 1} = Content.reconcile_pending_mux_assets()
+
+      updated = Content.get_video!(org, video.id)
+      assert updated.mux_status == "ready"
+      assert updated.aspect_ratio == nil
+    end
+  end
+
   describe "video.asset.errored" do
     test "marks video as errored" do
       org = insert(:organization)

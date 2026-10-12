@@ -188,6 +188,12 @@ defmodule MarqueeWeb.Components.AdminLayout do
               data_test="admin-nav-collections"
             />
             <.nav_link
+              href={~p"/admin/shorts"}
+              label="Shorts"
+              current_path={@current_path}
+              data_test="admin-nav-shorts"
+            />
+            <.nav_link
               href={~p"/admin/series"}
               label="Series"
               current_path={@current_path}

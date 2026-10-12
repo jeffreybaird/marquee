@@ -52,6 +52,18 @@ defmodule MarqueeWeb.Router do
     plug MarqueeWeb.Plugs.SubscriberDemoEntry
   end
 
+  # Tenant-page telemetry and rate limiting for org pages that live in the
+  # :home live_session (which resolves the org optionally). Both plugs
+  # tolerate a missing org: the limiter falls back to the client IP.
+  pipeline :tenant_page_limits do
+    plug MarqueeWeb.Plugs.TelemetryOrgPlug
+
+    plug MarqueeWeb.Plugs.RateLimit,
+      bucket: :tenant_pages,
+      limit: 300,
+      key: :organization_id
+  end
+
   pipeline :rate_limit_auth do
     plug MarqueeWeb.Plugs.RateLimit, bucket: :auth, limit: 10, key: :ip
   end
@@ -161,6 +173,7 @@ defmodule MarqueeWeb.Router do
       live "/onboarding", OnboardingLive
       live "/content", ContentLive
       live "/collections", CollectionsLive
+      live "/shorts", ShortsLive
       live "/series", SeriesLive
       live "/series/:series_id/seasons/:season_id", SeasonLive
       live "/tags", TagsLive
@@ -295,6 +308,16 @@ defmodule MarqueeWeb.Router do
         {MarqueeWeb.Hooks.SpanEnrichment, :default}
       ] do
       live "/", HomeLive
+
+      # Shorts shares Home's live_session so the nav from Home live-navigates
+      # (a cross-session navigation would reload the page and drop players),
+      # but keeps the tenant-page telemetry and rate limit of
+      # :set_organization. ShortsLive redirects to / when no org resolves.
+      scope "/" do
+        pipe_through :tenant_page_limits
+
+        live "/shorts", ShortsLive
+      end
     end
   end
 

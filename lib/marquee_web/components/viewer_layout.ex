@@ -17,6 +17,8 @@ defmodule MarqueeWeb.Components.ViewerLayout do
 
   @my_stuff_nav %{label: "My Stuff", path: "/watchlist", id: "my-stuff", icon: "hero-bookmark"}
 
+  @shorts_nav %{label: "Shorts", path: "/shorts", id: "shorts", icon: "hero-film"}
+
   attr :organization, :map, required: true
   attr :current_viewer, :map, default: nil
   attr :impersonating_viewer, :boolean, default: false
@@ -41,7 +43,7 @@ defmodule MarqueeWeb.Components.ViewerLayout do
     assigns =
       assigns
       |> assign_new(:resolved_nav_items, fn ->
-        base = assigns[:nav_items] || @default_nav_items
+        base = (assigns[:nav_items] || @default_nav_items) ++ shorts_nav(assigns[:organization])
         if assigns[:current_viewer], do: base ++ [@my_stuff_nav], else: base
       end)
       |> assign_new(:resolved_theme, fn ->
@@ -126,6 +128,10 @@ defmodule MarqueeWeb.Components.ViewerLayout do
     </div>
     """
   end
+
+  # The Shorts feed is listed only while the organization has it enabled.
+  defp shorts_nav(%{shorts_feed_enabled: true}), do: [@shorts_nav]
+  defp shorts_nav(_organization), do: []
 
   # An unsaved appearance draft replaces the saved theme's variables and adds
   # the draft accent + display font so the viewer site matches the editor.
