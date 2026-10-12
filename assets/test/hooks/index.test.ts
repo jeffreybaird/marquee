@@ -27,6 +27,7 @@ describe("hooks registry", () => {
     "QueueSortable",
     "RowScroller",
     "ScrollToCurrentEpisode",
+    "ShortsFeed",
     "SpacesUploader",
     "StaggerReveal",
     "ViewerNav",

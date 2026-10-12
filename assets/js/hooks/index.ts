@@ -13,6 +13,7 @@ import PageTour from "./page_tour"
 import QueueSortable from "./queue_sortable"
 import RowScroller from "./row_scroller"
 import ScrollToCurrentEpisode from "./scroll_to_current_episode"
+import ShortsFeed from "./shorts_feed"
 import SpacesUploader from "./spaces_uploader"
 import StaggerReveal from "./stagger_reveal"
 import ViewerNav from "./viewer_nav"
@@ -31,6 +32,7 @@ export const hooks = {
   QueueSortable,
   RowScroller,
   ScrollToCurrentEpisode,
+  ShortsFeed,
   SpacesUploader,
   StaggerReveal,
   ViewerNav,

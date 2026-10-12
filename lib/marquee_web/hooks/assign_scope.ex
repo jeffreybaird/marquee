@@ -268,6 +268,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       MarqueeWeb.Admin.DashboardLive -> "/admin"
       MarqueeWeb.Admin.ContentLive -> "/admin/content"
       MarqueeWeb.Admin.CollectionsLive -> "/admin/collections"
+      MarqueeWeb.Admin.ShortsLive -> "/admin/shorts"
       MarqueeWeb.Admin.SeriesLive -> "/admin/series"
       MarqueeWeb.Admin.SeasonLive -> "/admin/series"
       MarqueeWeb.Admin.TagsLive -> "/admin/tags"

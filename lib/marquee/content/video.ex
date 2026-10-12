@@ -14,6 +14,8 @@ defmodule Marquee.Content.Video do
     field :mux_status, :string
     field :duration, :float
     field :max_resolution, :string
+    # Mux-reported "W:H" ratio (e.g. "9:16"); nil when unknown or malformed.
+    field :aspect_ratio, :string
     field :published, :boolean, default: false
     field :visibility, :string, default: "subscribers_only"
     # Deprecated — kept for backward compatibility with rows that existed
@@ -73,7 +75,14 @@ defmodule Marquee.Content.Video do
   """
   def mux_status_changeset(video, attrs) do
     video
-    |> cast(attrs, [:mux_asset_id, :mux_playback_id, :mux_status, :duration, :max_resolution])
+    |> cast(attrs, [
+      :mux_asset_id,
+      :mux_playback_id,
+      :mux_status,
+      :duration,
+      :max_resolution,
+      :aspect_ratio
+    ])
     |> validate_required([:mux_status])
     |> validate_inclusion(:mux_status, ~w(waiting preparing ready errored))
   end

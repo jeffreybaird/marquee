@@ -37,6 +37,7 @@ defmodule Marquee.Application do
         Marquee.Streaming.ChatRateLimiter,
         Marquee.Events.AuditSubscriber,
         Marquee.Catalog.HeroCacheSubscriber,
+        Marquee.Content.ShortFeedCacheSubscriber,
         Marquee.Branding.CacheSubscriber,
         Marquee.Analytics.CacheSubscriber,
         Marquee.TenantDomains.CacheSubscriber,

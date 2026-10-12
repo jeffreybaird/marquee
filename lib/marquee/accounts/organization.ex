@@ -20,6 +20,8 @@ defmodule Marquee.Accounts.Organization do
 
   @approved_presets ~w(catalog_cinema learning_platform creator_channel)
 
+  @shorts_feed_access_levels ~w(public free_with_account subscribers_only)
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "organizations" do
@@ -38,6 +40,11 @@ defmodule Marquee.Accounts.Organization do
     field :deleted_at, :utc_datetime
     field :features, :map, default: %{}
     field :onboarding_completed_at, :utc_datetime
+
+    # Shorts vertical feed (/shorts). The access level applies to every clip
+    # in the feed and overrides each video's own visibility there.
+    field :shorts_feed_enabled, :boolean, default: false
+    field :shorts_feed_access, :string, default: "subscribers_only"
 
     field :accent_color_base, :string
     field :accent_color_hover, :string
@@ -68,6 +75,41 @@ defmodule Marquee.Accounts.Organization do
       true
   """
   def approved_body_fonts, do: @approved_body_fonts
+
+  @doc """
+  Returns the access levels an operator may choose for the Shorts feed.
+
+      iex> Marquee.Accounts.Organization.shorts_feed_access_levels()
+      ["public", "free_with_account", "subscribers_only"]
+  """
+  def shorts_feed_access_levels, do: @shorts_feed_access_levels
+
+  @doc """
+  Changeset for the Shorts feed settings. Casts only the enabled flag and
+  the access level; every other organization field is ignored.
+
+      iex> changeset =
+      ...>   Marquee.Accounts.Organization.shorts_feed_changeset(
+      ...>     %Marquee.Accounts.Organization{},
+      ...>     %{shorts_feed_enabled: true, shorts_feed_access: "public", name: "Hijacked"}
+      ...>   )
+      iex> {changeset.valid?, changeset.changes}
+      {true, %{shorts_feed_enabled: true, shorts_feed_access: "public"}}
+
+      iex> changeset =
+      ...>   Marquee.Accounts.Organization.shorts_feed_changeset(
+      ...>     %Marquee.Accounts.Organization{},
+      ...>     %{shorts_feed_access: "everyone"}
+      ...>   )
+      iex> changeset.valid?
+      false
+  """
+  def shorts_feed_changeset(organization, attrs) do
+    organization
+    |> cast(attrs, [:shorts_feed_enabled, :shorts_feed_access])
+    |> validate_required([:shorts_feed_enabled, :shorts_feed_access])
+    |> validate_inclusion(:shorts_feed_access, @shorts_feed_access_levels)
+  end
 
   @doc false
   def changeset(organization, attrs) do

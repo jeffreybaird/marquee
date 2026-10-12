@@ -29,6 +29,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 |--------------------------|----------------------------|------------|-------|
 | `/`                      | `Viewer.HomeLive`          | Optional   | Shows org catalog, org landing, or platform marketing based on context |
 | `/browse`                | `Viewer.BrowseLive`       | Optional   | Search, filter by collection/tag, sort |
+| `/shorts`                | `Viewer.ShortsLive`       | Optional   | Vertical Shorts feed (home live_session so Home → Shorts live-navigates); feed-level access (`organizations.shorts_feed_access`) locks or plays every clip; hidden unless `shorts_feed_enabled` |
 | `/collections/:slug`    | `Viewer.CollectionLive`    | Optional   | Single collection with its videos |
 | `/register`              | `Viewer.RegisterLive`      | None       | Viewer email registration |
 | `/login`                 | `Viewer.LoginLive`         | None       | Magic link auth |
@@ -49,6 +50,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 | `/admin`                       | `Admin.DashboardLive`     | Overview/stats |
 | `/admin/content`               | `Admin.ContentLive`       | Video list, upload, edit metadata, tag management |
 | `/admin/collections`           | `Admin.CollectionsLive`   | CRUD collections, assign videos |
+| `/admin/shorts`                | `Admin.ShortsLive`        | Enable Shorts, choose access level, add/move/remove eligible videos (editor+; viewer_support read-only) |
 | `/admin/tags`                  | `Admin.TagsLive`          | CRUD tags |
 | `/admin/catalog`               | `Admin.CatalogLive`       | Homepage row builder: add/edit/reorder rows, hero config |
 | `/admin/analytics`             | `Admin.AnalyticsLive`     | Org dashboard: KPIs, charts, content performance table (title links to video analytics), engagement, churn |
@@ -118,6 +120,7 @@ root.html.heex                    ← HTML skeleton, meta tags, asset loading
 | Hook              | File                          | Used By                        | Server Events |
 |-------------------|-------------------------------|--------------------------------|---------------|
 | `MuxPlayer`       | `hooks/mux_player.ts`         | `WatchLive`                    | `playback_started`, `playback_progress`, `playback_paused`, `playback_ended`, `playback_drop_off` |
+| `ShortsFeed`      | `hooks/shorts_feed.ts`        | `Viewer.ShortsLive`            | `load_more`, `playback_clip_activated`, `playback_started`, `playback_progress`, `playback_paused`, `playback_ended`, `playback_drop_off` |
 | `PlaybackTracker` | `hooks/playback_tracker.ts`   | `WatchLive`                    | `progress_update` |
 | `HeroCarousel`    | `hooks/hero_carousel.ts`      | `HomeLive`                     | None (client-side only) |
 | `CardFocus`       | `hooks/card_focus.ts`         | `ViewerComponents.content_card`| None (client-side hover/focus popup + preview player) |

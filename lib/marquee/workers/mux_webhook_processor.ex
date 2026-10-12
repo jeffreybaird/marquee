@@ -72,6 +72,7 @@ defmodule Marquee.Workers.MuxWebhookProcessor do
         duration: data["duration"],
         max_resolution: data["max_stored_resolution"],
         playback_id: public_playback && public_playback["id"],
+        aspect_ratio: data["aspect_ratio"],
         mp3_byte_size: mp3_byte_size
       }
 

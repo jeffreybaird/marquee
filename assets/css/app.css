@@ -4519,6 +4519,248 @@ details[open] .sv-faq-question::after {
   .sv-podcast-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
+/* =========================================================================
+   Shorts feed (Viewer.ShortsLive + ShortsFeed hook)
+   Keyed on the data attributes the server markup and the hook share, so it
+   does not depend on presentational classes. Colours come from the tenant's
+   --sv-* tokens.
+
+   Fit rule: the article is the stage (full viewport width on phones, a
+   centred 9:16 column from 768px). The media box inside it carries the clip's
+   own inline aspect-ratio and is the largest box of that ratio that fits the
+   stage, centred. Poster and player use object-fit: contain, so a narrower
+   clip is pillarboxed and a wider or square one letterboxed — never cropped
+   or stretched.
+   ========================================================================= */
+
+/* The feed alone fills the viewport between the fixed 64px viewer nav and
+   the site-wide footer (source code + license links, root layout: 44px links
+   plus 16px padding), so the page itself never overflows. A page scroll
+   would add a scrollbar that narrows the stage, and fight the feed's snap. */
+:root:has(#shorts-feed) {
+  --shorts-offset-top: 64px;
+  --shorts-offset-bottom: 60px;
+}
+
+/* .sv-root and .sv-main normally stretch to the viewport; here the feed sizes
+   the page instead, so the footer sits directly below it. */
+body:has(#shorts-feed) :is(.sv-root, .sv-main) {
+  min-height: 0;
+}
+
+#shorts-feed {
+  height: calc(100vh - var(--shorts-offset-top, 64px) - var(--shorts-offset-bottom, 60px));
+  height: calc(100dvh - var(--shorts-offset-top, 64px) - var(--shorts-offset-bottom, 60px));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  background: var(--sv-bg-primary);
+  color: var(--sv-text-primary);
+}
+
+#shorts-feed::-webkit-scrollbar {
+  display: none;
+}
+
+#shorts-feed > article[data-index] {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin-inline: auto;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  background: var(--sv-bg-primary);
+}
+
+/* Programmatic focus lands here on keyboard navigation; inset so overflow keeps it visible. */
+#shorts-feed > article[data-index]:focus-visible {
+  outline: 3px solid var(--sv-accent);
+  outline-offset: -3px;
+}
+
+#shorts-feed:focus-visible {
+  outline: 3px solid var(--sv-accent);
+  outline-offset: -3px;
+}
+
+@media (min-width: 768px) {
+  /* Height is the feed's; the width follows from the 9:16 ratio. */
+  #shorts-feed > article[data-index] {
+    width: auto;
+    max-width: 100vw;
+    aspect-ratio: 9 / 16;
+  }
+}
+
+/* Absolutely positioned with every inset at 0 and auto size, the box takes
+   its inline aspect-ratio and is clamped to the stage on both axes. */
+#shorts-feed [data-short-media] {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+#shorts-feed [data-short-poster],
+#shorts-feed [data-player-slot],
+#shorts-feed [data-short-media] mux-player,
+#shorts-feed [data-short-media] video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#shorts-feed [data-short-poster],
+#shorts-feed [data-short-media] mux-player,
+#shorts-feed [data-short-media] video {
+  object-fit: contain;
+  object-position: center;
+}
+
+#shorts-feed [data-short-media] mux-player {
+  --media-object-fit: contain;
+  --media-object-position: center;
+  --media-accent-color: var(--sv-accent);
+  /* The feed renders its own play/mute controls. */
+  --controls: none;
+  background: transparent;
+}
+
+/* The clip's controls (play, mute, favorite, watchlist) stay above the
+   full-stage error panel, which the markup renders after them. The overlay
+   box itself lets clicks through so the panel's Retry is never blocked. */
+#shorts-feed [data-short-overlay] {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#shorts-feed [data-short-overlay] :is(a, button, input, select, textarea, [tabindex]) {
+  pointer-events: auto;
+}
+
+/* Defaults for the overlay and controls. In the components layer so utility
+   classes in the markup can override placement and look. */
+@layer components {
+  /* The media box is positioned, so lift the overlay content above it. */
+  :where(#shorts-feed > article[data-index] > :not([data-short-media])) {
+    position: relative;
+    z-index: 1;
+  }
+
+  :where(#shorts-feed > article[data-index]) {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  :where(#shorts-feed > article[data-index] h2, #shorts-feed > article[data-index] h3) {
+    color: var(--sv-text-primary);
+    font-family: var(--sv-font-heading);
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+  }
+
+  :where(
+      [data-shorts-toggle-play],
+      [data-shorts-toggle-mute],
+      [data-shorts-prev],
+      [data-shorts-next],
+      [data-shorts-retry]
+    ) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--sv-border);
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--sv-bg-elevated) 80%, transparent);
+    color: var(--sv-text-primary);
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  :where(
+      [data-shorts-toggle-play],
+      [data-shorts-toggle-mute],
+      [data-shorts-prev],
+      [data-shorts-next],
+      [data-shorts-retry]
+    ):hover {
+    border-color: var(--sv-accent);
+  }
+
+  :where([data-shorts-toggle-play], [data-shorts-toggle-mute])[aria-pressed="true"] {
+    background: var(--sv-accent);
+    border-color: var(--sv-accent);
+    color: var(--sv-text-on-accent);
+  }
+
+  /* Previous / Next sit outside the feed: float them at the right edge so
+     they never push the full-height feed below the fold. */
+  :where([data-shorts-prev], [data-shorts-next]) {
+    position: fixed;
+    right: 16px;
+    z-index: 10;
+  }
+
+  :where([data-shorts-prev]) {
+    top: calc(50% + (var(--shorts-offset-top, 64px) - var(--shorts-offset-bottom, 60px)) / 2 - 52px);
+  }
+
+  :where([data-shorts-next]) {
+    top: calc(50% + (var(--shorts-offset-top, 64px) - var(--shorts-offset-bottom, 60px)) / 2 + 8px);
+  }
+
+  :where([data-shorts-prev], [data-shorts-next]):disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+}
+
+/* Focus rings stay unlayered so a utility class cannot remove them. */
+:is(
+    [data-shorts-toggle-play],
+    [data-shorts-toggle-mute],
+    [data-shorts-prev],
+    [data-shorts-next],
+    [data-shorts-retry]
+  ):focus-visible {
+  outline: 2px solid var(--sv-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #shorts-feed {
+    scroll-behavior: auto;
+  }
+
+  :where(
+      [data-shorts-toggle-play],
+      [data-shorts-toggle-mute],
+      [data-shorts-prev],
+      [data-shorts-next],
+      [data-shorts-retry]
+    ) {
+    transition: none;
+  }
+}
+
 /* ── Guided admin tour (Shepherd.js) ─────────────────────────────────────── */
 .shepherd-button{background:var(--color-accent,#3288e6);border:0;border-radius:6px;color:#fff;cursor:pointer;margin-right:.5rem;padding:.5rem 1.5rem;transition:all .3s ease}.shepherd-button:not(:disabled):hover{filter:brightness(0.92)}.shepherd-button.shepherd-button-secondary{background:#f1f2f3;color:rgba(0,0,0,.75)}.shepherd-button.shepherd-button-secondary:not(:disabled):hover{background:#d6d9db;color:rgba(0,0,0,.75)}.shepherd-button:disabled{cursor:not-allowed}
 .shepherd-footer{border-bottom-left-radius:8px;border-bottom-right-radius:8px;display:flex;justify-content:flex-end;padding:0 .75rem .75rem}.shepherd-footer .shepherd-button:last-child{margin-right:0}

@@ -27,6 +27,9 @@ export interface MuxPlayerElement extends HTMLElement {
   /** Whether the player is muted */
   muted: boolean
 
+  /** Whether playback restarts from the beginning when it ends */
+  loop: boolean
+
   /** Seek to a specific position in seconds */
   play(): Promise<void>
 

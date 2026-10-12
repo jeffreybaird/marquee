@@ -20,6 +20,7 @@ defmodule Marquee.Content do
   require Marquee.Otel
 
   alias Marquee.Content.{
+    AspectRatio,
     Collection,
     CollectionItem,
     Episode,
@@ -400,7 +401,8 @@ defmodule Marquee.Content do
             mux_status: "ready",
             duration: metadata[:duration],
             max_resolution: metadata[:max_resolution],
-            mux_playback_id: metadata[:playback_id]
+            mux_playback_id: metadata[:playback_id],
+            aspect_ratio: AspectRatio.normalize(metadata[:aspect_ratio])
           }
 
           case video |> Video.mux_status_changeset(attrs) |> Repo.update() do
@@ -525,7 +527,8 @@ defmodule Marquee.Content do
     %{
       duration: asset["duration"],
       max_resolution: asset["max_stored_resolution"],
-      playback_id: public_playback && public_playback["id"]
+      playback_id: public_playback && public_playback["id"],
+      aspect_ratio: asset["aspect_ratio"]
     }
   end
 
@@ -1055,6 +1058,37 @@ defmodule Marquee.Content do
       authorized_reorder_collection_items(scope, collection, ordered_item_ids)
     end
   end
+
+  ## -----------------------------------------------------------------------
+  ## Shorts feed (see Marquee.Content.ShortFeed)
+  ## -----------------------------------------------------------------------
+
+  @doc "Lists feed items with videos, including unavailable ones. Exempt from doctest — hits the database."
+  defdelegate list_short_feed_items(org, opts \\ []), to: Marquee.Content.ShortFeed
+
+  @doc "Lists eligible videos not yet in the feed. Exempt from doctest — hits the database."
+  defdelegate list_short_feed_eligible_videos(org, opts \\ []), to: Marquee.Content.ShortFeed
+
+  @doc "Fetches one of the organization's feed items. Exempt from doctest — hits the database."
+  defdelegate get_short_feed_item(org, id), to: Marquee.Content.ShortFeed
+
+  @doc "Returns the cached viewer feed page. Exempt from doctest — hits the database and cache."
+  defdelegate list_short_feed(org, opts \\ []), to: Marquee.Content.ShortFeed
+
+  @doc "Appends a video to the feed. Exempt from doctest — hits the database."
+  defdelegate add_short_feed_video(scope, video), to: Marquee.Content.ShortFeed
+
+  @doc "Removes an item from the feed. Exempt from doctest — hits the database."
+  defdelegate remove_short_feed_item(scope, item), to: Marquee.Content.ShortFeed
+
+  @doc "Moves an item one place up or down. Exempt from doctest — hits the database."
+  defdelegate move_short_feed_item(scope, item, direction), to: Marquee.Content.ShortFeed
+
+  @doc "Applies a full feed ordering. Exempt from doctest — hits the database."
+  defdelegate reorder_short_feed(scope, ids), to: Marquee.Content.ShortFeed
+
+  @doc "Updates the feed's enabled flag and access level. Exempt from doctest — hits the database."
+  defdelegate update_short_feed_settings(scope, attrs), to: Marquee.Content.ShortFeed
 
   ## -----------------------------------------------------------------------
   ## Tags

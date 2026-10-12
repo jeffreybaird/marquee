@@ -24,6 +24,7 @@
  *   - "play_next_in_queue" { playback_id, video_id, resume_position }
  */
 import { ViewHook } from "phoenix_live_view"
+import { PROGRESS_INTERVAL_MS, PROGRESS_JITTER_MS, PlaybackReporter } from "../playback_reporter"
 import type { MuxPlayerElement } from "../types/mux"
 
 interface LoadVideoPayload {
@@ -35,13 +36,6 @@ interface LoadVideoPayload {
 class MuxPlayer extends ViewHook {
   private player: MuxPlayerElement | null = null
   private videoId: string | undefined
-  private progressIntervalMs = 30000
-  private progressJitterMs = 0
-  private lastReportedPosition = 0
-  private lastReportAt = 0
-  private maxPosition = 0
-  private videoDuration = 0
-  private dropOffSent = false
   private startProgressInterval: number | null = null
   private progressInterval: number | null = null
 
@@ -95,63 +89,27 @@ class MuxPlayer extends ViewHook {
 
     this.player = player
     this.videoId = this.el.dataset.videoId
-    this.progressIntervalMs = 30000
-    this.progressJitterMs = Math.floor(Math.random() * 5000)
-    this.lastReportedPosition = 0
-    this.lastReportAt = 0
-    this.maxPosition = 0
-    this.videoDuration = 0
-    this.dropOffSent = false
+    const progressJitterMs = Math.floor(Math.random() * PROGRESS_JITTER_MS)
+    const reporter = new PlaybackReporter((event, payload) => this.pushEvent(event, payload), this.videoId)
 
     const resetDropOffState = (videoId: string) => {
       this.videoId = videoId
-      this.maxPosition = 0
-      this.videoDuration = 0
-      this.dropOffSent = false
+      reporter.switchVideo(videoId)
     }
 
-    const sendDropOff = () => {
-      if (this.dropOffSent) return
-      if (this.maxPosition <= 0) return
-      this.dropOffSent = true
-      this.pushEvent("playback_drop_off", {
-        video_id: this.videoId,
-        max_position: this.maxPosition,
-        video_duration: this.videoDuration,
-      })
-    }
+    const sendDropOff = () => reporter.sendDropOff()
     this.sendDropOff = sendDropOff
 
     player.addEventListener("timeupdate", () => {
-      const pos = Number(player.currentTime || 0)
-      if (pos > this.maxPosition) this.maxPosition = pos
+      reporter.trackPosition(Number(player.currentTime || 0))
     })
 
     player.addEventListener("loadedmetadata", () => {
-      const dur = Number(player.duration || 0)
-      if (dur > 0) this.videoDuration = dur
+      reporter.trackDuration(Number(player.duration || 0))
     })
 
     const reportProgress = (eventName = "playback_progress") => {
-      const position = Number(player.currentTime || 0)
-      const now = Date.now()
-
-      if (position <= 0) return
-
-      if (
-        eventName === "playback_progress" &&
-        now - this.lastReportAt < this.progressIntervalMs - 1000 &&
-        Math.abs(position - this.lastReportedPosition) < 15
-      ) {
-        return
-      }
-
-      this.lastReportAt = now
-      this.lastReportedPosition = position
-      this.pushEvent(eventName, {
-        video_id: this.videoId,
-        position,
-      })
+      reporter.report(Number(player.currentTime || 0), eventName)
     }
 
     // Resume playback if position is set
@@ -160,7 +118,7 @@ class MuxPlayer extends ViewHook {
 
     // Report playback started
     player.addEventListener("play", () => {
-      this.pushEvent("playback_started", { video_id: this.videoId })
+      reporter.reportStarted()
     })
 
     // Spread out progress updates so reconnect storms do not align all viewers.
@@ -169,8 +127,8 @@ class MuxPlayer extends ViewHook {
         if (!player.paused && player.currentTime > 0) {
           reportProgress()
         }
-      }, this.progressIntervalMs)
-    }, this.progressJitterMs)
+      }, PROGRESS_INTERVAL_MS)
+    }, progressJitterMs)
 
     // Report pause
     player.addEventListener("pause", () => {
@@ -222,16 +180,14 @@ class MuxPlayer extends ViewHook {
 
     // Report ended — triggers queue auto-advance on server
     player.addEventListener("ended", () => {
-      this.lastReportedPosition = Number(player.duration || player.currentTime || 0)
-      this.dropOffSent = true
-      this.pushEvent("playback_ended", { video_id: this.videoId })
+      reporter.reportEnded(Number(player.duration || player.currentTime || 0))
     })
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         sendDropOff()
       } else {
-        this.dropOffSent = false
+        reporter.rearmDropOff()
       }
     }
     this.onVisibilityChange = onVisibilityChange

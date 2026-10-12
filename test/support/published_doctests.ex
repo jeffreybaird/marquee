@@ -13,6 +13,7 @@ defmodule Marquee.PublishedDoctests do
     Marquee.Catalog.Presets,
     Marquee.Catalog.Row,
     Marquee.Content.AccessControl,
+    Marquee.Content.AspectRatio,
     Marquee.Content.CollectionItem,
     Marquee.DemoSeeder,
     Marquee.Engagement.ContinueWatchingDismissal,
