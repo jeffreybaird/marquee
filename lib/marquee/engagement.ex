@@ -9,7 +9,7 @@ defmodule Marquee.Engagement do
   import Ecto.Query, warn: false
 
   alias Marquee.Accounts.Organization
-  alias Marquee.Buffers.ProgressBuffer
+  alias Marquee.Buffers.{EngagementBuffer, ProgressBuffer}
   alias Marquee.Content
   alias Marquee.Content.{Episode, Season, Series, Video}
 
@@ -27,6 +27,7 @@ defmodule Marquee.Engagement do
   alias Marquee.Metrics
   alias Marquee.Pagination
   alias Marquee.Repo
+  alias Marquee.Viewers.Viewer
 
   require Marquee.Otel
 
@@ -2057,14 +2058,7 @@ defmodule Marquee.Engagement do
                              "marquee.org.id" => fetch_attr(attrs, :organization_id),
                              "marquee.video.id" => fetch_attr(attrs, :video_id)
                            } do
-      max_position = fetch_attr(attrs, :max_position) |> to_float_or_zero()
-
-      full_attrs =
-        attrs
-        |> normalize_attrs()
-        |> Map.put(:bucket, PlaybackDropOff.bucket_for(max_position))
-        |> Map.put(:max_position, max_position)
-        |> Map.put_new(:left_at, DateTime.utc_now() |> DateTime.truncate(:second))
+      full_attrs = drop_off_attrs(attrs)
 
       case %PlaybackDropOff{} |> PlaybackDropOff.changeset(full_attrs) |> Repo.insert() do
         {:ok, drop_off} ->
@@ -2075,6 +2069,144 @@ defmodule Marquee.Engagement do
           {:error, :validation, changeset}
       end
     end
+  end
+
+  # Shared normalisation for direct and buffered drop-offs: known keys only
+  # (atom or string), max_position coerced to a float, bucket derived from
+  # it, and left_at defaulting to now.
+  defp drop_off_attrs(attrs) do
+    max_position = fetch_attr(attrs, :max_position) |> to_float_or_zero()
+
+    attrs
+    |> normalize_attrs()
+    |> Map.put(:bucket, PlaybackDropOff.bucket_for(max_position))
+    |> Map.put(:max_position, max_position)
+    |> Map.put_new(:left_at, DateTime.utc_now() |> DateTime.truncate(:second))
+  end
+
+  ## -----------------------------------------------------------------------
+  ## Buffered engagement (Shorts feed)
+  ## -----------------------------------------------------------------------
+
+  @doc """
+  Queues a completion with the same effects as `mark_completed/3`, applied
+  on the next `Marquee.Buffers.EngagementBuffer` flush. Returns `:ok`.
+
+  Exempt from doctest — writes through the engagement buffer.
+  """
+  def buffer_completion(%Organization{id: org_id}, %{id: viewer_id}, %{id: video_id}) do
+    EngagementBuffer.push(
+      {:completion, %{organization_id: org_id, viewer_id: viewer_id, video_id: video_id}}
+    )
+  end
+
+  @doc """
+  Queues a drop-off (the attrs `record_drop_off/1` accepts), written on the
+  next `Marquee.Buffers.EngagementBuffer` flush. Returns `:ok`; invalid
+  attrs are dropped at flush.
+
+  Exempt from doctest — writes through the engagement buffer.
+  """
+  def buffer_drop_off(attrs) when is_map(attrs) do
+    EngagementBuffer.push({:drop_off, attrs})
+  end
+
+  @doc """
+  Applies a buffered completion: loads the organization's viewer and video
+  and runs `mark_completed/3`. Returns `:ok` or `{:error, :not_found}` when
+  any of them is missing or belongs to another organization.
+
+  Exempt from doctest — hits the database.
+  """
+  def complete_buffered(org_id, viewer_id, video_id) do
+    with %Organization{} = org <- Repo.get(Organization, org_id),
+         %Viewer{} = viewer <- Repo.get_by(Viewer, id: viewer_id, organization_id: org_id),
+         %Video{} = video <- Repo.get_by(Video, id: video_id, organization_id: org_id) do
+      mark_completed(org, viewer, video)
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Builds the drop-off changeset a buffered entry is written with: the same
+  normalisation as `record_drop_off/1`, keeping an explicit `left_at`.
+
+      iex> changeset =
+      ...>   Marquee.Engagement.buffered_drop_off_changeset(%{
+      ...>     "organization_id" => "00000000-0000-0000-0000-000000000001",
+      ...>     "video_id" => "00000000-0000-0000-0000-000000000002",
+      ...>     "viewer_id" => "00000000-0000-0000-0000-000000000003",
+      ...>     "max_position" => "42.5",
+      ...>     "left_at" => ~U[2026-01-02 03:04:05Z]
+      ...>   })
+      iex> {changeset.valid?, Ecto.Changeset.get_field(changeset, :max_position),
+      ...>  Ecto.Changeset.get_field(changeset, :left_at)}
+      {true, 42.5, ~U[2026-01-02 03:04:05Z]}
+
+      iex> Marquee.Engagement.buffered_drop_off_changeset(%{max_position: 5.0}).valid?
+      false
+  """
+  def buffered_drop_off_changeset(attrs) when is_map(attrs) do
+    full_attrs =
+      case fetch_attr(attrs, :left_at) do
+        nil -> drop_off_attrs(attrs)
+        left_at -> attrs |> drop_off_attrs() |> Map.put(:left_at, left_at)
+      end
+
+    PlaybackDropOff.changeset(%PlaybackDropOff{}, full_attrs)
+  end
+
+  @doc """
+  Inserts valid drop-off changesets in one statement and emits the
+  drop-off metric per row. Returns `{:ok, count}`; raises if the batch is
+  rejected by the database.
+
+  Exempt from doctest — hits the database.
+  """
+  def insert_drop_off_batch(changesets) when is_list(changesets) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    rows = Enum.map(changesets, &drop_off_row(&1, now))
+    {count, _} = Repo.insert_all(PlaybackDropOff, rows)
+    Enum.each(rows, &Metrics.drop_off_recorded(&1.organization_id, &1.video_id))
+    {:ok, count}
+  end
+
+  @doc """
+  Inserts one valid drop-off changeset and emits the drop-off metric.
+  Returns `{:ok, drop_off}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def insert_drop_off(%Ecto.Changeset{} = changeset) do
+    case Repo.insert(changeset) do
+      {:ok, drop_off} ->
+        Metrics.drop_off_recorded(drop_off.organization_id, drop_off.video_id)
+        {:ok, drop_off}
+
+      {:error, changeset} ->
+        {:error, :validation, changeset}
+    end
+  end
+
+  @drop_off_row_fields [
+    :organization_id,
+    :video_id,
+    :viewer_id,
+    :user_id,
+    :bucket,
+    :max_position,
+    :video_duration,
+    :left_at,
+    :counted_at,
+    :outcome
+  ]
+
+  defp drop_off_row(changeset, now) do
+    changeset
+    |> Ecto.Changeset.apply_changes()
+    |> Map.take(@drop_off_row_fields)
+    |> Map.merge(%{id: Ecto.UUID.generate(), inserted_at: now, updated_at: now})
   end
 
   defp fetch_attr(attrs, key) when is_atom(key) do

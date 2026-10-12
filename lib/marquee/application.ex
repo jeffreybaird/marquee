@@ -33,6 +33,7 @@ defmodule Marquee.Application do
         Marquee.Cache,
         {Oban, Application.fetch_env!(:marquee, Oban)},
         Marquee.Buffers.ProgressBuffer,
+        Marquee.Buffers.EngagementBuffer,
         Marquee.Streaming.ChatRateLimiter,
         Marquee.Events.AuditSubscriber,
         Marquee.Catalog.HeroCacheSubscriber,
