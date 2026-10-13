@@ -63,6 +63,7 @@ defmodule MarqueeWeb.Super.OrganizationsLive do
               <th>Custom Domain</th>
               <th>Members</th>
               <th>Videos</th>
+              <th>Subscribers</th>
               <th>Created</th>
               <th></th>
             </tr>
@@ -72,8 +73,9 @@ defmodule MarqueeWeb.Super.OrganizationsLive do
               <td class="font-medium">{org.name}</td>
               <td class="text-base-content/70 font-mono text-sm">{org.slug}</td>
               <td class="text-base-content/70 text-sm">{org.custom_domain || "—"}</td>
-              <td>{Admin.member_count(org)}</td>
-              <td>{Admin.video_count(org)}</td>
+              <td data-test="org-member-count">{@counts[org.id].members}</td>
+              <td data-test="org-video-count">{@counts[org.id].videos}</td>
+              <td data-test="org-subscriber-count">{@counts[org.id].subscribers}</td>
               <td class="text-sm text-base-content/60">
                 {Calendar.strftime(org.inserted_at, "%b %d, %Y")}
               </td>
@@ -100,6 +102,9 @@ defmodule MarqueeWeb.Super.OrganizationsLive do
 
   defp load_organizations(socket, search) do
     %{results: orgs} = Admin.list_organizations(search: search)
-    assign(socket, :organizations, orgs)
+
+    socket
+    |> assign(:organizations, orgs)
+    |> assign(:counts, Admin.organization_counts(orgs))
   end
 end

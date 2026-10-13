@@ -52,6 +52,8 @@ defmodule MarqueeWeb do
     quote do
       use Phoenix.LiveView
 
+      on_mount MarqueeWeb.Hooks.RequestContext
+
       unquote(html_helpers())
     end
   end

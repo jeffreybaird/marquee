@@ -508,6 +508,50 @@ defmodule Marquee.Admin do
     |> Repo.aggregate(:count)
   end
 
+  @doc """
+  Returns member, video, and active-subscriber counts for a page of
+  organizations, keyed by organization id.
+
+  Batched equivalent of `member_count/1`, `video_count/1`, and
+  `subscriber_count/1` (same semantics) using one grouped query per metric,
+  so a listing page avoids per-row queries. Organizations without rows get
+  zero counts. Returns `%{org_id => %{members: n, videos: n, subscribers: n}}`.
+
+  Cross-tenant query — intentional (super admin organizations list).
+
+  Exempt from doctest — hits the database.
+  """
+  def organization_counts(organizations) when is_list(organizations) do
+    org_ids = Enum.map(organizations, & &1.id)
+
+    Marquee.Otel.with_span "marquee.admin.organization_counts",
+                           %{"marquee.admin.org_count" => length(org_ids)} do
+      members = count_by_organization(Membership, org_ids)
+      videos = count_by_organization(Video, org_ids)
+      subscribers = count_by_organization(where(Subscription, status: :active), org_ids)
+
+      Map.new(org_ids, fn id ->
+        {id,
+         %{
+           members: Map.get(members, id, 0),
+           videos: Map.get(videos, id, 0),
+           subscribers: Map.get(subscribers, id, 0)
+         }}
+      end)
+    end
+  end
+
+  defp count_by_organization(_queryable, []), do: %{}
+
+  defp count_by_organization(queryable, org_ids) do
+    queryable
+    |> where([r], r.organization_id in ^org_ids)
+    |> group_by([r], r.organization_id)
+    |> select([r], {r.organization_id, count(r.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
   ## Analytics
 
   @doc """
