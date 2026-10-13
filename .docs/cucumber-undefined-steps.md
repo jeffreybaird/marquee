@@ -1,30 +1,31 @@
-# Cucumber: undefined steps report and proposal
+# Cucumber: undefined steps report (historical baseline)
 
 Generated for [issue #28](https://github.com/jeffreybaird/marquee/issues/28), task 2.
 Baseline on `main` (full `features/**` run, Wallaby): 303 scenarios, 94 passed,
 31 failed, 178 undefined.
 
-## Proposal (decision needed)
+## Outcome
 
-1. **Delete `features/acceptance/authentication.feature`.** It is an older
-   duplicate of `features/authentication.feature` (same flows, different step
-   wording, 11 undefined steps). Test deletion requires explicit approval.
-2. **Tag every scenario that still has undefined steps with `@wip`** and run the
-   gated suite with `--tags "not @wip"` in `mix precommit` and CI, so the suite
-   is strict and green while step definitions are written incrementally. The
-   36 files below all describe real product areas (contexts exist for billing,
-   catalog, live events, webhooks, viewer flows), so removal would lose intent.
-3. **Write step definitions domain by domain**, starting with the smallest gaps
-   (`super_admin_org_management` 1, `admin_dashboard` 3, `tags_management` 3,
-   `audit_logging__organization_audit_log` 4), removing `@wip` as each file goes
-   green. Scenarios for flows the product does not have (verify per file before
-   writing steps) should be removed, not stubbed.
+The report below is the starting point, kept for reference. It no longer
+describes the suite. What was decided and done:
 
-Alternative to 2: move undefined feature files to `features/wip/` and run only
-`features/*.feature` + `features/acceptance`. Same effect, no tag edits, but
-loses the per-scenario granularity.
+1. `features/acceptance/authentication.feature` was deleted (user-approved). It
+   duplicated `features/authentication.feature`.
+2. Every remaining undefined step now has a definition. No scenario was removed
+   and no step was stubbed.
+3. Scenarios whose steps describe a control or flow the app does not have are
+   tagged `@app-gap`. Their steps are real and fail honestly. Each gap has an
+   issue: #31–#46. The gated run excludes them:
+   `mix marquee.cucumber --tags "not @app-gap"`. Pass the tag expression as a
+   separate argument; `--tags="..."` is silently ignored. When an issue ships,
+   remove its tag so the scenario runs.
+4. One step was removed as dead: "Including video count, subscriber count, and
+   member count" in `organization_management_steps.ex` lost its feature line
+   when that line was reworded.
 
-## Report
+See `.docs/cucumber-handoff.md` for the current state.
+
+## Report (baseline)
 
 
 Generated statically by matching every pickle step against the step registry (same matcher `mix cucumber` uses).
