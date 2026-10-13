@@ -147,8 +147,7 @@ defmodule Marquee.MixProject do
         "esbuild marquee --minify",
         "phx.digest"
       ],
-      precommit: ["format --force", "deps.unlock --unused", "marquee.verify"],
-      "marquee.cucumber": ["cucumber"]
+      precommit: ["format --force", "deps.unlock --unused", "marquee.verify"]
     ]
   end
 end

@@ -4,16 +4,16 @@ Feature: Theme and Color Customization
     Given I am logged in as an organization owner
     And I am on the appearance settings page
 
-  Scenario: Operator selects a theme preset
-    When I select a preset theme such as midnight or daybreak
-    Then a preview of the theme colors is displayed
-    And when I apply it the viewer site reflects the new color scheme
+  Scenario: Operator selects a layout preset
+    When I select a layout preset such as Learning Platform
+    Then the preset is shown as previewing
+    And when I apply it the catalog layout uses that preset
 
-  Scenario: Operator applies a theme preset
-    Given I have previewed a theme preset
+  Scenario: Operator applies a layout preset
+    Given I have previewed a layout preset
     When I confirm and apply the preset
-    Then the theme is saved
-    And the viewer site immediately reflects the new theme
+    Then the preset is saved on the catalog layout
+    And the catalog rows are seeded from that preset
 
   Scenario: Operator overrides accent colors with custom values
     When I enter custom oklch or hex color values for accent color slots
@@ -39,8 +39,8 @@ Feature: Theme and Color Customization
 
   Scenario: Operator previews a preset without applying
     When I hover over or click preview on a preset
-    Then the color preview updates in the UI
-    But the live viewer site is not changed until I apply
+    Then the preset is shown as previewing
+    But the catalog layout is not changed until I apply
 
   Scenario: Operator expands preview to full screen
     Given I am on the appearance settings page

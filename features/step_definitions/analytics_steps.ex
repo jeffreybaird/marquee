@@ -14,6 +14,8 @@ defmodule MarqueeFeatures.Steps.Analytics do
 
   use Wallaby.DSL
   import Wallaby.Query
+  import Marquee.Factory
+  import MarqueeFeatures.Support.Browser
 
   given_ "I am on the analytics dashboard at /admin/analytics", fn world ->
     session = visit(world.session, "/admin/analytics?org=#{world.org.slug}")
@@ -98,13 +100,17 @@ defmodule MarqueeFeatures.Steps.Analytics do
   end
 
   given_ "the content performance table has multiple pages", fn world ->
-    # `mix marquee.cucumber` against an empty test DB won't naturally
-    # produce paginated content. The pagination markup only renders
-    # when total > per_page, so this scenario stays best-effort: when
-    # there's no data, the next-page button isn't in the DOM and the
-    # When step's click will fail loudly — which is the right signal
-    # rather than a silent pass.
-    world
+    # The table lists every non-deleted video in the organization, 20 per
+    # page. Seed one more than a page and reload the dashboard so mount
+    # picks them up.
+    insert_list(21, :video, organization: world.org)
+
+    session =
+      world.session
+      |> visit_live("/admin/analytics?org=#{world.org.slug}")
+      |> assert_has(css("[data-test=content-pagination]", text: "Page 1 of 2"))
+
+    Map.put(world, :session, session)
   end
 
   when_ "I navigate to the next page", fn world ->
@@ -113,7 +119,7 @@ defmodule MarqueeFeatures.Steps.Analytics do
   end
 
   then_ "the next set of content is displayed", fn world ->
-    assert_has(world.session, css("[data-test=content-pagination]"))
+    assert_has(world.session, css("[data-test=content-pagination]", text: "Page 2 of 2"))
     world
   end
 end

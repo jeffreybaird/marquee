@@ -169,10 +169,20 @@ Every user-facing feature must have a Gherkin scenario in `features/`. This is n
 - Never duplicate step text — reuse or generalize existing steps
 
 **Running cucumber:**
+
+Every scenario under `features/**` starts a Wallaby browser session (Chrome +
+matching ChromeDriver required). The suite and `mix test` both bind the
+endpoint to port 4002 (`config/test.exs`), so they cannot share a port.
+
 ```bash
-mix marquee.cucumber        # acceptance suite (context-level, no browser)
-mix test --only e2e        # Wallaby suite (browser-required flows only)
+mix cucumber                                     # full suite on 4002; cannot run alongside `mix test`
+mix marquee.cucumber [cucumber args]             # same suite on MARQUEE_CUCUMBER_PORT (default 4003), safe next to `mix test`
+MARQUEE_CUCUMBER_PORT=4010 mix marquee.cucumber --format pretty --strict features/authentication.feature
+mix test --only e2e                              # Wallaby ExUnit suite (browser-required flows only)
 ```
+
+Use `--format pretty --strict` when capturing PR evidence. Both tasks run in
+`MIX_ENV=test` through `preferred_envs`.
 
 ### Single Responsibility — One Function, One Job
 

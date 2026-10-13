@@ -16,7 +16,7 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   use Wallaby.DSL
   import Wallaby.Query
   import Marquee.Factory
-  import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Audit
   alias Marquee.Accounts.Scope
@@ -61,17 +61,28 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   end
 
   given_ "the audit log has entries of various action types", fn world ->
-    {:ok, _} = Audit.log(world.scope, "video.created", build_resource("Video"))
-    {:ok, _} = Audit.log(world.scope, "video.updated", build_resource("Video"), %{title: "x"})
-    {:ok, _} = Audit.log(world.scope, "video.deleted", build_resource("Video"))
-    world
+    {:ok, created} = Audit.log(world.scope, "video.created", build_resource("Video"))
+
+    {:ok, updated} =
+      Audit.log(world.scope, "video.updated", build_resource("Video"), %{title: "x"})
+
+    {:ok, deleted} = Audit.log(world.scope, "video.deleted", build_resource("Video"))
+
+    Map.merge(world, %{log_created: created, log_updated: updated, log_deleted: deleted})
   end
 
   given_ "the audit log has entries for various resource types", fn world ->
-    {:ok, _} = Audit.log(world.scope, "video.created", build_resource("Video"))
-    {:ok, _} = Audit.log(world.scope, "tag.created", build_resource("Tag"))
-    {:ok, _} = Audit.log(world.scope, "collection.created", build_resource("Collection"))
-    world
+    {:ok, video_log} = Audit.log(world.scope, "video.created", build_resource("Video"))
+    {:ok, tag_log} = Audit.log(world.scope, "tag.created", build_resource("Tag"))
+
+    {:ok, collection_log} =
+      Audit.log(world.scope, "collection.created", build_resource("Collection"))
+
+    Map.merge(world, %{
+      log_video: video_log,
+      log_tag: tag_log,
+      log_collection: collection_log
+    })
   end
 
   given_ "the audit log has entries", fn world ->
@@ -84,8 +95,8 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   given_ "the audit log has more entries than fit on one page", fn world ->
     # Default per_page is 50. Seed a couple over that threshold so the
     # cursor returns a non-nil next_cursor.
-    Enum.each(1..52, fn i ->
-      {:ok, _} = Audit.log(world.scope, "video.created", build_resource("Video", "vid-#{i}"))
+    Enum.each(1..52, fn _ ->
+      {:ok, _} = Audit.log(world.scope, "video.created", build_resource("Video"))
     end)
 
     world
@@ -96,8 +107,8 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
 
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
-      |> Wallaby.Browser.set_value(css("[data-test=filter-action]"), "video.created")
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
+      |> select_option("[data-test=filter-action]", "video.created")
 
     Map.put(world, :session, session)
   end
@@ -130,8 +141,8 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   when_ "I filter by a specific actor", fn world ->
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
-      |> Wallaby.Browser.set_value(css("[data-test=filter-actor]"), world.other_user.id)
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
+      |> select_option("[data-test=filter-actor]", world.other_user.id)
 
     Map.put(world, :session, session)
   end
@@ -145,31 +156,34 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   when_ "I filter by action type such as create, update, or delete", fn world ->
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
-      |> Wallaby.Browser.set_value(css("[data-test=filter-action]"), "video.created")
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
+      |> select_option("[data-test=filter-action]", "video.created")
 
     Map.put(world, :session, session)
   end
 
   then_ "only entries matching that action type are shown", fn world ->
-    # The table shows only rows whose action matches the selected filter.
-    assert_text(world.session, "video.created")
-    refute_has(world.session, Wallaby.Query.text("video.deleted"))
+    # Assert on row ids: the action names also appear as <option> text in
+    # the filter dropdown, so plain text queries cannot tell them apart.
+    assert_has(world.session, css("[data-test=audit-log-row-#{world.log_created.id}]"))
+    refute_has(world.session, css("[data-test=audit-log-row-#{world.log_updated.id}]"))
+    refute_has(world.session, css("[data-test=audit-log-row-#{world.log_deleted.id}]"))
     world
   end
 
   when_ "I filter by resource type", fn world ->
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
-      |> Wallaby.Browser.set_value(css("[data-test=filter-resource-type]"), "Tag")
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
+      |> select_option("[data-test=filter-resource-type]", "Tag")
 
     Map.put(world, :session, session)
   end
 
   then_ "only entries for that resource type are shown", fn world ->
-    assert_text(world.session, "Tag")
-    refute_has(world.session, Wallaby.Query.text("Collection"))
+    assert_has(world.session, css("[data-test=audit-log-row-#{world.log_tag.id}]"))
+    refute_has(world.session, css("[data-test=audit-log-row-#{world.log_video.id}]"))
+    refute_has(world.session, css("[data-test=audit-log-row-#{world.log_collection.id}]"))
     world
   end
 
@@ -178,18 +192,22 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   when_ "I expand an entry", fn world ->
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
       |> click(css("[data-test=expand-btn-#{world.log_entry.id}]"))
 
     Map.put(world, :session, session)
   end
 
   then_ "I see the full diff showing exactly what fields changed", fn world ->
-    assert_has(world.session, css("[data-test=metadata-row-#{world.log_entry.id}]"))
-    # The seeded changes were %{title: "renamed"} — that key/value should
-    # render in the metadata row.
-    assert_text(world.session, "title")
-    assert_text(world.session, "renamed")
+    # The seeded changes were %{title: "renamed"} — that key/value must
+    # render inside the expanded row for this entry.
+    row = "[data-test=metadata-row-#{world.log_entry.id}]"
+
+    world.session
+    |> assert_has(css(row))
+    |> assert_has(css(row, text: "title"))
+    |> assert_has(css(row, text: "renamed"))
+
     world
   end
 
@@ -198,16 +216,15 @@ defmodule MarqueeFeatures.Steps.AuditLogging do
   when_ "I click to load more", fn world ->
     session =
       world.session
-      |> visit("/admin/audit-log?org=#{world.org.slug}")
+      |> visit_live("/admin/audit-log?org=#{world.org.slug}")
       |> click(css("[data-test=load-more-btn]"))
 
     Map.put(world, :session, session)
   end
 
   then_ "additional entries are appended to the list", fn world ->
-    # After load_more, more than the initial page of rows exist in the DOM.
-    rows = Wallaby.Browser.all(world.session, css("[data-test^=audit-log-row-]"))
-    assert length(rows) > 50, "expected > 50 audit-log rows after load_more, got #{length(rows)}"
+    # After load_more, more than the initial page (50) of rows is in the DOM.
+    assert_has(world.session, css("[data-test^=audit-log-row-]", minimum: 51))
     world
   end
 

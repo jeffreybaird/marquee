@@ -390,7 +390,7 @@ defmodule MarqueeWeb.Super.AuditLogLive do
           phx-click="toggle_expand"
           phx-value-id={@log.id}
           class="btn btn-xs btn-ghost"
-          aria-label={if @expanded, do: "Collapse metadata", else: "Expand metadata"}
+          aria-label={if @expanded, do: "Collapse details", else: "Expand details"}
           data-test={"expand-btn-#{@log.id}"}
         >
           {if @expanded, do: "Hide", else: "Show"}
@@ -399,13 +399,27 @@ defmodule MarqueeWeb.Super.AuditLogLive do
     </tr>
     <tr :if={@expanded} data-test={"metadata-row-#{@log.id}"}>
       <td colspan="6" class="px-4 py-3 bg-base-200">
-        <pre class="text-xs overflow-x-auto whitespace-pre-wrap break-all">
-          {Jason.encode!(@log.metadata, pretty: true)}
-        </pre>
+        <div class="grid gap-4 md:grid-cols-2">
+          <section data-test={"changes-#{@log.id}"}>
+            <h4 class="mb-1 font-ui text-xs font-semibold uppercase tracking-wide text-base-content/50">
+              Changes
+            </h4>
+            <pre class="text-xs overflow-x-auto whitespace-pre-wrap break-all">{pretty_json(@log.changes)}</pre>
+          </section>
+          <section data-test={"metadata-#{@log.id}"}>
+            <h4 class="mb-1 font-ui text-xs font-semibold uppercase tracking-wide text-base-content/50">
+              Metadata
+            </h4>
+            <pre class="text-xs overflow-x-auto whitespace-pre-wrap break-all">{pretty_json(@log.metadata)}</pre>
+          </section>
+        </div>
       </td>
     </tr>
     """
   end
+
+  defp pretty_json(nil), do: "{}"
+  defp pretty_json(value), do: Jason.encode!(value, pretty: true)
 
   defp format_timestamp(%DateTime{} = dt) do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")

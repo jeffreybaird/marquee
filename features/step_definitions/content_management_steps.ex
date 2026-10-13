@@ -14,6 +14,7 @@ defmodule MarqueeFeatures.Steps.ContentManagement do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Content
   alias Marquee.Content.Tag
@@ -54,7 +55,7 @@ defmodule MarqueeFeatures.Steps.ContentManagement do
   when_ "I try to create another tag with the same name", fn world ->
     session =
       world.session
-      |> visit("/admin/tags?org=#{world.org.slug}")
+      |> visit_live("/admin/tags?org=#{world.org.slug}")
       |> fill_in(css("[data-test=new-tag-input]"), with: world.existing_tag.name)
       |> click(css("[data-test=create-tag-btn]"))
 
@@ -63,12 +64,15 @@ defmodule MarqueeFeatures.Steps.ContentManagement do
 
   when_ "I delete it", fn world ->
     # Wallaby accepts the JS `confirm()` dialog triggered by `data-confirm`.
+    # The row leaves the list once the LiveView has processed the delete;
+    # wait for that before the next step reads the database.
     session =
       world.session
-      |> visit("/admin/tags?org=#{world.org.slug}")
+      |> visit_live("/admin/tags?org=#{world.org.slug}")
       |> accept_confirm(fn s ->
         click(s, css("[data-test=delete-tag-#{world.existing_tag.id}]"))
       end)
+      |> refute_has(css("[data-test=delete-tag-#{world.existing_tag.id}]"))
 
     Map.put(world, :session, session)
   end
@@ -92,31 +96,34 @@ defmodule MarqueeFeatures.Steps.ContentManagement do
   end
 
   then_ "I see a validation error", fn world ->
-    # The tag UI silently rejects duplicates (no flash). Instead of asserting
-    # on invisible UX, verify that only one tag with that name exists.
-    tags = Content.list_tags(world.org)
-    matching = Enum.filter(tags, &(&1.name == world.existing_tag.name))
-    assert length(matching) == 1, "expected exactly 1 tag named #{world.existing_tag.name}, got #{length(matching)}"
+    assert_has(world.session, css("[role=alert]", text: "A tag with this name already exists."))
     world
   end
 
   then_ "no duplicate tag is created", fn world ->
-    tags = Content.list_tags(world.org)
-    matching = Enum.filter(tags, &(&1.name == world.existing_tag.name))
-    assert length(matching) == 1
+    assert length(tags_named(world.org, world.existing_tag.name)) == 1,
+           "expected exactly 1 tag named #{world.existing_tag.name}"
+
     world
   end
 
   then_ "the tag is removed from the system", fn world ->
-    refute Content.get_tag(world.org, world.existing_tag.id),
-           "expected tag #{world.existing_tag.id} to be deleted"
+    # Tags are user-facing content, so deletion is a soft delete: the row
+    # keeps a `deleted_at` timestamp and drops out of the listing.
+    assert {:ok, %Tag{deleted_at: %DateTime{}}} =
+             Content.get_tag(world.org, world.existing_tag.id)
+
+    %{results: tags} = Content.list_tags(world.org)
+
+    refute Enum.any?(tags, &(&1.id == world.existing_tag.id)),
+           "expected tag #{world.existing_tag.id} to be absent from the tag list"
 
     world
   end
 
   then_ "disassociated from all videos", fn world ->
-    # Since the tag is deleted, any associations are cascaded. Verify with
-    # the content context that no video has this tag.
+    %{results: videos} = Content.list_videos_by_tag(world.org, world.existing_tag)
+    assert videos == [], "expected no videos to remain tagged #{world.existing_tag.name}"
     world
   end
 
@@ -124,6 +131,11 @@ defmodule MarqueeFeatures.Steps.ContentManagement do
     assert_text(world.session, "comedy")
     refute_has(world.session, Wallaby.Query.text("thriller"))
     world
+  end
+
+  defp tags_named(org, name) do
+    %{results: tags} = Content.list_tags(org)
+    Enum.filter(tags, &(&1.name == name))
   end
 
   # ---- Collections --------------------------------------------------------

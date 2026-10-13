@@ -41,18 +41,20 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
       assert length(step_names(dialyzer: false, e2e: false)) == length(step_names([])) - 2
     end
 
-    test "audits dependencies right after credo and before the asset checks" do
+    test "runs both audits right after credo and before the asset checks" do
       names = step_names([])
       credo_index = Enum.find_index(names, &(&1 == :credo))
 
       assert Enum.at(names, credo_index + 1) == :deps_audit
-      assert Enum.at(names, credo_index + 2) == :assets_typecheck
+      assert Enum.at(names, credo_index + 2) == :hex_audit
+      assert Enum.at(names, credo_index + 3) == :assets_typecheck
 
       assert names == [
                :format,
                :compile,
                :credo,
                :deps_audit,
+               :hex_audit,
                :assets_typecheck,
                :assets_test,
                :assets_build,
@@ -71,18 +73,31 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
                {:deps_audit, {"mix", ["deps.audit"]}}
     end
 
-    test "--no-deps-audit drops only the dependency audit" do
+    test "runs the Hex registry audit as mix hex.audit" do
+      commands = Verify.steps([]) |> Enum.map(&elem(&1, 1))
+
+      assert {"mix", ["hex.audit"]} in commands
+
+      assert List.keyfind(Verify.steps([]), :hex_audit, 0) ==
+               {:hex_audit, {"mix", ["hex.audit"]}}
+    end
+
+    test "--no-deps-audit drops exactly the two network-bound audit steps" do
       names = step_names(deps_audit: false)
 
       assert :deps_audit not in names
-      assert names == List.delete(step_names([]), :deps_audit)
-      assert length(names) == length(step_names([])) - 1
+      assert :hex_audit not in names
+      assert names == step_names([]) -- [:deps_audit, :hex_audit]
+      assert length(names) == length(step_names([])) - 2
     end
 
-    test "--no-e2e and --no-dialyzer keep the dependency audit" do
-      assert :deps_audit in step_names(e2e: false, dialyzer: false)
-      assert :deps_audit in step_names(e2e: false)
-      assert :deps_audit in step_names(dialyzer: false)
+    test "--no-e2e and --no-dialyzer keep both audits" do
+      for opts <- [[e2e: false, dialyzer: false], [e2e: false], [dialyzer: false]] do
+        names = step_names(opts)
+
+        assert :deps_audit in names
+        assert :hex_audit in names
+      end
     end
   end
 
@@ -102,6 +117,8 @@ defmodule Mix.Tasks.Marquee.VerifyTest do
                        ["==> marquee.verify: format (mix format --check-formatted)"]}
 
       assert_received {:mix_shell, :info, ["==> marquee.verify: deps_audit (mix deps.audit)"]}
+
+      assert_received {:mix_shell, :info, ["==> marquee.verify: hex_audit (mix hex.audit)"]}
 
       assert_received {:mix_shell, :info, ["==> marquee.verify: e2e (mix test --only e2e)"]}
     end

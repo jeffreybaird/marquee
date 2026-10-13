@@ -73,6 +73,7 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
       world.session
       |> visit("/super/organizations/#{org.id}")
       |> click(button("Open as Admin"))
+      |> assert_has(css("[data-test=impersonation-banner]"))
 
     Map.merge(world, %{session: session, org: org, target_operator: operator})
   end
@@ -115,6 +116,10 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
       |> fill_in(css("[data-test=org-slug-input]"), with: "new-cucumber-org")
       |> fill_in(css("[data-test=owner-email-input]"), with: "owner@example.com")
       |> click(css("[data-test=create-org-btn]"))
+      # Creation redirects to the organization page, which lists the owner
+      # membership — waiting for it means the org, user and membership
+      # writes have all been committed before the next steps read the DB.
+      |> assert_has(css("[data-test=members-table]"))
 
     Map.put(world, :session, session)
   end
@@ -222,14 +227,12 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   end
 
   then_ "it no longer appears in normal organization listings", fn world ->
-    listed_ids = Admin.list_organizations() |> Enum.map(& &1.id)
-    refute world.org.id in listed_ids
+    refute world.org.id in listed_organization_ids()
     world
   end
 
   then_ "it reappears in organization listings", fn world ->
-    listed_ids = Admin.list_organizations() |> Enum.map(& &1.id)
-    assert world.org.id in listed_ids
+    assert world.org.id in listed_organization_ids()
     world
   end
 
@@ -241,12 +244,17 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   end
 
   then_ "I get an operator session scoped to that organization", fn world ->
-    # Impersonation POST redirects to /admin?org=<slug>. After the click, the
-    # session should be on the operator dashboard.
-    assert_has(world.session, css("body"))
-    current = current_url(world.session)
+    # The impersonation POST redirects to /admin, where the operator layout
+    # shows the impersonation banner for the chosen organization. Wait for
+    # the banner so the URL is read after the redirect has landed.
+    session =
+      world.session
+      |> assert_has(css("[data-test=impersonation-banner]"))
+      |> assert_has(css("body", text: world.org.name))
+
+    current = current_url(session)
     assert current =~ "/admin", "expected redirect to /admin after impersonation, got #{current}"
-    world
+    Map.put(world, :session, session)
   end
 
   then_ "my original super admin session is preserved for return", fn world ->
@@ -305,5 +313,12 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
            "expected audit entry for super admin revoke of user #{world.target_user.id}"
 
     world
+  end
+
+  # ---- Private helpers ----------------------------------------------------
+
+  defp listed_organization_ids do
+    %{results: orgs} = Admin.list_organizations()
+    Enum.map(orgs, & &1.id)
   end
 end
