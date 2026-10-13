@@ -1,6 +1,8 @@
 defmodule MarqueeWeb.StripeWebhookControllerTest do
   use MarqueeWeb.ConnCase, async: true
 
+  alias Marquee.Billing.ViewerSubscription
+
   # In test env, :stripe_webhook_secret is nil by default, so the controller
   # falls through to the JSON decode path (no signature verification).
   # Oban is configured with `testing: :inline` so jobs execute immediately
@@ -123,8 +125,8 @@ defmodule MarqueeWeb.StripeWebhookControllerTest do
       viewer = insert(:viewer, organization: org, subscription_status: "active")
 
       sub =
-        %Marquee.Billing.ViewerSubscription{}
-        |> Marquee.Billing.ViewerSubscription.changeset(%{
+        %ViewerSubscription{}
+        |> ViewerSubscription.changeset(%{
           organization_id: org.id,
           viewer_id: viewer.id,
           stripe_subscription_id: "sub_signed_period_end",
@@ -154,7 +156,7 @@ defmodule MarqueeWeb.StripeWebhookControllerTest do
 
       assert conn.status == 200
 
-      updated = Marquee.Repo.get!(Marquee.Billing.ViewerSubscription, sub.id)
+      updated = Marquee.Repo.get!(ViewerSubscription, sub.id)
       assert updated.cancel_at_period_end == true
       assert updated.current_period_end == ~U[2023-12-14 22:13:20Z]
 
