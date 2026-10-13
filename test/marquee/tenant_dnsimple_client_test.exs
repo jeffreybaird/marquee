@@ -106,8 +106,7 @@ defmodule Marquee.TenantDomains.DNSimpleClientTest do
   end
 
   test "a lost create response triggers relisting and exact adoption instead of another POST" do
-    {:ok, state} = Agent.start_link(fn -> %{posts: 0, gets: 0} end)
-    on_exit(fn -> if Process.alive?(state), do: Agent.stop(state) end)
+    state = start_supervised!({Agent, fn -> %{posts: 0, gets: 0} end})
 
     Req.Test.stub(__MODULE__, fn conn ->
       case conn.method do
