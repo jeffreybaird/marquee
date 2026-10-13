@@ -443,6 +443,161 @@ describe("ShortsFeed", () => {
   })
 
   describe("autoplay restrictions and errors", () => {
+    it.each(["rejected", "thrown"])("an interrupted %s play request does not mark a playable clip as failed", async (kind) => {
+      playImpl = () => {
+        const error = new DOMException("play interrupted by pause", "AbortError")
+        if (kind === "thrown") throw error
+        return Promise.reject(error)
+      }
+      const { el, tapToPlay } = feed()
+      await activate(el, 0)
+      const art = article(el, 0)
+      expect(playerAt(el, 0).playCalls).toHaveLength(1)
+      expect(art.dataset.state).not.toBe("error")
+      expect(errorPanel(art).hidden).toBe(true)
+      expect(tapToPlay.hidden).toBe(true)
+      expect(el.dataset.autoplay).not.toBe("blocked")
+      playImpl = () => Promise.resolve()
+      art.querySelector<HTMLButtonElement>("[data-shorts-toggle-play]")!.click()
+      await flush()
+      expect(playerAt(el, 0).paused).toBe(false)
+      expect(errorPanel(art).hidden).toBe(true)
+    })
+
+    it("an interrupted muted retry does not become a fatal error or autoplay refusal", async () => {
+      let calls = 0
+      playImpl = () => ++calls === 1
+        ? notAllowed()
+        : Promise.reject(new DOMException("source load interrupted play", "AbortError"))
+      const { el, tapToPlay } = feed()
+      await activate(el, 0)
+      expect(playerAt(el, 0).playCalls).toHaveLength(2)
+      expect(playerAt(el, 0).playCalls[1]!.muted).toBe(true)
+      expect(article(el, 0).dataset.state).not.toBe("error")
+      expect(errorPanel(article(el, 0)).hidden).toBe(true)
+      expect(tapToPlay.hidden).toBe(true)
+      expect(el.dataset.autoplay).not.toBe("blocked")
+    })
+
+    it("a late rejection from a clip left in the neighbour window cannot mark it failed", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el } = feed()
+      await activate(el, 0)
+      const first = playerAt(el, 0)
+      playImpl = () => Promise.resolve()
+      await activate(el, 1, 0)
+      expect(first.isConnected).toBe(true)
+      expect(playerAt(el, 1).paused).toBe(false)
+      rejectPending(new DOMException("late source rejection", "NotSupportedError"))
+      await flush()
+      expect(errorPanel(article(el, 0)).hidden).toBe(true)
+      expect(article(el, 0).dataset.state).not.toBe("error")
+      expect(errorPanel(article(el, 1)).hidden).toBe(true)
+    })
+
+    it("a late autoplay refusal from an inactive neighbour does not restart it or mute the active clip", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el, tapToPlay } = feed()
+      await activate(el, 0)
+      const first = playerAt(el, 0)
+      playImpl = () => Promise.resolve()
+      await activate(el, 1, 0)
+      rejectPending(new DOMException("late autoplay policy refusal", "NotAllowedError"))
+      await flush()
+      expect(first.playCalls).toHaveLength(1)
+      expect(first.paused).toBe(true)
+      expect(playerAt(el, 1).paused).toBe(false)
+      expect(isMuted(playerAt(el, 1))).toBe(false)
+      expect(tapToPlay.hidden).toBe(true)
+      expect(el.dataset.autoplay).not.toBe("blocked")
+    })
+
+    it("an older rejected request cannot overwrite a newer successful play on the same player", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el } = feed()
+      await activate(el, 0)
+      const art = article(el, 0)
+      const player = playerAt(el, 0)
+      playImpl = () => Promise.resolve()
+      art.querySelector<HTMLButtonElement>("[data-shorts-toggle-play]")!.click()
+      await flush()
+      expect(player.paused).toBe(false)
+      rejectPending(new DOMException("older source rejection", "NotSupportedError"))
+      await flush()
+      expect(playerAt(el, 0)).toBe(player)
+      expect(errorPanel(art).hidden).toBe(true)
+      expect(art.dataset.state).not.toBe("error")
+    })
+
+    it("a rejected request from a previous activation cannot cover the same retained clip after revisiting it", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el } = feed()
+      await activate(el, 0)
+      const retained = playerAt(el, 0)
+      playImpl = () => Promise.resolve()
+      await activate(el, 1, 0)
+      await activate(el, 0, 1)
+      expect(playerAt(el, 0)).toBe(retained)
+      expect(retained.paused).toBe(false)
+      rejectPending(new DOMException("previous activation failed", "NotSupportedError"))
+      await flush()
+      expect(errorPanel(article(el, 0)).hidden).toBe(true)
+      expect(article(el, 0).dataset.state).not.toBe("error")
+    })
+
+    it.each(["play", "playing"])("%s recovery clears a previously displayed fatal error", async (event) => {
+      playImpl = notSupported
+      const { el } = feed()
+      await activate(el, 0)
+      const art = article(el, 0)
+      expect(art.dataset.state).toBe("error")
+      expect(errorPanel(art).hidden).toBe(false)
+      const player = playerAt(el, 0)
+      player.paused = false
+      player.dispatchEvent(new Event(event))
+      expect(playerAt(el, 0)).toBe(player)
+      expect(player.paused).toBe(false)
+      expect(art.dataset.state).not.toBe("error")
+      expect(errorPanel(art).hidden).toBe(true)
+    })
+
+    it("a replaced player's pending rejection cannot restore the error after Retry succeeds", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el } = feed()
+      await activate(el, 0)
+      const art = article(el, 0)
+      const old = playerAt(el, 0)
+      old.dispatchEvent(new Event("error"))
+      expect(errorPanel(art).hidden).toBe(false)
+      playImpl = () => Promise.resolve()
+      errorPanel(art).querySelector<HTMLButtonElement>("[data-shorts-retry]")!.click()
+      await flush()
+      expect(playerAt(el, 0)).not.toBe(old)
+      expect(playerAt(el, 0).paused).toBe(false)
+      rejectPending(new DOMException("old player source failed", "NotSupportedError"))
+      await flush()
+      expect(errorPanel(art).hidden).toBe(true)
+      expect(art.dataset.state).not.toBe("error")
+    })
+
+    it("a rejected request after hook destruction cannot display an error", async () => {
+      let rejectPending!: (error: unknown) => void
+      playImpl = () => new Promise<void>((_resolve, reject) => { rejectPending = reject })
+      const { el, hook } = feed()
+      await activate(el, 0)
+      hook.destroyed()
+      rejectPending(new DOMException("released source failed", "NotSupportedError"))
+      await flush()
+      expect(players(el)).toHaveLength(0)
+      expect(article(el, 0).dataset.state).not.toBe("error")
+      expect(errorPanel(article(el, 0)).hidden).toBe(true)
+    })
+
     it("retries a NotAllowedError muted and keeps playing muted when that succeeds", async () => {
       let calls = 0
       playImpl = () => (++calls === 1 ? notAllowed() : Promise.resolve())

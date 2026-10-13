@@ -281,6 +281,143 @@ defmodule MarqueeWeb.E2E.ViewerShortsFeedTest do
 
   # ---- helpers --------------------------------------------------------------
 
+  test "healthy playback hides the actual rendered Retry panel", %{
+    session: session,
+    org: org
+  } do
+    session =
+      session
+      |> resize_window(390, 844)
+      |> open_feed(org, "ok")
+      |> scroll_to_clip(1)
+      |> wait_for_state(1, "playing")
+
+    assert_error_hidden(session, 1)
+  end
+
+  test "recovered playback hides the actual rendered Retry panel without replacing the player", %{
+    session: session,
+    org: org
+  } do
+    session =
+      session
+      |> resize_window(390, 844)
+      |> open_feed(org, "fatal")
+      |> scroll_to_clip(1)
+      |> assert_has(
+        css("#shorts-feed article[data-index='1'][data-state=error] [data-shorts-retry]",
+          visible: true
+        )
+      )
+
+    eval(
+      session,
+      "window.__recoveringShortPlayer = document.querySelector('#shorts-feed article[data-index=\"1\"] mux-player'); return true;"
+    )
+
+    session = set_stub_mode(session, "ok")
+
+    eval(
+      session,
+      "const p = document.querySelector('#shorts-feed article[data-index=\"1\"] mux-player'); p.play(); return true;"
+    )
+
+    session = wait_for_state(session, 1, "playing")
+
+    assert eval(
+             session,
+             "return window.__recoveringShortPlayer === document.querySelector('#shorts-feed article[data-index=\"1\"] mux-player');"
+           )
+
+    assert_error_hidden(session, 1)
+  end
+
+  test "a genuine source failure offers Retry and Retry restores playback", %{
+    session: session,
+    org: org
+  } do
+    session =
+      session
+      |> resize_window(390, 844)
+      |> open_feed(org, "fatal")
+      |> scroll_to_clip(1)
+      |> assert_has(
+        css("#shorts-feed article[data-index='1'][data-state=error] [data-shorts-retry]",
+          visible: true
+        )
+      )
+
+    before =
+      eval(
+        session,
+        "window.__brokenShortPlayer = document.querySelector('#shorts-feed article[data-index=\"1\"] mux-player'); return window.__brokenShortPlayer.isConnected;"
+      )
+
+    assert before
+
+    session =
+      session
+      |> set_stub_mode("ok")
+      |> click(css("#shorts-feed article[data-index='1'] [data-shorts-retry]"))
+      |> wait_for_state(1, "playing")
+
+    assert eval(session, "return !window.__brokenShortPlayer.isConnected;")
+    assert_error_hidden(session, 1)
+  end
+
+  defp assert_error_hidden(session, index) do
+    assert_has(
+      session,
+      css(
+        "#shorts-feed article[data-index='#{index}']:not([data-state=error]) [role=alert][hidden]",
+        visible: :any
+      )
+    )
+
+    state =
+      eval(
+        session,
+        "const panel = document.querySelector('#shorts-feed article[data-index=\"' + arguments[0] + '\"] [role=alert]'); return {hidden: panel.hidden, display: getComputedStyle(panel).display, rects: panel.getClientRects().length};",
+        [index]
+      )
+
+    assert state == %{"hidden" => true, "display" => "none", "rects" => 0}
+  end
+
+  for {label, size} <- [mobile: @mobile, desktop: @desktop] do
+    @overlay_size size
+    test "on #{label}, a late failure from the previous Short cannot cover the newly playing clip",
+         %{session: session, org: org} do
+      {width, height} = @overlay_size
+
+      session =
+        session
+        |> resize_window(width, height)
+        |> open_feed(org, "pending-first")
+        |> scroll_to_clip(0)
+        |> assert_has(
+          css("#shorts-feed article[data-index='0'] mux-player[data-e2e-play-calls='1']",
+            visible: :any
+          )
+        )
+        |> scroll_to_clip(1)
+        |> wait_for_state(1, "playing")
+
+      assert play_calls(session, 0) == 1
+      assert eval(session, "return typeof window.__shortsE2E.rejectPending === 'function';")
+
+      eval(
+        session,
+        "window.__shortsE2E.rejectPending(new DOMException('previous clip failed late','NotSupportedError')); setTimeout(() => document.querySelector('#shorts-feed').setAttribute('data-late-rejection-settled','true'), 0); return true;"
+      )
+
+      session = assert_has(session, css("#shorts-feed[data-late-rejection-settled=true]"))
+      assert_error_hidden(session, 0)
+      assert_error_hidden(session, 1)
+      assert clip_state(session, 1) == "playing"
+    end
+  end
+
   # Viewers sign in through a magic link; the controller sets the viewer
   # session cookie and redirects to the org home.
   defp log_in_viewer(session, viewer, org) do
@@ -360,6 +497,12 @@ defmodule MarqueeWeb.E2E.ViewerShortsFeedTest do
         this.setAttribute('data-e2e-play-calls', String(calls));
         if (window.__shortsE2E.mode === 'blocked') {
           return Promise.reject(new DOMException('autoplay refused', 'NotAllowedError'));
+        }
+        if (window.__shortsE2E.mode === 'fatal') {
+          return Promise.reject(new DOMException('no supported source', 'NotSupportedError'));
+        }
+        if (window.__shortsE2E.mode === 'pending-first' && this.getAttribute('playback-id') === 'e2e-shorts-playback-1') {
+          return new Promise((resolve, reject) => { window.__shortsE2E.rejectPending = reject; });
         }
         this.__e2ePaused = false;
         this.setAttribute('data-e2e-state', 'playing');
