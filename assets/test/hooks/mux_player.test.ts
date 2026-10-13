@@ -262,6 +262,59 @@ describe("MuxPlayer", () => {
     },
   )
 
+  describe("play_next_in_queue playback request", () => {
+    // Real timers so Node's unhandled-rejection tracking runs between tasks.
+    async function advanceWithRejectedPlay(error: unknown) {
+      vi.useRealTimers()
+      const unhandled: unknown[] = []
+      const onUnhandled = (reason: unknown) => unhandled.push(reason)
+      process.on("unhandledRejection", onUnhandled)
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+      const { hook, player, serverPush } = watchPage()
+      player.play.mockReturnValue(Promise.reject(error))
+
+      try {
+        serverPush("play_next_in_queue", { playback_id: "pb-2", video_id: "vid-2", resume_position: 0 })
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      } finally {
+        process.off("unhandledRejection", onUnhandled)
+        hook.destroyed()
+      }
+
+      expect(player.play).toHaveBeenCalledTimes(1)
+      return { consoleError, unhandled }
+    }
+
+    it.each(["NotAllowedError", "AbortError"])(
+      "quietly leaves the player paused when play() rejects with %s",
+      async (name) => {
+        const { consoleError, unhandled } = await advanceWithRejectedPlay(
+          new DOMException("The play() request was refused", name),
+        )
+
+        expect(consoleError).not.toHaveBeenCalled()
+        expect(unhandled).toEqual([])
+      },
+    )
+
+    it("reports any other play() failure without an unhandled rejection", async () => {
+      const failure = new Error("decoder exploded")
+
+      const { consoleError, unhandled } = await advanceWithRejectedPlay(failure)
+
+      expect(consoleError).toHaveBeenCalledWith("MuxPlayer: play() failed", failure)
+      expect(unhandled).toEqual([])
+    })
+
+    it("reports a DOMException with another name", async () => {
+      const failure = new DOMException("unsupported source", "NotSupportedError")
+
+      const { consoleError } = await advanceWithRejectedPlay(failure)
+
+      expect(consoleError).toHaveBeenCalledWith("MuxPlayer: play() failed", failure)
+    })
+  })
+
   it("does not seek when the next video has no resume position", () => {
     const { player, serverPush } = watchPage()
     player.currentTime = 5

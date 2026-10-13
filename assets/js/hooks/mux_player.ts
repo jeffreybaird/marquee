@@ -79,6 +79,16 @@ class MuxPlayer extends ViewHook {
     player.addEventListener("loadedmetadata", this.pendingResume, { once: true })
   }
 
+  // Browsers reject play() under autoplay policy (NotAllowedError) or when a
+  // source swap interrupts it (AbortError). Both leave the player paused so the
+  // viewer can press play; anything else is surfaced rather than swallowed.
+  private requestPlayback(player: MuxPlayerElement) {
+    Promise.resolve(player.play()).catch((error: unknown) => {
+      if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "AbortError")) return
+      console.error("MuxPlayer: play() failed", error)
+    })
+  }
+
   mounted() {
     const player = this.el.querySelector("mux-player")
     if (!player) return
@@ -254,7 +264,7 @@ class MuxPlayer extends ViewHook {
         this.resumePlayback(resume_position)
         player.setAttribute("playback-id", playback_id)
 
-        player.play()
+        this.requestPlayback(player)
       },
     )
   }
