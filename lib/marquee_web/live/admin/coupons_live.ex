@@ -3,7 +3,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
   Coupon management. Create/list Stripe coupons for viewer subscriptions.
   Requires Stripe Connect. Supports percent and fixed-amount discounts.
 
-  Events: new_coupon, save, delete_coupon
+  Events: new_coupon, validate, toggle_discount_type, save_coupon, deactivate_coupon
   Route: /admin/coupons
   """
 
@@ -47,6 +47,11 @@ defmodule MarqueeWeb.Admin.CouponsLive do
   @impl true
   def handle_event("cancel_form", _params, socket) do
     {:noreply, assign(socket, show_form: false)}
+  end
+
+  @impl true
+  def handle_event("validate", %{"coupon" => coupon_params}, socket) do
+    {:noreply, assign(socket, :form, to_form(coupon_params, as: :coupon))}
   end
 
   @impl true
@@ -258,7 +263,13 @@ defmodule MarqueeWeb.Admin.CouponsLive do
         on_close="cancel_form"
         data_test="coupon-form"
       >
-        <.form for={@form} id="coupon-form" phx-submit="save_coupon" class="space-y-4">
+        <.form
+          for={@form}
+          id="coupon-form"
+          phx-change="validate"
+          phx-submit="save_coupon"
+          class="space-y-4"
+        >
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label
@@ -271,6 +282,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
                 type="text"
                 id="coupon_code"
                 name="coupon[code]"
+                value={@form[:code].value}
                 class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm uppercase text-admin-fg focus:border-admin-accent focus:outline-none"
                 required
                 placeholder="LAUNCH50"
@@ -288,6 +300,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
                 type="text"
                 id="coupon_name"
                 name="coupon[name]"
+                value={@form[:name].value}
                 class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
                 placeholder="Launch discount"
                 data-test="coupon-name-input"
@@ -332,6 +345,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
               type="number"
               id="coupon_percent_off"
               name="coupon[percent_off]"
+              value={@form[:percent_off].value}
               min="1"
               max="100"
               step="1"
@@ -352,6 +366,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
               type="number"
               id="coupon_amount_off"
               name="coupon[amount_off_dollars]"
+              value={@form[:amount_off_dollars].value}
               min="0.01"
               step="0.01"
               class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
@@ -381,6 +396,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
               type="number"
               id="coupon_duration_in_months"
               name="coupon[duration_in_months]"
+              value={@form[:duration_in_months].value}
               min="1"
               class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="coupon-duration-months-input"
@@ -398,6 +414,7 @@ defmodule MarqueeWeb.Admin.CouponsLive do
               type="number"
               id="coupon_max_redemptions"
               name="coupon[max_redemptions]"
+              value={@form[:max_redemptions].value}
               min="1"
               class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="coupon-max-redemptions-input"

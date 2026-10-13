@@ -274,6 +274,152 @@ defmodule Marquee.BillingTest do
     end
   end
 
+  # ── Viewer subscriptions from Stripe ─────────────────────────────────────
+
+  describe "create_subscription_from_stripe/3" do
+    alias Marquee.Billing.ViewerSubscription
+
+    setup do
+      org = insert(:organization)
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+      %{org: org, viewer: viewer}
+    end
+
+    test "creates a viewer subscription from Stripe data and broadcasts it", %{
+      org: org,
+      viewer: viewer
+    } do
+      plan = insert(:plan, organization: org)
+      Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{org.id}")
+
+      data = %{
+        "id" => "sub_from_stripe_1",
+        "customer" => "cus_from_stripe_1",
+        "status" => "trialing",
+        "cancel_at_period_end" => true,
+        "current_period_start" => 1_700_000_000,
+        "current_period_end" => 1_702_592_000,
+        "trial_start" => 1_700_000_000,
+        "trial_end" => 1_700_604_800,
+        "items" => %{"data" => [%{"price" => %{"id" => plan.stripe_price_id}}]}
+      }
+
+      assert {:ok, %ViewerSubscription{} = sub} =
+               Billing.create_subscription_from_stripe(org, viewer, data)
+
+      assert sub.organization_id == org.id
+      assert sub.viewer_id == viewer.id
+      assert sub.plan_id == plan.id
+      assert sub.stripe_subscription_id == "sub_from_stripe_1"
+      assert sub.stripe_customer_id == "cus_from_stripe_1"
+      assert sub.status == "trialing"
+      assert sub.cancel_at_period_end == true
+      assert sub.current_period_start == ~U[2023-11-14 22:13:20Z]
+      assert sub.current_period_end == ~U[2023-12-14 22:13:20Z]
+      assert sub.trial_end == ~U[2023-11-21 22:13:20Z]
+
+      sub_id = sub.id
+
+      assert_receive {:marquee_event,
+                      {:viewer_subscription_created, %ViewerSubscription{id: ^sub_id}}, _}
+    end
+
+    test "leaves plan unset when the price matches no org plan", %{org: org, viewer: viewer} do
+      data = %{
+        "id" => "sub_from_stripe_no_plan",
+        "customer" => "cus_x",
+        "status" => "active",
+        "items" => %{"data" => [%{"price" => %{"id" => "price_unknown"}}]}
+      }
+
+      assert {:ok, sub} = Billing.create_subscription_from_stripe(org, viewer, data)
+      assert sub.plan_id == nil
+      assert sub.cancel_at_period_end == false
+    end
+
+    test "returns a tagged validation error when required data is missing", %{
+      org: org,
+      viewer: viewer
+    } do
+      data = %{"id" => "sub_from_stripe_invalid", "customer" => "cus_x"}
+
+      assert {:error, :validation, %Ecto.Changeset{} = changeset} =
+               Billing.create_subscription_from_stripe(org, viewer, data)
+
+      assert %{status: [_ | _]} = errors_on(changeset)
+
+      refute Marquee.Repo.get_by(ViewerSubscription,
+               stripe_subscription_id: "sub_from_stripe_invalid"
+             )
+    end
+  end
+
+  describe "mark_payment_succeeded/3" do
+    alias Marquee.Billing.ViewerSubscription
+    alias Marquee.Viewers.Viewer
+
+    setup do
+      org = insert(:organization)
+      Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{org.id}")
+      %{org: org}
+    end
+
+    defp insert_viewer_subscription(org, viewer, status) do
+      %ViewerSubscription{}
+      |> ViewerSubscription.changeset(%{
+        organization_id: org.id,
+        viewer_id: viewer.id,
+        stripe_subscription_id: "sub_mps_#{System.unique_integer([:positive])}",
+        stripe_customer_id: "cus_mps",
+        status: status
+      })
+      |> Marquee.Repo.insert!()
+    end
+
+    test "activates an incomplete subscription and broadcasts :subscription_activated", %{
+      org: org
+    } do
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+      sub = insert_viewer_subscription(org, viewer, "incomplete")
+
+      assert :ok = Billing.mark_payment_succeeded(org, viewer, sub)
+
+      assert Marquee.Repo.get!(ViewerSubscription, sub.id).status == "active"
+      assert Marquee.Repo.get!(Viewer, viewer.id).subscription_status == "active"
+      viewer_id = viewer.id
+      assert_receive {:marquee_event, {:subscription_activated, %Viewer{id: ^viewer_id}}, _}
+      refute_received {:marquee_event, {:payment_recovered, _, _}, _}
+    end
+
+    test "recovers a past_due viewer and broadcasts :payment_recovered", %{org: org} do
+      viewer = insert(:viewer, organization: org, subscription_status: "past_due")
+      sub = insert_viewer_subscription(org, viewer, "past_due")
+
+      assert :ok = Billing.mark_payment_succeeded(org, viewer, sub)
+
+      assert Marquee.Repo.get!(ViewerSubscription, sub.id).status == "active"
+      assert Marquee.Repo.get!(Viewer, viewer.id).subscription_status == "active"
+      sub_id = sub.id
+
+      assert_receive {:marquee_event,
+                      {:payment_recovered, %Viewer{}, %ViewerSubscription{id: ^sub_id}}, _}
+
+      refute_received {:marquee_event, {:subscription_activated, _}, _}
+    end
+
+    test "leaves other subscriptions unchanged without broadcasting", %{org: org} do
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+      sub = insert_viewer_subscription(org, viewer, "active")
+
+      assert :ok = Billing.mark_payment_succeeded(org, viewer, sub)
+
+      assert Marquee.Repo.get!(ViewerSubscription, sub.id).status == "active"
+      assert Marquee.Repo.get!(Viewer, viewer.id).subscription_status == "active"
+      refute_received {:marquee_event, {:subscription_activated, _}, _}
+      refute_received {:marquee_event, {:payment_recovered, _, _}, _}
+    end
+  end
+
   # ── PPV checkout ──────────────────────────────────────────────────────────
 
   describe "create_ppv_checkout/4" do

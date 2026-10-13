@@ -113,6 +113,55 @@ defmodule MarqueeWeb.StripeWebhookControllerTest do
       assert conn.status == 400
     end
 
+    test "verified connected subscription update keeps current_period_end", %{conn: conn} do
+      org =
+        insert(:organization,
+          stripe_connect_account_id: "acct_signed_period_end",
+          stripe_connect_onboarding_complete: true
+        )
+
+      viewer = insert(:viewer, organization: org, subscription_status: "active")
+
+      sub =
+        %Marquee.Billing.ViewerSubscription{}
+        |> Marquee.Billing.ViewerSubscription.changeset(%{
+          organization_id: org.id,
+          viewer_id: viewer.id,
+          stripe_subscription_id: "sub_signed_period_end",
+          stripe_customer_id: "cus_signed",
+          status: "active"
+        })
+        |> Marquee.Repo.insert!()
+
+      payload =
+        Jason.encode!(
+          build_stripe_event("customer.subscription.updated", %{
+            "id" => "sub_signed_period_end",
+            "object" => "subscription",
+            "customer" => "cus_signed",
+            "status" => "active",
+            "cancel_at_period_end" => true,
+            "current_period_start" => 1_700_000_000,
+            "current_period_end" => 1_702_592_000
+          })
+        )
+
+      conn =
+        post_stripe(conn, payload, [
+          {"stripe-account", "acct_signed_period_end"},
+          {"stripe-signature", sign_stripe_payload(payload, "whsec_connect_secret")}
+        ])
+
+      assert conn.status == 200
+
+      updated = Marquee.Repo.get!(Marquee.Billing.ViewerSubscription, sub.id)
+      assert updated.cancel_at_period_end == true
+      assert updated.current_period_end == ~U[2023-12-14 22:13:20Z]
+
+      assert Marquee.Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_expires_at ==
+               ~U[2023-12-14 22:13:20Z]
+    end
+
     test "falls back to platform secret for platform events", %{conn: conn} do
       # No platform secret set, no Stripe-Account header → falls to JSON decode path
       payload = Jason.encode!(build_stripe_event("invoice.paid", %{}))
@@ -225,6 +274,16 @@ defmodule MarqueeWeb.StripeWebhookControllerTest do
   end
 
   # ── Helpers ──────────────────────────────────────────────────────────────
+
+  defp sign_stripe_payload(payload, secret) do
+    timestamp = System.system_time(:second)
+
+    signature =
+      :crypto.mac(:hmac, :sha256, secret, "#{timestamp}.#{payload}")
+      |> Base.encode16(case: :lower)
+
+    "t=#{timestamp},v1=#{signature}"
+  end
 
   defp build_stripe_event(type, object) do
     %{

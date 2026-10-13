@@ -369,7 +369,7 @@ defmodule MarqueeWeb.Admin.PlansLive do
                 name="plan[amount_dollars]"
                 step="0.01"
                 min="0"
-                value={if @editing_plan, do: format_dollars(@editing_plan.amount), else: ""}
+                value={amount_dollars_value(@form, @editing_plan)}
                 class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-mono text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
                 required
                 data-test="plan-amount-input"
@@ -412,7 +412,7 @@ defmodule MarqueeWeb.Admin.PlansLive do
               rows="4"
               class="w-full rounded-md border border-admin-border bg-admin-card px-3 py-2 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               data-test="plan-features-input"
-            >{if @editing_plan, do: Enum.join(@editing_plan.features, "\n"), else: ""}</textarea>
+            >{features_text_value(@form, @editing_plan)}</textarea>
           </div>
         </.form>
 
@@ -444,8 +444,31 @@ defmodule MarqueeWeb.Admin.PlansLive do
     "#{dollars}.#{String.pad_leading(Integer.to_string(remaining), 2, "0")}"
   end
 
+  # The price and features inputs are not schema fields, so their submitted
+  # values live only in the form params. Re-render them from the params so a
+  # `validate` round trip keeps what the operator typed.
+  defp amount_dollars_value(form, editing_plan) do
+    case HTMLForm.input_value(form, :amount_dollars) do
+      nil -> saved_amount_dollars(editing_plan)
+      value -> value
+    end
+  end
+
+  defp saved_amount_dollars(nil), do: ""
+  defp saved_amount_dollars(%Plan{amount: amount}), do: format_dollars(amount)
+
+  defp features_text_value(form, editing_plan) do
+    case HTMLForm.input_value(form, :features_text) do
+      nil -> saved_features_text(editing_plan)
+      value -> value
+    end
+  end
+
+  defp saved_features_text(nil), do: ""
+  defp saved_features_text(%Plan{features: features}), do: Enum.join(features || [], "\n")
+
   defp price_will_change?(plan, form) do
-    amount_str = HTMLForm.input_value(form.source, :amount_dollars)
+    amount_str = HTMLForm.input_value(form, :amount_dollars)
 
     case amount_str do
       nil ->

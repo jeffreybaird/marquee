@@ -186,14 +186,26 @@ defmodule Marquee.Workers.StripeWebhookProcessor do
     end
   end
 
+  defp handle_event("customer.subscription.created", data, connect_account_id)
+       when not is_nil(connect_account_id) do
+    case resolve_connected_org(connect_account_id) do
+      {:ok, org} ->
+        upsert_connected_subscription(org, data)
+
+      {:error, :not_found} ->
+        Logger.warning("Connected account org not found",
+          connect_account_id: connect_account_id
+        )
+
+        :ok
+    end
+  end
+
   defp handle_event("customer.subscription.updated", data, connect_account_id)
        when not is_nil(connect_account_id) do
     with {:ok, org} <- resolve_connected_org(connect_account_id),
          {:ok, subscription} <- Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
-      {:ok, updated} = Billing.update_subscription_from_stripe(org, subscription, data)
-      viewer = Viewers.get_viewer!(org, updated.viewer_id)
-      Billing.sync_viewer_subscription_status(viewer, updated)
-      :ok
+      apply_connected_subscription_update(org, subscription, data)
     else
       {:error, :not_found} ->
         Logger.warning("Connected subscription not found for update",
@@ -378,6 +390,64 @@ defmodule Marquee.Workers.StripeWebhookProcessor do
   end
 
   # ── Connected account helpers ──
+
+  defp apply_connected_subscription_update(org, subscription, data) do
+    {:ok, updated} = Billing.update_subscription_from_stripe(org, subscription, data)
+    viewer = Viewers.get_viewer!(org, updated.viewer_id)
+    Billing.sync_viewer_subscription_status(viewer, updated)
+    :ok
+  end
+
+  defp upsert_connected_subscription(org, data) do
+    case Billing.get_viewer_subscription_by_stripe_id(org, data["id"]) do
+      {:ok, subscription} -> apply_connected_subscription_update(org, subscription, data)
+      {:error, :not_found} -> create_connected_subscription(org, data)
+    end
+  end
+
+  defp create_connected_subscription(org, data) do
+    with {:ok, viewer} <- subscription_metadata_viewer(org, data),
+         {:ok, subscription} <- Billing.create_subscription_from_stripe(org, viewer, data) do
+      Billing.sync_viewer_subscription_status(viewer, subscription)
+      Marquee.Metrics.subscription_created(org.id, "viewer")
+
+      Logger.info("Viewer subscription created",
+        org_id: org.id,
+        viewer_id: viewer.id,
+        stripe_subscription_id: subscription.stripe_subscription_id
+      )
+
+      :ok
+    else
+      {:error, :not_found} ->
+        Logger.warning("Viewer not found for created subscription",
+          org_id: org.id,
+          stripe_subscription_id: data["id"]
+        )
+
+        :ok
+
+      {:error, :validation, _changeset} ->
+        Logger.error("Connected subscription creation failed",
+          org_id: org.id,
+          stripe_subscription_id: data["id"]
+        )
+
+        :ok
+    end
+  end
+
+  # Checkout sets `marquee_viewer_id` in the subscription metadata
+  # (see `Marquee.Billing.StripeClient`).
+  defp subscription_metadata_viewer(org, %{"metadata" => %{"marquee_viewer_id" => viewer_id}})
+       when is_binary(viewer_id) do
+    case Ecto.UUID.cast(viewer_id) do
+      {:ok, uuid} -> Viewers.get_viewer(org, uuid)
+      :error -> {:error, :not_found}
+    end
+  end
+
+  defp subscription_metadata_viewer(_org, _data), do: {:error, :not_found}
 
   defp find_or_create_viewer_from_checkout(org, session) do
     email =

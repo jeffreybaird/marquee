@@ -15,7 +15,7 @@ defmodule MarqueeWeb.StripeConnectController do
   Verifies the account is fully onboarded, then stores the credentials.
   """
   def return(conn, _params) do
-    org = conn.assigns.organization
+    org = conn.assigns.current_scope.organization
 
     case stripe_client().get_connect_account(org.stripe_connect_account_id) do
       {:ok, %{charges_enabled: true, details_submitted: true}} ->
@@ -60,7 +60,7 @@ defmodule MarqueeWeb.StripeConnectController do
   Generates a new onboarding link and redirects the operator.
   """
   def refresh(conn, _params) do
-    org = conn.assigns.organization
+    org = conn.assigns.current_scope.organization
 
     case Billing.initiate_connect_onboarding(org) do
       {:ok, url} ->
