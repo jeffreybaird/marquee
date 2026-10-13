@@ -13,6 +13,7 @@ defmodule MarqueeFeatures.Steps.Onboarding do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Accounts
   alias Marquee.Repo
@@ -36,18 +37,47 @@ defmodule MarqueeFeatures.Steps.Onboarding do
   # ---- Actions ------------------------------------------------------------
 
   when_("I finish the setup wizard", fn world ->
+    # Each wizard step renders its own "next" button, so gate every click on
+    # the marker of the step it should land on; otherwise a click can find
+    # the previous step's button an instant before LiveView patches it out.
+    # Finishing navigates to the dashboard — wait for the wizard to be gone
+    # before the next step reads the organization back.
     session =
       world.session
+      |> await_live_connect()
+      |> assert_has(css("[data-test=onboarding-step-1]"))
       |> click(css("[data-test=onboarding-next]"))
+      |> assert_has(css("[data-test=onboarding-step-2]"))
       |> click(css("[data-test=onboarding-next]"))
+      |> assert_has(css("[data-test=onboarding-step-3]"))
       |> click(css("[data-test=onboarding-next]"))
+      |> assert_has(css("[data-test=onboarding-step-4]"))
       |> click(css("[data-test=onboarding-finish]"))
+
+    # DEBUG-TEMP
+    Process.sleep(3000)
+    IO.puts("DEBUG url=#{current_url(session)}")
+    IO.puts("DEBUG org=#{inspect(Repo.reload(world.org).onboarding_completed_at)}")
+    IO.puts("DEBUG finish_present=#{has?(session, css("[data-test=onboarding-finish]"))}")
+    IO.puts("DEBUG progress_present=#{has?(session, css("[data-test=onboarding-progress]"))}")
+    IO.puts("DEBUG alert=#{inspect(all(session, css("[role=alert]")) |> Enum.map(&Wallaby.Element.text/1))}")
+    IO.puts("DEBUG h1=#{inspect(all(session, css("h1")) |> Enum.map(&Wallaby.Element.text/1))}")
+
+    session =
+      session
+      |> refute_has(css("[data-test=onboarding-progress]"))
+      |> assert_has(css("h1", text: "Dashboard"))
 
     Map.put(world, :session, session)
   end)
 
   when_("I skip the setup wizard", fn world ->
-    session = click(world.session, css("[data-test=onboarding-skip]"))
+    session =
+      world.session
+      |> await_live_connect()
+      |> click(css("[data-test=onboarding-skip]"))
+      |> refute_has(css("[data-test=onboarding-progress]"))
+
     Map.put(world, :session, session)
   end)
 

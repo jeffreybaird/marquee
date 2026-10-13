@@ -9,6 +9,7 @@ defmodule MarqueeFeatures.Steps.Shared do
   use Cucumberex.DSL
 
   use Wallaby.DSL
+  import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
 
@@ -105,8 +106,12 @@ defmodule MarqueeFeatures.Steps.Shared do
 
   # ---- Generic assertions -------------------------------------------------
 
+  # `assert_text/2` captures `<body>` once and re-reads it while polling, so a
+  # full-document navigation (a `phx-trigger-action` POST, a `method="delete"`
+  # link) between the click and the assertion raises StaleReferenceError.
+  # `assert_has(css(..., text: ...))` re-queries the DOM on every poll.
   then_ "I see {string}", fn world, text ->
-    assert_text(world.session, text)
+    assert_has(world.session, css("body", text: text))
     world
   end
 
@@ -116,7 +121,7 @@ defmodule MarqueeFeatures.Steps.Shared do
   end
 
   then_ "I see a flash saying {string}", fn world, text ->
-    assert_text(world.session, text)
+    assert_has(world.session, css("[role=alert]", text: text))
     world
   end
 

@@ -19,6 +19,7 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Accounts.Scope
   alias Marquee.Repo
@@ -102,60 +103,59 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
   # ---- Operator-facing actions -------------------------------------------
 
   when_ "I navigate to the viewers tab in /admin/members", fn world ->
-    session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
-
-    Map.put(world, :session, session)
+    Map.put(world, :session, open_viewers_tab(world))
   end
 
   when_ "I type a search query in the viewer search box", fn world ->
+    # The search box submits on Enter (`phx-keyup="search" phx-key="Enter"`).
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> fill_in(css("[data-test=viewer-search]"), with: "alice")
+      |> send_keys([:enter])
 
     Map.put(world, :session, session)
   end
 
+  # Each row action re-renders the row with the opposite action once the
+  # server has committed the change; waiting for that button means the
+  # database assertions that follow read the updated row.
   when_ "I suspend that viewer", fn world ->
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> click(css("[data-test=suspend-viewer-#{world.viewer.id}]"))
+      |> assert_has(css("[data-test=reactivate-viewer-#{world.viewer.id}]"))
 
     Map.put(world, :session, session)
   end
 
   when_ "I ban that viewer", fn world ->
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> click(css("[data-test=ban-viewer-#{world.viewer.id}]"))
+      |> assert_has(css("[data-test=reactivate-viewer-#{world.viewer.id}]"))
 
     Map.put(world, :session, session)
   end
 
   when_ "I reactivate that viewer", fn world ->
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> click(css("[data-test=reactivate-viewer-#{world.viewer.id}]"))
+      |> assert_has(css("[data-test=suspend-viewer-#{world.viewer.id}]"))
 
     Map.put(world, :session, session)
   end
 
   when_ "I grant early access to that viewer", fn world ->
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> click(css("[data-test=grant-access-#{world.viewer.id}]"))
+      |> assert_has(css("[data-test=revoke-access-#{world.viewer.id}]"))
 
     Map.put(world, :session, session)
   end
@@ -174,10 +174,10 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
 
   when_ "I revoke their early access", fn world ->
     session =
-      world.session
-      |> visit("/admin/members?org=#{world.org.slug}")
-      |> click(button("Viewers"))
+      world
+      |> open_viewers_tab()
       |> click(css("[data-test=revoke-access-#{world.viewer.id}]"))
+      |> assert_has(css("[data-test=grant-access-#{world.viewer.id}]"))
 
     Map.put(world, :session, session)
   end
@@ -190,9 +190,9 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
   end
 
   then_ "the viewer list filters to matching results", fn world ->
-    assert_text(world.session, "Alice")
-    refute_has(world.session, Wallaby.Query.text("Bob"))
-    refute_has(world.session, Wallaby.Query.text("Carol"))
+    assert_has(world.session, css("[data-test=viewer-list]", text: "Alice"))
+    refute_has(world.session, css("[data-test=viewer-list]", text: "Bob"))
+    refute_has(world.session, css("[data-test=viewer-list]", text: "Carol"))
     world
   end
 
@@ -234,6 +234,7 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
 
   then_ "the viewer can access gated content without a paid subscription", fn world ->
     fetched = Repo.get!(Viewer, world.viewer.id)
+
     assert fetched.subscription_status == "active",
            "expected subscription_status 'active' after grant, got #{inspect(fetched.subscription_status)}"
 
@@ -261,5 +262,16 @@ defmodule MarqueeFeatures.Steps.ViewerManagement do
     fetched = Repo.reload!(world.viewer)
     refute fetched.subscription_status == "active"
     world
+  end
+
+  # ---- Private helpers ----------------------------------------------------
+
+  # Waits for the members LiveView to connect before switching tabs: a
+  # `phx-click` fired before the socket joins is dropped silently.
+  defp open_viewers_tab(world) do
+    world.session
+    |> visit_live("/admin/members?org=#{world.org.slug}")
+    |> click(button("Viewers"))
+    |> assert_has(css("[data-test=viewer-list]"))
   end
 end

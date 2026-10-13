@@ -305,17 +305,27 @@ end
 
 ### Running
 
+Every scenario under `features/**` starts a Wallaby browser session, so Chrome
+and a matching ChromeDriver must be installed. `mix cucumber` binds the endpoint
+to port 4002 (the same port `config/test.exs` gives `mix test`), so it cannot
+run while `mix test` is running. `mix marquee.cucumber` runs the same suite on
+`MARQUEE_CUCUMBER_PORT` (default 4003) and forwards every argument to
+`mix cucumber`, so it can run next to `mix test`. Both run in `MIX_ENV=test`
+via `preferred_envs`.
+
 ```bash
-mix cucumber                          # full acceptance suite
-mix cucumber features/checkout.feature
+mix cucumber                          # full acceptance suite on 4002
+mix marquee.cucumber                  # same suite on 4003, safe alongside `mix test`
+MARQUEE_CUCUMBER_PORT=4010 mix marquee.cucumber features/checkout.feature
 mix cucumber --tags "@smoke and not @slow"
 mix cucumber --strict                 # fail on undefined/pending steps (use in CI)
+mix cucumber --format pretty --strict # readable scenario output for PR evidence
 mix cucumber --format junit --out cucumber-report.xml   # CI report
 ```
 
-Like the rest of the suite, feature scenarios do not execute JavaScript —
-scenarios that genuinely require JS stay in Wallaby/Playwright; tag any
-browser-backed scenarios `@e2e` and exclude them from the default run.
+In this repository every feature scenario is browser-backed (Wallaby drives
+Chrome through the step definitions), so JavaScript and LiveView interactions
+run for real; keep purely ExUnit-level checks in `test/` instead.
 
 ---
 

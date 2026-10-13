@@ -11,7 +11,7 @@ Feature: Operator Authentication
     And my organization has an auto-generated slug derived from its name
     When I open the magic link I received
     And I choose to stay logged in
-    Then I am on the admin dashboard for my new organization
+    Then I am taken to onboarding for my new organization
 
   Scenario: Operator logs in with email and password
     Given I have a confirmed operator account with a password
@@ -33,7 +33,7 @@ Feature: Operator Authentication
     Given I am logged in as an operator
     When I log out
     Then I see "Logged out successfully"
-    And I am on the log-in page
+    And I am on the path "/"
 
   # --- Scenarios below require UI or infrastructure not yet explored ---
   # TODO: rewrite once the flow is verified in the running app.

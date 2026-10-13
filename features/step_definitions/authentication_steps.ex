@@ -17,7 +17,7 @@ defmodule MarqueeFeatures.Steps.Authentication do
 
   alias Marquee.Accounts
   alias Marquee.AccountsFixtures
-  alias Marquee.Organizations.Organization
+  alias Marquee.Accounts.Organization
   alias Marquee.Repo
 
   # ---- Registration -------------------------------------------------------
@@ -73,17 +73,29 @@ defmodule MarqueeFeatures.Steps.Authentication do
   end
 
   when_ "I choose to stay logged in", fn world ->
-    session = click(world.session, button("Confirm and stay logged in"))
+    # The confirm button is a `phx-trigger-action` submit: the real POST that
+    # sets the session cookie lands after Wallaby's click returns. The
+    # signed-in redirect sends a brand-new owner to /admin, whose onboarding
+    # gate pushes straight on to the setup wizard — wait for its heading so
+    # the following assertions run against the post-login document.
+    session =
+      world.session
+      |> click(button("Confirm and stay logged in"))
+      |> assert_has(css("#onboarding-heading"))
+
     Map.put(world, :session, session)
   end
 
-  then_ "I am on the admin dashboard for my new organization", fn world ->
-    session = visit(world.session, "/admin?org=#{world.registered_org.slug}")
+  then_ "I am taken to onboarding for my new organization", fn world ->
+    # A freshly registered organization has not completed onboarding, so the
+    # dashboard gate lands the new owner on the setup wizard for their org.
+    session =
+      world.session
+      |> assert_has(css("#onboarding-heading", text: "Welcome to #{world.org_name}"))
+      |> assert_has(css("[data-test=onboarding-progress]"))
+      |> assert_has(css("body", text: world.email))
 
-    session
-    |> assert_text("Dashboard")
-    |> assert_text(world.org_name)
-    |> assert_text(world.email)
+    assert current_path(session) == "/admin/onboarding"
 
     Map.put(world, :session, session)
   end
@@ -91,15 +103,17 @@ defmodule MarqueeFeatures.Steps.Authentication do
   # ---- Login --------------------------------------------------------------
 
   given_ "I have a confirmed operator account", fn world ->
-    user = insert(:user, confirmed_at: DateTime.utc_now())
-    Map.put(world, :operator, user)
+    Map.merge(world, confirmed_operator_with_org())
   end
 
   given_ "I have a confirmed operator account with a password", fn world ->
     password = AccountsFixtures.valid_user_password()
-    user = insert(:user, confirmed_at: DateTime.utc_now())
-    {:ok, {user, _tokens}} = Accounts.update_user_password(user, %{password: password})
-    Map.merge(world, %{operator: user, password: password})
+    setup = confirmed_operator_with_org()
+    {:ok, {user, _tokens}} = Accounts.update_user_password(setup.operator, %{password: password})
+
+    world
+    |> Map.merge(%{setup | operator: user})
+    |> Map.put(:password, password)
   end
 
   when_ "I submit my email and password on the login page", fn world ->
@@ -138,8 +152,11 @@ defmodule MarqueeFeatures.Steps.Authentication do
   end
 
   then_ "I am on the admin dashboard", fn world ->
-    assert_text(world.session, "Dashboard")
-    world
+    # Password login is a full-page POST + redirect; query the heading rather
+    # than a cached <body> so the poll survives the document swap.
+    session = assert_has(world.session, css("h1", text: "Dashboard"))
+    assert current_path(session) == "/admin"
+    Map.put(world, :session, session)
   end
 
   then_ "I remain on the login page", fn world ->
@@ -148,7 +165,11 @@ defmodule MarqueeFeatures.Steps.Authentication do
   end
 
   then_ "I see instructions that a log-in link has been sent", fn world ->
-    assert_text(world.session, "A link to log in has been sent")
+    assert_has(
+      world.session,
+      css("#flash-info", text: "you will receive instructions for logging in shortly")
+    )
+
     world
   end
 
@@ -161,8 +182,15 @@ defmodule MarqueeFeatures.Steps.Authentication do
     Map.put(world, :session, session)
   end
 
-  then_ "I am on the log-in page", fn world ->
-    assert current_path(world.session) == "/users/log-in"
-    world
+  # ---- Private helpers ----------------------------------------------------
+
+  # An operator is a confirmed user who owns an established organization;
+  # without a membership the signed-in redirect lands on the public home page
+  # rather than the admin dashboard.
+  defp confirmed_operator_with_org do
+    org = insert(:organization)
+    user = insert(:user, confirmed_at: DateTime.utc_now())
+    membership = insert(:membership, user: user, organization: org, role: :owner)
+    %{operator: user, org: org, membership: membership}
   end
 end

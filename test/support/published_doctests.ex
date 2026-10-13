@@ -39,6 +39,7 @@ defmodule Marquee.PublishedDoctests do
     MarqueeWeb.Components.DemoFeaturePreview,
     MarqueeWeb.Viewer.LiveEventController,
     MarqueeWeb.Viewer.WatchLive.Components,
+    Mix.Tasks.Marquee.Cucumber,
     Mix.Tasks.Marquee.Verify
   ]
 

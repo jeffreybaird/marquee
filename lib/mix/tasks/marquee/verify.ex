@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Marquee.Verify do
-  @shortdoc "Runs every local check CI runs, fastest first; stops at the first failure"
+  @shortdoc "Runs every local check CI runs (format, compile, credo, deps and hex audits, assets, tests, dialyzer, e2e); stops at the first failure"
 
   @moduledoc """
   Runs the full verification suite, in this order:
@@ -8,12 +8,13 @@ defmodule Mix.Tasks.Marquee.Verify do
   2. `mix compile --force --warnings-as-errors`
   3. `mix credo --strict`
   4. `mix deps.audit` (dependency security advisories via `mix_audit`)
-  5. `npm run typecheck --prefix assets` (`tsc --noEmit`)
-  6. `npm test --prefix assets` (vitest)
-  7. `mix esbuild marquee`
-  8. `mix test` (unit and integration, e2e excluded)
-  9. `mix dialyzer`
-  10. `mix test --only e2e` (needs Chrome and ChromeDriver)
+  5. `mix hex.audit` (retired packages on the Hex registry)
+  6. `npm run typecheck --prefix assets` (`tsc --noEmit`)
+  7. `npm test --prefix assets` (vitest)
+  8. `mix esbuild marquee`
+  9. `mix test` (unit and integration, e2e excluded)
+  10. `mix dialyzer`
+  11. `mix test --only e2e` (needs Chrome and ChromeDriver)
 
   Each step runs as its own `mix` or `npm` process so it behaves exactly as it
   does on the command line and in CI. The suite stops at the first failing
@@ -30,8 +31,8 @@ defmodule Mix.Tasks.Marquee.Verify do
 
     * `--no-e2e` - skip the Wallaby browser suite
     * `--no-dialyzer` - skip dialyzer (slow until its PLT is built)
-    * `--no-deps-audit` - skip the dependency security audit, e.g. when
-      offline; the audit fetches advisory data from the network
+    * `--no-deps-audit` - skip both dependency audits (`mix deps.audit` and
+      `mix hex.audit`), e.g. when offline; both fetch data from the network
   """
 
   use Mix.Task
@@ -41,6 +42,7 @@ defmodule Mix.Tasks.Marquee.Verify do
           | :compile
           | :credo
           | :deps_audit
+          | :hex_audit
           | :assets_typecheck
           | :assets_test
           | :assets_build
@@ -66,10 +68,13 @@ defmodule Mix.Tasks.Marquee.Verify do
   Returns the ordered steps for the given options as `{name, {executable, args}}`.
 
       iex> Mix.Tasks.Marquee.Verify.steps([]) |> Enum.map(&elem(&1, 0))
-      [:format, :compile, :credo, :deps_audit, :assets_typecheck, :assets_test, :assets_build, :test, :dialyzer, :e2e]
+      [:format, :compile, :credo, :deps_audit, :hex_audit, :assets_typecheck, :assets_test, :assets_build, :test, :dialyzer, :e2e]
 
       iex> Mix.Tasks.Marquee.Verify.steps(e2e: false, dialyzer: false) |> Enum.map(&elem(&1, 0))
-      [:format, :compile, :credo, :deps_audit, :assets_typecheck, :assets_test, :assets_build, :test]
+      [:format, :compile, :credo, :deps_audit, :hex_audit, :assets_typecheck, :assets_test, :assets_build, :test]
+
+      iex> Mix.Tasks.Marquee.Verify.steps(deps_audit: false) |> Enum.map(&elem(&1, 0))
+      [:format, :compile, :credo, :assets_typecheck, :assets_test, :assets_build, :test, :dialyzer, :e2e]
 
       iex> Mix.Tasks.Marquee.Verify.steps([]) |> List.keyfind(:e2e, 0)
       {:e2e, {"mix", ["test", "--only", "e2e"]}}
@@ -81,6 +86,7 @@ defmodule Mix.Tasks.Marquee.Verify do
       {:compile, {"mix", ["compile", "--force", "--warnings-as-errors"]}},
       {:credo, {"mix", ["credo", "--strict"]}},
       {:deps_audit, {"mix", ["deps.audit"]}},
+      {:hex_audit, {"mix", ["hex.audit"]}},
       {:assets_typecheck, {"npm", ["run", "typecheck", "--prefix", "assets"]}},
       {:assets_test, {"npm", ["test", "--prefix", "assets"]}},
       {:assets_build, {"mix", ["esbuild", "marquee"]}},
@@ -111,11 +117,16 @@ defmodule Mix.Tasks.Marquee.Verify do
     end)
   end
 
+  # `--no-deps-audit` disables both network-bound audits; every other switch
+  # maps one-to-one onto the step of the same name.
   defp reject_disabled_steps(steps, opts) do
     Enum.reject(steps, fn {name, _command} ->
-      Keyword.get(opts, name, true) == false
+      Keyword.get(opts, switch_for_step(name), true) == false
     end)
   end
+
+  defp switch_for_step(:hex_audit), do: :deps_audit
+  defp switch_for_step(name), do: name
 
   defp run_command({executable, args}) do
     case System.find_executable(executable) do

@@ -87,6 +87,40 @@ defmodule MarqueeWeb.Super.AuditLogLiveTest do
     end
   end
 
+  describe "expand row" do
+    test "expanded row shows the recorded field changes alongside metadata", %{conn: _conn} do
+      super_admin = insert(:super_admin)
+      conn = conn_for_super_admin(super_admin)
+      org = insert(:organization)
+
+      log =
+        insert(:audit_log,
+          organization: org,
+          action: "video.updated",
+          changes: %{"title" => "renamed", "published" => true},
+          metadata: %{"ip" => "1.2.3.4"}
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/super/audit-log")
+
+      refute has_element?(view, "[data-test='metadata-row-#{log.id}']")
+
+      view
+      |> element("[data-test='expand-btn-#{log.id}']")
+      |> render_click()
+
+      expanded = view |> element("[data-test='metadata-row-#{log.id}']") |> render()
+
+      # Every changed field and its new value is rendered in the expanded row.
+      assert expanded =~ "title"
+      assert expanded =~ "renamed"
+      assert expanded =~ "published"
+      assert expanded =~ "true"
+      # Request metadata stays available next to the changes.
+      assert expanded =~ "1.2.3.4"
+    end
+  end
+
   describe "access control" do
     test "non-super-admin is redirected", %{conn: _conn} do
       user = insert(:user, is_super_admin: false)

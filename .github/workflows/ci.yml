@@ -132,6 +132,9 @@ jobs:
       - name: Audit dependencies
         run: mix deps.audit
 
+      - name: Audit Hex registry (retired packages)
+        run: mix hex.audit
+
       - name: Run unit & integration tests (with coverage)
         run: mix coveralls --exclude e2e
         env:

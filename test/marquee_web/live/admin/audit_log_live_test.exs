@@ -153,6 +153,39 @@ defmodule MarqueeWeb.Admin.AuditLogLiveTest do
       assert has_element?(view, "[data-test='metadata-row-#{log.id}']")
     end
 
+    test "expanded row shows the recorded field changes alongside metadata", %{conn: _conn} do
+      membership = insert(:membership, role: :admin)
+      org = membership.organization
+
+      log =
+        insert(:audit_log,
+          organization: org,
+          action: "video.updated",
+          changes: %{"title" => "renamed", "published" => true},
+          metadata: %{"ip" => "1.2.3.4"}
+        )
+
+      {:ok, view, _html} = live(conn_for(membership), ~p"/admin/audit-log")
+
+      # Collapsed: neither the changed field nor its new value is on the page.
+      refute has_element?(view, "[data-test='audit-log-row-#{log.id}']", "renamed")
+      refute has_element?(view, "[data-test='metadata-row-#{log.id}']")
+
+      view
+      |> element("[data-test='expand-btn-#{log.id}']")
+      |> render_click()
+
+      expanded = view |> element("[data-test='metadata-row-#{log.id}']") |> render()
+
+      # Every changed field and its new value is rendered in the expanded row.
+      assert expanded =~ "title"
+      assert expanded =~ "renamed"
+      assert expanded =~ "published"
+      assert expanded =~ "true"
+      # Request metadata stays available next to the changes.
+      assert expanded =~ "1.2.3.4"
+    end
+
     test "clicking expand again collapses the row", %{conn: _conn} do
       membership = insert(:membership, role: :admin)
       org = membership.organization

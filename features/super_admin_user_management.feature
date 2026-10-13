@@ -1,7 +1,9 @@
 Feature: Super Admin User Management
 
-  Scenario: Super admin views all platform users
+  Background:
     Given I am logged in as a super admin
+
+  Scenario: Super admin views all platform users
     When I navigate to /super/users
     Then I see all platform users
 

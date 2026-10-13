@@ -226,8 +226,17 @@ defmodule MarqueeFeatures.Steps.AdminDashboard do
   end
 
   then_ "the section is removed from the landing page", fn world ->
-    refute Repo.get(LandingSection, world.section.id),
-           "expected section #{world.section.id} to be deleted"
+    # Landing sections are user-facing content, so removal is a soft delete:
+    # the row keeps a `deleted_at` timestamp and leaves the editor list.
+    refute_has(world.session, css("[data-test=section-item-#{world.section.id}]"))
+
+    section = Repo.get!(LandingSection, world.section.id)
+    assert section.deleted_at, "expected section #{world.section.id} to be soft-deleted"
+
+    %{results: sections} = LandingPage.list_landing_sections_admin(world.org)
+
+    refute Enum.any?(sections, &(&1.id == world.section.id)),
+           "expected section #{world.section.id} to be absent from the admin section list"
 
     world
   end
