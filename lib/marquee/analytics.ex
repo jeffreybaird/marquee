@@ -186,12 +186,15 @@ defmodule Marquee.Analytics do
   # ---------------------------------------------------------------------------
 
   @doc """
-  Returns watch stats for a single video: unique viewers and average watch
-  percentage.
+  Returns watch stats for a single video: unique viewers, average watch
+  percentage, and completion rate.
 
   A viewer counts if their progress position exceeds 30 seconds. Avg watch
   percentage uses `LEAST(position, duration) / duration * 100`, capped at
-  100%. Returns `%{unique_viewers: int, avg_watch_percentage: float}`.
+  100%. Completion rate is the percentage of counted (meaningful) views that
+  are marked completed, rounded to one decimal; `0.0` when there are no
+  counted views. Returns
+  `%{unique_viewers: int, avg_watch_percentage: float, completion_rate: float}`.
 
   Exempt from doctest — hits the database.
   """
@@ -200,12 +203,41 @@ defmodule Marquee.Analytics do
                            %{"marquee.org.id" => org.id, "marquee.video.id" => video_id} do
       unique_viewers = count_unique_viewers_for_video(org.id, video_id)
       avg_watch_pct = avg_watch_percentage_for_video(org.id, video_id)
+      completed_views = count_completed_views_for_video(org.id, video_id)
 
       %{
         unique_viewers: unique_viewers,
-        avg_watch_percentage: avg_watch_pct
+        avg_watch_percentage: avg_watch_pct,
+        completion_rate: completion_percentage(completed_views, unique_viewers)
       }
     end
+  end
+
+  @doc """
+  Returns the share of views that were completed, as a percentage rounded to
+  one decimal place. Returns `0.0` when there are no views.
+
+      iex> Marquee.Analytics.completion_percentage(1, 2)
+      50.0
+
+      iex> Marquee.Analytics.completion_percentage(2, 3)
+      66.7
+
+      iex> Marquee.Analytics.completion_percentage(0, 0)
+      0.0
+  """
+  def completion_percentage(_completed, 0), do: 0.0
+
+  def completion_percentage(completed, total) when total > 0,
+    do: Float.round(completed / total * 100, 1)
+
+  defp count_completed_views_for_video(org_id, video_id) do
+    Progress
+    |> where([p], p.organization_id == ^org_id and p.video_id == ^video_id and p.completed)
+    |> where_meaningful_watch()
+    |> select([p], count(p.id, :distinct))
+    |> Repo.one()
+    |> Kernel.||(0)
   end
 
   defp count_unique_viewers_for_video(org_id, video_id) do

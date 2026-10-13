@@ -62,7 +62,7 @@ defmodule MarqueeWeb.Admin.VideoAnalyticsLive do
           <.header>{@video.title}</.header>
         </div>
 
-        <section aria-label="Watch stats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <section aria-label="Watch stats" class="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-unique-viewers">
             <p class="text-sm text-admin-muted">Unique Viewers</p>
             <p class="text-2xl font-bold mt-1">{@watch_stats.unique_viewers}</p>
@@ -71,6 +71,11 @@ defmodule MarqueeWeb.Admin.VideoAnalyticsLive do
           <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-avg-watch-pct">
             <p class="text-sm text-admin-muted">Avg Watch %</p>
             <p class="text-2xl font-bold mt-1">{@watch_stats.avg_watch_percentage}%</p>
+          </div>
+
+          <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-completion-rate">
+            <p class="text-sm text-admin-muted">Completion rate</p>
+            <p class="text-2xl font-bold mt-1">{@watch_stats.completion_rate}%</p>
           </div>
 
           <div class="bg-admin-bg rounded-xl p-5" data-test="kpi-total-drop-offs">
