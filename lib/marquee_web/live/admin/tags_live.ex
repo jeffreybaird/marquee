@@ -82,11 +82,18 @@ defmodule MarqueeWeb.Admin.TagsLive do
   end
 
   @impl true
+  def handle_event("save_edit", %{"tag_id" => id} = params, socket) do
+    params
+    |> Map.delete("tag_id")
+    |> Map.put("id", id)
+    |> then(&handle_event("save_edit", &1, socket))
+  end
+
   # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-  def handle_event("save_edit", %{"id" => id}, socket) do
+  def handle_event("save_edit", %{"id" => id} = params, socket) do
     org = socket.assigns.organization
     scope = socket.assigns.current_scope
-    name = String.trim(socket.assigns.editing_tag_name)
+    name = params |> Map.get("name", socket.assigns.editing_tag_name) |> String.trim()
 
     if name == "" do
       {:noreply, put_flash(socket, :error, "Tag name cannot be empty.")}
@@ -144,6 +151,7 @@ defmodule MarqueeWeb.Admin.TagsLive do
       organization={@organization}
       current_user={@current_user}
       impersonating={@impersonating}
+      flash={@flash}
     >
       <MarqueeWeb.Components.AdminUI.admin_panel
         title="Tags"
@@ -188,20 +196,23 @@ defmodule MarqueeWeb.Admin.TagsLive do
               <span class="font-mono text-xs text-admin-muted">{tag.slug}</span>
             </div>
 
-            <div :if={@editing_tag_id == tag.id} class="flex flex-1 gap-2 mr-2">
+            <form
+              :if={@editing_tag_id == tag.id}
+              id={"edit-tag-form-#{tag.id}"}
+              phx-change="update_editing_name"
+              phx-submit="save_edit"
+              class="flex flex-1 gap-2 mr-2"
+            >
+              <input type="hidden" name="tag_id" value={tag.id} />
+              <label for={"edit-tag-name-#{tag.id}"} class="sr-only">Tag name</label>
               <input
                 type="text"
+                id={"edit-tag-name-#{tag.id}"}
                 value={@editing_tag_name}
-                phx-change="update_editing_name"
-                phx-keyup="update_editing_name"
                 name="name"
                 class="flex-1 rounded-md border border-admin-border bg-admin-card px-3 py-1.5 font-body text-sm text-admin-fg focus:border-admin-accent focus:outline-none"
               />
-              <MarqueeWeb.Components.AdminUI.admin_button
-                size={:sm}
-                phx-click="save_edit"
-                phx-value-id={tag.id}
-              >
+              <MarqueeWeb.Components.AdminUI.admin_button type="submit" size={:sm}>
                 Save
               </MarqueeWeb.Components.AdminUI.admin_button>
               <MarqueeWeb.Components.AdminUI.admin_button
@@ -211,7 +222,7 @@ defmodule MarqueeWeb.Admin.TagsLive do
               >
                 Cancel
               </MarqueeWeb.Components.AdminUI.admin_button>
-            </div>
+            </form>
 
             <div :if={@can_manage && @editing_tag_id != tag.id} class="flex gap-1">
               <MarqueeWeb.Components.AdminUI.admin_button

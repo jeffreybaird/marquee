@@ -860,26 +860,27 @@ defmodule MarqueeWeb.Admin.CollectionsLive do
             >
               No seasons available.
             </div>
-            <div
+            <button
               :for={season <- @picker_seasons}
-              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 hover:border-admin-border"
+              type="button"
+              class="flex w-full min-h-11 cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 text-left hover:border-admin-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
               phx-click="add_item_to_collection"
               phx-value-type="season"
               phx-value-id={season.id}
               data-test={"picker-item-season-#{season.id}"}
             >
-              <div class="min-w-0 flex-1">
+              <span class="block min-w-0 flex-1">
                 <span class="font-display font-semibold text-admin-fg">
                   {season.title}
                 </span>
                 <span class="ml-2 font-mono text-xs text-admin-muted">
                   {season.episode_count} episodes
                 </span>
-              </div>
+              </span>
               <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent">
                 Season
               </span>
-            </div>
+            </button>
           <% :series -> %>
             <div
               :if={@picker_series == []}
@@ -887,23 +888,24 @@ defmodule MarqueeWeb.Admin.CollectionsLive do
             >
               No series available.
             </div>
-            <div
+            <button
               :for={series <- @picker_series}
-              class="flex cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 hover:border-admin-border"
+              type="button"
+              class="flex w-full min-h-11 cursor-pointer items-center gap-3 rounded border border-admin-border bg-admin-card p-2 text-left hover:border-admin-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-admin-accent"
               phx-click="add_item_to_collection"
               phx-value-type="series"
               phx-value-id={series.id}
               data-test={"picker-item-series-#{series.id}"}
             >
-              <div class="min-w-0 flex-1">
+              <span class="block min-w-0 flex-1">
                 <span class="font-display font-semibold text-admin-fg">
                   {series.title}
                 </span>
-              </div>
+              </span>
               <span class="rounded-full bg-admin-accent/10 px-2 py-0.5 font-ui text-xs text-admin-accent">
                 Series
               </span>
-            </div>
+            </button>
         <% end %>
       </div>
 

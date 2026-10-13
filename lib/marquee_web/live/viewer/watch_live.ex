@@ -184,7 +184,8 @@ defmodule MarqueeWeb.Viewer.WatchLive do
     slug = params["slug"]
 
     with {:ok, series} <- Content.get_series_by_slug(org, slug),
-         %{results: [_ | _] = season_results} = seasons <- Content.list_seasons(org, series),
+         %{results: [_ | _] = season_results} = seasons <-
+           Content.list_visible_seasons(org, series),
          selected_season <- resolve_season(params, org, viewer, season_results),
          [_ | _] = episodes <- Content.list_episodes(org, selected_season) do
       mount_series_episode(socket, org, viewer, series, selected_season, seasons, episodes)
@@ -288,7 +289,7 @@ defmodule MarqueeWeb.Viewer.WatchLive do
 
   defp build_season_assigns(org, viewer, episode_context) do
     episodes = Content.list_episodes(org, episode_context.season)
-    seasons = Content.list_seasons(org, episode_context.series)
+    seasons = Content.list_visible_seasons(org, episode_context.series)
 
     viewer_progress = build_viewer_progress(org, viewer, episodes)
 
