@@ -3,6 +3,7 @@ Feature: Operator Viewer Impersonation
   Background:
     Given I am logged in as an operator with admin or editor role
 
+  @app-gap
   Scenario: Operator impersonates a viewer
     Given a viewer exists in my organization
     When I choose to impersonate that viewer

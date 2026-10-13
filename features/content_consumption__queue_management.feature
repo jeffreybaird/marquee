@@ -8,6 +8,7 @@ Feature: Queue Management
     When I add it to my queue
     Then it appears at the end of my queue
 
+  @app-gap
   Scenario: Viewer adds a video to play next
     Given I have items in my queue and am currently watching
     When I add a video as "play next"
@@ -39,6 +40,7 @@ Feature: Queue Management
     When I click "go back"
     Then the previously watched video resumes from the beginning
 
+  @app-gap
   Scenario: Viewer adds a collection to queue
     Given a collection exists with videos
     When I add the collection to my queue

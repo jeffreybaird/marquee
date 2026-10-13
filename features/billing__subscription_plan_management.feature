@@ -23,6 +23,7 @@ Feature: Subscription Plan Management
     Then no new viewers can subscribe to it
     And existing subscribers retain their access
 
+  @app-gap
   Scenario: Operator deletes a plan with no subscribers
     Given a plan exists with no active subscribers
     When I delete the plan

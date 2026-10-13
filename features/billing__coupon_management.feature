@@ -11,16 +11,19 @@ Feature: Coupon Management
     When I create a coupon with a code and a percentage discount
     Then the coupon reduces the plan price by that percentage at checkout
 
+  @app-gap
   Scenario: Viewer applies a valid coupon at checkout
     Given a coupon code exists and is active
     When a viewer enters the code during checkout
     Then the discount is applied to the subscription price
 
+  @app-gap
   Scenario: Viewer applies an invalid or expired coupon
     Given an invalid or deactivated coupon code
     When a viewer enters the code during checkout
     Then an error is displayed and no discount is applied
 
+  @app-gap
   Scenario: Operator deactivates a coupon
     Given an active coupon exists
     When I deactivate it

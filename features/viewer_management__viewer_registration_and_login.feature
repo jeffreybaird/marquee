@@ -3,6 +3,7 @@ Feature: Viewer Registration and Login
   Background:
     Given the tenant site is accessible
 
+  @app-gap
   Scenario: Viewer registers with email and password
     Given I am an unauthenticated user on the tenant site
     When I submit the registration form with a valid email and password
@@ -21,6 +22,7 @@ Feature: Viewer Registration and Login
     Then a magic link email is sent to me
     And clicking that link creates a session without requiring a password
 
+  @app-gap
   Scenario: Viewer logs in with email and password
     Given I have a viewer account with a password set
     When I submit valid credentials on the login page

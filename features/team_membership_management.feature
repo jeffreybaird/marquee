@@ -1,3 +1,4 @@
+@app-gap
 Feature: Team Membership Management
 
   Scenario: Operator with owner role views team members

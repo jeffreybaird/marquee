@@ -25,6 +25,7 @@ Feature: Tags Management
     Then the tag is removed from the system
     And disassociated from all videos
 
+  @app-gap
   Scenario: Operator searches tags
     Given multiple tags exist
     When I type a search query in the tag search box

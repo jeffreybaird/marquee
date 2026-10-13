@@ -13,7 +13,6 @@ defmodule MarqueeFeatures.Steps.Onboarding do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
-  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Accounts
   alias Marquee.Repo
@@ -40,11 +39,12 @@ defmodule MarqueeFeatures.Steps.Onboarding do
     # Each wizard step renders its own "next" button, so gate every click on
     # the marker of the step it should land on; otherwise a click can find
     # the previous step's button an instant before LiveView patches it out.
-    # Finishing navigates to the dashboard — wait for the wizard to be gone
-    # before the next step reads the organization back.
+    # Finishing navigates to the dashboard — wait for the dashboard heading
+    # (and for the wizard to be gone) before the next step reads the
+    # organization back.
     session =
       world.session
-      |> await_live_connect()
+      |> await_connected_wizard()
       |> assert_has(css("[data-test=onboarding-step-1]"))
       |> click(css("[data-test=onboarding-next]"))
       |> assert_has(css("[data-test=onboarding-step-2]"))
@@ -53,20 +53,8 @@ defmodule MarqueeFeatures.Steps.Onboarding do
       |> click(css("[data-test=onboarding-next]"))
       |> assert_has(css("[data-test=onboarding-step-4]"))
       |> click(css("[data-test=onboarding-finish]"))
-
-    # DEBUG-TEMP
-    Process.sleep(3000)
-    IO.puts("DEBUG url=#{current_url(session)}")
-    IO.puts("DEBUG org=#{inspect(Repo.reload(world.org).onboarding_completed_at)}")
-    IO.puts("DEBUG finish_present=#{has?(session, css("[data-test=onboarding-finish]"))}")
-    IO.puts("DEBUG progress_present=#{has?(session, css("[data-test=onboarding-progress]"))}")
-    IO.puts("DEBUG alert=#{inspect(all(session, css("[role=alert]")) |> Enum.map(&Wallaby.Element.text/1))}")
-    IO.puts("DEBUG h1=#{inspect(all(session, css("h1")) |> Enum.map(&Wallaby.Element.text/1))}")
-
-    session =
-      session
-      |> refute_has(css("[data-test=onboarding-progress]"))
       |> assert_has(css("h1", text: "Dashboard"))
+      |> refute_has(css("[data-test=onboarding-progress]"))
 
     Map.put(world, :session, session)
   end)
@@ -74,12 +62,21 @@ defmodule MarqueeFeatures.Steps.Onboarding do
   when_("I skip the setup wizard", fn world ->
     session =
       world.session
-      |> await_live_connect()
+      |> await_connected_wizard()
       |> click(css("[data-test=onboarding-skip]"))
+      |> assert_has(css("h1", text: "Dashboard"))
       |> refute_has(css("[data-test=onboarding-progress]"))
 
     Map.put(world, :session, session)
   end)
+
+  # The dashboard visit lands on /admin, whose LiveView then live-navigates to
+  # the wizard. `await_live_connect/1` can match the dashboard's connected root
+  # before that navigation completes, so a click sent then is dropped. Wait
+  # until the connected root itself contains the wizard.
+  defp await_connected_wizard(session) do
+    assert_has(session, css("[data-phx-main].phx-connected [data-test=onboarding-progress]"))
+  end
 
   # ---- Assertions ---------------------------------------------------------
 

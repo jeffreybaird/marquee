@@ -38,6 +38,7 @@ Feature: Organization Audit Log
     When I click export CSV
     Then a CSV file containing the filtered entries is downloaded
 
+  @app-gap
   Scenario: Operator audit log captures impersonation context
     Given a super admin impersonated an operator and made a change
     When I view the audit log entry for that change

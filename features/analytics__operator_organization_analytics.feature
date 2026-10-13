@@ -36,6 +36,7 @@ Feature: Operator Organization Analytics
     Then I see watch stats, completion rate, average watch time,
     And a drop-off distribution showing where viewers stop watching
 
+  @app-gap
   Scenario: Operator views series analytics
     Given a series exists with watch data
     When I navigate to /admin/analytics/series/:series_id
