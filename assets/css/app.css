@@ -742,27 +742,31 @@
   transform: scale(0.98);
 }
 
-/* Translucent dark secondary pill with info icon. */
+/* Secondary pill with info icon. Uses the tenant theme tokens (like the
+   primary CTA) so the viewer site and the appearance mini preview render the
+   operator's accent and text-on-accent colours; the lighter weight and
+   outline keep it visually subordinate to the primary CTA. */
 .hero-cta-secondary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 12px 22px;
-  background: rgba(28, 28, 28, 0.7);
-  color: #fff;
+  background: var(--sv-accent, #f7c335);
+  color: var(--sv-text-on-accent, #000);
   font-weight: 600;
   font-size: 0.95rem;
   border-radius: 999px;
   text-decoration: none;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: background 200ms, border-color 200ms;
+  border: 1px solid var(--sv-text-on-accent, #000);
+  transition: filter 200ms, transform 200ms;
 }
 
 .hero-cta-secondary:hover {
-  background: rgba(48, 48, 48, 0.85);
-  border-color: rgba(255, 255, 255, 0.28);
+  filter: brightness(1.08);
+}
+
+.hero-cta-secondary:active {
+  transform: scale(0.98);
 }
 
 .hero-pagination {

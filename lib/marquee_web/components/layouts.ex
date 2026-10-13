@@ -253,38 +253,52 @@ defmodule MarqueeWeb.Layouts do
   defp viewer_identity(%{email: email}), do: email
 
   @doc """
-  Google Fonts link tags for the tenant's display font.
+  Google Fonts link tags for the tenant's display font and viewer body font.
 
-  Uses the print/onload pattern so the stylesheet is not render-blocking,
+  Uses the print/onload pattern so each stylesheet is not render-blocking,
   with a `<noscript>` fallback for non-JS clients. Preconnects + preloads
-  the stylesheet so swap-in has no flash of unstyled text. Returns empty
-  when the tenant has not selected a custom display font (system fallback
-  already present as CSS custom property default).
+  the stylesheets so swap-in has no flash of unstyled text. Each font gets
+  its own stylesheet so one unavailable family cannot block the other.
+  Renders nothing when the tenant has not selected an approved display or
+  body font (system fallbacks already present as CSS custom property defaults).
   """
   attr :organization, :map, default: nil
+  attr :theme, :map, default: nil
   attr :theme_preview, :map, default: nil
 
   def tenant_font_tags(assigns) do
-    assigns = assign(assigns, :href, tenant_font_href(assigns))
+    assigns = assign(assigns, :hrefs, tenant_font_hrefs(assigns))
 
     ~H"""
-    <%= if @href do %>
-      <.tenant_font_links href={@href} />
-    <% end %>
+    <.tenant_font_links :for={href <- @hrefs} href={href} />
     """
   end
 
+  defp tenant_font_hrefs(assigns) do
+    [
+      {tenant_display_font(assigns), Organization.approved_display_fonts()},
+      {tenant_body_font(assigns), Organization.approved_body_fonts()}
+    ]
+    |> Enum.filter(fn {font, approved} -> font in approved end)
+    |> Enum.map(fn {font, _approved} -> google_fonts_href(font) end)
+    |> Enum.uniq()
+  end
+
   # An operator browsing with an unsaved appearance draft needs the draft's
-  # display font loaded instead of the saved one.
-  defp tenant_font_href(%{theme_preview: %{display_font: font}})
+  # fonts loaded instead of the saved ones.
+  defp tenant_display_font(%{theme_preview: %{display_font: font}})
        when is_binary(font) and font != "",
-       do: google_fonts_href(font)
+       do: font
 
-  defp tenant_font_href(%{organization: %{display_font: font}})
+  defp tenant_display_font(%{organization: %{display_font: font}}), do: font
+  defp tenant_display_font(_assigns), do: nil
+
+  defp tenant_body_font(%{theme_preview: %{theme: %{font_body: font}}})
        when is_binary(font) and font != "",
-       do: google_fonts_href(font)
+       do: font
 
-  defp tenant_font_href(_assigns), do: nil
+  defp tenant_body_font(%{theme: %{font_body: font}}), do: font
+  defp tenant_body_font(_assigns), do: nil
 
   attr :href, :string, required: true
 
@@ -361,9 +375,7 @@ defmodule MarqueeWeb.Layouts do
   end
 
   defp google_fonts_href(font) do
-    if font in Organization.approved_display_fonts() do
-      family = font |> String.replace(" ", "+")
-      "https://fonts.googleapis.com/css2?family=#{family}:wght@400;500;600&display=swap"
-    end
+    family = String.replace(font, " ", "+")
+    "https://fonts.googleapis.com/css2?family=#{family}:wght@400;500;600&display=swap"
   end
 end

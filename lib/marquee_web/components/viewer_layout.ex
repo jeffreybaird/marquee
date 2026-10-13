@@ -132,7 +132,11 @@ defmodule MarqueeWeb.Components.ViewerLayout do
   defp root_style(%{theme_preview: %{theme: %Theme{}} = draft}),
     do: Theme.build_preview_css_vars(draft)
 
-  defp root_style(%{resolved_theme: theme}), do: Theme.build_css_vars(theme)
+  defp root_style(%{resolved_theme: theme} = assigns),
+    do: Theme.build_viewer_css_vars(theme, organization_display_font(assigns))
+
+  defp organization_display_font(%{organization: %{display_font: font}}), do: font
+  defp organization_display_font(_assigns), do: nil
 
   attr :current_viewer, :map, required: true
   attr :theme_preview, :map, default: nil

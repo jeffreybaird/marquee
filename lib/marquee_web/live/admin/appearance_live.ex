@@ -101,10 +101,23 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
        Branding.resolve_theme_preview(org, Branding.get_theme_preview(org, preview_id))
      )
      |> assign_catalog_state(org)
+     |> assign_initial_drawer_state()
      |> assign_preview_rows(org)
      |> assign_preview_hero_slides(org)
      |> assign(:preview_expanded, false)}
   end
+
+  # Drawers are <details> elements; their open state lives on the server so a
+  # LiveView patch (e.g. a phx-change preview update) cannot collapse them.
+  @drawer_assigns %{"preset" => :preset_drawer_open, "accent_variants" => :accent_drawer_open}
+
+  @impl true
+  def handle_event("toggle_drawer", %{"drawer" => drawer}, socket)
+      when is_map_key(@drawer_assigns, drawer) do
+    {:noreply, update(socket, Map.fetch!(@drawer_assigns, drawer), &(!&1))}
+  end
+
+  def handle_event("toggle_drawer", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("preview_preset", %{"name" => name}, socket) do
@@ -268,8 +281,8 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
   defp clear_theme_preview(%{assigns: assigns}),
     do: Branding.clear_theme_preview(assigns.organization, assigns.appearance_preview_id)
 
-  defp save_theme(_scope, %Theme{id: nil}, params, %{id: org_id}) do
-    Branding.create_theme(Map.put(params, "organization_id", org_id))
+  defp save_theme(scope, %Theme{id: nil}, params, %{id: org_id}) do
+    Branding.create_theme(scope, Map.put(params, "organization_id", org_id))
   end
 
   defp save_theme(scope, %Theme{} = theme, params, _org),
@@ -320,6 +333,14 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
 
   defp apply_preset_message(_other, name),
     do: "Preset #{name} selected."
+
+  # The preset chooser starts open for an empty catalog (first-run setup) and
+  # collapsed once rows exist; the accent variants drawer starts collapsed.
+  defp assign_initial_drawer_state(socket) do
+    socket
+    |> assign(:preset_drawer_open, socket.assigns.catalog_empty?)
+    |> assign(:accent_drawer_open, false)
+  end
 
   defp assign_catalog_state(socket, org) do
     row_count = Catalog.count_rows(org)
@@ -533,9 +554,13 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
       <details
         class="mt-6 rounded-lg border border-admin-border"
         data-test="preset-drawer"
-        open={@catalog_empty?}
+        open={@preset_drawer_open}
       >
-        <summary class="cursor-pointer px-4 py-3 text-sm font-medium">
+        <summary
+          class="cursor-pointer px-4 py-3 text-sm font-medium"
+          phx-click="toggle_drawer"
+          phx-value-drawer="preset"
+        >
           <span>Preset chooser</span>
           <span :if={!@catalog_empty?} class="ml-2 text-xs opacity-60">
             (advanced — overwrites your catalog)
@@ -640,8 +665,16 @@ defmodule MarqueeWeb.Admin.AppearanceLive do
                   hint="Primary brand accent. Buttons, links, focus rings, hero CTAs, and progress bars pull from this color."
                 />
 
-                <details class="rounded border border-admin-border" data-test="accent-variants-drawer">
-                  <summary class="cursor-pointer px-3 py-2 text-sm">
+                <details
+                  class="rounded border border-admin-border"
+                  data-test="accent-variants-drawer"
+                  open={@accent_drawer_open}
+                >
+                  <summary
+                    class="cursor-pointer px-3 py-2 text-sm"
+                    phx-click="toggle_drawer"
+                    phx-value-drawer="accent_variants"
+                  >
                     Accent variants
                     <span class="ml-1 text-xs opacity-60">
                       (auto-derived — leave blank to compute from accent color)

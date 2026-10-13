@@ -4,11 +4,12 @@ defmodule Marquee.Branding.CacheSubscriber do
   affected organization so every node serves the new CSS variables on
   the next request.
 
-  Theme events broadcast from `Marquee.Branding` land on the platform
-  topic (themes carry `organization_id` but no preloaded `:organization`
-  association, so `Marquee.Events.broadcast/2` routes them as platform
-  events). Subscribing globally is sufficient and mirrors the
-  `HeroCacheSubscriber` pattern.
+  Theme events broadcast with an organization scope land on that
+  organization's `events:{org_id}` topic, which a single long-lived process
+  cannot enumerate, so the subscriber listens on the audit mirror topic that
+  receives every event. It also keeps the platform topic subscription for
+  legacy scope-less broadcasts; invalidation is idempotent, so an event seen
+  on both topics is harmless.
   """
 
   use GenServer
@@ -21,6 +22,7 @@ defmodule Marquee.Branding.CacheSubscriber do
 
   @impl true
   def init(:ok) do
+    Marquee.Events.subscribe_audit()
     Marquee.Events.subscribe_global()
     {:ok, %{}}
   end
