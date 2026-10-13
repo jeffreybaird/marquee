@@ -86,6 +86,8 @@ interface Clip {
   reachedEnd: boolean
   /** This activation completed a loop (and reported `playback_ended`). */
   completed: boolean
+  /** Version of the latest play request; pauses invalidate pending outcomes. */
+  playAttempt: number
 }
 
 /** Seconds from either end of a clip that count as its end / its start. */
@@ -226,7 +228,7 @@ class ShortsFeed extends ViewHook {
   private deactivateCurrent() {
     const clip = this.activeClip()
     if (!clip) return
-    clip.player.pause()
+    this.pauseClip(clip)
     clip.reporter.sendDropOff()
   }
 
@@ -299,6 +301,7 @@ class ShortsFeed extends ViewHook {
       listeners: new AbortController(),
       reachedEnd: false,
       completed: false,
+      playAttempt: 0,
     }
     const { signal } = clip.listeners
 
@@ -312,6 +315,7 @@ class ShortsFeed extends ViewHook {
     )
     player.addEventListener("loadedmetadata", () => reporter.trackDuration(Number(player.duration || 0)), { signal })
     player.addEventListener("play", () => this.markPlaying(clip), { signal })
+    player.addEventListener("playing", () => this.recoverPlayback(clip), { signal })
     player.addEventListener("pause", () => this.markPaused(clip), { signal })
     player.addEventListener("ended", () => this.markCompleted(clip), { signal })
     player.addEventListener("error", () => this.showError(article), { signal })
@@ -324,7 +328,7 @@ class ShortsFeed extends ViewHook {
   /** Stop listening first, so tearing a player down reports nothing. */
   private releaseClip(clip: Clip) {
     clip.listeners.abort()
-    clip.player.pause()
+    this.pauseClip(clip)
     clip.player.remove()
     this.clips.delete(clip.article)
   }
@@ -344,8 +348,9 @@ class ShortsFeed extends ViewHook {
   // --- playback -------------------------------------------------------------
 
   private play(clip: Clip) {
+    const attempt = ++clip.playAttempt
     this.attemptPlay(clip.player).catch((error: unknown) => {
-      if (!this.isCurrent(clip)) return
+      if (!this.isCurrentAttempt(clip, attempt) || isPlaybackInterrupted(error)) return
       if (isAutoplayRefusal(error)) this.playMuted(clip)
       else this.showError(clip.article)
     })
@@ -354,8 +359,9 @@ class ShortsFeed extends ViewHook {
   /** Browsers that refuse audible autoplay usually allow it muted. */
   private playMuted(clip: Clip) {
     this.setMuted(true)
+    const attempt = ++clip.playAttempt
     this.attemptPlay(clip.player).catch((error: unknown) => {
-      if (!this.isCurrent(clip)) return
+      if (!this.isCurrentAttempt(clip, attempt) || isPlaybackInterrupted(error)) return
       if (isAutoplayRefusal(error)) this.setAutoplayBlocked(true)
       else this.showError(clip.article)
     })
@@ -379,7 +385,7 @@ class ShortsFeed extends ViewHook {
     const clip = this.activeClip()
     if (!clip) return
     if (clip.player.paused) this.play(clip)
-    else clip.player.pause()
+    else this.pauseClip(clip)
   }
 
   /** A clip's own play button toggles it when active, and brings it into view otherwise. */
@@ -389,12 +395,22 @@ class ShortsFeed extends ViewHook {
   }
 
   private markPlaying(clip: Clip) {
+    if (!this.isCurrent(clip) || clip.article !== this.active) return
+    this.recoverPlayback(clip)
     clip.reporter.reportStarted()
+  }
+
+  /** Actual playback recovery removes a stale alert without reporting another start. */
+  private recoverPlayback(clip: Clip) {
+    if (!this.isCurrent(clip) || clip.article !== this.active) return
+    clip.playAttempt++
+    this.clearError(clip.article)
     this.setAutoplayBlocked(false)
     this.syncPlayButton(clip)
   }
 
   private markPaused(clip: Clip) {
+    clip.playAttempt++
     clip.reporter.report(Number(clip.player.currentTime || 0), "playback_paused")
     this.syncPlayButton(clip)
   }
@@ -410,8 +426,14 @@ class ShortsFeed extends ViewHook {
     const clip = this.activeClip()
     if (!clip) return
     this.flushProgress(clip)
-    clip.player.pause()
+    this.pauseClip(clip)
     clip.reporter.sendDropOff()
+  }
+
+  /** A paused pending play can reject later even when no pause event fired. */
+  private pauseClip(clip: Clip) {
+    clip.playAttempt++
+    clip.player.pause()
   }
 
   private setMuted(muted: boolean) {
@@ -531,6 +553,11 @@ class ShortsFeed extends ViewHook {
     return !this.isDestroyed && this.clips.get(clip.article) === clip
   }
 
+  /** Only the active player's latest request may change playback UI. */
+  private isCurrentAttempt(clip: Clip, attempt: number): boolean {
+    return this.isCurrent(clip) && clip.article === this.active && clip.playAttempt === attempt
+  }
+
   private clipArticleOf(target: Element): HTMLElement | null {
     const article = target.closest<HTMLElement>("article[data-index]")
     return article && article.parentElement === this.el ? article : null
@@ -552,6 +579,11 @@ class ShortsFeed extends ViewHook {
 /** The autoplay policy refused playback (as opposed to a media failure). */
 function isAutoplayRefusal(error: unknown): boolean {
   return error instanceof DOMException && error.name === "NotAllowedError"
+}
+
+/** Pausing or changing playback interrupts a pending request without a media failure. */
+function isPlaybackInterrupted(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError"
 }
 
 export default ShortsFeed
