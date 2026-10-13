@@ -63,3 +63,4 @@ error.log
 .claude/scheduled_tasks.lock
 .playwright-mcp/
 /.agent-diagnostics/
+/.agent-audit/
