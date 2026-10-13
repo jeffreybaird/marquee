@@ -13,17 +13,38 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
   setup %{tmp_dir: dir} do
     path = Path.join(dir, "catalog.json")
     original = Application.fetch_env(:marquee, :admin_demo)
+    original_shorts = Application.fetch_env(:marquee, :demo_shorts_catalog)
+
+    portraits =
+      for n <- 1..3 do
+        hd(AdminDemoFixtures.catalog_manifest().clips)
+        |> Map.merge(%{
+          slug: "dedicated-portrait-#{n}",
+          title: "Dedicated portrait #{n}",
+          aspect_ratio: "9:16",
+          duration: 20.0,
+          mux_asset_id: "dedicated-portrait-asset-#{n}",
+          mux_playback_id: "dedicated-portrait-playback-#{n}"
+        })
+      end
+
+    Application.put_env(:marquee, :demo_shorts_catalog, %{travel: portraits})
     File.write!(path, Jason.encode!(AdminDemoFixtures.catalog_manifest()))
     Application.put_env(:marquee, :admin_demo, enabled: true, host: @host, catalog_path: path)
 
     on_exit(fn ->
+      case original_shorts do
+        {:ok, value} -> Application.put_env(:marquee, :demo_shorts_catalog, value)
+        :error -> Application.delete_env(:marquee, :demo_shorts_catalog)
+      end
+
       case original do
         {:ok, value} -> Application.put_env(:marquee, :admin_demo, value)
         :error -> Application.delete_env(:marquee, :admin_demo)
       end
     end)
 
-    %{path: path}
+    %{path: path, portraits: portraits}
   end
 
   test "reviewed Wanderlust catalog has sixty unique attributed clips and preserves prior media identities" do
@@ -95,7 +116,7 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
   end
 
   test "new sessions and reset seed the full catalog while an existing visitor keeps edits until reset",
-       %{path: path} do
+       %{path: path, portraits: portraits} do
     {:ok, _} = AdminDemo.configure_host(@host)
     {:ok, old} = AdminDemo.start_session()
     {:ok, %{scope: scope}} = AdminDemo.get_session(old.token)
@@ -103,16 +124,16 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
     assert {:ok, _} = Content.update_video(scope, old_video, %{title: "Keep my current edit"})
     File.write!(path, Jason.encode!(AdminDemoFixtures.expanded_catalog_manifest()))
     {:ok, fresh} = AdminDemo.start_session()
-    assert_catalog(fresh.organization.id)
+    assert_catalog(fresh.organization.id, portraits)
     assert Repo.get!(Video, old_video.id).title == "Keep my current edit"
 
     assert Repo.aggregate(
              from(v in Video, where: v.organization_id == ^old.organization.id),
              :count
-           ) == 3
+           ) == 6
 
     {:ok, replacement} = AdminDemo.reset_session(old.token)
-    assert_catalog(replacement.organization.id)
+    assert_catalog(replacement.organization.id, portraits)
     assert {:error, :revoked} = AdminDemo.get_session(old.token)
     assert Repo.get!(Video, old_video.id).title == "Keep my current edit"
     {:ok, %{scope: scope}} = AdminDemo.get_session(replacement.token)
@@ -123,12 +144,14 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
     assert Repo.aggregate(
              from(v in Video, where: v.organization_id == ^replacement.organization.id),
              :count
-           ) == 49
+           ) == 52
   end
 
-  test "sandbox browse shows all forty-eight initial clips and an approved added clip", %{
-    path: path
-  } do
+  test "sandbox browse shows all initial clips, dedicated portraits and an approved added clip",
+       %{
+         path: path,
+         portraits: portraits
+       } do
     File.write!(path, Jason.encode!(AdminDemoFixtures.expanded_catalog_manifest()))
     {:ok, _} = AdminDemo.configure_host(@host)
     {:ok, demo} = AdminDemo.start_session()
@@ -141,6 +164,8 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
     for clip <- Enum.filter(AdminDemoFixtures.expanded_catalog_manifest().clips, & &1.initial) do
       assert html =~ clip.title
     end
+
+    for clip <- portraits, do: assert(html =~ clip.title)
 
     {:ok, %{scope: scope}} = AdminDemo.get_session(demo.token)
     extra = Enum.find(AdminDemoFixtures.expanded_catalog_manifest().clips, &(!&1.initial))
@@ -155,7 +180,26 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
     assert html
            |> Floki.parse_document!()
            |> Floki.find("[data-test=sv-browse-grid] > [data-test^=sv-card-]")
-           |> length() == 49
+           |> length() == 52
+
+    expected_slugs =
+      AdminDemoFixtures.expanded_catalog_manifest().clips
+      |> Enum.filter(& &1.initial)
+      |> Enum.map(& &1.slug)
+      |> Kernel.++(Enum.map(portraits, & &1.slug) ++ [extra.slug])
+
+    videos = Repo.all(from v in Video, where: v.organization_id == ^demo.organization.id)
+    assert Enum.sort(Enum.map(videos, & &1.slug)) == Enum.sort(expected_slugs)
+    expected_cards = Enum.map(videos, &"sv-card-#{&1.id}") |> Enum.sort()
+
+    actual_cards =
+      html
+      |> Floki.parse_document!()
+      |> Floki.find("[data-test=sv-browse-grid] > [data-test^=sv-card-]")
+      |> Floki.attribute("data-test")
+      |> Enum.sort()
+
+    assert actual_cards == expected_cards
   end
 
   test "ordinary tenant browse keeps the existing twenty-four item limit" do
@@ -170,8 +214,18 @@ defmodule MarqueeWeb.AdminDemoCatalogExpansionTest do
     assert length(titles) == 24
   end
 
-  defp assert_catalog(org_id) do
-    assert Repo.aggregate(from(v in Video, where: v.organization_id == ^org_id), :count) == 48
+  defp assert_catalog(org_id, portraits) do
+    assert Repo.aggregate(from(v in Video, where: v.organization_id == ^org_id), :count) == 51
+
+    expected =
+      Enum.filter(AdminDemoFixtures.expanded_catalog_manifest().clips, & &1.initial) ++ portraits
+
+    actual =
+      Repo.all(
+        from v in Video, where: v.organization_id == ^org_id, select: {v.slug, v.mux_playback_id}
+      )
+
+    assert Enum.sort(actual) == Enum.sort(Enum.map(expected, &{&1.slug, &1.mux_playback_id}))
     assert Repo.aggregate(from(c in Collection, where: c.organization_id == ^org_id), :count) == 4
     assert Repo.aggregate(from(s in Series, where: s.organization_id == ^org_id), :count) == 4
   end

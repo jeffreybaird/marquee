@@ -133,12 +133,14 @@ defmodule Marquee.SubscriberDemo do
 
   defp initial_videos(org) do
     video_ids = (org.features || %{})["subscriber_demo_video_ids"]
+    short_ids = (org.features || %{})["demo_shorts_video_ids"] || []
 
     Video
     |> where(organization_id: ^org.id, published: true, mux_status: "ready")
     |> where([v], is_nil(v.deleted_at) and not is_nil(v.mux_playback_id))
     |> where([v], v.mux_playback_id not in ["", "pending"])
     |> restrict_demo_videos(video_ids)
+    |> where([v], v.id not in ^short_ids)
     |> order_by(asc: :slug)
     |> limit(2)
     |> Repo.all()
