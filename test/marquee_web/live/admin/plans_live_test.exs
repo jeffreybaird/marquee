@@ -90,4 +90,94 @@ defmodule MarqueeWeb.Admin.PlansLiveTest do
       assert has_element?(view, "[data-test='reactivate-plan-#{plan.id}']")
     end
   end
+
+  describe "plan form state" do
+    defp features_text(view) do
+      view
+      |> element("[data-test='plan-features-input']")
+      |> render()
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.text()
+    end
+
+    test "new plan form keeps typed price and features across validate" do
+      %{conn: conn} = admin_setup()
+      {:ok, view, _html} = live(conn, ~p"/admin/plans")
+
+      view |> element("[data-test='new-plan-btn']") |> render_click()
+
+      view
+      |> form("#plan-form", %{
+        plan: %{
+          name: "Typed Plan",
+          amount_dollars: "12.50",
+          interval: "monthly",
+          features_text: "HD streaming\nOffline downloads"
+        }
+      })
+      |> render_change()
+
+      assert has_element?(view, "[data-test='plan-amount-input'][value='12.50']")
+      assert features_text(view) =~ "HD streaming\nOffline downloads"
+    end
+
+    test "new plan form starts with empty price and features" do
+      %{conn: conn} = admin_setup()
+      {:ok, view, _html} = live(conn, ~p"/admin/plans")
+
+      view |> element("[data-test='new-plan-btn']") |> render_click()
+
+      assert has_element?(view, "[data-test='plan-amount-input'][value='']")
+      assert String.trim(features_text(view)) == ""
+    end
+
+    test "opening the edit form shows the saved price and features" do
+      %{org: org, conn: conn} = admin_setup()
+
+      plan =
+        insert(:plan,
+          organization: org,
+          name: "Saved Plan",
+          amount: 1999,
+          features: ["4K", "Ad-free"]
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/admin/plans")
+
+      view |> element("[data-test='edit-plan-#{plan.id}']") |> render_click()
+
+      assert has_element?(view, "[data-test='plan-form']")
+      assert has_element?(view, "[data-test='plan-amount-input'][value='19.99']")
+      assert features_text(view) =~ "4K\nAd-free"
+
+      refute has_element?(
+               view,
+               "#plan-form p",
+               "Changing the price will create a new Stripe Price"
+             )
+    end
+
+    test "edit form keeps typed price and warns that the price will change" do
+      %{org: org, conn: conn} = admin_setup()
+      plan = insert(:plan, organization: org, name: "Repriced Plan", amount: 1999)
+
+      {:ok, view, _html} = live(conn, ~p"/admin/plans")
+      view |> element("[data-test='edit-plan-#{plan.id}']") |> render_click()
+
+      view
+      |> form("#plan-form", %{
+        plan: %{name: "Repriced Plan", amount_dollars: "24.99", features_text: "Live TV"}
+      })
+      |> render_change()
+
+      assert has_element?(view, "[data-test='plan-amount-input'][value='24.99']")
+      assert features_text(view) =~ "Live TV"
+
+      assert has_element?(
+               view,
+               "#plan-form p",
+               "Changing the price will create a new Stripe Price"
+             )
+    end
+  end
 end

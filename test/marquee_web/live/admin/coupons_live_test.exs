@@ -99,4 +99,40 @@ defmodule MarqueeWeb.Admin.CouponsLiveTest do
       refute has_element?(view, "[data-test='coupon-form']")
     end
   end
+
+  describe "coupon form state" do
+    test "validate keeps the typed coupon fields" do
+      %{conn: conn} = admin_setup()
+      {:ok, view, _html} = live(conn, ~p"/admin/coupons")
+
+      view |> element("[data-test='new-coupon-btn']") |> render_click()
+
+      view
+      |> form("#coupon-form", %{
+        coupon: %{code: "SPRING25", name: "Spring sale", percent_off: "25"}
+      })
+      |> render_change()
+
+      assert has_element?(view, "[data-test='coupon-code-input'][value='SPRING25']")
+      assert has_element?(view, "[data-test='coupon-name-input'][value='Spring sale']")
+    end
+
+    test "typed code survives switching the discount type" do
+      %{conn: conn} = admin_setup()
+      {:ok, view, _html} = live(conn, ~p"/admin/coupons")
+
+      view |> element("[data-test='new-coupon-btn']") |> render_click()
+
+      view
+      |> form("#coupon-form", %{coupon: %{code: "FLAT10", name: "Flat ten"}})
+      |> render_change()
+
+      view |> element("#coupon-form button[phx-value-type='amount']") |> render_click()
+
+      assert has_element?(view, "#coupon_amount_off")
+      refute has_element?(view, "#coupon_percent_off")
+      assert has_element?(view, "[data-test='coupon-code-input'][value='FLAT10']")
+      assert has_element?(view, "[data-test='coupon-name-input'][value='Flat ten']")
+    end
+  end
 end

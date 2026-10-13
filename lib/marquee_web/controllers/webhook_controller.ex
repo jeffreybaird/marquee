@@ -94,29 +94,6 @@ defmodule MarqueeWeb.WebhookController do
     end
   end
 
-  defp normalize_stripe_event(%{} = event) when is_struct(event) do
-    event
-    |> deep_destruct()
-    |> Jason.encode!()
-    |> Jason.decode!()
-  end
-
-  defp normalize_stripe_event(event) when is_map(event), do: event
-
-  defp deep_destruct(%{__struct__: _} = struct) do
-    struct
-    |> Map.from_struct()
-    |> Map.drop([:__meta__])
-    |> Map.new(fn {k, v} -> {k, deep_destruct(v)} end)
-  end
-
-  defp deep_destruct(%{} = map) do
-    Map.new(map, fn {k, v} -> {k, deep_destruct(v)} end)
-  end
-
-  defp deep_destruct(list) when is_list(list), do: Enum.map(list, &deep_destruct/1)
-  defp deep_destruct(other), do: other
-
   defp enqueue_mux_webhook(payload) do
     payload
     |> mux_job_args()
@@ -246,9 +223,13 @@ defmodule MarqueeWeb.WebhookController do
 
   defp verify_stripe_event(raw_body, sig_header, secret, connect_account) do
     case Stripe.Webhook.construct_event(raw_body, sig_header, secret) do
-      {:ok, event} ->
-        event
-        |> normalize_stripe_event()
+      {:ok, _verified_event} ->
+        # Process the verified raw payload rather than the stripity_stripe
+        # struct: the generated structs omit fields the event actually
+        # carries (e.g. a subscription's `current_period_end`), so
+        # converting the struct back to a map silently drops them.
+        raw_body
+        |> Jason.decode!()
         |> with_connect_account(connect_account)
         |> then(&{:ok, &1})
 

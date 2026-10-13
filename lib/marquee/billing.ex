@@ -637,6 +637,45 @@ defmodule Marquee.Billing do
   end
 
   @doc """
+  Creates a ViewerSubscription for a viewer from Stripe subscription webhook
+  data (`customer.subscription.created`).
+
+  Returns `{:ok, subscription}` or `{:error, :validation, changeset}`.
+
+  Exempt from doctest — hits the database.
+  """
+  def create_subscription_from_stripe(%Organization{} = org, %Viewer{} = viewer, data) do
+    Marquee.Otel.with_span "marquee.billing.create_subscription_from_stripe",
+                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
+      plan = find_plan_from_subscription_data(org, data)
+
+      attrs = %{
+        organization_id: org.id,
+        viewer_id: viewer.id,
+        plan_id: plan && plan.id,
+        stripe_subscription_id: data["id"],
+        stripe_customer_id: data["customer"],
+        status: data["status"],
+        current_period_start: parse_stripe_timestamp(data["current_period_start"]),
+        current_period_end: parse_stripe_timestamp(data["current_period_end"]),
+        cancel_at_period_end: data["cancel_at_period_end"] || false,
+        trial_start: parse_stripe_timestamp(data["trial_start"]),
+        trial_end: parse_stripe_timestamp(data["trial_end"])
+      }
+
+      case %ViewerSubscription{} |> ViewerSubscription.changeset(attrs) |> Repo.insert() do
+        {:ok, subscription} ->
+          Events.broadcast(%{organization: org}, {:viewer_subscription_created, subscription})
+          Audit.log(nil, "viewer_subscription.created", subscription, %{viewer_id: viewer.id})
+          {:ok, subscription}
+
+        {:error, changeset} ->
+          {:error, :validation, changeset}
+      end
+    end
+  end
+
+  @doc """
   Updates a ViewerSubscription from Stripe webhook data.
 
   Exempt from doctest — hits the database.
@@ -723,14 +762,38 @@ defmodule Marquee.Billing do
         %Viewer{} = viewer,
         %ViewerSubscription{} = sub
       ) do
-    if viewer.subscription_status == "past_due" do
-      sub |> Ecto.Changeset.change(status: "active") |> Repo.update!()
-      viewer |> Viewer.subscription_changeset(%{subscription_status: "active"}) |> Repo.update!()
+    Marquee.Otel.with_span "marquee.billing.mark_payment_succeeded",
+                           %{"marquee.org.id" => org.id, "marquee.viewer.id" => viewer.id} do
+      case payment_succeeded_transition(viewer, sub) do
+        :activated ->
+          activate_paid_subscription(viewer, sub)
+          Events.broadcast(%{organization: org}, {:subscription_activated, viewer})
 
-      Events.broadcast(%{organization: org}, {:payment_recovered, viewer, sub})
+        :recovered ->
+          activate_paid_subscription(viewer, sub)
+          Events.broadcast(%{organization: org}, {:payment_recovered, viewer, sub})
+
+        :unchanged ->
+          :ok
+      end
+
+      :ok
     end
+  end
 
-    :ok
+  # Stripe keeps a new subscription "incomplete" until its first invoice is
+  # paid; a paid invoice on a past-due subscription is a payment recovery.
+  defp payment_succeeded_transition(_viewer, %ViewerSubscription{status: "incomplete"}),
+    do: :activated
+
+  defp payment_succeeded_transition(%Viewer{subscription_status: "past_due"}, _sub),
+    do: :recovered
+
+  defp payment_succeeded_transition(_viewer, _sub), do: :unchanged
+
+  defp activate_paid_subscription(viewer, sub) do
+    sub |> Ecto.Changeset.change(status: "active") |> Repo.update!()
+    viewer |> Viewer.subscription_changeset(%{subscription_status: "active"}) |> Repo.update!()
   end
 
   @doc """

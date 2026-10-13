@@ -388,6 +388,77 @@ defmodule Marquee.Workers.StripeWebhookProcessorConnectedTest do
       assert updated_viewer.subscription_status == "active"
     end
 
+    test "activates an incomplete subscription and its viewer on first payment" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+      sub = insert_viewer_sub(org, viewer, "sub_first_payment", status: "incomplete")
+      Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{org.id}")
+
+      event =
+        build_connected_event(
+          "invoice.payment_succeeded",
+          %{"subscription" => "sub_first_payment"},
+          org
+        )
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      assert Repo.get!(ViewerSubscription, sub.id).status == "active"
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "active"
+      viewer_id = viewer.id
+
+      assert_receive {:marquee_event,
+                      {:subscription_activated, %Marquee.Viewers.Viewer{id: ^viewer_id}}, _}
+
+      refute_received {:marquee_event, {:payment_recovered, _, _}, _}
+    end
+
+    test "marks a past_due subscription active on payment recovery" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "past_due")
+      sub = insert_viewer_sub(org, viewer, "sub_recover_sub", status: "past_due")
+      Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{org.id}")
+
+      event =
+        build_connected_event(
+          "invoice.payment_succeeded",
+          %{"subscription" => "sub_recover_sub"},
+          org
+        )
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      assert Repo.get!(ViewerSubscription, sub.id).status == "active"
+      sub_id = sub.id
+
+      assert_receive {:marquee_event,
+                      {:payment_recovered, %Marquee.Viewers.Viewer{},
+                       %ViewerSubscription{id: ^sub_id}}, _}
+
+      refute_received {:marquee_event, {:subscription_activated, _}, _}
+    end
+
+    test "leaves a canceled subscription and viewer unchanged" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "canceled")
+      sub = insert_viewer_sub(org, viewer, "sub_canceled_paid", status: "canceled")
+      Phoenix.PubSub.subscribe(Marquee.PubSub, "events:#{org.id}")
+
+      event =
+        build_connected_event(
+          "invoice.payment_succeeded",
+          %{"subscription" => "sub_canceled_paid"},
+          org
+        )
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      assert Repo.get!(ViewerSubscription, sub.id).status == "canceled"
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "canceled"
+      refute_received {:marquee_event, {:subscription_activated, _}, _}
+      refute_received {:marquee_event, {:payment_recovered, _, _}, _}
+    end
+
     test "returns :ok when subscription not found" do
       org = connected_org()
 
@@ -462,6 +533,164 @@ defmodule Marquee.Workers.StripeWebhookProcessorConnectedTest do
         )
 
       assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+    end
+  end
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # customer.subscription.created
+  # ══════════════════════════════════════════════════════════════════════════
+
+  describe "connected customer.subscription.created" do
+    defp subscription_created_object(stripe_sub_id, attrs) do
+      Map.merge(
+        %{
+          "id" => stripe_sub_id,
+          "customer" => "cus_created_1",
+          "status" => "active",
+          "cancel_at_period_end" => false,
+          "current_period_start" => 1_700_000_000,
+          "current_period_end" => 1_702_592_000
+        },
+        attrs
+      )
+    end
+
+    test "creates a viewer subscription from metadata and syncs viewer status" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+      plan = insert(:plan, organization: org)
+
+      object =
+        subscription_created_object("sub_created_1", %{
+          "metadata" => %{"marquee_viewer_id" => viewer.id},
+          "items" => %{"data" => [%{"price" => %{"id" => plan.stripe_price_id}}]}
+        })
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      sub = Repo.one!(from(s in ViewerSubscription, where: s.viewer_id == ^viewer.id))
+      assert sub.stripe_subscription_id == "sub_created_1"
+      assert sub.stripe_customer_id == "cus_created_1"
+      assert sub.status == "active"
+      assert sub.organization_id == org.id
+      assert sub.plan_id == plan.id
+      assert sub.current_period_end == ~U[2023-12-14 22:13:20Z]
+
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "active"
+    end
+
+    test "creates an incomplete subscription without granting viewer access" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+
+      object =
+        subscription_created_object("sub_created_incomplete", %{
+          "status" => "incomplete",
+          "metadata" => %{"marquee_viewer_id" => viewer.id}
+        })
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      sub = Repo.one!(from(s in ViewerSubscription, where: s.viewer_id == ^viewer.id))
+      assert sub.status == "incomplete"
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "none"
+    end
+
+    test "updates an existing subscription instead of inserting a duplicate" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "past_due")
+      existing = insert_viewer_sub(org, viewer, "sub_created_existing", status: "past_due")
+
+      object =
+        subscription_created_object("sub_created_existing", %{
+          "metadata" => %{"marquee_viewer_id" => viewer.id}
+        })
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+
+      assert [sub] =
+               Repo.all(
+                 from(s in ViewerSubscription,
+                   where: s.stripe_subscription_id == "sub_created_existing"
+                 )
+               )
+
+      assert sub.id == existing.id
+      assert sub.status == "active"
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "active"
+    end
+
+    test "returns :ok without creating a subscription when metadata has no viewer id" do
+      org = connected_org()
+      object = subscription_created_object("sub_created_no_meta", %{})
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+      refute Repo.get_by(ViewerSubscription, stripe_subscription_id: "sub_created_no_meta")
+    end
+
+    test "returns :ok without creating a subscription when viewer id is not a UUID" do
+      org = connected_org()
+
+      object =
+        subscription_created_object("sub_created_bad_uuid", %{
+          "metadata" => %{"marquee_viewer_id" => "not-a-uuid"}
+        })
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+      refute Repo.get_by(ViewerSubscription, stripe_subscription_id: "sub_created_bad_uuid")
+    end
+
+    test "returns :ok without creating a subscription when viewer is not in the org" do
+      org = connected_org()
+      other_org = insert(:organization)
+      other_viewer = insert(:viewer, organization: other_org)
+
+      object =
+        subscription_created_object("sub_created_foreign", %{
+          "metadata" => %{"marquee_viewer_id" => other_viewer.id}
+        })
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+      refute Repo.get_by(ViewerSubscription, stripe_subscription_id: "sub_created_foreign")
+    end
+
+    test "returns :ok without creating a subscription when Stripe data is invalid" do
+      org = connected_org()
+      viewer = insert(:viewer, organization: org, subscription_status: "none")
+
+      object =
+        "sub_created_invalid"
+        |> subscription_created_object(%{"metadata" => %{"marquee_viewer_id" => viewer.id}})
+        |> Map.delete("status")
+
+      event = build_connected_event("customer.subscription.created", object, org)
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+      refute Repo.get_by(ViewerSubscription, stripe_subscription_id: "sub_created_invalid")
+      assert Repo.get!(Marquee.Viewers.Viewer, viewer.id).subscription_status == "none"
+    end
+
+    test "returns :ok when the connected account has no organization" do
+      event = %{
+        "id" => "evt_created_unknown_acct",
+        "type" => "customer.subscription.created",
+        "account" => "acct_unknown_created",
+        "data" => %{"object" => subscription_created_object("sub_created_no_org", %{})}
+      }
+
+      assert :ok = perform_job(StripeWebhookProcessor, %{event: event, event_id: event["id"]})
+      refute Repo.get_by(ViewerSubscription, stripe_subscription_id: "sub_created_no_org")
     end
   end
 
