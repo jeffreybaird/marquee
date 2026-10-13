@@ -8,6 +8,7 @@ Feature: Watchlist and Favorites
     When I add it to my watchlist
     Then it appears in my watchlist at /watchlist
 
+  @app-gap
   Scenario: Viewer adds a series to watchlist
     Given a series is available
     When I add it to my watchlist

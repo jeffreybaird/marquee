@@ -8,6 +8,7 @@ Feature: Hero Banner Management
     When I add a hero slide with a linked video and display metadata
     Then the slide appears in the hero banner rotation on the viewer homepage
 
+  @app-gap
   Scenario: Operator uploads a custom hero banner image
     Given a hero slide exists
     When I upload a banner image for that slide

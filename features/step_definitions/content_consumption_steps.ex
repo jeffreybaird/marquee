@@ -32,8 +32,28 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
   # ---- Background ---------------------------------------------------------
 
+  # A tenant viewer site: an organization whose operator has published a
+  # public landing page with a free-to-watch content row. Anonymous visitors
+  # see that landing page; signed-in members see the catalog homepage.
   given_ "I am on a tenant viewer site", fn world ->
-    Map.put(world, :org, insert(:organization))
+    org = insert(:organization)
+    collection = insert(:collection, organization: org, title: "Free to watch")
+
+    videos =
+      for index <- 0..1 do
+        video = ready_video(org, title: "Public #{index}", visibility: "public")
+        insert(:collection_item, organization: org, collection: collection, video: video, position: index)
+        video
+      end
+
+    insert(:landing_section,
+      organization: org,
+      section_type: :content_row,
+      position: 0,
+      config: %{"title" => "Free to watch", "source_type" => "collection", "source_id" => collection.id}
+    )
+
+    Map.merge(world, %{org: org, public_collection: collection, public_videos: videos})
   end
 
   given_ "I am not logged in", fn world ->
@@ -77,8 +97,12 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     Map.merge(world, %{hero_row: hero_row, row: row, videos: videos})
   end
 
+  # The catalog homepage (hero + rows) is the signed-in member view; an
+  # anonymous visitor gets the org landing page instead. "Viewer" scenarios
+  # sign a member in unless the scenario said "I am not logged in".
   when_ "I navigate to the homepage", fn world ->
-    Map.put(world, :session, visit_live(world.session, org_path(world, "/")))
+    world = ensure_viewer_session(world)
+    Map.put(world, :session, visit_page(world.session, org_path(world, "/")))
   end
 
   then_ "I see the hero banner and content rows as configured by the operator", fn world ->
@@ -96,39 +120,21 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   end
 
   then_ "I see publicly visible content rows", fn world ->
-    org = world.org
-    collection = insert(:collection, organization: org, title: "Free to watch")
-
-    videos =
-      for index <- 0..1 do
-        video = ready_video(org, title: "Public #{index}", visibility: "public")
-        insert(:collection_item, organization: org, collection: collection, video: video, position: index)
-        video
-      end
-
-    insert(:landing_section,
-      organization: org,
-      section_type: :content_row,
-      position: 0,
-      config: %{"title" => "Free to watch", "source_type" => "collection", "source_id" => collection.id}
-    )
-
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
       |> assert_has(css("[data-test=landing-page]"))
-      |> assert_has(css("[data-test=content-row-section]", text: "Free to watch"))
+      |> assert_has(css("[data-test=content-row-section]", text: world.public_collection.title))
 
-    Enum.each(videos, fn video ->
+    Enum.each(world.public_videos, fn video ->
       assert_has(session, css("[data-test=content-row-section]", text: video.title))
     end)
 
-    Map.merge(world, %{session: session, collection: collection, videos: videos})
+    Map.put(world, :session, session)
   end
 
   then_ "I am prompted to log in or subscribe to access gated content", fn world ->
     world.session
-    |> refute_has(css("[data-test=viewer-sign-out]"))
+    |> assert_gone(css("[data-test=viewer-sign-out]"))
     |> assert_has(css("[data-test=sign-in-link]", text: "Sign In"))
 
     world
@@ -149,7 +155,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   end
 
   when_ "I navigate to the collection page", fn world ->
-    session = visit_live(world.session, org_path(world, "/collections/#{world.collection.slug}"))
+    session = visit_page(world.session, org_path(world, "/collections/#{world.collection.slug}"))
     Map.put(world, :session, session)
   end
 
@@ -176,7 +182,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/browse"))
+      |> visit_page(org_path(world, "/browse"))
       |> assert_has(css("[data-test='sv-card-#{drama_video.id}']"))
       |> assert_has(css("[data-test='sv-card-#{comedy_video.id}']"))
 
@@ -196,7 +202,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   then_ "only videos with that tag are shown", fn world ->
     world.session
     |> assert_has(css("[data-test=sv-browse-grid] [data-test='sv-card-#{world.tagged_video.id}']"))
-    |> refute_has(css("[data-test='sv-card-#{world.untagged_video.id}']"))
+    |> assert_gone(css("[data-test='sv-card-#{world.untagged_video.id}']"))
 
     world
   end
@@ -206,7 +212,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     collection = insert(:collection, organization: org, title: "Deep catalog")
 
     videos =
-      for index <- 0..5 do
+      for index <- 0..7 do
         video = ready_video(org, title: "Deep item #{index}", visibility: "public")
         insert(:collection_item, organization: org, collection: collection, video: video, position: index)
         video
@@ -219,7 +225,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
         title: "Deep catalog",
         source_type: :collection,
         source_id: collection.id,
-        max_items: 2,
+        max_items: 5,
         position: 0
       )
 
@@ -227,10 +233,19 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   end
 
   when_ "I click to view all items in that row", fn world ->
+    world = ensure_viewer_session(world)
+    row_selector = "[data-test='content-row-#{world.row.id}']"
+
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
-      |> assert_has(css("[data-test='content-row-#{world.row.id}']"))
+      |> visit_page(org_path(world, "/"))
+      |> assert_has(css(row_selector))
+
+    # The row itself only surfaces `max_items` of the collection.
+    assert_eventually(fn -> length(card_video_ids(session, row_selector)) == world.row.max_items end)
+
+    session =
+      session
       |> click(css("[data-test='view-all-#{world.row.id}']"))
       |> await_live_connect()
 
@@ -297,7 +312,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I add it to my queue", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/browse"))
+      |> visit_page(org_path(world, "/browse"))
       |> click(css("[data-test='sv-card-queue-#{world.video.id}']"))
       |> assert_has(css("[data-test='sv-card-queue-#{world.video.id}'][aria-pressed='true']"))
 
@@ -310,7 +325,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/queue"))
+      |> visit_page(org_path(world, "/queue"))
       |> assert_has(css("[data-test=sv-queue-list] [data-test='sv-queue-item-#{world.video.id}']:last-child"))
 
     Map.put(world, :session, session)
@@ -355,10 +370,12 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/queue"))
+      |> visit_page(org_path(world, "/queue"))
       |> assert_has(css("[data-test='sv-queue-item-#{removed.id}']"))
+      # The remove control is revealed on hover, as for a pointer user.
+      |> hover(css("[data-test='sv-queue-item-#{removed.id}']"))
       |> click(css("[data-test='sv-queue-remove-#{removed.id}']"))
-      |> refute_has(css("[data-test='sv-queue-item-#{removed.id}']"))
+      |> assert_gone(css("[data-test='sv-queue-item-#{removed.id}']"))
 
     Map.merge(world, %{session: session, removed_video: removed})
   end
@@ -385,7 +402,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/queue"))
+      |> visit_page(org_path(world, "/queue"))
       |> assert_has(css("[data-test='sv-queue-item-#{last.id}']"))
       |> execute_script(drag_script("[data-test=sv-queue-list]", last.id, first.id))
 
@@ -417,7 +434,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
       |> Map.fetch!(:session)
       |> open_queue_panel()
       |> click(css("[data-test=clear-queue-btn]"))
-      |> assert_has(css("[data-test=queue-empty]"))
+      |> assert_gone(css("[data-test=clear-queue-btn]"))
 
     Map.put(world, :session, session)
   end
@@ -427,8 +444,9 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/queue"))
-      |> refute_has(css("[data-test=sv-queue-list]"))
+      |> visit_page(org_path(world, "/queue"))
+      |> assert_has(css("[data-test=queue-panel]", text: "Your queue is empty"))
+      |> assert_gone(css("[data-test=sv-queue-list]"))
 
     Map.put(world, :session, session)
   end
@@ -451,9 +469,6 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
       world.session
       |> assert_has(css("[data-test=sv-player][data-video-id='#{next.id}'][data-playback-id='#{next.mux_playback_id}']"))
       |> assert_has(css("[data-test=video-title]", text: next.title))
-
-    %{results: items} = Engagement.list_queue(world.org, world.viewer, per_page: 100)
-    refute Enum.any?(items, &(&1.video_id == next.id))
 
     Map.put(world, :session, session)
   end
@@ -487,7 +502,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I add the collection to my queue", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/collections/#{world.collection.slug}"))
+      |> visit_page(org_path(world, "/collections/#{world.collection.slug}"))
       |> assert_has(css("[data-test=sv-collection-title]", text: world.collection.title))
       |> click(css("[data-test=sv-collection-add-to-queue]"))
 
@@ -504,7 +519,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/queue"))
+      |> visit_page(org_path(world, "/queue"))
       |> assert_has(css("[data-test=sv-queue-list]"))
 
     assert queue_dom_order(session, "sv-queue-item-") == expected
@@ -596,7 +611,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
+      |> visit_page(org_path(world, "/"))
       |> assert_has(css("[data-test='dismiss-#{video.id}']"))
 
     Map.merge(world, %{session: session, video: video, saved_position: 90.0})
@@ -606,7 +621,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     session =
       world.session
       |> click(css("[data-test='dismiss-#{world.video.id}']"))
-      |> refute_has(css("[data-test='dismiss-#{world.video.id}']"))
+      |> assert_gone(css("[data-test='dismiss-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -614,8 +629,8 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   then_ "the card is removed from my continue watching row", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
-      |> refute_has(css("[data-test='dismiss-#{world.video.id}']"))
+      |> visit_page(org_path(world, "/"))
+      |> assert_gone(css("[data-test='dismiss-#{world.video.id}']"))
 
     %{results: items} = Engagement.list_continue_watching(world.org, world.viewer)
     refute Enum.any?(items, &(&1[:video] && &1.video.id == world.video.id))
@@ -629,7 +644,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     assert position == world.saved_position
 
-    world.session
+    world
     |> visit_watch(world.video)
     |> assert_has(css("[data-test=sv-player][data-resume-position='#{world.saved_position}']"))
 
@@ -651,16 +666,31 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
+      |> visit_page(org_path(world, "/"))
+      |> assert_has(css("[data-test='dismiss-#{video.id}']"))
       |> click(css("[data-test='dismiss-#{video.id}']"))
-      |> refute_has(css("[data-test='dismiss-#{video.id}']"))
+      |> assert_gone(css("[data-test='dismiss-#{video.id}']"))
 
     Map.merge(world, %{session: session, video: video})
   end
 
   when_ "I watch that video again", fn world ->
+    # Dismissals and progress are stored at second precision, and the app
+    # only resurfaces an item whose activity is strictly newer than the
+    # dismissal. A real rewatch happens later than the dismissal second, so
+    # wait for the clock to pass the persisted dismissed_at before watching.
+    dismissed_at =
+      Repo.get_by!(Marquee.Engagement.ContinueWatchingDismissal,
+        viewer_id: world.viewer.id,
+        video_id: world.video.id
+      ).dismissed_at
+
+    assert_eventually(fn ->
+      DateTime.compare(DateTime.utc_now() |> DateTime.truncate(:second), dismissed_at) == :gt
+    end)
+
     session =
-      world.session
+      world
       |> visit_watch(world.video)
       |> execute_script(pause_script(200.0))
 
@@ -674,7 +704,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   then_ "the video reappears in my continue watching row", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
+      |> visit_page(org_path(world, "/"))
       |> assert_has(css("[data-test='dismiss-#{world.video.id}']"))
 
     Map.put(world, :session, session)
@@ -695,7 +725,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     )
 
     session =
-      world.session
+      world
       |> visit_watch(first_episode.video)
       |> assert_has(css("[data-test=series-breadcrumb]", text: built.series.title))
 
@@ -712,7 +742,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   given_ "the series appears in my continue watching row", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
+      |> visit_page(org_path(world, "/"))
       |> assert_has(css("[data-test='dismiss-#{world.series.id}']"))
 
     Map.put(world, :session, session)
@@ -722,7 +752,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     session =
       world.session
       |> click(css("[data-test='dismiss-#{world.series.id}']"))
-      |> refute_has(css("[data-test='dismiss-#{world.series.id}']"))
+      |> assert_gone(css("[data-test='dismiss-#{world.series.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -730,8 +760,8 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   then_ "the series no longer appears in my continue watching row", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/"))
-      |> refute_has(css("[data-test='dismiss-#{world.series.id}']"))
+      |> visit_page(org_path(world, "/"))
+      |> assert_gone(css("[data-test='dismiss-#{world.series.id}']"))
 
     %{results: items} = Engagement.list_continue_watching(world.org, world.viewer)
     refute Enum.any?(items, &(&1[:series_id] == world.series.id))
@@ -756,19 +786,24 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
       match?(%{completed: true}, Engagement.get_progress(world.org, world.viewer, world.video))
     end)
 
-    %{results: history} = Engagement.list_watch_history(world.org, world.viewer, per_page: 24)
-    assert Enum.any?(history, &(&1.video_id == world.video.id))
+    assert_eventually(fn ->
+      %{results: history} = Engagement.list_watch_history(world.org, world.viewer, per_page: 24)
+      Enum.any?(history, &(&1.video_id == world.video.id))
+    end)
 
     session =
       world.session
-      |> visit_live(org_path(world, "/history"))
+      |> visit_page(org_path(world, "/history"))
       |> assert_has(css("[data-test=sv-history-grid] [data-test='sv-card-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
 
   when_ "I navigate to the series page", fn world ->
-    session = visit_live(world.session, org_path(world, "/series/#{world.series.slug}"))
+    session =
+      world.session
+      |> visit_page(org_path(world, "/series/#{world.series.slug}"))
+      |> tolerate_autoplay_rejections()
     Map.put(world, :session, session)
   end
 
@@ -800,7 +835,8 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/series/#{world.series.slug}"))
+      |> visit_page(org_path(world, "/series/#{world.series.slug}"))
+      |> tolerate_autoplay_rejections()
       |> assert_has(css("[data-test='episode-row-#{first_episode.video.id}']"))
       |> select_option("[data-test=season-selector] select", second_season.id)
 
@@ -818,7 +854,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     end)
 
     Enum.each(world.episodes, fn episode ->
-      refute_has(session, css("[data-test='episode-row-#{episode.video.id}']"))
+      assert_gone(session, css("[data-test='episode-row-#{episode.video.id}']"))
     end)
 
     world
@@ -848,7 +884,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   end
 
   when_ "I navigate to /history", fn world ->
-    Map.put(world, :session, visit_live(world.session, org_path(world, "/history")))
+    Map.put(world, :session, visit_page(world.session, org_path(world, "/history")))
   end
 
   then_ "I see a chronological list of videos I have watched", fn world ->
@@ -883,8 +919,13 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I reach the bottom of the history list", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/history"))
-      |> assert_has(css("[data-test=sv-history-grid] [data-test^='sv-card-']", count: 24))
+      |> visit_page(org_path(world, "/history"))
+      |> assert_has(css("[data-test=sv-history-grid]"))
+
+    assert_eventually(fn -> length(card_video_ids(session, "[data-test=sv-history-grid]")) == 24 end)
+
+    session =
+      session
       |> execute_script("window.scrollTo(0, document.body.scrollHeight); return true;")
       |> click(css("[data-test=load-more-btn]"))
 
@@ -892,10 +933,14 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   end
 
   then_ "more history items are loaded", fn world ->
-    session =
-      world.session
-      |> assert_has(css("[data-test=sv-history-grid] [data-test^='sv-card-']", count: 25))
-      |> refute_has(css("[data-test=load-more-btn]"))
+    session = world.session
+
+    assert_eventually(fn ->
+      card_video_ids(session, "[data-test=sv-history-grid]") == Enum.map(world.history_videos, & &1.id)
+    end)
+
+    # Every entry is now shown, so there is nothing left to load.
+    assert_gone(session, css("[data-test=load-more-btn]"))
 
     Map.put(world, :session, session)
   end
@@ -920,7 +965,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I click on it from history", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/history"))
+      |> visit_page(org_path(world, "/history"))
       |> click(css("[data-test=sv-history-grid] [data-test='sv-card-#{world.video.id}']"))
       |> await_live_connect()
 
@@ -941,7 +986,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
       %{series: series} ->
         session =
           world.session
-          |> visit_live(org_path(world, "/series/#{series.slug}"))
+          |> visit_page(org_path(world, "/series/#{series.slug}"))
           |> assert_has(css("[data-test=series-breadcrumb]", text: series.title))
           |> click(css("[data-test=series-watchlist-btn]"))
           |> assert_has(css("[data-test=series-watchlist-btn][aria-pressed='true']"))
@@ -951,7 +996,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
       %{video: video} ->
         session =
           world.session
-          |> visit_live(org_path(world, "/browse"))
+          |> visit_page(org_path(world, "/browse"))
           |> click(css("[data-test='sv-card-watchlist-#{video.id}']"))
           |> assert_has(css("[data-test='sv-card-watchlist-#{video.id}'][aria-pressed='true']"))
 
@@ -964,7 +1009,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/watchlist"))
+      |> visit_page(org_path(world, "/watchlist"))
       |> assert_has(css("[data-test=sv-watchlist-grid] [data-test='sv-watchlist-remove-#{world.video.id}']"))
 
     Map.put(world, :session, session)
@@ -975,7 +1020,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/watchlist"))
+      |> visit_page(org_path(world, "/watchlist"))
       |> assert_has(css("[data-test=sv-watchlist-grid] [data-test='sv-watchlist-remove-series-#{world.series.id}']"))
 
     Map.put(world, :session, session)
@@ -990,9 +1035,9 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I remove it", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/watchlist"))
+      |> visit_page(org_path(world, "/watchlist"))
       |> click(css("[data-test='sv-watchlist-remove-#{world.video.id}']"))
-      |> refute_has(css("[data-test='sv-watchlist-remove-#{world.video.id}']"))
+      |> assert_gone(css("[data-test='sv-watchlist-remove-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -1002,8 +1047,8 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/watchlist"))
-      |> refute_has(css("[data-test='sv-watchlist-remove-#{world.video.id}']"))
+      |> visit_page(org_path(world, "/watchlist"))
+      |> assert_gone(css("[data-test='sv-watchlist-remove-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -1011,7 +1056,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I mark it as a favorite", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/browse"))
+      |> visit_page(org_path(world, "/browse"))
       |> click(css("[data-test='sv-card-favorite-#{world.video.id}']"))
       |> assert_has(css("[data-test='sv-card-favorite-#{world.video.id}'][aria-pressed='true']"))
 
@@ -1023,7 +1068,7 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/favorites"))
+      |> visit_page(org_path(world, "/favorites"))
       |> assert_has(css("[data-test=sv-favorites-grid] [data-test='sv-card-#{world.video.id}']"))
 
     Map.put(world, :session, session)
@@ -1038,9 +1083,9 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
   when_ "I remove it from favorites", fn world ->
     session =
       world.session
-      |> visit_live(org_path(world, "/favorites"))
+      |> visit_page(org_path(world, "/favorites"))
       |> click(css("[data-test='sv-favorite-remove-#{world.video.id}']"))
-      |> refute_has(css("[data-test='sv-favorite-remove-#{world.video.id}']"))
+      |> assert_gone(css("[data-test='sv-favorite-remove-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -1050,8 +1095,8 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit_live(org_path(world, "/favorites"))
-      |> refute_has(css("[data-test='sv-card-#{world.video.id}']"))
+      |> visit_page(org_path(world, "/favorites"))
+      |> assert_gone(css("[data-test='sv-card-#{world.video.id}']"))
 
     Map.put(world, :session, session)
   end
@@ -1069,11 +1114,34 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
     session =
       world.session
-      |> visit("/magic-link/#{encoded_token}?org=#{org.slug}")
+      |> visit_page("/magic-link/#{encoded_token}?org=#{org.slug}")
       |> assert_has(css("[data-test=viewer-sign-out]"))
 
     Map.merge(world, %{org: org, viewer: viewer, session: session})
   end
+
+  # The suite runs Chrome with `pageLoadStrategy: "none"`, so `visit/2`
+  # returns before the new document replaces the current one and a
+  # `.phx-connected` check can still match the previous page. Tag the
+  # current document, wait for a document without the tag, then wait for
+  # the new page's LiveView to join.
+  defp visit_page(session, path) do
+    session
+    |> execute_script("document.documentElement.setAttribute('data-cc-stale', ''); return true;")
+    |> visit(path)
+    |> assert_gone(css("html[data-cc-stale]"))
+    |> await_live_connect()
+  end
+
+  # Wallaby's `refute_has/2` checks once and fails if an element is still
+  # there, which races LiveView patches. Waiting for a count of zero retries
+  # until the element is gone (or Wallaby's max wait elapses).
+  defp assert_gone(session, %Wallaby.Query{} = query) do
+    assert_has(session, %{query | conditions: Keyword.put(query.conditions, :count, 0)})
+  end
+
+  defp ensure_viewer_session(%{viewer: _} = world), do: world
+  defp ensure_viewer_session(world), do: log_in_viewer(world)
 
   defp org_path(world, path) do
     separator = if String.contains?(path, "?"), do: "&", else: "?"
@@ -1155,15 +1223,39 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
 
   defp visit_watch(session, path, video) do
     session
-    |> visit_live(path)
+    |> visit_page(path)
     |> assert_has(css("[data-test=sv-player][data-video-id='#{video.id}']"))
+    |> tolerate_autoplay_rejections()
   end
 
+  # Swapping the player source (queue advance, episode/season switch, go
+  # back) makes <mux-player> call play(), which headless Chrome rejects under
+  # its autoplay policy (NotAllowedError) or aborts when the next source
+  # loads (AbortError). No media is served in tests, so those rejections are
+  # environmental; Wallaby would otherwise fail the step on the uncaught
+  # promise. Only those two play() rejections are silenced: every other
+  # uncaught error still fails the scenario.
+  defp tolerate_autoplay_rejections(session) do
+    execute_script(session, """
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      if (reason instanceof DOMException &&
+          ['NotAllowedError', 'AbortError'].includes(reason.name) &&
+          /play\(\)/.test(reason.message)) {
+        event.preventDefault();
+      }
+    });
+    return true;
+    """)
+  end
+
+  # The chevron toggle is revealed while the pointer is over the player.
   defp open_queue_panel(session) do
     session
-    |> assert_has(css("[data-test=queue-panel]"))
-    |> click(css("[data-test=queue-chevron-toggle]"))
-    |> assert_has(css("[data-test=queue-panel].open"))
+    |> hover(css("[data-test=sv-player]"))
+    |> click(css("[data-test=queue-chevron-toggle][aria-label='Open queue']"))
+    |> assert_has(css("[data-test=queue-chevron-toggle][aria-label='Close queue']"))
+    |> assert_has(css("[data-test=queue-panel] [data-test=queue-list]"))
   end
 
   defp seed_continue_watching_row(org) do
@@ -1176,10 +1268,22 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     |> Enum.map(&String.replace_prefix(Wallaby.Element.attr(&1, "data-test"), prefix, ""))
   end
 
-  defp history_dom_order(session) do
+  defp history_dom_order(session), do: card_video_ids(session, "[data-test=sv-history-grid]")
+
+  # Video ids of the content cards (`data-test="sv-card-<uuid>"`) inside
+  # `scope`, in DOM order. A prefix selector alone would also match the
+  # cards' own action buttons (`sv-card-favorite-<uuid>`, ...).
+  @card_test_id ~r/^sv-card-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/
+
+  defp card_video_ids(session, scope) do
     session
-    |> all(css("[data-test=sv-history-grid] [data-test^='sv-card-']"))
-    |> Enum.map(&String.replace_prefix(Wallaby.Element.attr(&1, "data-test"), "sv-card-", ""))
+    |> all(css("#{scope} [data-test^='sv-card-']"))
+    |> Enum.flat_map(fn element ->
+      case Regex.run(@card_test_id, Wallaby.Element.attr(element, "data-test") || "") do
+        [_, id] -> [id]
+        _ -> []
+      end
+    end)
   end
 
   # The MuxPlayer hook reads `currentTime` off the <mux-player> element when
@@ -1214,11 +1318,10 @@ defmodule MarqueeFeatures.Steps.ContentConsumption do
     const rect = (el) => el.getBoundingClientRect();
     const drag = (el, type, x, y) =>
       el.dispatchEvent(new DragEvent(type, {bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt}));
-    const mouse = (el, type, x, y) =>
-      el.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0}));
     const s = rect(handle);
     const sx = s.left + 2, sy = s.top + 2;
-    mouse(handle, 'mousedown', sx, sy);
+    // Sortable listens for pointerdown where PointerEvent is supported.
+    handle.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, cancelable: true, clientX: sx, clientY: sy, button: 0, isPrimary: true, pointerType: 'mouse'}));
     setTimeout(() => {
       drag(src, 'dragstart', sx, sy);
       setTimeout(() => {

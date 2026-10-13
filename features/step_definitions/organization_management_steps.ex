@@ -28,6 +28,7 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Admin
   alias Marquee.Accounts.{Organization, User}
@@ -167,22 +168,35 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   # ---- Super admin user grants -------------------------------------------
 
   when_ "I promote that user to super admin", fn world ->
+    audit_subscriber = ensure_audit_subscriber()
+
     session =
       world.session
-      |> visit("/super/users")
+      |> visit_live("/super/users")
       |> click(css("[data-test=grant-super-admin-#{world.target_user.id}]"))
+      |> assert_has(css("[data-test=super-admin-badge-#{world.target_user.id}]"))
 
-    Map.put(world, :session, session)
+    Map.merge(world, %{session: session, audit_subscriber: audit_subscriber})
   end
 
   when_ "I revoke their super admin flag", fn world ->
+    audit_subscriber = ensure_audit_subscriber()
+
     session =
       world.session
-      |> visit("/super/users")
+      |> visit_live("/super/users")
       |> click(css("[data-test=revoke-super-admin-#{world.target_user.id}]"))
       |> click(css("[data-test=confirm-revoke-#{world.target_user.id}]"))
 
-    Map.put(world, :session, session)
+    # Wallaby's refute_has/2 returns as soon as a query matches, so it cannot
+    # wait for the badge to go away. Wait for a positive signal of the revoke
+    # re-render first: the row offers "Grant" again.
+    session =
+      session
+      |> assert_has(css("[data-test=grant-super-admin-#{world.target_user.id}]"))
+      |> refute_has(css("[data-test=super-admin-badge-#{world.target_user.id}]"))
+
+    Map.merge(world, %{session: session, audit_subscriber: audit_subscriber})
   end
 
   # ---- Assertions ---------------------------------------------------------
@@ -192,11 +206,29 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
     world
   end
 
-  then_ "Including video count, subscriber count, and member count", fn world ->
-    # Health columns render in the table header — assert presence so the
-    # surface contract stays honest.
-    assert_has(world.session, css("[data-test=org-table]"))
-    world
+  # Seeds distinct counts on the listed org (2 members, 3 videos, 1 active
+  # subscriber) and reloads the list so each metric cell can be checked
+  # against a known value. Each metric is expected in its own data-test cell
+  # within the org's row: org-member-count, org-video-count,
+  # org-subscriber-count.
+  then_ "video count, subscriber count, and member count", fn world ->
+    {:ok, org} = Marquee.Accounts.get_organization_by_slug("health-metric-org")
+
+    insert_list(2, :membership, organization: org)
+    insert_list(3, :video, organization: org)
+    plan = insert(:plan, organization: org)
+    insert(:subscription, organization: org, plan: plan, status: :active)
+
+    row = "[data-test=org-row-#{org.id}]"
+
+    session =
+      world.session
+      |> visit("/super/organizations")
+      |> assert_has(css("#{row} [data-test=org-member-count]", text: "2"))
+      |> assert_has(css("#{row} [data-test=org-video-count]", text: "3"))
+      |> assert_has(css("#{row} [data-test=org-subscriber-count]", text: "1"))
+
+    Map.put(world, :session, session)
   end
 
   then_ "the organization is created with an auto-generated slug", fn world ->
@@ -282,17 +314,7 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   end
 
   then_ "the promotion is recorded in the audit log", fn world ->
-    # AuditSubscriber fires on event broadcast; wait briefly for the async
-    # write then look for an entry mentioning the promoted user.
-    Process.sleep(200)
-    %{results: entries} = Marquee.Audit.list_all(%{}, per_page: 50)
-
-    assert Enum.any?(entries, fn e ->
-             e.action in ["super_admin.granted", "user.super_admin_granted"] and
-               to_string(e.resource_id) == to_string(world.target_user.id)
-           end),
-           "expected audit entry for super admin grant of user #{world.target_user.id}"
-
+    assert_super_admin_audit_entry(world, "super.admin.granted")
     world
   end
 
@@ -303,19 +325,50 @@ defmodule MarqueeFeatures.Steps.OrganizationManagement do
   end
 
   then_ "the revocation is recorded in the audit log", fn world ->
-    Process.sleep(200)
-    %{results: entries} = Marquee.Audit.list_all(%{}, per_page: 50)
-
-    assert Enum.any?(entries, fn e ->
-             e.action in ["super_admin.revoked", "user.super_admin_revoked"] and
-               to_string(e.resource_id) == to_string(world.target_user.id)
-           end),
-           "expected audit entry for super admin revoke of user #{world.target_user.id}"
-
+    assert_super_admin_audit_entry(world, "super.admin.revoked")
     world
   end
 
   # ---- Private helpers ----------------------------------------------------
+
+  # `Admin.grant_super_admin/2` / `revoke_super_admin/2` broadcast a platform
+  # event that `Marquee.Events.AuditSubscriber` turns into an audit row
+  # (action = event atom with "_" -> ".", e.g. :super_admin_granted ->
+  # "super.admin.granted"). The test env does not start the subscriber
+  # (lib/marquee/application.ex), so the action steps start it before the
+  # click. The broadcast lands in its mailbox before the mutation returns;
+  # `:sys.get_state/1` blocks until it has been handled, so the row is written
+  # by the time we query. The subscriber is stopped afterwards either way.
+  defp assert_super_admin_audit_entry(world, action) do
+    _ = :sys.get_state(world.audit_subscriber)
+    %{results: entries} = Marquee.Audit.list_all(%{action: action}, per_page: 50)
+
+    assert Enum.any?(entries, fn e ->
+             e.action == action and
+               to_string(e.resource_id) == to_string(world.target_user.id) and
+               e.user_id == world.super_admin.id
+           end),
+           "expected #{action} audit entry for user #{world.target_user.id} " <>
+             "attributed to super admin #{world.super_admin.id}; got " <>
+             inspect(Enum.map(entries, &{&1.action, &1.resource_id, &1.user_id}))
+  after
+    stop_audit_subscriber(world.audit_subscriber)
+  end
+
+  defp ensure_audit_subscriber do
+    case GenServer.start(Marquee.Events.AuditSubscriber, :ok,
+           name: Marquee.Events.AuditSubscriber
+         ) do
+      {:ok, pid} -> pid
+      {:error, {:already_started, pid}} -> pid
+    end
+  end
+
+  defp stop_audit_subscriber(pid) do
+    GenServer.stop(pid)
+  catch
+    :exit, _already_stopped -> :ok
+  end
 
   defp listed_organization_ids do
     %{results: orgs} = Admin.list_organizations()

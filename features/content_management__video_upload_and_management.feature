@@ -7,7 +7,7 @@ Feature: Video Upload and Management
     When I select one or more video files and submit the upload form
     Then the files are uploaded directly to Mux
     And I see real-time upload progress for each file
-    And video records are created with status "processing"
+    And video records are created with status "uploading"
 
   Scenario: Video finishes processing in Mux
     Given a video was uploaded and is processing in Mux

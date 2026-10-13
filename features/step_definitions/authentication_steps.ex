@@ -14,6 +14,7 @@ defmodule MarqueeFeatures.Steps.Authentication do
   import Wallaby.Query
   import Marquee.Factory
   import ExUnit.Assertions
+  import MarqueeFeatures.Support.Browser
 
   alias Marquee.Accounts
   alias Marquee.AccountsFixtures
@@ -122,7 +123,7 @@ defmodule MarqueeFeatures.Steps.Authentication do
     # (#login_form_password). Target each via its form-scoped field id.
     session =
       world.session
-      |> visit("/users/log-in")
+      |> visit_live("/users/log-in")
       |> fill_in(css("#login_form_password_email"), with: world.operator.email)
       |> fill_in(css("#user_password"), with: world.password)
       |> click(button("Log in and stay logged in"))
@@ -133,7 +134,7 @@ defmodule MarqueeFeatures.Steps.Authentication do
   when_ "I submit my email and an incorrect password on the login page", fn world ->
     session =
       world.session
-      |> visit("/users/log-in")
+      |> visit_live("/users/log-in")
       |> fill_in(css("#login_form_password_email"), with: world.operator.email)
       |> fill_in(css("#user_password"), with: "wrong-password-12345")
       |> click(button("Log in and stay logged in"))
@@ -144,7 +145,7 @@ defmodule MarqueeFeatures.Steps.Authentication do
   when_ "I submit only my email on the login page", fn world ->
     session =
       world.session
-      |> visit("/users/log-in")
+      |> visit_live("/users/log-in")
       |> fill_in(css("#login_form_magic_email"), with: world.operator.email)
       |> click(button("Log in with email"))
 
@@ -175,14 +176,40 @@ defmodule MarqueeFeatures.Steps.Authentication do
 
   # ---- Logout -------------------------------------------------------------
 
+  # Shared by operator and viewer scenarios. The operator admin sidebar
+  # "Log out" link (data-test="admin-nav-logout") and the viewer header's
+  # icon-only "Sign out" link (data-test="viewer-sign-out") are both
+  # `method="delete"` links; only one is rendered on a given page, so one
+  # selector covers both.
+  #
+  # On the viewer site the login flash toast ("Welcome back!") sits over the
+  # header's sign-out icon, so a click lands on nothing; dismiss open flash
+  # toasts with their close button first, as a user would.
+  #
+  # The click returns before the DELETE completes, so wait until the link is
+  # gone from the new document (`count: 0` makes assert_has poll for absence;
+  # refute_has would not wait) before later steps read the session or DB.
   when_ "I log out", fn world ->
-    # The sidebar "Log out" link uses Phoenix's deleteable link helper;
-    # Wallaby follows the click and the server issues the delete action.
-    session = click(world.session, link("Log out"))
+    sign_out = "[data-test=admin-nav-logout], [data-test=viewer-sign-out]"
+
+    session =
+      world.session
+      |> dismiss_flash_toasts()
+      |> click(css(sign_out))
+      |> assert_has(css(sign_out, count: 0))
+
     Map.put(world, :session, session)
   end
 
   # ---- Private helpers ----------------------------------------------------
+
+  defp dismiss_flash_toasts(session) do
+    session
+    |> all(css("[role=alert] button[aria-label=close]"))
+    |> Enum.each(&Wallaby.Element.click/1)
+
+    assert_has(session, css("[role=alert]", count: 0))
+  end
 
   # An operator is a confirmed user who owns an established organization;
   # without a membership the signed-in redirect lands on the public home page

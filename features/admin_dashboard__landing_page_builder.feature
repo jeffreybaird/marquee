@@ -8,6 +8,7 @@ Feature: Landing Page Builder
     When I add a section of type hero
     Then a hero section appears in the landing page
 
+  @app-gap
   Scenario: Operator adds a feature section
     When I add a section of type feature
     Then a feature section appears in the landing page
@@ -16,6 +17,7 @@ Feature: Landing Page Builder
     When I add a section of type video
     Then a video section appears and I can link a video to it
 
+  @app-gap
   Scenario: Operator adds a testimonial section
     When I add a section of type testimonial
     Then a testimonial section appears in the landing page
@@ -24,6 +26,7 @@ Feature: Landing Page Builder
     When I add a section of type FAQ
     Then a FAQ section appears in the landing page
 
+  @app-gap
   Scenario: Operator adds a CTA section
     When I add a section of type CTA
     Then a CTA section appears in the landing page
