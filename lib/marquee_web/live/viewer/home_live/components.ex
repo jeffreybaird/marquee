@@ -16,10 +16,12 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
   alias MarqueeWeb.OrgURL
 
   attr :organization, :map, required: true
+  attr :flash, :map, default: %{}, doc: "flash messages, e.g. the logout notice"
 
   def org_landing(assigns) do
     ~H"""
     <div class="min-h-screen bg-base-100" data-test="org-landing">
+      <Layouts.flash_group flash={@flash} />
       <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
         <div class="flex-1">
           <a href="/" class="text-xl font-bold tracking-tight text-base-content">
@@ -119,10 +121,12 @@ defmodule MarqueeWeb.Viewer.HomeLive.Components do
 
   attr :subscriber_demo_url, :string, default: nil
   attr :admin_demo_url, :string, default: nil
+  attr :flash, :map, default: %{}, doc: "flash messages, e.g. the logout notice"
 
   def platform_marketing(assigns) do
     ~H"""
     <div class="min-h-screen bg-base-100" data-test="platform-marketing">
+      <Layouts.flash_group flash={@flash} />
       <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
         <div class="flex-1">
           <a href="/" class="text-xl font-bold tracking-tight text-base-content">Marquee</a>

@@ -7,6 +7,7 @@ defmodule Marquee.PublishedDoctests do
     Marquee.Accounts.Organization,
     Marquee.Accounts.PageTourCompletion,
     Marquee.Accounts.Scope,
+    Marquee.Analytics.CacheSubscriber,
     Marquee.Analytics.Snapshot,
     Marquee.Branding.Theme,
     Marquee.Catalog.Presets,
@@ -37,6 +38,7 @@ defmodule Marquee.PublishedDoctests do
     MarqueeWeb.Admin.DashboardNudges,
     MarqueeWeb.Admin.OnboardingLive,
     MarqueeWeb.Components.DemoFeaturePreview,
+    MarqueeWeb.Hooks.RequestContext,
     MarqueeWeb.Viewer.LiveEventController,
     MarqueeWeb.Viewer.WatchLive.Components,
     Mix.Tasks.Marquee.Cucumber,
@@ -46,6 +48,7 @@ defmodule Marquee.PublishedDoctests do
   @stateful_modules [
     Marquee.Accounts,
     Marquee.AdminDemo,
+    Marquee.Analytics,
     Marquee.Billing,
     Marquee.Branding,
     Marquee.Catalog,

@@ -21,6 +21,14 @@ defmodule Marquee.Audit do
   action is a string like "video.created".
   resource is the struct that was acted on.
   changes is a map of what changed (can be empty for creates/deletes).
+
+  A successful write drops the cached filter options for the entry's
+  organization and the global filter options, so a new action, resource
+  type, actor or organization appears on the next read instead of after
+  the cache TTL. This happens here rather than in an event subscriber:
+  the audit log is the sink for every event (`AuditSubscriber`), so an
+  "audit logged" event would be recorded as another audit entry, and the
+  cache belongs to this module.
   """
   def log(scope, action, resource, changes \\ %{}) do
     attrs = %{
@@ -36,6 +44,7 @@ defmodule Marquee.Audit do
     %Log{}
     |> Log.changeset(attrs)
     |> Repo.insert()
+    |> tap(&invalidate_filter_options_after_insert/1)
   end
 
   @doc """
@@ -204,6 +213,13 @@ defmodule Marquee.Audit do
       }
     end)
   end
+
+  defp invalidate_filter_options_after_insert({:ok, %Log{organization_id: org_id}}) do
+    if org_id, do: Cache.delete("audit_filter_options:#{org_id}")
+    Cache.delete("audit_filter_options:global")
+  end
+
+  defp invalidate_filter_options_after_insert(_insert_result), do: :ok
 
   defp apply_filters(query, filters) do
     query

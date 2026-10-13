@@ -3,10 +3,11 @@
     <.platform_marketing
       subscriber_demo_url={@subscriber_demo_url}
       admin_demo_url={@admin_demo_url}
+      flash={@flash}
     />
   <% :org_landing -> %>
     <%= if @landing_sections == [] and not @subscriber_demo_landing? do %>
-      <.org_landing organization={@organization} />
+      <.org_landing organization={@organization} flash={@flash} />
     <% else %>
       <ViewerLayout.viewer_layout
         organization={@organization}

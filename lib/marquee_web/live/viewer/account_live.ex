@@ -100,7 +100,7 @@ defmodule MarqueeWeb.Viewer.AccountLive do
         {:noreply,
          socket
          |> put_flash(:info, "Your account has been deleted.")
-         |> redirect(to: ~p"/")}
+         |> redirect(to: home_path(socket))}
 
       {:error, _, _} ->
         {:noreply, put_flash(socket, :error, "Could not delete account.")}
@@ -440,4 +440,23 @@ defmodule MarqueeWeb.Viewer.AccountLive do
     </ViewerLayout.viewer_layout>
     """
   end
+
+  # Mirrors ViewerSessionController.home_path/1: without a tenant subdomain
+  # the org is only known from `?org=`, so the redirect must carry it.
+  defp home_path(socket) do
+    org = socket.assigns[:organization]
+
+    if org && !resolved_from_subdomain?(socket.host_uri) do
+      MarqueeWeb.OrgURL.org_url("/", org)
+    else
+      ~p"/"
+    end
+  end
+
+  defp resolved_from_subdomain?(%URI{host: host}) when is_binary(host) do
+    parts = String.split(host, ".")
+    length(parts) >= 2 && List.first(parts) not in ["www", "localhost"]
+  end
+
+  defp resolved_from_subdomain?(_host_uri), do: false
 end
