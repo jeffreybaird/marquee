@@ -122,11 +122,13 @@ defmodule Marquee.SubscriberDemo.Catalog do
 
     rows = seed_rows(org, series, videos, collections)
 
+    {:ok, %{organization: org, videos: shorts}} = Marquee.DemoShorts.seed_catalog(org, :workshop)
+
     org
     |> Ecto.Changeset.change(
       features:
         Map.merge(org.features || %{}, %{
-          "subscriber_demo_video_ids" => Enum.map(videos, & &1.id),
+          "subscriber_demo_video_ids" => Enum.map(videos ++ shorts, & &1.id),
           "subscriber_demo_series_slug" => series.slug,
           "subscriber_demo_row_ids" => Enum.map(rows, & &1.id)
         })

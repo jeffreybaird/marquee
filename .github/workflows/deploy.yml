@@ -305,14 +305,14 @@ jobs:
         if: ${{ vars.DATABASE_BACKEND != 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh db-ca.pem .env \
+            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh deploy/demo-content-bootstrap.sh db-ca.pem .env \
             root@"$HOST":"$STACK_DIR"/
 
       - name: Copy stack files + .env to droplet (SQLite)
         if: ${{ vars.DATABASE_BACKEND == 'sqlite' }}
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh deploy/litestream.yml .env \
+            deploy/compose.yaml deploy/swap.sh deploy/admin-demo-proxy.sh deploy/admin-demo-bootstrap.sh deploy/demo-content-bootstrap.sh deploy/litestream.yml .env \
             root@"$HOST":"$STACK_DIR"/
 
       # Shared network + shared Caddy + this app's route, before the app starts.
@@ -343,6 +343,11 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
             "cd '$STACK_DIR' && docker compose run --rm -e POOL_SIZE=2 migrate bin/${{ needs.build.outputs.app_name }} eval '${{ needs.build.outputs.module }}.Release.migrate()'"
+
+      - name: Initialize missing demo content (gate before traffic)
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@"$HOST" \
+            "bash '$STACK_DIR'/demo-content-bootstrap.sh '$STACK_DIR' '${{ needs.build.outputs.app_name }}' '${{ needs.build.outputs.module }}'"
 
       # Health-checked blue/green swap (story 7.2): start the idle color from
       # the new image, wait for its healthcheck, only then stop the old color.

@@ -467,6 +467,7 @@ defmodule Marquee.AdminDemo do
     Repo.insert!(%Membership{organization_id: org.id, user_id: user.id, role: :admin})
     register_assets(manifest)
     Catalog.seed(org, manifest)
+    {:ok, %{organization: org}} = Marquee.DemoShorts.seed_catalog(org, :travel)
 
     session =
       Repo.insert!(%Session{

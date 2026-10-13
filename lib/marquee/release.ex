@@ -43,6 +43,13 @@ defmodule Marquee.Release do
     Marquee.DemoSeeder.seed_subscriber_demo()
   end
 
+  @doc "Initializes missing local demo content before traffic switches, without starting application workers. Exempt from doctests: database and service startup."
+  def seed_missing_demo_content do
+    with_tenant_repo(fn ->
+      with_demo_content_services(&Marquee.DemoSeeder.seed_missing_content/0)
+    end)
+  end
+
   @doc """
   Reconciles pending Mux assets against Mux's current state from a running
   release (no Mix). Boots the full app, then delegates to
@@ -212,6 +219,29 @@ defmodule Marquee.Release do
       after
         Supervisor.stop(supervisor)
       end
+    end
+  end
+
+  defp with_demo_content_services(fun) do
+    {:ok, _} = Application.ensure_all_started(:phoenix_pubsub)
+
+    children =
+      [
+        {Marquee.PubSub, {Phoenix.PubSub, name: Marquee.PubSub}},
+        {Marquee.Cache, Marquee.Cache},
+        {Marquee.Events.AuditSubscriber, Marquee.Events.AuditSubscriber}
+      ]
+      |> Enum.reject(fn {name, _child} -> Process.whereis(name) end)
+      |> Enum.map(fn {_name, child} -> child end)
+
+    {:ok, supervisor} = Supervisor.start_link(children, strategy: :one_for_one)
+
+    try do
+      result = fun.()
+      :sys.get_state(Marquee.Events.AuditSubscriber)
+      result
+    after
+      Supervisor.stop(supervisor)
     end
   end
 

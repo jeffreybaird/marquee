@@ -16,6 +16,8 @@ defmodule Marquee.DemoSeeder do
   webhooks update them to "ready".
   """
 
+  import Ecto.Query
+
   alias Ecto.Adapters.SQL, as: EctoSQL
   alias Marquee.{Accounts, Admin, Billing, Branding, Catalog, Content, LandingPage, Repo, Viewers}
   alias Marquee.Accounts.{Membership, Organization, Scope, User}
@@ -109,6 +111,118 @@ defmodule Marquee.DemoSeeder do
   """
   def org_slugs, do: Enum.map(org_defs(), & &1.slug)
 
+  @doc "Enriches existing demo tenants with reviewed Shorts offline. Exempt from doctests: database access."
+  def seed_shorts(opts \\ []) do
+    Repo.transaction(fn ->
+      org_defs()
+      |> filter_orgs(opts[:org])
+      |> Enum.flat_map(&seed_existing_org_shorts/1)
+    end)
+  end
+
+  @doc "Initializes absent demo content for existing demo tenants only. Exempt from doctests: database access."
+  def seed_missing_content do
+    Repo.transaction(fn ->
+      org_slugs()
+      |> Enum.flat_map(&seed_missing_org_content/1)
+    end)
+  end
+
+  defp seed_missing_org_content(slug) do
+    org =
+      Repo.one(
+        from o in Organization,
+          where: o.slug == ^slug and is_nil(o.deleted_at),
+          lock: "FOR UPDATE"
+      )
+
+    case org do
+      nil -> []
+      org -> [org |> maybe_seed_workshop_catalog() |> maybe_seed_missing_shorts()]
+    end
+  end
+
+  defp maybe_seed_workshop_catalog(%Organization{slug: "the-workshop"} = org) do
+    if Marquee.SubscriberDemo.enabled?(org) and workshop_catalog_absent?(org) do
+      case Marquee.SubscriberDemo.seed_catalog(org) do
+        {:ok, _catalog} ->
+          current = Repo.get!(Organization, org.id)
+
+          current
+          |> Ecto.Changeset.change(
+            features: Map.put(current.features || %{}, "subscriber_demo_catalog_seeded", true)
+          )
+          |> Repo.update!()
+
+        {:error, reason} ->
+          Repo.rollback(reason)
+      end
+    else
+      org
+    end
+  end
+
+  defp maybe_seed_workshop_catalog(org), do: org
+
+  defp workshop_catalog_absent?(org) do
+    features = org.features || %{}
+
+    not Enum.any?(
+      ~w(subscriber_demo_catalog_seeded subscriber_demo_video_ids subscriber_demo_series_slug),
+      &Map.has_key?(features, &1)
+    ) and
+      not Repo.exists?(
+        from s in Series,
+          where: s.organization_id == ^org.id and s.slug == "inside-the-workshop"
+      )
+  end
+
+  defp maybe_seed_missing_shorts(org) do
+    features = org.features || %{}
+
+    if features["demo_shorts_seeded"] do
+      org
+    else
+      org |> seed_org_shorts() |> maybe_extend_workshop_allowlist()
+    end
+  end
+
+  defp maybe_extend_workshop_allowlist(%Organization{slug: "the-workshop"} = org) do
+    features = org.features || %{}
+
+    if Marquee.SubscriberDemo.enabled?(org) and
+         is_list(features["subscriber_demo_video_ids"]) do
+      ids =
+        Enum.uniq(
+          features["subscriber_demo_video_ids"] ++ (features["demo_shorts_video_ids"] || [])
+        )
+
+      org
+      |> Ecto.Changeset.change(features: Map.put(features, "subscriber_demo_video_ids", ids))
+      |> Repo.update!()
+    else
+      org
+    end
+  end
+
+  defp maybe_extend_workshop_allowlist(org), do: org
+
+  defp seed_existing_org_shorts(definition) do
+    case Repo.get_by(Organization, slug: definition.slug) do
+      nil -> []
+      org -> [seed_org_shorts(org)]
+    end
+  end
+
+  defp seed_org_shorts(org) do
+    theme = if org.slug == "the-workshop", do: :workshop, else: :travel
+
+    case Marquee.DemoShorts.seed_catalog(org, theme) do
+      {:ok, %{organization: updated}} -> updated
+      {:error, reason} -> Repo.rollback(reason)
+    end
+  end
+
   defp filter_orgs(defs, nil), do: defs
 
   defp filter_orgs(defs, slug) do
@@ -125,6 +239,15 @@ defmodule Marquee.DemoSeeder do
       existing && force? ->
         IO.puts("\n=== Purging content for #{org_def.name} ===")
         purge_org_content(existing.id)
+
+        existing =
+          existing
+          |> Ecto.Changeset.change(
+            features:
+              Map.drop(existing.features || %{}, ["demo_shorts_seeded", "demo_shorts_video_ids"])
+          )
+          |> Repo.update!()
+
         do_seed(org_def, pexels_key, existing)
 
       existing ->
@@ -137,6 +260,7 @@ defmodule Marquee.DemoSeeder do
   end
 
   @purge_tables [
+    "short_feed_items",
     "hero_slides",
     "row_items",
     "rows",
@@ -230,6 +354,8 @@ defmodule Marquee.DemoSeeder do
 
     IO.puts("  Creating catalog rows...")
     create_catalog_rows(scope, org_def.catalog_rows, collections, series_map)
+
+    seed_org_shorts(Repo.get!(Organization, org.id))
 
     IO.puts("  ✓ #{org_def.name} complete")
   end

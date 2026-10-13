@@ -17,16 +17,34 @@ defmodule Marquee.AdminDemoTest do
     manifest = Marquee.AdminDemoFixtures.catalog_manifest()
     File.write!(path, Jason.encode!(manifest))
     original = Application.fetch_env(:marquee, :admin_demo)
+    original_shorts = Application.fetch_env(:marquee, :demo_shorts_catalog)
+
+    portrait =
+      hd(manifest.clips)
+      |> Map.merge(%{
+        slug: "dedicated-portrait-fixture",
+        aspect_ratio: "9:16",
+        duration: 20.0,
+        mux_asset_id: "dedicated-portrait-asset",
+        mux_playback_id: "dedicated-portrait-playback"
+      })
+
+    Application.put_env(:marquee, :demo_shorts_catalog, %{travel: [portrait]})
     Application.put_env(:marquee, :admin_demo, enabled: true, host: @host, catalog_path: path)
 
     on_exit(fn ->
+      case original_shorts do
+        {:ok, value} -> Application.put_env(:marquee, :demo_shorts_catalog, value)
+        :error -> Application.delete_env(:marquee, :demo_shorts_catalog)
+      end
+
       case original do
         {:ok, value} -> Application.put_env(:marquee, :admin_demo, value)
         :error -> Application.delete_env(:marquee, :admin_demo)
       end
     end)
 
-    %{catalog_path: path, manifest: manifest}
+    %{catalog_path: path, manifest: manifest, portrait: portrait}
   end
 
   test "disabled or unconfigured demo fails without allocating users or tenants" do
@@ -86,8 +104,8 @@ defmodule Marquee.AdminDemoTest do
     refute_email_sent()
   end
 
-  test "template seeds only approved initial clips plus editable catalog branding and sample analytics",
-       %{manifest: manifest} do
+  test "template seeds approved initial clips and dedicated portrait Shorts plus editable catalog branding and sample analytics",
+       %{manifest: manifest, portrait: portrait} do
     configure_host()
     {:ok, demo} = start_session()
     org_id = demo.organization.id
@@ -95,7 +113,7 @@ defmodule Marquee.AdminDemoTest do
     initial = Enum.filter(manifest.clips, & &1.initial)
 
     assert Enum.sort(Enum.map(videos, & &1.mux_playback_id)) ==
-             Enum.sort(Enum.map(initial, & &1.mux_playback_id))
+             Enum.sort(Enum.map(initial, & &1.mux_playback_id) ++ [portrait.mux_playback_id])
 
     assert Enum.all?(videos, &is_nil(&1.mux_asset_id))
     assert Enum.all?(videos, &(&1.mux_status == "ready"))

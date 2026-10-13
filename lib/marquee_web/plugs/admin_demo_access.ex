@@ -19,14 +19,24 @@ defmodule MarqueeWeb.Plugs.AdminDemoAccess do
   end
 
   defp admin_path_allowed?(path) do
-    path in ~w(/admin /admin/content /admin/collections /admin/series /admin/tags /admin/catalog /admin/analytics /admin/branding /admin/appearance /admin/settings/billing /admin/demo/library /admin/demo/restricted /admin/members /admin/podcasts /admin/plans /admin/coupons /admin/webhooks /admin/live-events /admin/settings /admin/landing /admin/audit-log) or
+    path == "/admin/shorts" or
+      path in ~w(/admin /admin/content /admin/collections /admin/series /admin/tags /admin/catalog /admin/analytics /admin/branding /admin/appearance /admin/settings/billing /admin/demo/library /admin/demo/restricted /admin/members /admin/podcasts /admin/plans /admin/coupons /admin/webhooks /admin/live-events /admin/settings /admin/landing /admin/audit-log) or
       Regex.match?(~r{^/admin/series/[^/]+/seasons/[^/]+$}, path) or
       Regex.match?(~r{^/admin/analytics/(videos|series)/[^/]+(?:/seasons/[^/]+)?$}, path)
   end
 
   defp viewer_path_allowed?(path),
     do:
-      path in ["/", "/browse", "/watchlist", "/favorites", "/history", "/account", "/subscribe"] or
+      path in [
+        "/",
+        "/shorts",
+        "/browse",
+        "/watchlist",
+        "/favorites",
+        "/history",
+        "/account",
+        "/subscribe"
+      ] or
         Enum.any?(["/watch/", "/collections/", "/series/"], &String.starts_with?(path, &1))
 
   defp resolve_capability(conn) do

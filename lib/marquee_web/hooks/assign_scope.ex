@@ -70,6 +70,7 @@ defmodule MarqueeWeb.Hooks.AssignScope do
       MarqueeWeb.Admin.DashboardLive,
       MarqueeWeb.Admin.ContentLive,
       MarqueeWeb.Admin.CollectionsLive,
+      MarqueeWeb.Admin.ShortsLive,
       MarqueeWeb.Admin.SeriesLive,
       MarqueeWeb.Admin.SeasonLive,
       MarqueeWeb.Admin.TagsLive,
