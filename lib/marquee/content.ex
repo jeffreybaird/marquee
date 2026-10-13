@@ -693,7 +693,10 @@ defmodule Marquee.Content do
   end
 
   @doc """
-  Gets a collection by slug within an organization.
+  Gets a visible collection by slug within an organization.
+
+  Hidden (`visible: false`) and soft-deleted collections are treated as
+  missing, because this lookup serves the viewer site.
 
   Returns `{:ok, collection}` or `{:error, :not_found}`.
 
@@ -702,7 +705,7 @@ defmodule Marquee.Content do
   def get_collection_by_slug(%Organization{id: org_id}, slug) do
     query =
       Collection
-      |> where(organization_id: ^org_id, slug: ^slug)
+      |> where(organization_id: ^org_id, slug: ^slug, visible: true)
       |> where([c], is_nil(c.deleted_at))
 
     case Repo.one(query) do
@@ -1305,7 +1308,10 @@ defmodule Marquee.Content do
   end
 
   @doc """
-  Gets a series by slug, scoped to org.
+  Gets a visible series by slug, scoped to org.
+
+  Hidden (`visible: false`) and soft-deleted series are treated as missing,
+  because this lookup serves the viewer site.
 
   Returns `{:ok, series}` or `{:error, :not_found}`.
 
@@ -1314,7 +1320,7 @@ defmodule Marquee.Content do
   def get_series_by_slug(%Organization{id: org_id}, slug) do
     query =
       Series
-      |> where(organization_id: ^org_id, slug: ^slug)
+      |> where(organization_id: ^org_id, slug: ^slug, visible: true)
       |> where([s], is_nil(s.deleted_at))
 
     case Repo.one(query) do
@@ -1427,6 +1433,27 @@ defmodule Marquee.Content do
                            %{"marquee.org.id" => org_id, "marquee.series.id" => series_id} do
       Season
       |> where(organization_id: ^org_id, series_id: ^series_id)
+      |> where([s], is_nil(s.deleted_at))
+      |> order_by(:season_number)
+      |> Pagination.paginate(opts)
+    end
+  end
+
+  @doc """
+  Returns a paginated list of a series's visible seasons, ordered by
+  season_number.
+
+  Viewer-facing counterpart of `list_seasons/3`: hidden (`visible: false`)
+  and soft-deleted seasons are excluded. Operators use `list_seasons/3`,
+  which still includes hidden seasons.
+
+  Exempt from doctest — hits the database.
+  """
+  def list_visible_seasons(%Organization{id: org_id}, %Series{id: series_id}, opts \\ []) do
+    Marquee.Otel.with_span "marquee.content.list_visible_seasons",
+                           %{"marquee.org.id" => org_id, "marquee.series.id" => series_id} do
+      Season
+      |> where(organization_id: ^org_id, series_id: ^series_id, visible: true)
       |> where([s], is_nil(s.deleted_at))
       |> order_by(:season_number)
       |> Pagination.paginate(opts)
@@ -2369,20 +2396,40 @@ defmodule Marquee.Content do
     Marquee.Otel.with_span "marquee.content.create_tag",
                            %{"marquee.org.id" => scope.organization.id} do
       attrs = put_org_id(attrs, scope.organization.id)
+      changeset = Tag.changeset(%Tag{}, attrs)
 
-      case %Tag{} |> Tag.changeset(attrs) |> Repo.insert() do
-        {:ok, tag} ->
-          Events.broadcast(scope, {:tag_created, tag})
-          Audit.log(scope, "tag.created", tag)
-          {:ok, tag}
-
-        {:error, changeset} ->
-          if has_unique_constraint_error?(changeset) do
-            {:error, :already_exists}
-          else
-            {:error, :validation, changeset}
-          end
+      if tag_name_taken?(scope.organization.id, Ecto.Changeset.get_field(changeset, :name)) do
+        {:error, :already_exists}
+      else
+        insert_tag(scope, changeset)
       end
+    end
+  end
+
+  # Tag names are unique per organization (case-insensitive, since the
+  # changeset downcases them), independent of the slug a tag was given.
+  defp tag_name_taken?(_org_id, nil), do: false
+
+  defp tag_name_taken?(org_id, name) do
+    Tag
+    |> where(organization_id: ^org_id, name: ^name)
+    |> where([t], is_nil(t.deleted_at))
+    |> Repo.exists?()
+  end
+
+  defp insert_tag(scope, changeset) do
+    case Repo.insert(changeset) do
+      {:ok, tag} ->
+        Events.broadcast(scope, {:tag_created, tag})
+        Audit.log(scope, "tag.created", tag)
+        {:ok, tag}
+
+      {:error, changeset} ->
+        if has_unique_constraint_error?(changeset) do
+          {:error, :already_exists}
+        else
+          {:error, :validation, changeset}
+        end
     end
   end
 

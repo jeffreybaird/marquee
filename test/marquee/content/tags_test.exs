@@ -38,6 +38,49 @@ defmodule Marquee.Content.TagsTest do
       assert {:error, :already_exists} = Content.create_tag(scope, %{name: "beginner"})
     end
 
+    test "with duplicate name but a different slug returns already_exists", %{scope: scope} do
+      {:ok, _} = Content.create_tag(scope, %{name: "beginner"})
+
+      assert {:error, :already_exists} =
+               Content.create_tag(scope, %{name: "beginner", slug: "beginner-2"})
+    end
+
+    test "duplicate detection is case-insensitive", %{org: org, scope: scope} do
+      # Factory-built tag carries a sequence slug ("tag-N"), so only the
+      # name — not the slug unique index — can cause the conflict.
+      existing = insert(:tag, organization: org, name: "beginner")
+      refute existing.slug == "beginner"
+
+      assert {:error, :already_exists} = Content.create_tag(scope, %{name: "BeGiNNeR"})
+      assert %{results: [only]} = Content.list_tags(org)
+      assert only.id == existing.id
+    end
+
+    test "same name in another organization is allowed", %{scope: scope} do
+      {:ok, _} = Content.create_tag(scope, %{name: "beginner"})
+
+      other_org = insert(:organization)
+      other_user = insert(:user)
+      other_mem = insert(:membership, organization: other_org, user: other_user, role: :editor)
+      other_scope = Scope.for_user(other_user) |> Scope.with_organization(other_org, other_mem)
+
+      assert {:ok, tag} = Content.create_tag(other_scope, %{name: "Beginner"})
+      assert tag.name == "beginner"
+      assert tag.organization_id == other_org.id
+    end
+
+    test "same name as a soft-deleted tag is allowed", %{org: org, scope: scope} do
+      {:ok, old} = Content.create_tag(scope, %{name: "beginner"})
+      {:ok, _} = Content.delete_tag(scope, old)
+
+      # The deleted row still holds slug "beginner" (slug index ignores
+      # deleted_at), so supply a distinct slug to isolate the name rule.
+      assert {:ok, tag} = Content.create_tag(scope, %{name: "Beginner", slug: "beginner-new"})
+      assert tag.name == "beginner"
+      assert %{results: [found]} = Content.list_tags(org)
+      assert found.id == tag.id
+    end
+
     test "auto-generates slug from name", %{scope: scope} do
       {:ok, tag} = Content.create_tag(scope, %{name: "Live Session"})
       assert tag.slug == "live-session"
