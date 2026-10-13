@@ -334,6 +334,46 @@ defmodule Marquee.Branding.Theme do
     |> Enum.join("; ")
   end
 
+  @doc """
+  Builds the viewer site's CSS custom properties for a saved theme. When the
+  organization has chosen an approved display font, it drives viewer headings
+  (`--sv-font-heading`), falling back to the theme's heading font.
+
+  ## Examples
+
+      iex> theme = %Marquee.Branding.Theme{font_heading: "Lora"}
+      iex> css = Marquee.Branding.Theme.build_viewer_css_vars(theme, "Playfair Display")
+      iex> String.ends_with?(css, "; --sv-font-heading: 'Playfair Display', Lora, system-ui, sans-serif")
+      true
+
+      iex> theme = %Marquee.Branding.Theme{font_heading: "Lora"}
+      iex> Marquee.Branding.Theme.build_viewer_css_vars(theme, nil) ==
+      ...>   Marquee.Branding.Theme.build_css_vars(theme)
+      true
+
+      iex> theme = %Marquee.Branding.Theme{}
+      iex> Marquee.Branding.Theme.build_viewer_css_vars(theme, "Comic Sans; color: red") ==
+      ...>   Marquee.Branding.Theme.build_css_vars(theme)
+      true
+
+  """
+  def build_viewer_css_vars(%__MODULE__{} = theme, display_font) do
+    [build_css_vars(theme), heading_font_override(theme, display_font)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("; ")
+  end
+
+  # The organization display font is the operator's heading choice; only
+  # approved fonts are interpolated so the value cannot escape the declaration.
+  defp heading_font_override(theme, font) when is_binary(font) do
+    if font in Organization.approved_display_fonts() do
+      fallback = theme.font_heading || @default_viewer_theme.font_heading
+      "--sv-font-heading: '#{font}', #{fallback}, system-ui, sans-serif"
+    end
+  end
+
+  defp heading_font_override(_theme, _font), do: nil
+
   defp accent_overrides(branding) do
     [
       {"accent_color_base", "--color-accent"},
