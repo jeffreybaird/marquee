@@ -12,6 +12,14 @@ Feature: Workshop subscriber portfolio demo
     Then the Workshop hero offers three distinct featured videos
     And the Workshop catalog has no managed subscriber explanation row
 
+  Scenario: Visitors dismiss the notice while continuing their private subscriber demo
+    Given The Workshop subscriber demo has a playable catalog
+    When a fresh browser opens the Workshop homepage
+    And the visitor chooses Begin demo from the themed landing page
+    And the visitor dismisses the subscriber demo notice on a narrow screen
+    Then the subscriber notice stays hidden through mobile navigation and reload
+    And a fresh browser still sees the subscriber demo notice
+
   Scenario: Visitors retain separate progress and watchlists
     Given The Workshop subscriber demo has a playable catalog
     When two visitors start the subscriber demo

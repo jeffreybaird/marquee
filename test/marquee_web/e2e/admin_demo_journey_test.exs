@@ -108,6 +108,41 @@ defmodule MarqueeWeb.E2E.AdminDemoJourneyTest do
     assert current_url(browser) == MarqueeWeb.Endpoint.url() <> "/"
   end
 
+  test "dismissed admin notice stays hidden across dashboard and viewer preview without ending the sandbox",
+       %{session: browser} do
+    browser =
+      browser
+      |> demo_visit("/demo/admin")
+      |> click(css("[data-test=admin-demo-start]"))
+      |> click(css("[data-test=admin-demo-dismiss]"))
+      |> assert_has(css("[data-test=admin-demo-bar]", count: 0))
+
+    [org] = Repo.all(from o in Organization, where: o.demo_kind == :admin_sandbox)
+
+    browser =
+      browser
+      |> demo_visit("/admin/content")
+      |> assert_has(css("[data-test=video-list]"))
+      |> assert_has(css("[data-test=admin-demo-bar]", count: 0))
+      |> demo_visit("/?preview=member")
+      |> assert_has(css("[data-test=impersonation-banner]"))
+      |> assert_has(css("[data-test=admin-demo-bar]", count: 0))
+      |> demo_visit("/admin")
+      |> assert_has(css("[data-test=admin-demo-bar]", count: 0))
+
+    assert Repo.get_by!(Session, organization_id: org.id).revoked_at == nil
+    assert_has(browser, css("[data-test=admin-demo-edit-tasks]"))
+
+    metadata = Sandbox.metadata_for(Repo, self())
+    {:ok, fresh} = Wallaby.start_session(metadata: metadata)
+    on_exit(fn -> Wallaby.end_session(fresh) end)
+
+    fresh
+    |> demo_visit("/demo/admin")
+    |> click(css("[data-test=admin-demo-start]"))
+    |> assert_has(css("[data-test=admin-demo-bar]"))
+  end
+
   test "separate browser cookies isolate edits and persisted expiry blocks refresh", %{
     session: browser
   } do

@@ -82,43 +82,58 @@ defmodule MarqueeWeb.Components.ViewerLayout do
         <div
           :if={Marquee.SubscriberDemo.demo_viewer?(@current_viewer)}
           data-test="subscriber-demo-banner"
+          data-demo-banner-key={"subscriber:#{@current_viewer.id}"}
           class="bg-stone-950 px-4 py-3 text-sm text-white"
           role="status"
         >
-          <div class="mx-auto max-w-7xl">
-            <strong>Demo · Your private subscriber session</strong>
-            <span>
-              Play an episode, save a video, then return Home to resume. Activity expires after 2 hours.
-            </span>
-            <nav
-              aria-label="Demo navigation"
-              class="mt-2 flex gap-2 md:hidden"
-              data-test="subscriber-demo-mobile-nav"
+          <div class="mx-auto flex max-w-7xl items-center gap-4">
+            <div class="flex-1">
+              <strong>Demo · Your private subscriber session</strong>
+              <span>
+                Play an episode, save a video, then return Home to resume. Activity expires after 2 hours.
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss demo banner"
+              data-demo-banner-dismiss
+              data-test="subscriber-demo-dismiss"
+              class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             >
-              <.link
-                navigate="/"
-                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
-                aria-current={if @current_path == "/", do: "page"}
-              >
-                Home
-              </.link>
-              <.link
-                navigate="/browse"
-                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
-                aria-current={if @current_path == "/browse", do: "page"}
-              >
-                Browse
-              </.link>
-              <.link
-                navigate="/watchlist"
-                class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
-                aria-current={if @current_path == "/watchlist", do: "page"}
-              >
-                My Stuff
-              </.link>
-            </nav>
+              <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
+            </button>
           </div>
         </div>
+        <nav
+          :if={Marquee.SubscriberDemo.demo_viewer?(@current_viewer)}
+          aria-label="Demo navigation"
+          class="bg-stone-950 px-4 py-2 text-sm text-white md:hidden"
+          data-test="subscriber-demo-mobile-nav"
+        >
+          <div class="mx-auto flex max-w-7xl gap-2">
+            <.link
+              navigate="/"
+              class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+              aria-current={if @current_path == "/", do: "page"}
+            >
+              Home
+            </.link>
+            <.link
+              navigate="/browse"
+              class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+              aria-current={if @current_path == "/browse", do: "page"}
+            >
+              Browse
+            </.link>
+            <.link
+              navigate="/watchlist"
+              class="inline-flex min-h-11 items-center rounded px-3 underline focus-visible:outline-2"
+              aria-current={if @current_path == "/watchlist", do: "page"}
+            >
+              My Stuff
+            </.link>
+          </div>
+        </nav>
         {render_slot(@inner_block)}
       </main>
 

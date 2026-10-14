@@ -5,6 +5,7 @@ defmodule MarqueeWeb.E2E.SubscriberDemoColdEntryTest do
 
   alias Marquee.{Engagement, Repo, SubscriberDemo}
   alias Marquee.Viewers.Viewer
+  alias Phoenix.Ecto.SQL.Sandbox
 
   @moduletag :e2e
 
@@ -91,6 +92,51 @@ defmodule MarqueeWeb.E2E.SubscriberDemoColdEntryTest do
     assert [persisted] = Repo.all(from(v in Viewer, where: v.organization_id == ^org.id))
     assert persisted.id == viewer.id
     refute Engagement.in_watchlist?(org, viewer, video)
+  end
+
+  test "dismissal survives mobile navigation and reload while demo activity and fresh browser notices remain",
+       %{
+         session: session,
+         org: org,
+         catalog: catalog
+       } do
+    session =
+      session
+      |> resize_window(390, 844)
+      |> visit("/?org=#{org.slug}")
+      |> click(css("[data-test=subscriber-demo-entry]"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]"))
+      |> click(css("[data-test=subscriber-demo-dismiss]"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+
+    [viewer] = Repo.all(from(v in Viewer, where: v.organization_id == ^org.id))
+    video = hd(catalog.videos)
+    assert {:ok, saved} = Engagement.add_to_watchlist(org, viewer, video)
+
+    session =
+      session
+      |> click(css("[data-test=subscriber-demo-mobile-nav] a[href='/browse']"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+      |> click(css("[data-test=subscriber-demo-mobile-nav] a[href='/watchlist']"))
+      |> assert_has(css("[data-test=sv-watchlist-remove-#{saved.video_id}]"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+      |> visit("/?org=#{org.slug}")
+      |> assert_has(css("[data-test=hero-primary-cta-0]"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+
+    assert_has(session, css("[data-test=subscriber-demo-mobile-nav]"))
+    assert [persisted] = Repo.all(from(v in Viewer, where: v.organization_id == ^org.id))
+    assert persisted.id == viewer.id
+    assert Engagement.in_watchlist?(org, persisted, video)
+
+    metadata = Sandbox.metadata_for(Repo, self())
+    {:ok, fresh} = Wallaby.start_session(metadata: metadata)
+    on_exit(fn -> Wallaby.end_session(fresh) end)
+
+    fresh
+    |> visit("/?org=#{org.slug}")
+    |> click(css("[data-test=subscriber-demo-entry]"))
+    |> assert_has(css("[data-test=subscriber-demo-banner]"))
   end
 
   defp assert_cta_contrast(session) do

@@ -9,6 +9,7 @@ defmodule MarqueeWeb.Components.AdminDemo do
       :if={@organization && @organization.demo_kind == :admin_sandbox}
       class="border-b border-admin-border bg-admin-card text-admin-fg font-ui px-4 py-2 flex flex-wrap gap-x-4 gap-y-1 items-center text-sm"
       data-test="admin-demo-bar"
+      data-demo-banner-key={"admin:#{@organization.id}"}
     >
       <strong>Private admin demo · Two-hour sandbox</strong>
       <span>Sample analytics · External services disabled</span>
@@ -49,6 +50,15 @@ defmodule MarqueeWeb.Components.AdminDemo do
       >
         Travel footage by Pexels creators
       </a>
+      <button
+        type="button"
+        aria-label="Dismiss demo banner"
+        data-demo-banner-dismiss
+        data-test="admin-demo-dismiss"
+        class="ml-auto inline-flex min-h-11 min-w-11 items-center justify-center rounded hover:bg-admin-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        <.icon name="hero-x-mark" class="size-5" aria-hidden="true" />
+      </button>
     </aside>
     """
   end
