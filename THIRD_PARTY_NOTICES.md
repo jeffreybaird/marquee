@@ -4,6 +4,22 @@ Third-party components retain their upstream licenses. This notice records the
 Shepherd distribution; it does not replace notices shipped with other dependencies.
 Marquee's AGPL-3.0-only license applies to its original project code.
 
+## Driver.js 1.9.0
+
+Used under the MIT license. The complete upstream license is preserved in
+[assets/vendor/driver.LICENSE.txt](assets/vendor/driver.LICENSE.txt).
+
+The vendored JavaScript is the unmodified npm distribution's `dist/driver.js.mjs`,
+with the MIT license prepended as a `/*! ... */` legal-comment banner so it
+survives minification. The combined file is stored as `assets/vendor/driver.js`.
+
+The vendored CSS (`dist/driver.css` -> `assets/vendor/driver.css`) and
+TypeScript declarations (`dist/driver.js.d.ts` -> `assets/vendor/driver.d.ts`)
+are unchanged from the published archive.
+
+Package source: https://www.npmjs.com/package/driver.js/v/1.9.0. The package
+declares no runtime dependencies in its `package.json`.
+
 ## Shepherd.js 15.3.0
 
 Used under GNU AGPL version 3. The complete upstream license, including its
