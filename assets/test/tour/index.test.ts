@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { Tour } from "../../vendor/shepherd"
-import { buildAdminTour, resolve } from "../../js/tour"
-import { ADMIN_TOUR_STEPS } from "../../js/tour/steps"
+import { buildAdminTour, buildTour, resolve } from "../../js/tour"
+import { ADMIN_TOUR_STEPS, CONTENT_TOUR_STEPS } from "../../js/tour/steps"
 import { setReducedMotion } from "../support/media"
 
 const buttonsOf = (tour: Tour, index: number) => tour.steps[index].options.buttons ?? []
 const continueButton = () => document.querySelector<HTMLButtonElement>("#tour-continue-btn")
+const popover = () => document.querySelector<HTMLElement>("[data-test=tour-popover]")
+const popovers = () => document.querySelectorAll<HTMLElement>("[data-test=tour-popover]")
 
 describe("resolve", () => {
   it("returns plain strings as-is and applies brand functions", () => {
@@ -111,7 +113,7 @@ describe("buildAdminTour", () => {
   it("does not pause for clicks inside the tooltip", () => {
     tour = buildAdminTour("Acme")
     tour.start()
-    const tooltip = document.querySelector(".shepherd-element")!
+    const tooltip = document.querySelector("[data-test=tour-popover]")!
 
     tooltip.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
@@ -142,5 +144,126 @@ describe("buildAdminTour", () => {
     // The click interceptor is gone too: clicking no longer pauses.
     document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }))
     expect(document.body.classList.contains("tour-paused")).toBe(false)
+  })
+
+  // ── Marquee-owned data-test selectors ─────────────────────────────────────
+  //
+  // The renderer below the surface is still Shepherd.js, but acceptance tests
+  // and future renderer swaps rely on these Marquee-owned attributes rather
+  // than Shepherd's CSS class names. Pin them on the rendered DOM.
+
+  it("stamps data-test=tour-popover on the rendered popover root", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    const node = popover()
+    expect(node, "popover must carry data-test=tour-popover").not.toBeNull()
+    expect(popovers().length, "exactly one tour-popover node is rendered").toBe(1)
+  })
+
+  it("stamps data-tour-kind='admin' on the admin tour popover", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    expect(popover()!.getAttribute("data-tour-kind")).toBe("admin")
+  })
+
+  it("stamps data-step-id with the current step's id on every show", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+    expect(popover()!.getAttribute("data-step-id")).toBe(ADMIN_TOUR_STEPS[0].id)
+    expect(popovers().length).toBe(1)
+
+    tour.next()
+
+    expect(popover()!.getAttribute("data-step-id")).toBe(ADMIN_TOUR_STEPS[1].id)
+    // The previous step's popover must be gone — only one tour-popover node
+    // may be present at a time, so acceptance tests see a stable singleton.
+    expect(popovers().length).toBe(1)
+  })
+
+  it("stamps data-test=tour-title on the title node with the resolved copy", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    const title = document.querySelector("[data-test=tour-title]")
+    expect(title, "title node must carry data-test=tour-title").not.toBeNull()
+    expect(title!.textContent).toContain("Welcome to Acme!")
+  })
+
+  it("stamps data-test=tour-close on the cancel icon", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    expect(document.querySelector("[data-test=tour-close]")).not.toBeNull()
+  })
+
+  it("stamps data-test=tour-next on the Next button at a 'next'-only step", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    const next = document.querySelector("[data-test=tour-next]")
+    expect(next, "Next button must carry data-test=tour-next").not.toBeNull()
+    expect(next!.textContent).toContain("Next")
+    expect(document.querySelector("[data-test=tour-back]"), "no Back button on the welcome step").toBeNull()
+    expect(document.querySelector("[data-test=tour-finish]"), "no Got it! button on the welcome step").toBeNull()
+  })
+
+  it("stamps data-test=tour-back and data-test=tour-next on a step with both", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+    // Advance to the first step with [back, next] (index 2: "content").
+    tour.next()
+    tour.next()
+
+    const back = document.querySelector("[data-test=tour-back]")
+    const next = document.querySelector("[data-test=tour-next]")
+    expect(back, "Back button must carry data-test=tour-back").not.toBeNull()
+    expect(back!.textContent).toContain("Back")
+    expect(next, "Next button must carry data-test=tour-next").not.toBeNull()
+    expect(next!.textContent).toContain("Next")
+  })
+
+  it("stamps data-test=tour-finish on the Got it! button at the final step", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+    tour.show(tour.steps.length - 1)
+
+    const finish = document.querySelector("[data-test=tour-finish]")
+    expect(finish, "Got it! button must carry data-test=tour-finish").not.toBeNull()
+    expect(finish!.textContent).toContain("Got it!")
+  })
+
+  it("stamps data-test=tour-continue on the floating Continue Tour button", () => {
+    tour = buildAdminTour("Acme")
+    tour.start()
+
+    const btn = document.querySelector("[data-test=tour-continue]")
+    expect(btn, "Continue Tour button must carry data-test=tour-continue").not.toBeNull()
+    expect(btn, "data-test=tour-continue must land on #tour-continue-btn").toBe(continueButton())
+  })
+})
+
+describe("buildTour", () => {
+  let tour: Tour | null = null
+
+  afterEach(() => {
+    tour?.cancel()
+    tour = null
+    document.body.innerHTML = ""
+    document.body.className = ""
+    setReducedMotion(false)
+  })
+
+  it("defaults the tour kind to 'page' when no kind is passed", () => {
+    tour = buildTour(CONTENT_TOUR_STEPS, "Acme")
+    tour.start()
+
+    // Page tours — like the per-page walkthroughs — must stamp
+    // data-tour-kind='page' on the popover so acceptance tests can tell
+    // page tours apart from the admin overview.
+    expect(popover(), "popover must carry data-test=tour-popover").not.toBeNull()
+    expect(popover()!.getAttribute("data-tour-kind")).toBe("page")
+    expect(popover()!.getAttribute("data-step-id")).toBe(CONTENT_TOUR_STEPS[0].id)
   })
 })
