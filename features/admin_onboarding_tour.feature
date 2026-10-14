@@ -36,3 +36,9 @@ Feature: New-admin guided tour
     When I visit the admin dashboard
     And I click the take a tour link
     Then I am greeted by the guided tour
+
+  Scenario: Leaving the dashboard before the tour delay cannot open a tour on the next page
+    Given I am logged in as an organization owner
+    And I have not yet seen the guided tour
+    When I leave the "dashboard" page before its tour delay elapses
+    Then the departed page's pending tour is cleared without a lingering tour

@@ -42,3 +42,8 @@ Feature: Per-page guided tours
     When I am on the content page
     Then the content page tour does not launch
     And I do not see the page tour link
+
+  Scenario: Leaving content before the tour delay cannot open a tour on the next page
+    Given I am logged in as an operator with the admin role
+    When I leave the "content" page before its tour delay elapses
+    Then the departed page's pending tour is cleared without a lingering tour
