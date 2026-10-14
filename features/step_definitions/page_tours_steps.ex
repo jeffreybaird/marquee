@@ -6,6 +6,11 @@ defmodule MarqueeFeatures.Steps.PageTours do
   operator visits a page. Completion is recorded per user, per organization, per
   page key (`page_tour_completions`), so each page's tour is independent. Login
   and page navigation are shared steps.
+
+  Selectors in this module are Marquee-owned `data-test` attributes rendered
+  onto the Shepherd popover (`tour-popover`, `tour-close`, …) rather than
+  Shepherd's own CSS classes, so the acceptance suite survives a renderer
+  swap without any changes to the Gherkin or the step bodies.
   """
 
   use Cucumberex.DSL
@@ -28,7 +33,7 @@ defmodule MarqueeFeatures.Steps.PageTours do
   # ---- Actions ------------------------------------------------------------
 
   when_("I dismiss the page tour", fn world ->
-    session = click(world.session, css(".shepherd-cancel-icon"))
+    session = click(world.session, css("[data-test=tour-close]"))
     Map.put(world, :session, session)
   end)
 
@@ -40,12 +45,12 @@ defmodule MarqueeFeatures.Steps.PageTours do
   # ---- Assertions ---------------------------------------------------------
 
   then_("I am greeted by the content page tour", fn world ->
-    assert_has(world.session, css(".shepherd-element", text: "content library"))
+    assert_has(world.session, css("[data-test=tour-popover]", text: "content library"))
     world
   end)
 
   then_("the content page tour does not launch", fn world ->
-    refute_has(world.session, css(".shepherd-element"))
+    refute_has(world.session, css("[data-test=tour-popover]"))
     world
   end)
 
