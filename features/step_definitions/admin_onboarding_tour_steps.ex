@@ -6,6 +6,11 @@ defmodule MarqueeFeatures.Steps.AdminOnboardingTour do
   operator who hasn't seen it. Completion is recorded per membership
   (`admin_tour_completed_at`), so the tour is scoped to one operator in one
   organization. Login and "I visit the admin dashboard" are shared steps.
+
+  Selectors in this module are Marquee-owned `data-test` attributes rendered
+  onto the Shepherd popover (`tour-popover`, `tour-close`, …) rather than
+  Shepherd's own CSS classes, so the acceptance suite survives a renderer
+  swap without any changes to the Gherkin or the step bodies.
   """
 
   use Cucumberex.DSL
@@ -36,7 +41,7 @@ defmodule MarqueeFeatures.Steps.AdminOnboardingTour do
   # ---- Actions ------------------------------------------------------------
 
   when_("I dismiss the guided tour", fn world ->
-    session = click(world.session, css(".shepherd-cancel-icon"))
+    session = click(world.session, css("[data-test=tour-close]"))
     Map.put(world, :session, session)
   end)
 
@@ -48,12 +53,12 @@ defmodule MarqueeFeatures.Steps.AdminOnboardingTour do
   # ---- Assertions ---------------------------------------------------------
 
   then_("I am greeted by the guided tour", fn world ->
-    assert_has(world.session, css(".shepherd-element", text: "Welcome"))
+    assert_has(world.session, css("[data-test=tour-popover]", text: "Welcome"))
     world
   end)
 
   then_("the guided tour does not launch", fn world ->
-    refute_has(world.session, css(".shepherd-element"))
+    refute_has(world.session, css("[data-test=tour-popover]"))
     world
   end)
 
