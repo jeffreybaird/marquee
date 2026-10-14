@@ -1,6 +1,8 @@
 defmodule MarqueeFeatures.Steps.SubscriberDemo do
   @moduledoc "Context acceptance steps for isolated Workshop subscriber sessions."
   use Cucumberex.DSL
+  require Wallaby.Browser
+  import Wallaby.Browser, only: [execute_query: 2]
   import Marquee.Factory
   import ExUnit.Assertions
   alias Marquee.{Engagement, Repo, SubscriberDemo, Viewers}
@@ -52,6 +54,55 @@ defmodule MarqueeFeatures.Steps.SubscriberDemo do
       )
 
     assert length(Enum.uniq(video_ids)) >= 3
+    world
+  end)
+
+  when_("the visitor dismisses the subscriber demo notice on a narrow screen", fn world ->
+    session =
+      world.session
+      |> Wallaby.Browser.resize_window(390, 844)
+      |> Wallaby.Browser.click(Wallaby.Query.css("[data-test=subscriber-demo-dismiss]"))
+      |> Wallaby.Browser.assert_has(
+        Wallaby.Query.css("[data-test=subscriber-demo-banner]", count: 0)
+      )
+
+    Map.put(world, :session, session)
+  end)
+
+  then_("the subscriber notice stays hidden through mobile navigation and reload", fn world ->
+    import Wallaby.Browser
+    import Wallaby.Query, only: [css: 1, css: 2]
+    org_id = world.demo_org.id
+    [viewer] = Repo.all(from(v in Marquee.Viewers.Viewer, where: v.organization_id == ^org_id))
+    {:ok, saved} = Engagement.add_to_watchlist(world.demo_org, viewer, world.demo_video)
+
+    session =
+      world.session
+      |> click(css("[data-test=subscriber-demo-mobile-nav] a[href='/browse']"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+      |> click(css("[data-test=subscriber-demo-mobile-nav] a[href='/watchlist']"))
+      |> assert_has(css("[data-test=sv-watchlist-remove-#{saved.video_id}]"))
+      |> visit("/?org=#{world.demo_org.slug}")
+      |> assert_has(css("[data-test=hero-primary-cta-0]"))
+      |> assert_has(css("[data-test=subscriber-demo-banner]", count: 0))
+
+    assert SubscriberDemo.demo_viewer?(Repo.get!(Marquee.Viewers.Viewer, viewer.id))
+    Map.put(world, :session, session)
+  end)
+
+  then_("a fresh browser still sees the subscriber demo notice", fn world ->
+    metadata = Phoenix.Ecto.SQL.Sandbox.metadata_for(Repo, self())
+    {:ok, fresh} = Wallaby.start_session(metadata: metadata)
+
+    try do
+      fresh
+      |> Wallaby.Browser.visit("/?org=#{world.demo_org.slug}")
+      |> Wallaby.Browser.click(Wallaby.Query.css("[data-test=subscriber-demo-entry]"))
+      |> Wallaby.Browser.assert_has(Wallaby.Query.css("[data-test=subscriber-demo-banner]"))
+    after
+      Wallaby.end_session(fresh)
+    end
+
     world
   end)
 

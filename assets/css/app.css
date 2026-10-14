@@ -364,6 +364,11 @@
   font-family: var(--sv-font-body);
 }
 
+/* Keep hidden notices collapsed even when layout utilities set display: flex. */
+[data-demo-banner-key][hidden] {
+  display: none !important;
+}
+
 /* The demo banner occupies its own space below the fixed site header. */
 .sv-subscriber-demo .hero-carousel-wrapper {
   margin-top: 0;
