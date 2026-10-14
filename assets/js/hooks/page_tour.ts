@@ -58,6 +58,8 @@ class PageTour extends ViewHook {
   }
 
   private run() {
+    this.clearAutoStartTimer()
+
     // Guard against a second concurrent tour (e.g. clicking "Page tour" while
     // one is already open).
     if (this._active) return
@@ -79,13 +81,18 @@ class PageTour extends ViewHook {
   }
 
   destroyed() {
-    if (this._autoStartTimer) {
-      clearTimeout(this._autoStartTimer)
-      this._autoStartTimer = null
-    }
+    this.clearAutoStartTimer()
+
     if (this._active) {
       this._active.cancel()
       this._active = null
+    }
+  }
+
+  private clearAutoStartTimer() {
+    if (this._autoStartTimer !== null) {
+      clearTimeout(this._autoStartTimer)
+      this._autoStartTimer = null
     }
   }
 }

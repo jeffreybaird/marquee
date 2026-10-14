@@ -57,6 +57,57 @@ describe("GuidedTour", () => {
     expect(tour.start).toHaveBeenCalledTimes(1)
   })
 
+  it("clears the pending auto-start when destroyed repeatedly before the deadline", () => {
+    const tour = fakeTour()
+    mockedBuild.mockReturnValue(tour as never)
+    const { hook, pushEvent } = mountHook(GuidedTour, html(`<div id="tour" data-auto-start="true"></div>`))
+
+    vi.advanceTimersByTime(200)
+    hook.destroyed()
+    hook.destroyed()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.advanceTimersByTime(1000)
+
+    expect(mockedBuild).not.toHaveBeenCalled()
+    expect(tour.start).not.toHaveBeenCalled()
+    expect(pushEvent).not.toHaveBeenCalled()
+  })
+
+  it.each(["complete", "cancel"])("consumes auto-start when manually started and %s before its deadline", (event) => {
+    const tour = fakeTour()
+    mockedBuild.mockReturnValue(tour as never)
+    const { serverPush, pushEvent } = mountHook(GuidedTour, html(`<div id="tour" data-auto-start="true"></div>`))
+
+    vi.advanceTimersByTime(100)
+    serverPush("start-tour")
+    expect(vi.getTimerCount()).toBe(0)
+    vi.advanceTimersByTime(100)
+    tour.emit(event)
+    vi.advanceTimersByTime(1000)
+
+    expect(mockedBuild).toHaveBeenCalledTimes(1)
+    expect(tour.start).toHaveBeenCalledTimes(1)
+    expect(pushEvent).toHaveBeenCalledExactlyOnceWith("tour_completed", {})
+  })
+
+  it.each(["auto", "manual"])("repeated destruction cancels an %s-started tour once with current completion semantics", (start) => {
+    const tour = fakeTour()
+    tour.cancel.mockImplementation(() => tour.emit("cancel"))
+    mockedBuild.mockReturnValue(tour as never)
+    const { hook, serverPush, pushEvent } = mountHook(GuidedTour, html(`<div id="tour" data-auto-start="true"></div>`))
+
+    if (start === "auto") vi.advanceTimersByTime(400)
+    else serverPush("start-tour")
+    hook.destroyed()
+    hook.destroyed()
+    vi.advanceTimersByTime(1000)
+
+    expect(mockedBuild).toHaveBeenCalledTimes(1)
+    expect(tour.cancel).toHaveBeenCalledTimes(1)
+    expect(pushEvent).toHaveBeenCalledExactlyOnceWith("tour_completed", {})
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("reports completion or dismissal to the server once", () => {
     const tour = fakeTour()
     mockedBuild.mockReturnValue(tour as never)

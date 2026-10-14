@@ -30,6 +30,7 @@ const AUTO_START_DELAY_MS = 400
 class GuidedTour extends ViewHook {
   private _brand = "Marquee"
   private _active: Tour | null = null
+  private _autoStartTimer: ReturnType<typeof setTimeout> | null = null
 
   mounted() {
     this._brand = this.el.dataset.tourBrand || "Marquee"
@@ -38,11 +39,16 @@ class GuidedTour extends ViewHook {
 
     if (this.el.dataset.autoStart === "true") {
       // Let the sidebar render before Shepherd measures anchor positions.
-      setTimeout(() => this.run(), AUTO_START_DELAY_MS)
+      this._autoStartTimer = setTimeout(() => {
+        this._autoStartTimer = null
+        this.run()
+      }, AUTO_START_DELAY_MS)
     }
   }
 
   private run() {
+    this.clearAutoStartTimer()
+
     // Guard against a second concurrent tour (e.g. clicking "Take a tour"
     // while one is already open).
     if (this._active) return
@@ -61,9 +67,18 @@ class GuidedTour extends ViewHook {
   }
 
   destroyed() {
+    this.clearAutoStartTimer()
+
     if (this._active) {
       this._active.cancel()
       this._active = null
+    }
+  }
+
+  private clearAutoStartTimer() {
+    if (this._autoStartTimer !== null) {
+      clearTimeout(this._autoStartTimer)
+      this._autoStartTimer = null
     }
   }
 }
