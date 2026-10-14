@@ -23,7 +23,10 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks} from "./hooks"
+import {initializeDemoBanners} from "./demo_banner"
 import topbar from "../vendor/topbar"
+
+initializeDemoBanners()
 
 const csrfToken = document.querySelector("meta[name='csrf-token']")!.getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
@@ -80,4 +83,3 @@ if (process.env.NODE_ENV === "development") {
     window.liveReloader = reloader
   })
 }
-
